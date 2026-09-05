@@ -111,7 +111,7 @@ export type DriverSpec = {
     disconnect?: string[];
   };
   pacing?: { minIntervalMs?: number; powerOnDelayMs?: number };
-  probe?: { transport: TransportName; payload: string; success: MatchRule };
+  probe?: { transport: TransportName; payload?: string; success?: MatchRule };
   helpers?: { checksum?: ChecksumKind };
   inventory?: { resources: InventoryResource[] };
   commands: DriverCommand[];

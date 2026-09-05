@@ -50,7 +50,7 @@ One plane per driver. Example only: Allen & Heath SQ third-party control is MIDI
   },
   "auth": { "type": "token", "instanceFields": ["token"] },
   "pacing": { "minIntervalMs": 120 },
-  "probe": { "transport": "lan", "payload": "", "success": { "type": "contains", "value": "open" } },
+  "probe": { "transport": "lan", "payload": "" },
   "commands": [
     {
       "id": "power.on",
@@ -98,7 +98,7 @@ One plane per driver. Example only: Allen & Heath SQ third-party control is MIDI
   },
   "auth": { "type": "pin", "instanceFields": ["password"] },
   "pacing": { "minIntervalMs": 150 },
-  "probe": { "transport": "lan", "payload": "", "success": { "type": "contains", "value": "open" } },
+  "probe": { "transport": "lan", "payload": "" },
   "commands": [
     { "id": "power.on", "label": "Power On", "kind": "action", "transport": "lan", "payload": "%1POWR 1" },
     { "id": "power.off", "label": "Power Off", "kind": "action", "transport": "lan", "payload": "%1POWR 0" }
@@ -133,7 +133,7 @@ Write the **entire** frame. Relay does not add status nibbles.
   },
   "auth": { "type": "none", "instanceFields": [] },
   "pacing": { "minIntervalMs": 40 },
-  "probe": { "transport": "lan", "payload": "", "success": { "type": "contains", "value": "open" } },
+  "probe": { "transport": "lan", "payload": "" },
   "commands": [
     { "id": "lr.mute.on", "label": "LR Mute", "kind": "action", "transport": "lan", "payload": "B06300B06244B00600B02601", "payloadEncoding": "hex" },
     { "id": "lr.mute.off", "label": "LR Unmute", "kind": "action", "transport": "lan", "payload": "B06300B06244B00600B02600", "payloadEncoding": "hex" }
@@ -179,7 +179,7 @@ List extras in `instanceFields` (`midiChannel`, `mac`, …). They appear on the 
 
 ## Probe
 
-Empty `payload` means TCP connect only. The engine does not wait for the letters `ok`. `success` may say `open` to match the reachability message; do not use `ok` unless that device actually replies `ok`. Pairing dialogs belong on Authenticate, not probe. `pollMs` ≥ 4000 if you must GET a parameter.
+Empty `payload` (or omitted payload) is TCP connect only — the socket opening is success. The engine does not read a reply and does not look for `ok` or `open`. Put a payload + `success` needle only when the device must answer a short get. Pairing dialogs belong on Authenticate. `pollMs` ≥ 4000 if you poll a parameter.
 
 ## Do not
 

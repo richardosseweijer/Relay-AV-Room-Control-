@@ -713,6 +713,14 @@ export async function probeDevice(opts: { config: RoomConfig; drivers: Record<st
   if (!driver) return { ok: false, message: "No driver" };
   if (opts.simulate ?? device.simulate) return { ok: true, message: "simulated" };
   const host = opts.host ?? device.host;
+  const probe = driver.probe;
+  if (probe?.payload) {
+    const result = await sendLan(driver, { ...device, host }, probe.payload);
+    if (!probe.success) return result;
+    const hit = parseFeedback(probe.success, result.message);
+    const matched = probe.success.type === "contains" || probe.success.type === "exact" ? Boolean(hit) : hit.length > 0;
+    return { ok: result.ok && matched, message: result.message };
+  }
   const status = driver.status;
   if (status?.path || driver.auth?.pairing?.discoverPath) {
     return pingReachable({ host, port: status?.port ?? driver.auth?.pairing?.ports?.[0] ?? device.port ?? 80, path: status?.path ?? driver.auth?.pairing?.discoverPath ?? "/" });
