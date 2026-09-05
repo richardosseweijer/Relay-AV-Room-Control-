@@ -516,18 +516,72 @@ export const clearConfig = createServerFn({ method: "POST" })
     return { ok: true, message: "Room wiped" };
   });
 
-export const exportBundle = createServerFn({ method: "GET" }).handler(async () => {
-  await ensureLoaded();
-  const mem = memory();
-  const config = structuredClone(mem.config);
-  config.room.configPin = "";
-  config.room.panelPin = config.room.panelAccess === "pin" ? "" : null;
-  config.devices = config.devices.map((device) => ({ ...device, auth: redactAuth(device.auth) }));
-  return {
-    configVersion: config.configVersion,
-    exportedAt: new Date().toISOString(),
-    sourceRoomId: config.room.id,
-    config: { ...config, exportedAt: new Date().toISOString(), sourceRoomId: config.room.id },
-    drivers: mem.drivers,
-  };
-});
+export const exportBundle = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    await ensureLoaded();
+    if (!validToken(data.token, "config")) return { ok: false as const, message: "Config lock required" };
+    const mem = memory();
+    const config = structuredClone(mem.config);
+    config.room.configPin = "";
+    config.room.panelPin = config.room.panelAccess === "pin" ? "" : null;
+    config.devices = config.devices.map((device) => ({ ...device, auth: redactAuth(device.auth) }));
+    config.exportedAt = new Date().toISOString();
+    config.sourceRoomId = config.room.id;
+    return {
+      ok: true as const,
+      configVersion: config.configVersion,
+      exportedAt: config.exportedAt,
+      sourceRoomId: config.room.id,
+      config,
+      drivers: mem.drivers,
+    };
+  });
+
+export const importBundle = createServerFn({ method: "POST" })
+  .validator((data: { token: string; bundle: { config?: RoomConfig; drivers?: Record<string, DriverSpec> } }) => data)
+  .handler(async ({ data }) => {
+    await ensureLoaded();
+    if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
+    const incoming = data.bundle.config ?? (data.bundle as unknown as RoomConfig);
+    if (!incoming?.room || !Array.isArray(incoming.pages) || !Array.isArray(incoming.devices)) {
+      return { ok: false, message: "Not a Relay room file" };
+    }
+    const current = memory().config;
+    const pin = incoming.room.configPin?.trim() || current.room.configPin;
+    const panelPin = incoming.room.panelAccess === "pin"
+      ? (incoming.room.panelPin?.trim() || current.room.panelPin)
+      : null;
+    const devices = (incoming.devices ?? []).map((device) => {
+      const prev = current.devices.find((item) => item.id === device.id);
+      const auth = { ...(prev?.auth ?? {}), ...(device.auth ?? {}) };
+      for (const [key, value] of Object.entries(auth)) {
+        if (!String(value ?? "").trim() && prev?.auth?.[key]) auth[key] = prev.auth[key]!;
+      }
+      return { ...device, auth };
+    });
+    const config = normalize({
+      ...incoming,
+      room: { ...incoming.room, configPin: pin, panelPin },
+      devices,
+      variables: incoming.variables ?? [],
+      schedules: incoming.schedules ?? [],
+      monitors: incoming.monitors ?? [],
+      triggers: incoming.triggers ?? [],
+      interfaces: incoming.interfaces ?? [],
+    });
+    if (data.bundle.drivers) {
+      for (const [name, spec] of Object.entries(data.bundle.drivers)) {
+        const file = safeDriverName(name);
+        const problem = validateDriver(spec);
+        if (problem) continue;
+        memory().drivers[file] = spec;
+        memory().library[file] = spec;
+        await writeDriverFile(file, spec);
+      }
+    }
+    memory().config = config;
+    memory().vars = seedVars(config, memory().vars);
+    await persistNow();
+    return { ok: true, message: "Imported. Fill any blank device tokens." };
+  });

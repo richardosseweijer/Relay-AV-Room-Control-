@@ -8,6 +8,7 @@ import {
   addDriverFromLibrary,
   deleteDriver,
   exportBundle,
+  importBundle,
   fireCommand,
   fireMacro,
   getEditorConfig,
@@ -152,6 +153,7 @@ export function ConfigApp() {
   const [gate, setGate] = useState<{ action: "wipe"; pin: string } | null>(null);
   const [reach, setReach] = useState<Record<string, "sim" | "up" | "down" | "wait">>({});
   const [hostPorts, setHostPorts] = useState<{ kind: string; path: string; label: string }[]>([]);
+  const importRef = useRef<HTMLInputElement>(null);
   const [pendingDriver, setPendingDriver] = useState<string | null>(null);
   const [libraryPick, setLibraryPick] = useState("");
 
@@ -408,13 +410,42 @@ export function ConfigApp() {
             </label>
             <div className="sm:col-span-2 flex flex-wrap gap-2">
               <Button variant="secondary" onClick={async () => {
-                const bundle = await exportBundle();
+                const bundle = await exportBundle({ data: { token: token || "" } });
+                if (!bundle || !("config" in bundle) || !bundle.config) {
+                  flash("Export failed", "ok" in bundle ? String((bundle as { message?: string }).message ?? "Lock required") : "Lock required");
+                  return;
+                }
                 const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
-                a.href = url; a.download = `${draft.room.id}-relay.json`; a.click();
+                a.href = url;
+                a.download = `${draft.room.id}-relay.json`;
+                a.click();
                 URL.revokeObjectURL(url);
+                flash("Exported", "PINs and tokens are blank in the file.");
               }}>Export</Button>
+              <input
+                ref={importRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!file) return;
+                  if (!window.confirm("Replace this room with the file? Save all first if you still need the current layout. Device tokens that are blank in the file keep the ones already on this host.")) return;
+                  try {
+                    const parsed = JSON.parse(await file.text()) as { config?: RoomConfig; drivers?: Record<string, never> };
+                    const res = await importBundle({ data: { token: token || "", bundle: parsed } });
+                    flash(res.ok ? "Imported" : "Import failed", res.message);
+                    const next = await refresh();
+                    if (res.ok && next?.config) setDraft(structuredClone(next.config));
+                  } catch {
+                    flash("Import failed", "Not valid JSON");
+                  }
+                }}
+              />
+              <Button variant="secondary" onClick={() => importRef.current?.click()}>Import</Button>
               <Button variant="secondary" onClick={async () => {
                 const res = await resetDemo({ data: { token: token || "" } });
                 flash(res.ok ? "Demo restored" : "Failed", res.message);
