@@ -1,0 +1,261 @@
+{
+  "specVersion": "1.0",
+  "device": {
+    "manufacturer": "LG",
+    "model": "OLED55C3",
+    "type": "display",
+    "notes": "IP control demo driver. Simulated by default."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "tcp",
+      "port": 9761,
+      "encoding": "ascii",
+      "lineEnding": "\r",
+      "timeoutMs": 1000
+    },
+    "rs232": {
+      "baud": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "encoding": "ascii",
+      "lineEnding": "\r",
+      "timeoutMs": 1000
+    }
+  },
+  "auth": {
+    "type": "none",
+    "instanceFields": []
+  },
+  "session": {
+    "connect": [],
+    "keepalive": {
+      "payload": null,
+      "intervalMs": 0
+    },
+    "disconnect": []
+  },
+  "pacing": {
+    "minIntervalMs": 120,
+    "powerOnDelayMs": 3000
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": "ka 01 ff",
+    "success": {
+      "type": "contains",
+      "value": "OK"
+    }
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "power.on",
+      "label": "Power On",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "ka 01 01",
+      "requires": [],
+      "ack": {
+        "success": {
+          "type": "contains",
+          "value": "OK"
+        }
+      }
+    },
+    {
+      "id": "power.off",
+      "label": "Power Off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "ka 01 00",
+      "requires": [],
+      "ack": {
+        "success": {
+          "type": "contains",
+          "value": "OK"
+        }
+      }
+    },
+    {
+      "id": "volume.set",
+      "label": "Set Volume",
+      "kind": "range",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "transport": "lan",
+      "payload": "kf 01 {value:hex2}",
+      "requires": [
+        "power.state=on"
+      ],
+      "ack": {
+        "success": {
+          "type": "contains",
+          "value": "OK"
+        }
+      }
+    },
+    {
+      "id": "input.hdmi1",
+      "label": "HDMI 1",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "xb 01 90",
+      "requires": [
+        "power.state=on"
+      ],
+      "ack": {
+        "success": {
+          "type": "contains",
+          "value": "OK"
+        }
+      }
+    },
+    {
+      "id": "input.hdmi2",
+      "label": "HDMI 2",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "xb 01 91",
+      "requires": [
+        "power.state=on"
+      ],
+      "ack": {
+        "success": {
+          "type": "contains",
+          "value": "OK"
+        }
+      }
+    },
+    {
+      "id": "input.usb",
+      "label": "USB",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "xb 01 10",
+      "requires": [
+        "power.state=on"
+      ],
+      "ack": {
+        "success": {
+          "type": "contains",
+          "value": "OK"
+        }
+      }
+    },
+    {
+      "id": "mute.on",
+      "label": "Mute",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "ke 01 01",
+      "requires": [
+        "power.state=on"
+      ],
+      "ack": {
+        "success": {
+          "type": "contains",
+          "value": "OK"
+        }
+      }
+    },
+    {
+      "id": "mute.off",
+      "label": "Unmute",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "ke 01 00",
+      "requires": [
+        "power.state=on"
+      ],
+      "ack": {
+        "success": {
+          "type": "contains",
+          "value": "OK"
+        }
+      }
+    }
+  ],
+  "feedback": [
+    {
+      "id": "power.state",
+      "label": "Power",
+      "kind": "enum",
+      "values": [
+        "off",
+        "on"
+      ],
+      "transport": "lan",
+      "mode": "poll",
+      "query": "ka 01 ff",
+      "pollMs": 2000,
+      "parse": {
+        "type": "regex",
+        "pattern": "OK([0-9A-Fa-f]+)",
+        "map": {
+          "00": "off",
+          "01": "on"
+        }
+      }
+    },
+    {
+      "id": "volume.level",
+      "label": "Volume",
+      "kind": "range",
+      "min": 0,
+      "max": 100,
+      "transport": "lan",
+      "mode": "poll",
+      "query": "kf 01 ff",
+      "pollMs": 2000,
+      "parse": {
+        "type": "regex",
+        "pattern": "OK([0-9A-Fa-f]+)"
+      }
+    },
+    {
+      "id": "input.current",
+      "label": "Input",
+      "kind": "enum",
+      "values": [
+        "hdmi1",
+        "hdmi2",
+        "usb"
+      ],
+      "transport": "lan",
+      "mode": "poll",
+      "query": "xb 01 ff",
+      "pollMs": 3000,
+      "parse": {
+        "type": "contains",
+        "value": "OK"
+      }
+    },
+    {
+      "id": "mute.state",
+      "label": "Mute",
+      "kind": "enum",
+      "values": [
+        "off",
+        "on"
+      ],
+      "transport": "lan",
+      "mode": "poll",
+      "query": "ke 01 ff",
+      "pollMs": 3000,
+      "parse": {
+        "type": "regex",
+        "pattern": "OK([0-9A-Fa-f]+)",
+        "map": {
+          "00": "off",
+          "01": "on"
+        }
+      }
+    }
+  ]
+}

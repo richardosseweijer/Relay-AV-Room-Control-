@@ -1,0 +1,42 @@
+{
+  "specVersion": "1.0",
+  "device": {
+    "manufacturer": "Raspberry Pi",
+    "model": "GPIO line",
+    "type": "other",
+    "notes": "Line number in Port. Chip gpiochip0."
+  },
+  "transports": {
+    "local": {
+      "kind": "gpio",
+      "chip": "gpiochip0",
+      "timeoutMs": 1500
+    }
+  },
+  "auth": {
+    "type": "none",
+    "instanceFields": [
+      "pin"
+    ]
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "power.on",
+      "label": "High",
+      "kind": "action",
+      "transport": "rs232",
+      "payload": "1"
+    },
+    {
+      "id": "power.off",
+      "label": "Low",
+      "kind": "action",
+      "transport": "rs232",
+      "payload": "0"
+    }
+  ],
+  "feedback": []
+}

@@ -1,0 +1,78 @@
+{
+  "specVersion": "1.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "ShadeBus",
+    "type": "shades"
+  },
+  "transports": {
+    "lan": {
+      "protocol": "tcp",
+      "port": 23,
+      "encoding": "ascii",
+      "lineEnding": "\r\n",
+      "timeoutMs": 1500
+    }
+  },
+  "auth": {
+    "type": "none"
+  },
+  "pacing": {
+    "minIntervalMs": 200
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": "STATUS",
+    "success": {
+      "type": "contains",
+      "value": "OK"
+    }
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "position.open",
+      "label": "Open",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "OPEN"
+    },
+    {
+      "id": "position.close",
+      "label": "Close",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "CLOSE"
+    },
+    {
+      "id": "position.set",
+      "label": "Set position",
+      "kind": "range",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "transport": "lan",
+      "payload": "POS {value}"
+    }
+  ],
+  "feedback": [
+    {
+      "id": "position.level",
+      "label": "Position",
+      "kind": "range",
+      "min": 0,
+      "max": 100,
+      "transport": "lan",
+      "mode": "poll",
+      "query": "STATUS",
+      "pollMs": 3000,
+      "parse": {
+        "type": "regex",
+        "pattern": "POS=(\\d+)"
+      }
+    }
+  ]
+}

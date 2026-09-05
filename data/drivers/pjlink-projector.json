@@ -1,0 +1,100 @@
+{
+  "specVersion": "1.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "PJLink Class 1",
+    "type": "projector",
+    "notes": "TCP 4352. Password in auth.password if PJLINK 1."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "pjlink",
+      "port": 4352,
+      "timeoutMs": 2500
+    }
+  },
+  "auth": {
+    "type": "password",
+    "instanceFields": [
+      "password"
+    ]
+  },
+  "pacing": {
+    "minIntervalMs": 200,
+    "powerOnDelayMs": 8000
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": "%1POWR ?",
+    "success": {
+      "type": "contains",
+      "value": "POWR"
+    }
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "power.on",
+      "label": "Power On",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "%1POWR 1"
+    },
+    {
+      "id": "power.off",
+      "label": "Power Off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "%1POWR 0"
+    },
+    {
+      "id": "mute.on",
+      "label": "AV Mute",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "%1AVMT 31"
+    },
+    {
+      "id": "mute.off",
+      "label": "AV Mute Off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "%1AVMT 30"
+    },
+    {
+      "id": "input.hdmi1",
+      "label": "HDMI 1",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "%1INPT 32"
+    },
+    {
+      "id": "input.hdmi2",
+      "label": "HDMI 2",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "%1INPT 33"
+    }
+  ],
+  "feedback": [
+    {
+      "id": "power.state",
+      "label": "Power",
+      "kind": "enum",
+      "values": [
+        "off",
+        "on"
+      ],
+      "transport": "lan",
+      "mode": "poll",
+      "query": "%1POWR ?",
+      "pollMs": 4000,
+      "parse": {
+        "type": "contains",
+        "value": "=1"
+      }
+    }
+  ]
+}

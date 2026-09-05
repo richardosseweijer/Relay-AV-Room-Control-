@@ -1,0 +1,143 @@
+{
+  "specVersion": "1.0",
+  "device": {
+    "manufacturer": "Sony",
+    "model": "VPL-FHZ120L",
+    "type": "projector",
+    "notes": "ADCP on TCP 53595. Enable ADCP in the web UI. Turn authentication off for first tests. Warm-up can take a minute after power on."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "tcp",
+      "port": 53595,
+      "timeoutMs": 2500,
+      "lineEnding": "\r"
+    }
+  },
+  "auth": {
+    "type": "none"
+  },
+  "pacing": {
+    "minIntervalMs": 200,
+    "powerOnDelayMs": 8000
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": "power_status ?",
+    "success": {
+      "type": "contains",
+      "value": "\""
+    }
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "power.on",
+      "label": "Power On",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "power \"on\""
+    },
+    {
+      "id": "power.off",
+      "label": "Power Off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "power \"off\""
+    },
+    {
+      "id": "input.hdmi",
+      "label": "HDMI",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "input \"hdmi\"",
+      "requires": [
+        "power.state=on"
+      ]
+    },
+    {
+      "id": "input.dvi",
+      "label": "DVI-D",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "input \"dvi\"",
+      "requires": [
+        "power.state=on"
+      ]
+    },
+    {
+      "id": "input.hdbaset",
+      "label": "HDBaseT",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "input \"hdbaset\"",
+      "requires": [
+        "power.state=on"
+      ]
+    },
+    {
+      "id": "input.rgb",
+      "label": "Input A",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "input \"rgb\"",
+      "requires": [
+        "power.state=on"
+      ]
+    },
+    {
+      "id": "mute.on",
+      "label": "Blank On",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "blank \"on\"",
+      "requires": [
+        "power.state=on"
+      ]
+    },
+    {
+      "id": "mute.off",
+      "label": "Blank Off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "blank \"off\"",
+      "requires": [
+        "power.state=on"
+      ]
+    }
+  ],
+  "feedback": [
+    {
+      "id": "power.state",
+      "label": "Power",
+      "kind": "enum",
+      "values": [
+        "off",
+        "on"
+      ],
+      "transport": "lan",
+      "mode": "poll",
+      "query": "power_status ?",
+      "pollMs": 4000,
+      "parse": {
+        "type": "contains",
+        "value": "on"
+      }
+    },
+    {
+      "id": "input.current",
+      "label": "Input",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "input ?",
+      "pollMs": 4000,
+      "parse": {
+        "type": "regex",
+        "pattern": "\"([^\"]+)\""
+      }
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "specVersion": "1.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "LAN-AMP",
+    "type": "amplifier",
+    "notes": "HTTP JSON demo amplifier."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "http",
+      "port": 80,
+      "timeoutMs": 1500,
+      "http": {
+        "method": "POST",
+        "path": "/api",
+        "contentType": "application/json"
+      }
+    }
+  },
+  "auth": {
+    "type": "none",
+    "instanceFields": []
+  },
+  "pacing": {
+    "minIntervalMs": 80,
+    "powerOnDelayMs": 800
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": "{\"cmd\":\"ping\"}",
+    "success": {
+      "type": "contains",
+      "value": "ok"
+    }
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "power.on",
+      "label": "Power On",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"cmd\":\"power\",\"value\":\"on\"}"
+    },
+    {
+      "id": "power.off",
+      "label": "Power Off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"cmd\":\"power\",\"value\":\"off\"}"
+    },
+    {
+      "id": "volume.set",
+      "label": "Set Volume",
+      "kind": "range",
+      "min": 0,
+      "max": 80,
+      "step": 1,
+      "unit": "dB",
+      "transport": "lan",
+      "payload": "{\"cmd\":\"volume\",\"value\":{value}}"
+    },
+    {
+      "id": "source.tv",
+      "label": "Source TV",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"cmd\":\"source\",\"value\":\"tv\"}"
+    },
+    {
+      "id": "source.aux",
+      "label": "Source Aux",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"cmd\":\"source\",\"value\":\"aux\"}"
+    }
+  ],
+  "feedback": [
+    {
+      "id": "power.state",
+      "label": "Power",
+      "kind": "enum",
+      "values": [
+        "off",
+        "on"
+      ],
+      "transport": "lan",
+      "mode": "poll",
+      "query": "{\"cmd\":\"power?\"}",
+      "pollMs": 2000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "power"
+      }
+    },
+    {
+      "id": "volume.level",
+      "label": "Volume",
+      "kind": "range",
+      "min": 0,
+      "max": 80,
+      "transport": "lan",
+      "mode": "poll",
+      "query": "{\"cmd\":\"volume?\"}",
+      "pollMs": 2000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "volume"
+      }
+    },
+    {
+      "id": "source.current",
+      "label": "Source",
+      "kind": "enum",
+      "values": [
+        "tv",
+        "aux"
+      ],
+      "transport": "lan",
+      "mode": "poll",
+      "query": "{\"cmd\":\"source?\"}",
+      "pollMs": 3000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "source"
+      }
+    }
+  ]
+}

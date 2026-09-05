@@ -1,0 +1,223 @@
+{
+  "specVersion": "1.0",
+  "device": {
+    "manufacturer": "Philips",
+    "model": "Hue Bridge",
+    "type": "lighting",
+    "notes": "Press the button on the bridge, then Probe. Save the username token. group 0 = all lights."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "http",
+      "port": 80,
+      "timeoutMs": 3000,
+      "http": {
+        "method": "PUT",
+        "path": "/api",
+        "contentType": "application/json"
+      }
+    }
+  },
+  "auth": {
+    "type": "token",
+    "instanceFields": [
+      "token",
+      "group"
+    ],
+    "pairing": {
+      "kind": "http-handshake",
+      "ports": [
+        80,
+        443
+      ],
+      "path": "/api",
+      "discoverPath": "/api/config",
+      "tokenJsonPath": "username",
+      "userPrompt": "Press the link button on the Hue bridge, then Authenticate. The username token is stored on this card.",
+      "steps": [
+        {
+          "action": "http-post",
+          "port": 80,
+          "path": "/api",
+          "body": "{\"devicetype\":\"relay#room\"}",
+          "tokenJsonPath": "username",
+          "timeoutMs": 8000
+        }
+      ]
+    }
+  },
+  "pacing": {
+    "minIntervalMs": 80
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": "{\"devicetype\":\"relay#room\"}",
+    "success": {
+      "type": "contains",
+      "value": "username"
+    }
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "inventory": {
+    "resources": [
+      {
+        "id": "groups",
+        "label": "Groups",
+        "httpMethod": "GET",
+        "httpPath": "/api/{auth.token}/groups",
+        "itemId": "key",
+        "itemName": "name",
+        "useCommand": "group.on"
+      },
+      {
+        "id": "scenes",
+        "label": "Scenes",
+        "httpMethod": "GET",
+        "httpPath": "/api/{auth.token}/scenes",
+        "itemId": "key",
+        "itemName": "name",
+        "useCommand": "scene.set"
+      },
+      {
+        "id": "lights",
+        "label": "Lights",
+        "httpMethod": "GET",
+        "httpPath": "/api/{auth.token}/lights",
+        "itemId": "key",
+        "itemName": "name",
+        "useCommand": "light.on"
+      }
+    ]
+  },
+  "commands": [
+    {
+      "id": "power.on",
+      "label": "Lights On",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "PUT",
+      "httpPath": "/api/{auth.token}/groups/{auth.group}/action",
+      "payload": "{\"on\":true}"
+    },
+    {
+      "id": "power.off",
+      "label": "Lights Off",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "PUT",
+      "httpPath": "/api/{auth.token}/groups/{auth.group}/action",
+      "payload": "{\"on\":false}"
+    },
+    {
+      "id": "level.set",
+      "label": "Brightness",
+      "kind": "range",
+      "min": 0,
+      "max": 254,
+      "step": 1,
+      "unit": "bri",
+      "transport": "lan",
+      "httpMethod": "PUT",
+      "httpPath": "/api/{auth.token}/groups/{auth.group}/action",
+      "payload": "{\"bri\":{value}}"
+    },
+    {
+      "id": "scene.set",
+      "label": "Recall scene",
+      "kind": "enum",
+      "transport": "lan",
+      "httpMethod": "PUT",
+      "httpPath": "/api/{auth.token}/groups/{auth.group}/action",
+      "payload": "{\"scene\":\"{value}\"}"
+    },
+    {
+      "id": "group.on",
+      "label": "Group on",
+      "kind": "enum",
+      "transport": "lan",
+      "httpMethod": "PUT",
+      "httpPath": "/api/{auth.token}/groups/{value}/action",
+      "payload": "{\"on\":true}"
+    },
+    {
+      "id": "group.off",
+      "label": "Group off",
+      "kind": "enum",
+      "transport": "lan",
+      "httpMethod": "PUT",
+      "httpPath": "/api/{auth.token}/groups/{value}/action",
+      "payload": "{\"on\":false}"
+    },
+    {
+      "id": "light.on",
+      "label": "Light on",
+      "kind": "enum",
+      "transport": "lan",
+      "httpMethod": "PUT",
+      "httpPath": "/api/{auth.token}/lights/{value}/state",
+      "payload": "{\"on\":true}"
+    },
+    {
+      "id": "light.off",
+      "label": "Light off",
+      "kind": "enum",
+      "transport": "lan",
+      "httpMethod": "PUT",
+      "httpPath": "/api/{auth.token}/lights/{value}/state",
+      "payload": "{\"on\":false}"
+    },
+    {
+      "id": "scene.relax",
+      "label": "Relax",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "PUT",
+      "httpPath": "/api/{auth.token}/groups/{auth.group}/action",
+      "payload": "{\"scene\":\"relax\"}"
+    },
+    {
+      "id": "scene.concentrate",
+      "label": "Concentrate",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "PUT",
+      "httpPath": "/api/{auth.token}/groups/{auth.group}/action",
+      "payload": "{\"scene\":\"concentrate\"}"
+    }
+  ],
+  "feedback": [
+    {
+      "id": "power.state",
+      "label": "Power",
+      "kind": "enum",
+      "values": [
+        "off",
+        "on"
+      ],
+      "transport": "lan",
+      "mode": "poll",
+      "query": "",
+      "pollMs": 4000,
+      "parse": {
+        "type": "contains",
+        "value": "on"
+      }
+    },
+    {
+      "id": "level.value",
+      "label": "Level",
+      "kind": "range",
+      "min": 0,
+      "max": 254,
+      "transport": "lan",
+      "mode": "poll",
+      "pollMs": 4000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "bri"
+      }
+    }
+  ]
+}

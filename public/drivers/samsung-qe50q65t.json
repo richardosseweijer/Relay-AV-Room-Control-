@@ -1,0 +1,96 @@
+{
+  "specVersion": "2.0",
+  "device": {
+    "manufacturer": "Samsung",
+    "model": "QE50Q65TASXXN",
+    "type": "display",
+    "notes": "Tizen remote on websocket. Status is HTTP :8001/api/v2/. Pairing steps open the control socket and store token. After pair use port 8002."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "websocket",
+      "port": 8001,
+      "timeoutMs": 8000,
+      "http": { "path": "/api/v2/channels/samsung.remote.control" }
+    },
+    "rs232": { "baud": 9600, "dataBits": 8, "parity": "none", "stopBits": 1, "encoding": "ascii", "lineEnding": "\r", "timeoutMs": 1000 }
+  },
+  "auth": {
+    "type": "token",
+    "instanceFields": ["token", "name", "mac"],
+    "pairing": {
+      "kind": "websocket-handshake",
+      "ports": [8001, 8002],
+      "tlsPorts": [8002],
+      "path": "/api/v2/channels/samsung.remote.control",
+      "discoverPath": "/api/v2/",
+      "query": { "nameParam": "name", "tokenParam": "token", "nameFrom": "auth.name" },
+      "waitContains": "ms.channel.connect",
+      "commandAck": "none",
+      "tokenJsonPath": "token",
+      "userPrompt": "Accept Allow on the TV, then Authenticate again if no token yet.",
+      "steps": [
+        { "action": "websocket", "port": 8001, "path": "/api/v2/channels/samsung.remote.control", "waitContains": "ms.channel.connect", "tokenJsonPath": "token", "nextPort": 8002, "timeoutMs": 12000 },
+        { "action": "websocket", "port": 8002, "tls": true, "path": "/api/v2/channels/samsung.remote.control", "waitContains": "ms.channel.connect", "tokenJsonPath": "token", "timeoutMs": 12000 }
+      ]
+    }
+  },
+  "status": { "protocol": "http", "port": 8001, "path": "/api/v2/" },
+  "pacing": { "minIntervalMs": 250, "powerOnDelayMs": 4000 },
+  "probe": { "transport": "lan", "payload": "", "success": { "type": "contains", "value": "ms.channel" } },
+  "helpers": { "checksum": "none" },
+  "commands": [
+    { "id": "power.on", "label": "Power On", "kind": "action", "transport": "lan", "wake": { "protocol": "wol" }, "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_POWERON\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "power.off", "label": "Power Off", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_POWER\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "power.toggle", "label": "Power toggle", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_POWER\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "volume.up", "label": "Volume up", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_VOLUP\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "volume.down", "label": "Volume down", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_VOLDOWN\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "mute.on", "label": "Mute", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_MUTE\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "mute.off", "label": "Unmute", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_MUTE\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "ch.up", "label": "Channel up", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_CHUP\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "ch.down", "label": "Channel down", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_CHDOWN\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "input.hdmi", "label": "HDMI", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_HDMI\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "input.hdmi1", "label": "HDMI 1", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_HDMI1\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "input.hdmi2", "label": "HDMI 2", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_HDMI2\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "input.hdmi3", "label": "HDMI 3", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_HDMI3\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "input.source", "label": "Source list", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_SOURCE\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "input.tv", "label": "Live TV", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_TV\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "nav.up", "label": "Up", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_UP\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "nav.down", "label": "Down", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_DOWN\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "nav.left", "label": "Left", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_LEFT\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "nav.right", "label": "Right", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_RIGHT\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "nav.enter", "label": "Enter", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_ENTER\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "nav.return", "label": "Back", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_RETURN\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "nav.exit", "label": "Exit", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_EXIT\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "nav.home", "label": "Home / Smart Hub", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_HOME\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "nav.menu", "label": "Menu", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_MENU\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "nav.tools", "label": "Tools", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_TOOLS\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "nav.info", "label": "Info", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_INFO\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "nav.guide", "label": "Guide", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_GUIDE\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "media.play", "label": "Play", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_PLAY\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "media.pause", "label": "Pause", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_PAUSE\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "media.stop", "label": "Stop", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_STOP\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "media.ff", "label": "Fast forward", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_FF\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "media.rew", "label": "Rewind", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_REWIND\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "color.red", "label": "Red", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_RED\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "color.green", "label": "Green", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_GREEN\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "color.yellow", "label": "Yellow", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_YELLOW\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "color.blue", "label": "Blue", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_BLUE\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "digit.0", "label": "0", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_0\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "digit.1", "label": "1", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_1\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "digit.2", "label": "2", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_2\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "digit.3", "label": "3", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_3\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "digit.4", "label": "4", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_4\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "digit.5", "label": "5", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_5\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "digit.6", "label": "6", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_6\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "digit.7", "label": "7", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_7\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "digit.8", "label": "8", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_8\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "digit.9", "label": "9", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_9\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "app.list", "label": "Apps", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_CONTENTS\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { "id": "app.netflix", "label": "Netflix key", "kind": "action", "transport": "lan", "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_NETFLIX\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" }
+  ],
+  "feedback": [
+    { "id": "power.state", "label": "Power", "kind": "enum", "values": ["off", "on"], "transport": "lan", "mode": "poll", "httpPath": "/api/v2/", "pollMs": 8000, "parse": { "type": "jsonpath", "path": "device.PowerState", "map": { "on": "on", "ON": "on", "standby": "off", "Standby": "off", "off": "off" } } },
+    { "id": "input.current", "label": "Input", "kind": "string", "transport": "lan", "mode": "poll", "httpPath": "/api/v2/", "pollMs": 8000, "parse": { "type": "jsonpath", "path": "device.FrameTVSupport" } }
+  ]
+}

@@ -1,0 +1,192 @@
+{
+  "specVersion": "1.0",
+  "device": {
+    "manufacturer": "Google",
+    "model": "Chromecast",
+    "type": "source",
+    "notes": "Cast on TCP 8009. Volume uses valueMap 0–100 → 0–1."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "cast",
+      "port": 8009,
+      "timeoutMs": 5000
+    }
+  },
+  "auth": {
+    "type": "none"
+  },
+  "pacing": {
+    "minIntervalMs": 250
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": "{\"type\":\"GET_STATUS\",\"requestId\":1}",
+    "success": {
+      "type": "contains",
+      "value": "status"
+    }
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "status.get",
+      "label": "Status",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"type\":\"GET_STATUS\",\"requestId\":1}"
+    },
+    {
+      "id": "power.off",
+      "label": "Stop / idle",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"type\":\"STOP\",\"requestId\":2}"
+    },
+    {
+      "id": "mute.on",
+      "label": "Mute",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"type\":\"SET_VOLUME\",\"requestId\":3,\"volume\":{\"muted\":true}}"
+    },
+    {
+      "id": "mute.off",
+      "label": "Unmute",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"type\":\"SET_VOLUME\",\"requestId\":4,\"volume\":{\"muted\":false}}"
+    },
+    {
+      "id": "volume.set",
+      "label": "Volume",
+      "kind": "range",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "transport": "lan",
+      "valueMap": {
+        "kind": "float",
+        "inMin": 0,
+        "inMax": 100,
+        "outMin": 0,
+        "outMax": 1,
+        "decimals": 3
+      },
+      "payload": "{\"type\":\"SET_VOLUME\",\"requestId\":5,\"volume\":{\"level\":{value}}}"
+    },
+    {
+      "id": "app.youtube",
+      "label": "YouTube",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"type\":\"LAUNCH\",\"requestId\":6,\"appId\":\"233637DE\"}"
+    },
+    {
+      "id": "app.netflix",
+      "label": "Netflix",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"type\":\"LAUNCH\",\"requestId\":7,\"appId\":\"CA5E8412\"}"
+    },
+    {
+      "id": "app.spotify",
+      "label": "Spotify",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"type\":\"LAUNCH\",\"requestId\":8,\"appId\":\"CC32E753\"}"
+    },
+    {
+      "id": "app.backdrop",
+      "label": "Backdrop",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"type\":\"LAUNCH\",\"requestId\":9,\"appId\":\"E8C28D3C\"}"
+    },
+    {
+      "id": "media.play",
+      "label": "Play",
+      "kind": "action",
+      "transport": "lan",
+      "namespace": "urn:x-cast:com.google.cast.media",
+      "payload": "{\"type\":\"PLAY\",\"mediaSessionId\":1,\"requestId\":10}"
+    },
+    {
+      "id": "media.pause",
+      "label": "Pause",
+      "kind": "action",
+      "transport": "lan",
+      "namespace": "urn:x-cast:com.google.cast.media",
+      "payload": "{\"type\":\"PAUSE\",\"mediaSessionId\":1,\"requestId\":11}"
+    },
+    {
+      "id": "media.stop",
+      "label": "Stop",
+      "kind": "action",
+      "transport": "lan",
+      "namespace": "urn:x-cast:com.google.cast.media",
+      "payload": "{\"type\":\"STOP\",\"mediaSessionId\":1,\"requestId\":12}"
+    },
+    {
+      "id": "media.next",
+      "label": "Next",
+      "kind": "action",
+      "transport": "lan",
+      "namespace": "urn:x-cast:com.google.cast.media",
+      "payload": "{\"type\":\"QUEUE_NEXT\",\"mediaSessionId\":1,\"requestId\":13}"
+    },
+    {
+      "id": "media.prev",
+      "label": "Previous",
+      "kind": "action",
+      "transport": "lan",
+      "namespace": "urn:x-cast:com.google.cast.media",
+      "payload": "{\"type\":\"QUEUE_PREV\",\"mediaSessionId\":1,\"requestId\":14}"
+    }
+  ],
+  "feedback": [
+    {
+      "id": "status.raw",
+      "label": "Status",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "{\"type\":\"GET_STATUS\",\"requestId\":1}",
+      "pollMs": 8000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "type"
+      }
+    },
+    {
+      "id": "volume.level",
+      "label": "Volume",
+      "kind": "range",
+      "min": 0,
+      "max": 1,
+      "transport": "lan",
+      "mode": "poll",
+      "query": "{\"type\":\"GET_STATUS\",\"requestId\":1}",
+      "pollMs": 8000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "status.volume.level"
+      }
+    },
+    {
+      "id": "app.current",
+      "label": "App",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "{\"type\":\"GET_STATUS\",\"requestId\":1}",
+      "pollMs": 8000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "status.applications.0.displayName"
+      }
+    }
+  ]
+}

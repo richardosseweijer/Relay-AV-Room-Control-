@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Relay",
+      "hasCanvas": false,
+      "bodyTextLen": 105,
+      "bodyTextHash": "57e65680d95f8c681b0a7f7c99f64697cea56b00edcee96d309db782de8343a0",
+      "bodyTextPrefix": "WATCH PRESENT Active ALL OFF DISPLAY on AMP on VOLUME 22 LIGHTS ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Relay",
+      "hasCanvas": false,
+      "bodyTextLen": 105,
+      "bodyTextHash": "57e65680d95f8c681b0a7f7c99f64697cea56b00edcee96d309db782de8343a0",
+      "bodyTextPrefix": "WATCH PRESENT Active ALL OFF DISPLAY on AMP on VOLUME 22 LIGHTS ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

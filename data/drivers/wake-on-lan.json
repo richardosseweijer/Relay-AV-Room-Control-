@@ -1,0 +1,35 @@
+{
+  "specVersion": "1.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "Wake-on-LAN",
+    "type": "other",
+    "notes": "MAC in auth.mac."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "wol",
+      "port": 9,
+      "timeoutMs": 1000
+    }
+  },
+  "auth": {
+    "type": "none",
+    "instanceFields": [
+      "mac"
+    ]
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "power.on",
+      "label": "Wake",
+      "kind": "action",
+      "transport": "lan",
+      "payload": ""
+    }
+  ],
+  "feedback": []
+}

@@ -1,0 +1,28 @@
+Relay room controller
+Copyright (c) 2026 Relay contributors
+
+Third-party software used by this build (not exhaustive; see package-lock.json):
+
+  React, React DOM                          MIT
+  TanStack Router / Start / Query / Table   MIT
+  Radix UI primitives                       MIT
+  Lucide icons                              ISC
+  Tailwind CSS                              MIT
+  Zod                                       MIT
+  Zustand                                   MIT
+  class-variance-authority, clsx,
+    tailwind-merge                          MIT
+  date-fns                                  MIT
+  PGLite / Electric SQL                     Apache-2.0
+  Kysely                                    MIT
+  better-auth                               MIT
+  jose                                      MIT
+
+Brand and model names that appear in drivers belong to their owners.
+Listing a device only means this software can address it.
+
+Control interfaces follow what each product documents or commonly
+exposes. Behaviour can differ by firmware.
+
+This software is meant to stay on a private network. Configuration,
+tokens and logs are stored on the host that runs it.

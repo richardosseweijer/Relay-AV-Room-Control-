@@ -1,0 +1,112 @@
+{
+  "specVersion": "1.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "PTZ-20x",
+    "type": "camera"
+  },
+  "transports": {
+    "lan": {
+      "protocol": "http",
+      "port": 80,
+      "timeoutMs": 2000,
+      "http": {
+        "method": "GET",
+        "path": "/cgi-bin/ptz"
+      }
+    }
+  },
+  "auth": {
+    "type": "password",
+    "instanceFields": [
+      "user",
+      "password"
+    ]
+  },
+  "pacing": {
+    "minIntervalMs": 150
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": "cmd=version",
+    "success": {
+      "type": "contains",
+      "value": "PTZ"
+    }
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "preset.1",
+      "label": "Preset 1",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "cmd=preset&n=1"
+    },
+    {
+      "id": "preset.2",
+      "label": "Preset 2",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "cmd=preset&n=2"
+    },
+    {
+      "id": "preset.3",
+      "label": "Preset 3",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "cmd=preset&n=3"
+    },
+    {
+      "id": "power.on",
+      "label": "Camera On",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "cmd=power&v=on"
+    },
+    {
+      "id": "power.off",
+      "label": "Camera Off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "cmd=power&v=off"
+    }
+  ],
+  "feedback": [
+    {
+      "id": "power.state",
+      "label": "Power",
+      "kind": "enum",
+      "values": [
+        "off",
+        "on"
+      ],
+      "transport": "lan",
+      "mode": "poll",
+      "pollMs": 4000,
+      "parse": {
+        "type": "contains",
+        "value": "on"
+      }
+    },
+    {
+      "id": "preset.current",
+      "label": "Preset",
+      "kind": "enum",
+      "values": [
+        "1",
+        "2",
+        "3"
+      ],
+      "transport": "lan",
+      "mode": "poll",
+      "pollMs": 4000,
+      "parse": {
+        "type": "regex",
+        "pattern": "preset=(\\d+)"
+      }
+    }
+  ]
+}

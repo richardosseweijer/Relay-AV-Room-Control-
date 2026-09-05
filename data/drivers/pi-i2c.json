@@ -1,0 +1,36 @@
+{
+  "specVersion": "1.0",
+  "device": {
+    "manufacturer": "Raspberry Pi",
+    "model": "I2C device",
+    "type": "other",
+    "notes": "Needs i2cset. Address in auth.address."
+  },
+  "transports": {
+    "local": {
+      "kind": "i2c",
+      "bus": 1,
+      "address": "0x3c",
+      "timeoutMs": 1500
+    }
+  },
+  "auth": {
+    "type": "none",
+    "instanceFields": [
+      "address"
+    ]
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "power.on",
+      "label": "Write 0x01",
+      "kind": "action",
+      "transport": "rs232",
+      "payload": "0x00 0x01"
+    }
+  ],
+  "feedback": []
+}

@@ -1,0 +1,130 @@
+{
+  "specVersion": "1.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "RoomLights",
+    "type": "lighting"
+  },
+  "transports": {
+    "lan": {
+      "protocol": "http",
+      "port": 8088,
+      "timeoutMs": 1200,
+      "http": {
+        "method": "PUT",
+        "path": "/light",
+        "contentType": "application/json"
+      }
+    }
+  },
+  "auth": {
+    "type": "token",
+    "instanceFields": [
+      "token"
+    ]
+  },
+  "pacing": {
+    "minIntervalMs": 50
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": "{}",
+    "success": {
+      "type": "contains",
+      "value": "ok"
+    }
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "power.on",
+      "label": "Lights On",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"on\":true}"
+    },
+    {
+      "id": "power.off",
+      "label": "Lights Off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"on\":false}"
+    },
+    {
+      "id": "level.set",
+      "label": "Dimmer",
+      "kind": "range",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "transport": "lan",
+      "payload": "{\"bri\":{value}}"
+    },
+    {
+      "id": "scene.present",
+      "label": "Present scene",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"scene\":\"present\"}"
+    },
+    {
+      "id": "scene.movie",
+      "label": "Movie scene",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{\"scene\":\"movie\"}"
+    }
+  ],
+  "feedback": [
+    {
+      "id": "power.state",
+      "label": "Power",
+      "kind": "enum",
+      "values": [
+        "off",
+        "on"
+      ],
+      "transport": "lan",
+      "mode": "poll",
+      "pollMs": 2500,
+      "parse": {
+        "type": "jsonpath",
+        "path": "on"
+      }
+    },
+    {
+      "id": "level.value",
+      "label": "Level",
+      "kind": "range",
+      "min": 0,
+      "max": 100,
+      "transport": "lan",
+      "mode": "poll",
+      "pollMs": 2500,
+      "parse": {
+        "type": "jsonpath",
+        "path": "bri"
+      }
+    },
+    {
+      "id": "scene.current",
+      "label": "Scene",
+      "kind": "enum",
+      "values": [
+        "present",
+        "movie",
+        "off"
+      ],
+      "transport": "lan",
+      "mode": "poll",
+      "pollMs": 4000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "scene"
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Relay",
+      "hasCanvas": false,
+      "bodyTextLen": 152,
+      "bodyTextHash": "50b0c920d09d347fd476576effad63717eaa7e2dd109aab5bb44a3ff9a0da178",
+      "bodyTextPrefix": "RELAY · ROOM-A Conference A Home Sources Camera WATCH Scene PRES",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Relay",
+      "hasCanvas": false,
+      "bodyTextLen": 152,
+      "bodyTextHash": "50b0c920d09d347fd476576effad63717eaa7e2dd109aab5bb44a3ff9a0da178",
+      "bodyTextPrefix": "RELAY · ROOM-A Conference A Home Sources Camera WATCH Scene PRES",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}

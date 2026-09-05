@@ -1,0 +1,48 @@
+{
+  "specVersion": "1.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "Serial / COM",
+    "type": "other",
+    "notes": "Set Interface to COM1 / /dev/ttyUSB0."
+  },
+  "transports": {
+    "local": {
+      "kind": "serial",
+      "path": "COM3",
+      "baud": 9600,
+      "timeoutMs": 1500
+    },
+    "rs232": {
+      "baud": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "lineEnding": "\r",
+      "timeoutMs": 1500
+    }
+  },
+  "auth": {
+    "type": "none"
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "power.on",
+      "label": "On",
+      "kind": "action",
+      "transport": "rs232",
+      "payload": "POWR1"
+    },
+    {
+      "id": "power.off",
+      "label": "Off",
+      "kind": "action",
+      "transport": "rs232",
+      "payload": "POWR0"
+    }
+  ],
+  "feedback": []
+}
