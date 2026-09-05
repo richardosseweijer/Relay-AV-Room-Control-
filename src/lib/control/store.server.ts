@@ -1,6 +1,6 @@
 import { bundledDrivers, defaultDeviceState, emptyRoomConfig } from "./defaults";
-import { readMonitorValue, runMacro, traces } from "./engine";
-import type { DeviceHealth, DeviceStateMap, DriverSpec, LogEntry, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
+import { readMonitorValue, runMacro, traces, scrubSecret } from "./engine";
+import type { DeviceHealth, DeviceStateMap, DriverSpec, LogEntry, Macro, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
 import { applyMonitors, clampVar, resolveTemplate, seedVars, type VarMap } from "./vars";
 import { mkdir, readFile, writeFile, readdir, unlink, access, rename } from "node:fs/promises";
 import path from "node:path";
@@ -72,7 +72,7 @@ const lastMonitorRun = new Map<string, number>();
 const lastTriggerValue = new Map<string, string>();
 const lastTriggerFire = new Map<string, number>();
 const goodPolls = new Map<string, number>();
-const triggerQueue: string[] = [];
+const triggerQueue: { id: string; macroId: string; label: string }[] = [];
 
 export function normalize(config?: RoomConfig | null): RoomConfig {
   const demo = emptyRoomConfig();
@@ -243,8 +243,9 @@ async function flushPersist() {
 
 export async function persistNow() {
   persistDirty = true;
-  persistChain = persistChain.then(flushPersist);
-  await persistChain;
+  const run = persistChain.catch(() => undefined).then(flushPersist);
+  persistChain = run.catch(() => undefined);
+  await run;
 }
 
 export function persist() {
@@ -267,8 +268,8 @@ export function pushLog(entry: Omit<LogEntry, "id" | "at"> & { at?: number }) {
     at: entry.at ?? Date.now(),
     kind: entry.kind,
     ok: entry.ok,
-    title: entry.title,
-    detail: entry.detail.slice(0, 400),
+    title: scrubSecret(entry.title),
+    detail: scrubSecret(entry.detail).slice(0, 400),
   });
   if (mem.log.length > 300) mem.log.length = 300;
 }
@@ -337,6 +338,11 @@ async function runDueSchedules() {
     mem.lastError = result.ok ? null : result.message;
     pushLog({ kind: "macro", ok: result.ok, title: `Schedule ${job.label}`, detail: result.message });
     await persist();
+    const queued = triggerQueue.shift();
+    if (queued) {
+      const nested = mem.config.macros.find((m) => m.id === queued.macroId);
+      if (nested) await runQueuedTrigger(queued, nested);
+    }
   }
 }
 
@@ -375,34 +381,37 @@ async function runDueTriggers() {
     const macro = mem.config.macros.find((m) => m.id === rule.macroId);
     if (!macro) continue;
     if (mem.runningMacro) {
-      if (!triggerQueue.includes(rule.id)) triggerQueue.push(rule.id);
+      if (!triggerQueue.some((item) => item.id === rule.id)) triggerQueue.push({ id: rule.id, macroId: rule.macroId, label: rule.label });
       continue;
     }
     lastTriggerValue.set(rule.id, `true:${left}`);
     lastTriggerFire.set(rule.id, now);
     const waitMs = Math.min(rule.delayMs || 0, 15000);
+    const job = { id: rule.id, macroId: rule.macroId, label: rule.label };
     const macroRef = macro;
-    const label = rule.label;
     void (async () => {
       if (waitMs) await new Promise((r) => setTimeout(r, waitMs));
-      const live = memory();
-      if (live.runningMacro) {
-        if (!triggerQueue.includes(rule.id)) triggerQueue.push(rule.id);
-        lastTriggerValue.set(rule.id, prev ?? "false:");
-        return;
-      }
-      live.runningMacro = macroRef.id;
-      const result = await runMacro({ config: live.config, drivers: live.drivers, state: live.state, vars: live.vars, health: live.health ?? (live.health = {}), macro: macroRef, host: live.host });
-      live.runningMacro = null;
-      if (result.ok) live.activeScene = macroRef.id;
-      pushLog({ kind: "macro", ok: result.ok, title: `Trigger ${label}`, detail: result.message });
-      const nextId = triggerQueue.shift();
-      if (nextId) {
-        lastTriggerFire.delete(nextId);
-        lastTriggerValue.delete(nextId);
-      }
+      await runQueuedTrigger(job, macroRef, prev);
     })();
   }
+}
+
+async function runQueuedTrigger(job: { id: string; macroId: string; label: string }, macro: Macro, prev?: string) {
+  const live = memory();
+  if (live.runningMacro) {
+    if (!triggerQueue.some((item) => item.id === job.id)) triggerQueue.push(job);
+    if (prev !== undefined) lastTriggerValue.set(job.id, prev);
+    return;
+  }
+  live.runningMacro = macro.id;
+  const result = await runMacro({ config: live.config, drivers: live.drivers, state: live.state, vars: live.vars, health: live.health ?? (live.health = {}), macro, host: live.host });
+  live.runningMacro = null;
+  if (result.ok) live.activeScene = macro.id;
+  pushLog({ kind: "macro", ok: result.ok, title: `Trigger ${job.label}`, detail: result.message });
+  const next = triggerQueue.shift();
+  if (!next) return;
+  const nested = live.config.macros.find((m) => m.id === next.macroId);
+  if (nested) await runQueuedTrigger(next, nested);
 }
 
 let monitorsBusy = false;

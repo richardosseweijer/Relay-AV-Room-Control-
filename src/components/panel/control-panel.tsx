@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Maximize2, Settings2, Sun } from "lucide-react";
-import { clearDeviceError, fireCommand, fireMacro, issuePanelSession, setLatch, setVariable, verifyPanelPin } from "@/lib/control/actions";
+import { checkPanelSession, clearDeviceError, fireCommand, fireMacro, issuePanelSession, setLatch, setVariable, verifyPanelPin } from "@/lib/control/actions";
 import type { RoomSnapshot, Widget } from "@/lib/control/types";
 import { resolveBoundNumber } from "@/lib/control/vars";
 import { nextScheduled } from "@/lib/control/schedule";
@@ -209,11 +209,19 @@ export function ControlPanel() {
     (async () => {
       const issued = await issuePanelSession();
       if (issued.token) setSession(issued.token);
+      const stored = sessionStorage.getItem("relay-panel-token");
+      if (!issued.token && stored) {
+        const check = await checkPanelSession({ data: { token: stored } });
+        if (check.ok) setSession(stored);
+        else sessionStorage.removeItem("relay-panel-token");
+      }
       const next = await refresh();
       if (cancel) return;
       if (next?.config?.room.panelAccess === "pin") {
-        const stored = sessionStorage.getItem("relay-panel-token");
-        setLocked(!stored);
+        const token = sessionStorage.getItem("relay-panel-token");
+        const ok = token ? (await checkPanelSession({ data: { token } })).ok : false;
+        if (ok && token) setSession(token);
+        setLocked(!ok);
       }
     })();
     const tick = () => {

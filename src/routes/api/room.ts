@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ensureLoaded, snapshot } from "@/lib/control/store.server";
+import { scrubSecret } from "@/lib/control/engine";
 
 function redact(auth?: Record<string, string>) {
   if (!auth) return {};
@@ -18,10 +19,13 @@ export const Route = createFileRoute("/api/room")({
           await ensureLoaded();
           const snap = snapshot();
           const room = snap.config?.room;
-          if (!room) return Response.json(snap);
+          if (!room) return Response.json({ ...snap, traces: {} });
           return Response.json({
             ...snap,
             traces: {},
+            lastError: snap.lastError ? scrubSecret(snap.lastError) : null,
+            log: (snap.log ?? []).map((row) => ({ ...row, detail: scrubSecret(row.detail), title: scrubSecret(row.title) })),
+            health: Object.fromEntries(Object.entries(snap.health ?? {}).map(([id, row]) => [id, { ...row, message: scrubSecret(row.message ?? "") }])),
             config: {
               ...snap.config,
               room: { ...room, configPin: "", panelPin: room.panelAccess === "pin" ? "" : null },

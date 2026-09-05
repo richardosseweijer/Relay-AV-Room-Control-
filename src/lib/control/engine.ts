@@ -21,15 +21,17 @@ export function traces(): Record<string, TraceLine[]> {
   return g.__relayTraces__;
 }
 
+export function scrubSecret(text: string) {
+  return String(text ?? "")
+    .replace(/("(?:token|password|secret|username)"\s*:\s*")[^"]*/gi, "$1***")
+    .replace(/\btoken\s+[A-Za-z0-9._+/=-]{3,}/gi, "token ***")
+    .replace(/((?:token|password|secret)=)[^&\s"]+/gi, "$1***");
+}
+
 export function pushTrace(deviceId: string, dir: TraceLine["dir"], text: string) {
   const bag = traces();
   const list = bag[deviceId] ?? (bag[deviceId] = []);
-  const safe = text
-    .replace(/("token"\s*:\s*")[^"]*/gi, "$1***")
-    .replace(/("password"\s*:\s*")[^"]*/gi, "$1***")
-    .replace(/(token=)[^&\s"]+/gi, "$1***")
-    .slice(0, 500);
-  list.unshift({ at: Date.now(), dir, text: safe });
+  list.unshift({ at: Date.now(), dir, text: scrubSecret(text).slice(0, 500) });
   if (list.length > 40) list.length = 40;
 }
 
@@ -304,26 +306,36 @@ async function sendPjlink(host: string, port: number, payload: string, password:
     sock.on("error", (err) => fail(err.message));
     sock.on("data", (chunk) => {
       buf += chunk.toString();
+      const take = () => {
+        const at = buf.search(/\r|\n/);
+        if (at < 0) return null;
+        const line = buf.slice(0, at).trim();
+        buf = buf.slice(at + 1).replace(/^\n/, "");
+        return line || take();
+      };
       if (!sent) {
-        const banner = buf.match(/PJLINK\s+(\d)(?:\s+([0-9a-fA-F]+))?/i);
-        if (!banner) return;
+        const line = take();
+        if (line == null) return;
+        const banner = line.match(/PJLINK\s+(\d)(?:\s+([0-9a-fA-F]+))?/i);
+        if (!banner) return fail("bad PJLink banner");
         const secured = banner[1] === "1";
         const rand = banner[2] ?? "";
         if (secured) {
           if (!password) return fail("PJLink password required");
+          if (!rand) return fail("PJLink challenge incomplete");
           const digest = crypto.createHash("md5").update(rand + password).digest("hex");
           sock.write(digest + body);
         } else sock.write(body);
         sent = true;
-        buf = buf.slice(buf.indexOf(banner[0]) + banner[0].length);
         return;
       }
-      const line = buf.trim();
-      if (!line.includes("=") && !line.includes("ERR")) return;
+      const line = take();
+      if (line == null) return;
       clearTimeout(timer);
       sock.end();
       if (/ERRA/i.test(line)) resolve({ ok: false, message: "PJLink auth failed" });
       else if (/ERR\d/i.test(line)) resolve({ ok: false, message: line.slice(0, 80) });
+      else if (!/=/.test(line) && !/OK/i.test(line)) resolve({ ok: false, message: line.slice(0, 80) || "PJLink incomplete" });
       else resolve({ ok: true, message: line.slice(0, 200) });
     });
     sock.on("close", () => {

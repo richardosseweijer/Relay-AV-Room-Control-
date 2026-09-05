@@ -356,6 +356,8 @@ export type RoomConfig = {
     externalControl?: boolean;
     theme: "dark" | "light";
     idleDimSeconds: number;
+    keepAwake?: boolean;
+    panelFullscreen?: boolean;
     grid: { cols: number; rows: number };
     network: {
       mode: "dhcp" | "static";

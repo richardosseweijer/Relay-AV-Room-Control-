@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { applyHost, authenticateDevice, executeCommand, listHostInterfaces, pingReachable, probeDevice, runMacro, scanDevicePorts, sendRaw, syncInventory, traces } from "./engine";
+import { applyHost, authenticateDevice, executeCommand, listHostInterfaces, pingReachable, probeDevice, runMacro, scanDevicePorts, sendRaw, syncInventory, traces, scrubSecret } from "./engine";
 import { validateDriver } from "./schema";
 import { bundledDrivers } from "./defaults";
 import { ensureLoaded, memory, persist, persistNow, pushLog, snapshot, clearLog, normalize, writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName } from "./store.server";
@@ -45,6 +45,10 @@ function publicSnap() {
   const snap = snapshot();
   return {
     ...snap,
+    traces: {},
+    log: (snap.log ?? []).map((row) => ({ ...row, detail: scrubSecret(row.detail), title: scrubSecret(row.title) })),
+    health: Object.fromEntries(Object.entries(snap.health ?? {}).map(([id, row]) => [id, { ...row, message: scrubSecret(row.message ?? "") }])),
+    lastError: snap.lastError ? scrubSecret(snap.lastError) : null,
     config: {
       ...snap.config,
       room: {
@@ -80,6 +84,13 @@ export const issuePanelSession = createServerFn({ method: "POST" }).handler(asyn
   }
   return { ok: true, token: mint("panel") };
 });
+
+export const checkPanelSession = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    await ensureLoaded();
+    return { ok: validToken(data.token, "panel") || validToken(data.token, "config") };
+  });
 
 export const getEditorConfig = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
