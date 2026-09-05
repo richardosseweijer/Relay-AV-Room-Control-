@@ -64,20 +64,28 @@ export function WidgetShell({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex h-full w-full flex-col items-stretch justify-between rounded-2xl border px-4 py-3 text-left transition duration-200 ease-out",
+        "relative flex h-full w-full flex-col items-stretch justify-between overflow-hidden rounded-2xl border px-4 py-3 text-left transition duration-200 ease-out",
         "active:scale-[0.98]",
         colorClass[widget.color],
         active && activeClass[widget.color],
         disabled && disabledClass[widget.color],
       )}
     >
-      <div className="flex items-start justify-between gap-2">
+      {widget.icon ? (
+        <NamedIcon
+          name={widget.icon}
+          className={cn(
+            "pointer-events-none absolute -bottom-2 -right-2 size-[72%] stroke-[1.25]",
+            disabled ? "opacity-20" : active ? "opacity-[0.22]" : "opacity-[0.16]",
+          )}
+        />
+      ) : null}
+      <div className="relative z-[1] flex items-start justify-between gap-2">
         <span className={cn("text-[11px] font-medium tracking-[0.16em] uppercase", disabled ? "opacity-60" : active ? "text-bg/70" : "text-muted")}>
           {widget.label}
         </span>
-        <NamedIcon name={widget.icon} className={cn("size-4 shrink-0", disabled ? "opacity-50" : active ? "text-bg/80" : "text-muted")} />
       </div>
-      <div className={cn("min-h-6 font-medium leading-none tracking-tight", status ? "text-3xl" : "text-xl")}>
+      <div className={cn("relative z-[1] min-h-6 font-medium leading-none tracking-tight", status ? "text-3xl" : "text-xl")}>
         {children}
       </div>
     </button>

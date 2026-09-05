@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
+import { ICON_NAMES, NamedIcon } from "@/components/icons";
 import {
   authenticate,
   clearConfig,
@@ -1514,6 +1515,19 @@ function PagesEditor({
           <div className="flex flex-wrap gap-1">
             {colors.map((color) => (
               <button key={color} type="button" className={cn("size-8 rounded-full border", fills[color], selected.color === color ? "border-fg" : "border-border")} onClick={() => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.color = color; })} />
+            ))}
+          </div>
+          <div className="grid grid-cols-8 gap-1">
+            {ICON_NAMES.map((name) => (
+              <button
+                key={name || "none"}
+                type="button"
+                title={name || "no icon"}
+                className={cn("flex size-8 items-center justify-center rounded-md border", selected.icon === name || (!name && !selected.icon) ? "border-fg bg-raised" : "border-border")}
+                onClick={() => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.icon = name || undefined; })}
+              >
+                {name ? <NamedIcon name={name} className="size-4 text-muted" /> : <span className="text-[10px] text-subtle">—</span>}
+              </button>
             ))}
           </div>
           <div className="grid gap-2">
