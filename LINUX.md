@@ -6,32 +6,25 @@ Default login after first start: config PIN `1234`. Change it before a real room
 
 ## 1. Packages
 
-**Required** (LAN control only):
-
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs git
+sudo apt-get install -y nodejs git gpiod i2c-tools cec-utils lirc
 node -v   # expect v22.x
 ```
 
-On Raspberry Pi you can use [nvm](https://github.com/nvm-sh/nvm) instead of the NodeSource apt repo. If you do, put the nvm `node` on `PATH` for the service user (see §5).
+On Raspberry Pi you can use [nvm](https://github.com/nvm-sh/nvm) instead of the NodeSource apt repo. If you do, put the nvm `node` on `PATH` for the service user (see §4).
 
-**Optional hardware tools** — only if you will drive local ports from Relay. Skip on a VM or a LAN-only PC.
-
-```bash
-sudo apt-get install -y gpiod i2c-tools cec-utils lirc
-```
-
-| Relay interface | Tool the engine calls | Package |
+| Relay interface | Tool | Package |
 |---|---|---|
+| LAN | Node 22 | `nodejs` |
 | GPIO | `gpioset` | `gpiod` |
 | I2C | `i2cset` | `i2c-tools` |
 | CEC | `cec-client` | `cec-utils` |
 | IR | `ir-ctl` / `irsend` | `lirc` |
-| Serial | `/dev/tty*` or `COMn` | kernel only |
-| SPI | `spidev_test` | often missing; install later if you use SPI |
+| Serial | `/dev/tty*` | kernel |
+| SPI | `spidev_test` | not a standard apt package; add later if you use SPI |
 
-Enable buses on a Pi with `sudo raspi-config` → Interface Options (I2C / Serial / SPI) then reboot.
+On a Pi, enable I2C / Serial / SPI in `sudo raspi-config` → Interface Options, then reboot.
 
 ## 2. Get the project
 
