@@ -22,11 +22,11 @@ If the manual is unclear, **omit that command** and mention it in `device.notes`
 
 ## Pick a transport
 
-| If the manual says | `protocol` | `payloadEncoding` | `lineEnding` |
+| If the manual says | `protocol` | wire | `lineEnding` |
 |---|---|---|---|
 | REST / JSON HTTP | `http` or `https` | `ascii` | `""` |
 | ASCII socket (PJLink, Extron, ADCP) | `tcp` | `ascii` | `"\r"` unless the doc says otherwise |
-| Raw bytes / MIDI-TCP | `tcp` | `hex` | `""` |
+| Raw bytes / MIDI-TCP | `tcp` | set `encoding` to `hex` | `""` |
 | Browser WebSocket | `websocket` | `ascii` | `""` |
 | TLS WebSocket (Samsung 8002) | `tls-websocket` | `ascii` | `""` |
 | Chromecast | `cast` | `ascii` | `""` |
@@ -50,7 +50,7 @@ One plane per driver. Example only: Allen & Heath SQ third-party control is MIDI
   },
   "auth": { "type": "token", "instanceFields": ["token"] },
   "pacing": { "minIntervalMs": 120 },
-  "probe": { "transport": "lan", "payload": "", "success": { "type": "contains", "value": "ok" } },
+  "probe": { "transport": "lan", "payload": "", "success": { "type": "contains", "value": "open" } },
   "commands": [
     {
       "id": "power.on",
@@ -98,7 +98,7 @@ One plane per driver. Example only: Allen & Heath SQ third-party control is MIDI
   },
   "auth": { "type": "pin", "instanceFields": ["password"] },
   "pacing": { "minIntervalMs": 150 },
-  "probe": { "transport": "lan", "payload": "", "success": { "type": "contains", "value": "ok" } },
+  "probe": { "transport": "lan", "payload": "", "success": { "type": "contains", "value": "open" } },
   "commands": [
     { "id": "power.on", "label": "Power On", "kind": "action", "transport": "lan", "payload": "%1POWR 1" },
     { "id": "power.off", "label": "Power Off", "kind": "action", "transport": "lan", "payload": "%1POWR 0" }
@@ -113,7 +113,7 @@ One plane per driver. Example only: Allen & Heath SQ third-party control is MIDI
       "mode": "poll",
       "query": "%1POWR ?",
       "pollMs": 5000,
-      "parse": { "type": "contains", "value": "POWR=1", "map": { "POWR=1": "on", "POWR=0": "off" } }
+      "parse": { "type": "contains", "value": "POWR=1" }
     }
   ],
   "inventory": []
@@ -127,16 +127,16 @@ Write the **entire** frame. Relay does not add status nibbles.
 ```json
 {
   "specVersion": "2",
-  "device": { "manufacturer": "Allen & Heath", "model": "SQ-5", "type": "amplifier", "notes": "MIDI-TCP 51325. MIDI channel 1 (status B0). Blank scenes will not load." },
+  "device": { "manufacturer": "Allen & Heath", "model": "SQ-5", "type": "other", "notes": "MIDI-TCP 51325. Frames below are MIDI channel 1 (status B0). Change B0 to B1–BF by hand if the desk is not channel 1. Blank scenes will not load." },
   "transports": {
-    "lan": { "protocol": "tcp", "port": 51325, "encoding": "hex", "payloadEncoding": "hex", "lineEnding": "", "timeoutMs": 2000 }
+    "lan": { "protocol": "tcp", "port": 51325, "encoding": "hex", "lineEnding": "", "timeoutMs": 2000 }
   },
-  "auth": { "type": "none", "instanceFields": ["midiChannel"] },
+  "auth": { "type": "none", "instanceFields": [] },
   "pacing": { "minIntervalMs": 40 },
-  "probe": { "transport": "lan", "payload": "", "success": { "type": "contains", "value": "ok" } },
+  "probe": { "transport": "lan", "payload": "", "success": { "type": "contains", "value": "open" } },
   "commands": [
-    { "id": "lr.mute.on", "label": "LR Mute", "kind": "action", "transport": "lan", "payload": "B06300B06244B0067F", "payloadEncoding": "hex" },
-    { "id": "lr.mute.off", "label": "LR Unmute", "kind": "action", "transport": "lan", "payload": "B06300B06244B00600", "payloadEncoding": "hex" }
+    { "id": "lr.mute.on", "label": "LR Mute", "kind": "action", "transport": "lan", "payload": "B06300B06244B00600B02601", "payloadEncoding": "hex" },
+    { "id": "lr.mute.off", "label": "LR Unmute", "kind": "action", "transport": "lan", "payload": "B06300B06244B00600B02600", "payloadEncoding": "hex" }
   ],
   "feedback": [],
   "inventory": []
@@ -179,7 +179,7 @@ List extras in `instanceFields` (`midiChannel`, `mac`, …). They appear on the 
 
 ## Probe
 
-Empty payload + TCP connect is enough. Do not dump mixer state. `pollMs` ≥ 4000 if you must GET a parameter. Pairing dialogs belong on Authenticate, not probe.
+Empty `payload` means TCP connect only. The engine does not wait for the letters `ok`. `success` may say `open` to match the reachability message; do not use `ok` unless that device actually replies `ok`. Pairing dialogs belong on Authenticate, not probe. `pollMs` ≥ 4000 if you must GET a parameter.
 
 ## Do not
 
