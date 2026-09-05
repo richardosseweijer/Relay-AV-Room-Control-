@@ -432,7 +432,7 @@ export function ControlPanel() {
           <p className="text-[11px] tracking-[0.22em] uppercase text-subtle">
             {clock.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </p>
-          {snap.runningMacro ? <p className="mt-1 text-sm text-muted">Starting the room…</p> : null}
+          {snap.runningMacro ? <p className="mt-1 text-sm text-muted">Just a moment…</p> : null}
         </div>
         <div className="flex items-center gap-2">
           {!awake ? (
