@@ -211,7 +211,22 @@ sudo nano /etc/systemd/system/relay.service
 sudo systemctl daemon-reload
 sudo systemctl restart relay
 ```
----
+
+### 6d. Is it running?
+
+```bash
+cd ~/Relay-AV-Room-Control-
+bash scripts/relay-status.sh
+```
+
+Or without the script:
+
+```bash
+sudo systemctl status relay --no-pager
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8081/
+```
+
+`200` means the page is answering. `000` or `failed` means it is not.---
 
 ## 7. Update from GitHub
 
