@@ -415,6 +415,7 @@ export type HostUi = {
   toastAt?: number;
   block: string | null;
   pageId: string | null;
+  pageAt?: number;
 };
 
 export type RoomSnapshot = {

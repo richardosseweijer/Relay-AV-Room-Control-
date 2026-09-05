@@ -135,7 +135,6 @@ export const saveConfig = createServerFn({ method: "POST" })
     const panelPin = data.config.room.panelAccess === "pin"
       ? (data.config.room.panelPin?.trim() || memory().config.room.panelPin)
       : null;
-    const prevVars = memory().config.variables ?? [];
     const config: RoomConfig = {
       ...data.config,
       room: { ...data.config.room, configPin: pin, panelPin },
@@ -145,12 +144,18 @@ export const saveConfig = createServerFn({ method: "POST" })
       triggers: data.config.triggers ?? [],
       interfaces: data.config.interfaces ?? [],
     };
-    memory().config = config;
-    const vars = seedVars(config, memory().vars);
-    for (const v of config.variables) {
-      const old = prevVars.find((item) => item.id === v.id);
-      if (!old || old.default !== v.default) vars[v.id] = v.default;
-    }
+    const prevDevices = memory().config.devices;
+    const devices = (config.devices ?? []).map((device) => {
+      const prev = prevDevices.find((item) => item.id === device.id);
+      const auth = { ...(prev?.auth ?? {}), ...(device.auth ?? {}) };
+      for (const [key, value] of Object.entries(auth)) {
+        if (!String(value ?? "").trim() && prev?.auth?.[key]) auth[key] = prev.auth[key]!;
+      }
+      return { ...device, auth };
+    });
+    const nextConfig: RoomConfig = { ...config, devices };
+    memory().config = nextConfig;
+    const vars = seedVars(nextConfig, memory().vars);
     memory().vars = vars;
     try {
       await persistNow();
@@ -239,8 +244,7 @@ export const fireCommand = createServerFn({ method: "POST" })
       host: mem.host,
     });
     mem.health[data.deviceId] = { ok: result.ok, message: result.message };
-    if (data.commandId === "var.set") await persist();
-    if (data.variable) {
+    if (result.ok && data.variable) {
       const def = mem.config.variables.find((v) => v.id === data.variable);
       mem.vars[data.variable] = def ? clampVar(def, data.value ?? def.default) : (data.value ?? "");
     }

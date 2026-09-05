@@ -120,6 +120,7 @@ export function ControlPanel() {
   }, []);
 
   const seenToastAt = useRef(0);
+  const seenPageAt = useRef(0);
 
   useEffect(() => {
     if (!snap?.host) return;
@@ -134,8 +135,12 @@ export function ControlPanel() {
       setNote(null);
     }
     setBlock(snap.host.block || null);
-    if (snap.host.pageId) setPageId(snap.host.pageId);
-  }, [snap?.host?.dim, snap?.host?.toast, snap?.host?.toastAt, snap?.host?.block, snap?.host?.pageId]);
+    const pageAt = snap.host.pageAt ?? 0;
+    if (snap.host.pageId && pageAt > seenPageAt.current) {
+      seenPageAt.current = pageAt;
+      setPageId(snap.host.pageId);
+    }
+  }, [snap?.host?.dim, snap?.host?.toast, snap?.host?.toastAt, snap?.host?.block, snap?.host?.pageId, snap?.host?.pageAt]);
 
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [legal, setLegal] = useState(false);

@@ -444,7 +444,11 @@ export function ConfigApp() {
                     const res = await importBundle({ data: { token: token || "", bundle: parsed } });
                     flash(res.ok ? "Imported" : "Import failed", res.message);
                     const next = await refresh();
-                    if (res.ok && next?.config) setDraft(structuredClone(next.config));
+                    if (res.ok) {
+                      const ed = await getEditorConfig({ data: { token: token || "" } });
+                      if (ed.config) setDraft(structuredClone(ed.config));
+                      else if (next?.config) setDraft(structuredClone(next.config));
+                    }
                   } catch {
                     flash("Import failed", "Not valid JSON");
                   }
@@ -455,7 +459,11 @@ export function ConfigApp() {
                 const res = await resetDemo({ data: { token: token || "" } });
                 flash(res.ok ? "Demo restored" : "Failed", res.message);
                 const next = await refresh();
-                if (next?.config) setDraft(structuredClone(next.config));
+                if (res.ok) {
+                  const ed = await getEditorConfig({ data: { token: token || "" } });
+                  if (ed.config) setDraft(structuredClone(ed.config));
+                  else if (next?.config) setDraft(structuredClone(next.config));
+                }
               }}>Restore demo</Button>
               <Button variant="danger" onClick={() => setGate({ action: "wipe", pin: "" })}>Clear config</Button>
               <Button variant="secondary" onClick={async () => {
@@ -561,10 +569,20 @@ export function ConfigApp() {
                               <input className={fieldClass()} type="password" placeholder="token" value={device.auth?.token ?? ""} onChange={(e) => update((c) => { c.devices[index]!.auth = { ...c.devices[index]!.auth, token: e.target.value }; })} />
                             </label>
                           ) : null}
-                          {needsSecret ? (
+                          {needsSecret && (fields.includes("mac") || driver?.transports.lan?.protocol === "wol") ? (
                             <label className="grid gap-1 text-sm text-muted">MAC (wired if on Ethernet)
                               <input className={fieldClass()} placeholder="AA:BB:CC:DD:EE:FF" value={device.auth?.mac ?? ""} onChange={(e) => update((c) => { c.devices[index]!.auth = { ...c.devices[index]!.auth, mac: e.target.value }; })} />
                             </label>
+                          ) : null}
+                          {(driver?.auth?.type === "password" || driver?.auth?.type === "userpass" || fields.includes("user") || fields.includes("password")) ? (
+                            <>
+                              <label className="grid gap-1 text-sm text-muted">User
+                                <input className={fieldClass()} value={device.auth?.user ?? device.auth?.username ?? ""} onChange={(e) => update((c) => { c.devices[index]!.auth = { ...c.devices[index]!.auth, user: e.target.value }; })} />
+                              </label>
+                              <label className="grid gap-1 text-sm text-muted">Password
+                                <input className={fieldClass()} type="password" value={device.auth?.password ?? ""} onChange={(e) => update((c) => { c.devices[index]!.auth = { ...c.devices[index]!.auth, password: e.target.value }; })} />
+                              </label>
+                            </>
                           ) : null}
                           {fields.filter((name) => !["token", "mac", "password", "user"].includes(name)).map((name) => (
                             <label key={name} className="grid gap-1 text-sm text-muted">{name}
@@ -587,7 +605,7 @@ export function ConfigApp() {
                           className={cn("rounded-full border px-3 py-1 text-xs", on ? "border-accent bg-raised text-fg" : "border-border text-subtle")}
                           onClick={async () => {
                             if (isCommand) {
-                              const res = await fireCommand({ data: { deviceId: device.id, commandId: id, raw: true } });
+                              const res = await fireCommand({ data: { deviceId: device.id, commandId: id, raw: true, token: token || "" } });
                               flash(res.ok ? id : `${id} failed`, res.message);
                               return;
                             }
@@ -829,8 +847,12 @@ export function ConfigApp() {
                             <select className={cn(fieldClass(), "sm:col-span-3")} value={step.macroId} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.macroId = e.target.value; })}>
                               {draft.macros.filter((m) => m.id !== macro.id).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                             </select>
+                          ) : step.setVar ? (
+                            <select className={cn(fieldClass(), "sm:col-span-3")} value={step.setVar} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.setVar = e.target.value; c.macros[mi]!.steps[si]!.command = undefined; })}>
+                              {draft.variables.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+                            </select>
                           ) : (
-                          <select className={cn(fieldClass(), "sm:col-span-3")} value={step.command ?? step.setVar ?? ""} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.command = e.target.value; })}>
+                          <select className={cn(fieldClass(), "sm:col-span-3")} value={step.command ?? ""} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.command = e.target.value; })}>
                             {deviceCommands(snap, draft, step.device).map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
                           </select>
                           )}

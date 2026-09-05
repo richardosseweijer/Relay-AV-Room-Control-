@@ -322,7 +322,7 @@ async function runDueSchedules() {
   const stamp = `${tz}-${now.toISOString().slice(0, 10)}T${time}`;
   for (const job of mem.config.schedules ?? []) {
     if (!job.enabled || job.time !== time) continue;
-    if (job.days.length && !job.days.includes(day)) continue;
+    if (!job.days.length || !job.days.includes(day)) continue;
     if (lastScheduleRun.get(job.id) === stamp) continue;
     const macro = mem.config.macros.find((m) => m.id === job.macroId);
     if (!macro) continue;
@@ -334,6 +334,7 @@ async function runDueSchedules() {
     mem.runningMacro = macro.id;
     const result = await runMacro({ config: mem.config, drivers: mem.drivers, state: mem.state, vars: mem.vars, health: mem.health ?? (mem.health = {}), macro, host: mem.host });
     mem.runningMacro = null;
+    if (!result.ok && mem.host?.block) mem.host.block = null;
     if (result.ok) mem.activeScene = macro.id;
     mem.lastError = result.ok ? null : result.message;
     pushLog({ kind: "macro", ok: result.ok, title: `Schedule ${job.label}`, detail: result.message });
@@ -373,7 +374,11 @@ async function runDueTriggers() {
       continue;
     }
     if (rule.mode === "change") {
-      if (prev === undefined || prev.startsWith("true:")) continue;
+      if (prev === undefined) {
+        lastTriggerValue.set(rule.id, `true:${left}`);
+        continue;
+      }
+      if (prev.startsWith("true:")) continue;
     }
     const wait = Math.max(500, rule.intervalMs || 1000);
     if (rule.mode === "interval" && now - (lastTriggerFire.get(rule.id) ?? 0) < wait) continue;
@@ -406,6 +411,7 @@ async function runQueuedTrigger(job: { id: string; macroId: string; label: strin
   live.runningMacro = macro.id;
   const result = await runMacro({ config: live.config, drivers: live.drivers, state: live.state, vars: live.vars, health: live.health ?? (live.health = {}), macro, host: live.host });
   live.runningMacro = null;
+  if (!result.ok && live.host?.block) live.host.block = null;
   if (result.ok) live.activeScene = macro.id;
   pushLog({ kind: "macro", ok: result.ok, title: `Trigger ${job.label}`, detail: result.message });
   const next = triggerQueue.shift();
@@ -425,7 +431,7 @@ async function runDueMonitors() {
   let dirty = false;
   for (const rule of mem.config.monitors ?? []) {
     if (!rule.enabled) continue;
-    const wait = Math.max(4000, rule.pollMs || 8000);
+    const wait = Math.max(1000, rule.pollMs || 8000);
     const last = lastMonitorRun.get(rule.id) ?? 0;
     if (now - last < wait) continue;
     lastMonitorRun.set(rule.id, now);

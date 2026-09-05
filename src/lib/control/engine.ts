@@ -236,9 +236,23 @@ async function sendLocal(driver: DriverSpec, device: DeviceInstance, payload: st
   if (kind === "serial") {
     try {
       const fs = await import("node:fs/promises");
+      const { execFile } = await import("node:child_process");
+      const { promisify } = await import("node:util");
+      const exec = promisify(execFile);
+      const baud = String(device.baud ?? serial?.baud ?? local?.baud ?? 9600);
       const target = path.startsWith("COM") ? `\\\\.\\${path}` : path;
-      await fs.writeFile(target, payload + (serial?.lineEnding ?? "\r"));
-      return { ok: true, message: target };
+      if (path.startsWith("COM")) {
+        await exec("mode", [`${path}:`, `baud=${baud}`, "parity=n", "data=8", "stop=1"]).catch(() => undefined);
+      } else {
+        await exec("stty", ["-F", path, baud, "cs8", "-cstopb", "-parenb", "-echo"]).catch(() => undefined);
+      }
+      const fh = await fs.open(target, "r+");
+      try {
+        await fh.write(payload + (serial?.lineEnding ?? local?.lineEnding ?? "\r"));
+      } finally {
+        await fh.close();
+      }
+      return { ok: true, message: `${target} @ ${baud}` };
     } catch (err) {
       return { ok: false, message: err instanceof Error ? err.message : "serial failed" };
     }
@@ -430,9 +444,19 @@ async function tcpSessionWrite(
 
 async function sendHttp(url: string, method: string, body: string, timeout: number): Promise<CommandResult> {
   try {
+    const verb = method.toUpperCase();
+    let target = url;
+    if ((verb === "GET" || verb === "HEAD") && body) {
+      target += (url.includes("?") ? "&" : "?") + body.replace(/^\?/, "");
+    }
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), timeout);
-    const res = await fetch(url, { method, body: method === "GET" ? undefined : body, headers: { "content-type": "application/json" }, signal: ctrl.signal });
+    const res = await fetch(target, {
+      method: verb,
+      body: verb === "GET" || verb === "HEAD" ? undefined : body,
+      headers: { "content-type": "application/json" },
+      signal: ctrl.signal,
+    });
     clearTimeout(t);
     return { ok: res.ok, message: (await res.text()).slice(0, 400) || String(res.status) };
   } catch (err) {
@@ -965,6 +989,11 @@ export async function readMonitorValue(opts: {
   }
   const fb = driver?.feedback.find((item) => item.id === opts.feedbackId);
   if (!driver || !fb) return { ok: false, value: "", message: "Feedback missing" };
+  if (device.simulate) {
+    const current = slot[opts.feedbackId];
+    const value = current === undefined || current === null ? "" : String(current);
+    return { ok: true, value, message: value || "simulated" };
+  }
   const statusUrl = statusPlane(driver, device, fb);
   if (statusUrl) {
     const url = statusUrl;
@@ -985,17 +1014,18 @@ export async function readMonitorValue(opts: {
   }
   const payload = fb.query ?? driver.probe?.payload ?? '{"type":"GET_STATUS","requestId":1}';
   const result = await sendLan(driver, device, payload);
+  if (!result.ok) return { ok: false, value: "", message: result.message };
   const app = pickJsonField(result.message, "displayName");
   const parsed = parseFeedback(fb.parse, result.message);
   const value = opts.feedbackId.includes("app") ? (app || "idle") : parsed;
   opts.state[device.id] = { ...slot, [opts.feedbackId]: value };
-  return { ok: result.ok, value, message: value };
+  return { ok: true, value, message: value };
 }
 
 export async function applyHost(
   commandId: string,
   value: string | number | undefined,
-  host: { dim: boolean; locked: boolean; toast: string | null; toastAt?: number; block?: string | null; pageId: string | null },
+  host: { dim: boolean; locked: boolean; toast: string | null; toastAt?: number; block?: string | null; pageId: string | null; pageAt?: number },
   vars?: Record<string, string | number>,
   flags?: { allowReboot?: boolean },
 ): Promise<CommandResult> {
@@ -1007,7 +1037,7 @@ export async function applyHost(
   else if (commandId === "ui.block") { host.block = String(value ?? ""); }
   else if (commandId === "ui.unblock") { host.block = null; }
   else if (commandId === "ui.clear") { host.toast = null; host.toastAt = Date.now(); }
-  else if (commandId === "ui.page") host.pageId = String(value ?? "");
+  else if (commandId === "ui.page") { host.pageId = String(value ?? ""); host.pageAt = Date.now(); }
   else if (commandId === "var.get") {
     if (!vars) return { ok: false, message: "No vars" };
     const id = String(value ?? "").split("=")[0] ?? "";
@@ -1148,7 +1178,6 @@ export async function executeCommand(opts: {
   if (!result.ok && command.wake?.protocol === "wol") {
     await sleep(2000);
     result = iface ? await sendLocal(driver, wired, payload) : await sendLan(driver, wired, payload, wiredCommand);
-    if (!result.ok) result = { ok: true, message: "WOL sent — TV is waking" };
   }
   if (result.ok) applySim(command, uiValue, slot);
   return result;
