@@ -88,7 +88,26 @@ sudo journalctl -u relay -f
 
 After `git pull && npm install`, run `sudo systemctl restart relay`.
 
-## 5. Data
+## 5. Update from GitHub
+
+The folder must be a `git clone` of [Relay-AV-Room-Control-](https://github.com/richardosseweijer/Relay-AV-Room-Control-).
+
+Configurator → Room → **Save all**, then **Update from GitHub**. Confirm the warning.
+
+That stops Relay, runs `git pull --ff-only` and `npm install`, then starts it again. Under systemd it runs `systemctl restart relay`. The room is down for a minute. Log: `data/relay-update.log`.
+
+Local uncommitted edits can block the pull. Zip installs cannot use this button.
+
+Manual:
+
+```bash
+cd Relay-AV-Room-Control-
+git pull --ff-only
+npm install
+sudo systemctl restart relay
+```
+
+## 6. Data
 
 Room data lives in `data/relay-room.json` and `data/drivers/`. Back those up if you rebuild the card.
 

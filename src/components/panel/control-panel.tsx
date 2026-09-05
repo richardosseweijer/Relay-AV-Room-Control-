@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Settings2 } from "lucide-react";
+import { Maximize2, Settings2, Sun } from "lucide-react";
 import { clearDeviceError, fireCommand, fireMacro, issuePanelSession, setLatch, setVariable, verifyPanelPin } from "@/lib/control/actions";
 import type { RoomSnapshot, Widget } from "@/lib/control/types";
 import { resolveBoundNumber } from "@/lib/control/vars";
@@ -139,6 +139,54 @@ export function ControlPanel() {
 
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [legal, setLegal] = useState(false);
+  const [full, setFull] = useState(false);
+  const [awake, setAwake] = useState(false);
+  const wakeRef = useRef<{ release: () => Promise<void> } | null>(null);
+
+  useEffect(() => {
+    const sync = () => setFull(Boolean(document.fullscreenElement || (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement));
+    document.addEventListener("fullscreenchange", sync);
+    document.addEventListener("webkitfullscreenchange", sync);
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      document.removeEventListener("webkitfullscreenchange", sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    let gone = false;
+    async function grab() {
+      if (gone || !awake || document.visibilityState !== "visible") return;
+      const api = (navigator as Navigator & { wakeLock?: { request: (kind: "screen") => Promise<{ release: () => Promise<void>; addEventListener: (ev: string, fn: () => void) => void }> } }).wakeLock;
+      if (!api) return;
+      try {
+        const lock = await api.request("screen");
+        if (gone) {
+          await lock.release().catch(() => undefined);
+          return;
+        }
+        wakeRef.current = lock;
+        lock.addEventListener("release", () => {
+          wakeRef.current = null;
+          if (!gone) setAwake(false);
+        });
+      } catch {
+        if (!gone) setAwake(false);
+      }
+    }
+    if (!awake) {
+      void wakeRef.current?.release().catch(() => undefined);
+      wakeRef.current = null;
+    } else void grab();
+    const onVis = () => {
+      if (document.visibilityState !== "visible") setAwake(false);
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      gone = true;
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [awake]);
 
   async function refresh() {
     const res = await fetch("/api/room", { cache: "no-store" });
@@ -370,21 +418,49 @@ export function ControlPanel() {
           <p className="mt-1 text-2xl font-medium tracking-tight">{snap.config.room.name}</p>
           {snap.runningMacro ? <p className="mt-1 text-sm text-muted">Starting the room…</p> : null}
         </div>
-        <button
-          type="button"
-          className="inline-flex size-12 items-center justify-center rounded-2xl border border-border/80 bg-surface/80 text-subtle"
-          onPointerDown={() => {
-            hold.current = window.setTimeout(() => {
-              sessionStorage.removeItem("relay-config-token");
-              void navigate({ to: "/config" });
-            }, 2000);
-          }}
-          onPointerUp={() => { if (hold.current) window.clearTimeout(hold.current); }}
-          onPointerLeave={() => { if (hold.current) window.clearTimeout(hold.current); }}
-          aria-label="Hold for setup"
-        >
-          <Settings2 className="size-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          {!awake ? (
+            <button
+              type="button"
+              className="inline-flex size-12 items-center justify-center rounded-2xl border border-border/80 bg-surface/80 text-subtle"
+              aria-label="Keep awake"
+              onClick={() => setAwake(true)}
+            >
+              <Sun className="size-4" />
+            </button>
+          ) : null}
+          {!full ? (
+            <button
+              type="button"
+              className="inline-flex size-12 items-center justify-center rounded-2xl border border-border/80 bg-surface/80 text-subtle"
+              aria-label="Fullscreen"
+              onClick={async () => {
+                const node = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
+                try {
+                  if (node.requestFullscreen) await node.requestFullscreen();
+                  else node.webkitRequestFullscreen?.();
+                } catch { /* iOS home-screen app only */ }
+              }}
+            >
+              <Maximize2 className="size-4" />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="inline-flex size-12 items-center justify-center rounded-2xl border border-border/80 bg-surface/80 text-subtle"
+            onPointerDown={() => {
+              hold.current = window.setTimeout(() => {
+                sessionStorage.removeItem("relay-config-token");
+                void navigate({ to: "/config" });
+              }, 2000);
+            }}
+            onPointerUp={() => { if (hold.current) window.clearTimeout(hold.current); }}
+            onPointerLeave={() => { if (hold.current) window.clearTimeout(hold.current); }}
+            aria-label="Hold for setup"
+          >
+            <Settings2 className="size-4" />
+          </button>
+        </div>
       </header>
       {faults.length ? (
         <div className="mx-auto mb-3 flex w-full max-w-3xl flex-wrap items-center gap-2 rounded-xl border border-clay/40 bg-clay/10 px-3 py-2">

@@ -268,6 +268,14 @@ export const restartHost = createServerFn({ method: "POST" })
     return applyHost("system.restart", undefined, memory().host);
   });
 
+export const updateHost = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    await ensureLoaded();
+    if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
+    return applyHost("system.update", undefined, memory().host);
+  });
+
 export const rebootHost = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
   .handler(async ({ data }) => {

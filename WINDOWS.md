@@ -66,6 +66,25 @@ npx vite dev --host 0.0.0.0 --port 8081
 
 If the page shows “Invalid server function ID”, Ctrl+C and start it again.
 
+## 6. Update from GitHub
+
+The checkout must be a `git clone` of [Relay-AV-Room-Control-](https://github.com/richardosseweijer/Relay-AV-Room-Control-), not a zip.
+
+Configurator → Room → **Save all**, then **Update from GitHub**. Confirm the warning.
+
+That stops Relay, runs `git pull --ff-only` and `npm install`, then starts it again on port 8081. The room is down for a minute. Log: `data\relay-update.log`.
+
+Uncommitted local edits can block the pull. Do not use Update if you only unpacked a zip.
+
+Manual equivalent:
+
+```bat
+cd C:\relay
+git pull --ff-only
+npm install
+npx vite dev --host 0.0.0.0 --port 8081
+```
+
 ## Notes
 
 - Stay on a private LAN. Do not port-forward 8081.

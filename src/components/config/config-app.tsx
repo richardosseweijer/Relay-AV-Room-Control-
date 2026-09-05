@@ -21,6 +21,7 @@ import {
   listHostPorts,
   rebootHost,
   restartHost,
+  updateHost,
   verifyConfigPin,
 } from "@/lib/control/actions";
 import type { DriverSpec, InventoryItem, RoomConfig, RoomSnapshot, Widget, WidgetColor } from "@/lib/control/types";
@@ -426,6 +427,11 @@ export function ConfigApp() {
                 const res = await restartHost({ data: { token: token || "" } });
                 flash(res.ok ? "Restarting Relay" : "Restart failed", res.message);
               }}>Restart Relay</Button>
+              <Button variant="secondary" onClick={async () => {
+                if (!window.confirm("Update Relay from GitHub?\n\nSave all first. The room will go offline for a minute. git pull --ff-only then npm install, then Relay starts again.\n\nNeeds a git clone (not a zip) and network access to GitHub. Local uncommitted edits can block the pull.")) return;
+                const res = await updateHost({ data: { token: token || "" } });
+                flash(res.ok ? "Updating from GitHub" : "Update failed", res.message);
+              }}>Update from GitHub</Button>
               <Button variant="danger" onClick={async () => {
                 if (!window.confirm("Reboot the whole machine?")) return;
                 const res = await rebootHost({ data: { token: token || "" } });

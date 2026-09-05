@@ -991,6 +991,30 @@ export async function applyHost(
     setTimeout(() => process.exit(0), 400);
     return { ok: true, message: `Relay restarting in ${root}` };
   }
+  else if (commandId === "system.update") {
+    const { spawn } = await import("node:child_process");
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    let root = process.cwd();
+    for (let i = 0; i < 6; i++) {
+      if (fs.existsSync(path.join(root, "package.json")) && fs.existsSync(path.join(root, "src", "lib", "control"))) break;
+      const parent = path.dirname(root);
+      if (parent === root) break;
+      root = parent;
+    }
+    if (!fs.existsSync(path.join(root, ".git"))) return { ok: false, message: "Not a git checkout. Clone the GitHub repo to use Update." };
+    const script = path.join(root, "scripts", "update-relay.mjs");
+    if (!fs.existsSync(script)) return { ok: false, message: "Update script missing" };
+    const port = process.env.PORT || process.argv.find((a, i, all) => all[i - 1] === "--port") || "8081";
+    spawn(process.execPath, [script], {
+      detached: true,
+      stdio: "ignore",
+      cwd: root,
+      env: { ...process.env, PORT: String(port), CHOKIDAR_USEPOLLING: "1" },
+    }).unref();
+    if (!process.env.INVOCATION_ID) setTimeout(() => process.exit(0), 800);
+    return { ok: true, message: "Updating from GitHub. The page will drop for a minute." };
+  }
   else if (commandId === "system.reboot") {
     if (!flags?.allowReboot) return { ok: false, message: "OS reboot only from configurator" };
     const { spawn } = await import("node:child_process");
