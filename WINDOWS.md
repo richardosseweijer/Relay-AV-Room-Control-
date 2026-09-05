@@ -91,3 +91,4 @@ npx vite dev --host 0.0.0.0 --port 8081
 - COM ports: Configurator → Interfaces → Scan.
 - Room data: `C:\relay\data\relay-room.json` and `C:\relay\data\drivers\`.
 - To stop a forgotten server: Task Manager → end the `node.exe` that is using port 8081, or `netstat -ano | findstr 8081` then `taskkill /PID <id> /F`.
+- Check a driver file: `npm run driver:check -- data\drivers\samsung-qe50q65t.json`

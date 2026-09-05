@@ -116,3 +116,4 @@ Room data lives in `data/relay-room.json` and `data/drivers/`. Back those up if 
 - Stay on a private LAN. Do not port-forward 8081 to the internet.
 - Serial / GPIO / CEC only work on the machine that has the hardware.
 - `vite dev` is the supported run mode today. Do not use `npm start` — there isn’t one.
+- Check a driver file: `npm run driver:check -- data/drivers/samsung-qe50q65t.json`

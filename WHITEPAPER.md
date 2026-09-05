@@ -246,15 +246,16 @@ The development server listens on all interfaces. Combined with external control
 
 ### 9.5 Template code outside room control
 
-The following exist because the project was generated from a Vite application template. They are not required to understand device control:
+The Vite development server still includes optional plugins (`app-env`, PWA, PGLite bootstrap). The Better Auth, app-data, multiplayer, and preview-host modules were removed from this tree.
 
-- `src/lib/auth/`
-- `src/lib/app-data/`
-- `src/lib/multiplayer/`
-- `scripts/` other than `update-relay.mjs`
-- `server/middleware/grok-pwa.ts` and preview-host bridge modules
-- PGLite authentication migrations under `migrations/auth/`
+Driver files can be checked without the UI:
 
+```
+npm run driver:check -- data/drivers/samsung-qe50q65t.json
+npm run driver:check -- data/drivers/file.json --host 10.0.0.20 --command power.on --feedback power.state
+```
+
+Static mode validates the JSON and token names. Live mode runs probe, one command, and one feedback parse against a real host.
 ---
 
 ## 10. Extension procedures
