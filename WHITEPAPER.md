@@ -207,6 +207,8 @@ The development server listens on all interfaces. Combined with external control
 | `src/lib/control/defaults.ts` | Demonstration room and primary bundled drivers. |
 | `src/lib/control/extra-drivers.ts` | Additional bundled drivers not required by the demonstration room. |
 | `src/lib/control/client.ts` | Browser helper to load `/api/room`. |
+| `src/lib/control/harness.ts` | Static driver inspection and optional live probe/command/feedback. |
+| `scripts/driver-check.mjs` | Command-line entry for the harness. |
 
 ### 9.2 User interface and routes
 
@@ -244,18 +246,25 @@ The development server listens on all interfaces. Combined with external control
 | `data/drivers/` | Library of driver files. |
 | `public/drivers/` | Optional static copies of a subset of drivers. |
 
-### 9.5 Template code outside room control
+### 9.5 Remaining template code
 
-The Vite development server still includes optional plugins (`app-env`, PWA, PGLite bootstrap). The Better Auth, app-data, multiplayer, and preview-host modules were removed from this tree.
+The development server still loads PGLite bootstrap, an environment plugin, and a PWA plugin. Those modules start Vite. They do not send device commands.
 
-Driver files can be checked without the UI:
+Better Auth, app-data, multiplayer, and the preview-host bridge have been removed. `src/routes/__root.tsx` no longer mounts a preview bridge.
+
+### 9.6 Driver harness
+
+A driver JSON can be checked without opening the configurator:
 
 ```
 npm run driver:check -- data/drivers/samsung-qe50q65t.json
 npm run driver:check -- data/drivers/file.json --host 10.0.0.20 --command power.on --feedback power.state
 ```
 
-Static mode validates the JSON and token names. Live mode runs probe, one command, and one feedback parse against a real host.
+Static mode runs `validateDriver`, rejects unknown parse types, and warns about tokens the engine does not substitute and about an empty TCP probe that still expects the letters `ok`.
+
+Live mode (`--host`) builds a one-device room, runs `probeDevice`, then optionally one command with `raw: true` (no hidden `requires`) and one feedback parse. Pairing tokens may be passed with `--token`.
+
 ---
 
 ## 10. Extension procedures

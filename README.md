@@ -9,6 +9,12 @@ Room controller for local AV devices. Use it on a private LAN.
 - [Legal notice](NOTICE)
 - [Privacy](PRIVACY.md)
 
+Check a driver file:
+
+```
+npm run driver:check -- data/drivers/samsung-qe50q65t.json
+```
+
 Default configurator PIN after first start: `1234`. Change it before a live room.
 
 ## Disclaimer

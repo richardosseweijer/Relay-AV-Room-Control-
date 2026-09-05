@@ -37,7 +37,6 @@ export function inspectDriver(spec: DriverSpec): HarnessIssue[] {
       issues.push({ level: "warn", message: `Unknown token {${name}}` });
     }
   }
-  const ids = new Set((spec.commands ?? []).map((c) => c.id));
   for (const fb of spec.feedback ?? []) {
     if (fb.parse && !["regex", "jsonpath", "contains", "exact", "map"].includes(fb.parse.type)) {
       issues.push({ level: "error", message: `Feedback ${fb.id} uses parse type ${fb.parse.type}` });
@@ -46,7 +45,6 @@ export function inspectDriver(spec: DriverSpec): HarnessIssue[] {
   if (lan?.encoding === "hex" && lan.payloadEncoding === "ascii") {
     issues.push({ level: "warn", message: "lan.encoding is hex but payloadEncoding is ascii" });
   }
-  void ids;
   return issues;
 }
 
@@ -91,6 +89,7 @@ export async function liveDriverCheck(opts: {
       deviceId: "dut",
       commandId: opts.command,
       value: opts.value,
+      raw: true,
     });
     command = sent.ok ? sent.message || "ok" : sent.message || "failed";
   }
