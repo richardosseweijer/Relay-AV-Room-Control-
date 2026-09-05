@@ -76,7 +76,12 @@ function mapCommandValue(command: DriverCommand, raw: string | number | undefine
   return Number(out.toFixed(spec.decimals ?? 3));
 }
 
-function renderPayload(template: string, value?: string | number, auth: Record<string, string> = {}) {
+function renderPayload(
+  template: string,
+  value?: string | number,
+  auth: Record<string, string> = {},
+  ctx: { host?: string; port?: number | string; id?: string; vars?: Record<string, string | number> } = {},
+) {
   const raw = String(value ?? "");
   const n = Number(value);
   const hex2 = Number.isFinite(n) ? Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0") : raw;
@@ -89,8 +94,16 @@ function renderPayload(template: string, value?: string | number, auth: Record<s
     .replaceAll("{value:nrpn14}", nrpn)
     .replaceAll("{midiChannel}", String(ch))
     .replaceAll("{channel}", String(ch))
-    .replaceAll("{value}", raw);
-  for (const [k, v] of Object.entries(auth)) out = out.replaceAll(`{auth.${k}}`, v);
+    .replaceAll("{value}", raw)
+    .replaceAll("{token}", auth.token ?? "")
+    .replaceAll("{host}", ctx.host ?? "")
+    .replaceAll("{port}", String(ctx.port ?? ""))
+    .replaceAll("{id}", ctx.id ?? "");
+  for (const [k, v] of Object.entries(auth)) out = out.replaceAll(`{auth.${k}}`, v ?? "");
+  for (const [k, v] of Object.entries(ctx.vars ?? {})) {
+    if (["value", "token", "host", "port", "id", "midiChannel", "channel"].includes(k)) continue;
+    out = out.replaceAll(`{${k}}`, String(v));
+  }
   return out;
 }
 
@@ -751,7 +764,7 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
   }
   const inventory: DeviceInventory = {};
   for (const resource of resources) {
-    const path = renderPayload(resource.httpPath, undefined, device.auth);
+    const path = renderPayload(resource.httpPath, undefined, device.auth, { host: device.host, port: device.port, id: device.id });
     const url = `http://${device.host}:${device.port ?? driver.transports.lan?.port ?? 80}${path}`;
     const res = await sendHttp(url, resource.httpMethod || "GET", "", 3000);
     const items: InventoryItem[] = [];
@@ -996,8 +1009,9 @@ export async function executeCommand(opts: {
     applySim(command, uiValue, slot);
     return { ok: true, message: "simulated" };
   }
-  const payload = renderPayload(command.payload, value, device.auth);
-  const path = command.httpPath ? renderPayload(command.httpPath, value, device.auth) : command.httpPath;
+  const ctx = { host: device.host, port: device.port ?? driver.transports.lan?.port, id: device.id, vars: opts.vars };
+  const payload = renderPayload(command.payload, value, device.auth, ctx);
+  const path = command.httpPath ? renderPayload(command.httpPath, value, device.auth, ctx) : command.httpPath;
   const wiredCommand = path ? { ...command, httpPath: path } : command;
   const iface = opts.config.interfaces?.find((item) => item.id === device.interfaceId);
   const wired = {
