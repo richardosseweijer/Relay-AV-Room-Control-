@@ -25,7 +25,7 @@ Relay talks to devices through **transports**. The JSON must describe every comm
       "port": 80,
       "encoding": "ascii",
       "payloadEncoding": "ascii",
-      "lineEnding": "\\r",
+      "lineEnding": "\r",
       "timeoutMs": 2000,
       "http": { "method": "GET", "path": "/api", "contentType": "application/json" }
     }
@@ -64,10 +64,10 @@ Optional LAN fields:
 
 - `session`: `{ "login": "payload", "passwordPrompt": "text", "keepMs": 30000 }` for devices that greet then wait for a password
 - `payloadEncoding`: `"ascii"` (default) or `"hex"` (binary protocols)
-- `lineEnding`: `"\\r"`, `"\\n"`, `"\\r\\n"`, or `""`
+- `lineEnding`: `"\r"`, `"\n"`, `"\r\n"`, or `""`
 - `wake`: on a command, `{ "protocol": "wol" }` plus the instance MAC
 
-Optional `rs232`: `{ "baud": 9600, "dataBits": 8, "parity": "none", "stopBits": 1, "encoding": "ascii", "lineEnding": "\\r" }`
+Optional `rs232`: `{ "baud": 9600, "dataBits": 8, "parity": "none", "stopBits": 1, "encoding": "ascii", "lineEnding": "\r" }`
 
 Optional `local.kind`: `serial | gpio | i2c | spi | ir | cec`
 
@@ -108,7 +108,10 @@ Rules:
 - `id` is stable, dotted, lowercase: `power.on`, `power.off`, `volume.set`, `input.hdmi1`, `media.pause`
 - `kind`: `action` | `range` | `enum` | `toggle`
 - `range` needs `min`, `max`, `step`, optional `unit`
-- Templates in payload / path: `{value}`, `{token}`, `{host}`, `{port}`, `{id}`, and `{varName}` for room variables
+- Templates in payload / path: `{value}`, `{value:hex2}`, `{value:nrpn14}`, `{midiChannel}`, `{token}`, `{host}`, `{port}`, `{id}`, `{auth.field}`, and `{varName}`
+- `{midiChannel}` comes from the device instance field `midiChannel` (default 1). List `midiChannel` in `instanceFields` if the operator must set it.
+- `{value:nrpn14}` is 14-bit MIDI (two hex bytes) from the numeric value after `valueMap`.
+- `valueMap.hexBytes` formats an `int` map as zero-padded hex.
 - `requires` is optional. Example `["power.state=on"]`. Test buttons send `raw` and ignore this
 - `wake.protocol = "wol"` on power-on when the device sleeps hard
 - Do not hide extra conditions in prose; put them in `requires` or omit them
@@ -210,3 +213,18 @@ Model: {{MODEL}}
 Manual or notes: {{PASTE}}
 
 Write the driver JSON now.
+
+## Rules from real modules (Companion, vendor PDFs, captures)
+
+Work from the vendor protocol first. Companion is an action inventory, not the spec.
+
+- Room set: 8–25 commands. Do not port a full NRPN catalog.
+- One LAN plane. Example: Allen & Heath SQ 3rd-party control is MIDI-TCP **51325**, not MixPad 51326.
+- Probe must be cheap. Empty TCP connect is enough. Do not dump mixer state on connect. `pollMs` ≥ 4000 if you must GET a parameter.
+- Parse `contains` / `exact` / `regex` also match a hex dump of the reply. Prefer documented hex in `value` when `payloadEncoding` is `hex`.
+- Do not invent parse types (`midi`, `nrpn`, `sysex`) or engine keys.
+- Do not stuff decimal `{value}` into a hex payload. Use `{value:hex2}`, `{value:nrpn14}`, or `valueMap.hexBytes`.
+- If absolute faders need a taper law you cannot express, ship ±1 dB or omit set.
+- If a feature needs a live inbound MIDI stream, omit it and say so in `device.notes`.
+- Labels for a room: `Scene 1`, `LR Mute`, not console jargon.
+

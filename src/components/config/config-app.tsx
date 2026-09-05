@@ -524,6 +524,11 @@ export function ConfigApp() {
                               <input className={fieldClass()} placeholder="AA:BB:CC:DD:EE:FF" value={device.auth?.mac ?? ""} onChange={(e) => update((c) => { c.devices[index]!.auth = { ...c.devices[index]!.auth, mac: e.target.value }; })} />
                             </label>
                           ) : null}
+                          {fields.filter((name) => !["token", "mac", "password", "user"].includes(name)).map((name) => (
+                            <label key={name} className="grid gap-1 text-sm text-muted">{name}
+                              <input className={fieldClass()} value={device.auth?.[name] ?? ""} onChange={(e) => update((c) => { c.devices[index]!.auth = { ...c.devices[index]!.auth, [name]: e.target.value }; })} />
+                            </label>
+                          ))}
                         </>
                       );
                     })()}

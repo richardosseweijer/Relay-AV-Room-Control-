@@ -144,6 +144,7 @@ export type ValueMap = {
   outMin?: number;
   outMax?: number;
   decimals?: number;
+  hexBytes?: number;
 };
 
 export type DriverCommand = {

@@ -68,7 +68,11 @@ function mapCommandValue(command: DriverCommand, raw: string | number | undefine
   const outMax = spec.outMax ?? 1;
   const t = inMax === inMin ? 0 : (n - inMin) / (inMax - inMin);
   const out = outMin + Math.min(1, Math.max(0, t)) * (outMax - outMin);
-  if (spec.kind === "int") return Math.round(out);
+  if (spec.kind === "int") {
+    const rounded = Math.round(out);
+    if (spec.hexBytes && spec.hexBytes > 0) return rounded.toString(16).padStart(spec.hexBytes * 2, "0");
+    return rounded;
+  }
   return Number(out.toFixed(spec.decimals ?? 3));
 }
 
@@ -76,7 +80,16 @@ function renderPayload(template: string, value?: string | number, auth: Record<s
   const raw = String(value ?? "");
   const n = Number(value);
   const hex2 = Number.isFinite(n) ? Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0") : raw;
-  let out = template.replaceAll("{value:hex2}", hex2).replaceAll("{value}", raw);
+  const n14 = Number.isFinite(n) ? Math.max(0, Math.min(16383, Math.round(n))) : 0;
+  const nrpn = `${((n14 >> 7) & 0x7f).toString(16).padStart(2, "0")}${(n14 & 0x7f).toString(16).padStart(2, "0")}`;
+  const channel = auth.midiChannel || auth.channel || "1";
+  const ch = Math.max(1, Math.min(16, Number(channel) || 1));
+  let out = template
+    .replaceAll("{value:hex2}", hex2)
+    .replaceAll("{value:nrpn14}", nrpn)
+    .replaceAll("{midiChannel}", String(ch))
+    .replaceAll("{channel}", String(ch))
+    .replaceAll("{value}", raw);
   for (const [k, v] of Object.entries(auth)) out = out.replaceAll(`{auth.${k}}`, v);
   return out;
 }
@@ -695,7 +708,7 @@ export async function probeDevice(opts: { config: RoomConfig; drivers: Record<st
 }
 
 export async function scanDevicePorts(host: string, ports?: number[]) {
-  const list = ports ?? [80, 8001, 8002, 8008, 8009, 4352];
+  const list = ports ?? [80, 8001, 8002, 8008, 8009, 4352, 51325, 51326, 51327];
   const open: number[] = [];
   for (const port of list) {
     const res = await pingReachable({ host, port, timeoutMs: 400 });
@@ -761,13 +774,31 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
   return { ok: true, message: "ok", inventory };
 }
 
+function parseHaystacks(raw: string, needle?: string) {
+  const piles = [raw, raw.trim()];
+  const hexNeedle = !!needle && /^[0-9a-fA-F]{2,}(?:\s+[0-9a-fA-F]{2,})*$/.test(needle.trim());
+  const binary = /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(raw);
+  if (!hexNeedle && !binary) return [...new Set(piles)];
+  const hex = Buffer.from(raw, "latin1").toString("hex");
+  const spaced = hex.replace(/../g, (b) => `${b} `).trim();
+  return [...new Set([...piles, hex, hex.toUpperCase(), spaced, spaced.toUpperCase()])];
+}
+
 function parseFeedback(rule: DriverSpec["feedback"][number]["parse"] | undefined, raw: string): string {
   if (!rule) return raw.trim();
+  const piles = parseHaystacks(raw, rule.value ?? rule.pattern);
   let out = raw.trim();
   if (rule.type === "jsonpath") out = pickJsonField(raw, rule.path ?? "") ?? out;
-  else if (rule.type === "regex" && rule.pattern) out = raw.match(new RegExp(rule.pattern))?.[1] ?? out;
-  else if (rule.type === "contains") out = raw.toLowerCase().includes((rule.value ?? "").toLowerCase()) ? (rule.value ?? "1") : "";
-  else if (rule.type === "exact") out = raw.trim() === (rule.value ?? "") ? raw.trim() : "";
+  else if (rule.type === "regex" && rule.pattern) {
+    const re = new RegExp(rule.pattern);
+    out = piles.map((text) => text.match(re)?.[1]).find(Boolean) ?? out;
+  } else if (rule.type === "contains") {
+    const want = (rule.value ?? "").toLowerCase();
+    out = piles.some((text) => text.toLowerCase().includes(want)) ? (rule.value ?? "1") : "";
+  } else if (rule.type === "exact") {
+    const want = (rule.value ?? "").trim().toLowerCase();
+    out = piles.some((text) => text.trim().toLowerCase() === want) ? (rule.value ?? raw.trim()) : "";
+  }
   if (rule.map) {
     const hit = Object.keys(rule.map).find((k) => k.toLowerCase() === out.toLowerCase());
     if (hit) return rule.map[hit] ?? out;
