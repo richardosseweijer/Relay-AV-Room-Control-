@@ -2,6 +2,7 @@
 
 Room controller for local AV devices. Use it on a private LAN.
 
+- [How it is built](WHITEPAPER.md)
 - [Linux setup](LINUX.md)
 - [Windows setup](WINDOWS.md)
 - [Driver prompt for other AIs](DRIVER-PROMPT.md)
