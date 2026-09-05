@@ -75,7 +75,7 @@ export function WidgetShell({
         <NamedIcon
           name={widget.icon}
           className={cn(
-            "pointer-events-none absolute bottom-3 right-3 size-[58%] stroke-[1.25]",
+            "pointer-events-none absolute bottom-2 right-2 size-[68%] stroke-[1.25]",
             disabled ? "opacity-20" : active ? "opacity-[0.22]" : "opacity-[0.16]",
           )}
         />
