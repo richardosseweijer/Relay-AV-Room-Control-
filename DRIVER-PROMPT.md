@@ -75,7 +75,7 @@ One plane per driver. Example only: Allen & Heath SQ third-party control is MIDI
       "parse": { "type": "jsonpath", "path": "state", "map": { "on": "on", "off": "off" } }
     }
   ],
-  "inventory": []
+  "inventory": { "resources": [] }
 }
 ```
 
@@ -116,7 +116,7 @@ One plane per driver. Example only: Allen & Heath SQ third-party control is MIDI
       "parse": { "type": "contains", "value": "POWR=1" }
     }
   ],
-  "inventory": []
+  "inventory": { "resources": [] }
 }
 ```
 
@@ -139,7 +139,7 @@ Write the **entire** frame. Relay does not add status nibbles.
     { "id": "lr.mute.off", "label": "LR Unmute", "kind": "action", "transport": "lan", "payload": "B06300B06244B00600B02600", "payloadEncoding": "hex" }
   ],
   "feedback": [],
-  "inventory": []
+  "inventory": { "resources": [] }
 }
 ```
 
@@ -154,7 +154,7 @@ Write the **entire** frame. Relay does not add status nibbles.
 | `{token}` `{auth.token}` | stored token |
 | `{auth.FIELD}` | any other instance field |
 | `{host}` `{port}` `{id}` | this device |
-| `{varId}` | room variable with that id |
+| `{scene}` etc. | room variable whose **id** is that name (`{tvPower}` if the variable id is `tvPower`) |
 
 `valueMap` (`float` \| `int` \| `text`) runs **before** `{value}` / `{value:hex2}`. Optional `hexBytes` on an `int` map writes zero-padded hex into `{value}` — do not also wrap that in `{value:hex2}`.
 

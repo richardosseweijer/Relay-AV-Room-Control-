@@ -1,8 +1,8 @@
 export type TransportName = "lan" | "rs232" | "local";
 export type LocalKind = "gpio" | "serial" | "i2c" | "spi" | "ir" | "cec";
 export type CommandKind = "action" | "toggle" | "range" | "enum";
-export type FeedbackKind = "enum" | "range" | "toggle" | "string";
-export type ParseType = "regex" | "jsonpath" | "contains" | "exact";
+export type ParseType = "regex" | "jsonpath" | "contains" | "exact" | "map";
+export type FeedbackKind = "enum" | "range" | "toggle" | "string" | "text";
 export type FeedbackMode = "poll" | "push";
 export type ChecksumKind = "none" | "sum8" | "xor8" | "pjlink";
 export type PairingStep = {
@@ -33,8 +33,8 @@ export type DriverPairing = {
   discoverPath?: string;
   steps?: PairingStep[];
 };
-export type AuthType = "none" | "password" | "token" | "header";
-export type LanProtocol = "tcp" | "udp" | "http" | "https" | "websocket" | "pjlink" | "cast" | "wol";
+export type AuthType = "none" | "password" | "token" | "header" | "pin" | "userpass" | "pair";
+export type LanProtocol = "tcp" | "udp" | "http" | "https" | "websocket" | "tls-websocket" | "pjlink" | "cast" | "wol";
 
 export type MatchRule = {
   type: ParseType;
@@ -58,6 +58,7 @@ export type DriverSpec = {
       protocol: LanProtocol;
       port: number;
       encoding?: "ascii" | "hex" | "utf8";
+      payloadEncoding?: "ascii" | "hex";
       lineEnding?: string;
       timeoutMs?: number;
       session?: {

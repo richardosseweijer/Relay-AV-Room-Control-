@@ -254,17 +254,38 @@ async function sendLocal(driver: DriverSpec, device: DeviceInstance, payload: st
   return runTool("spidev_test", ["-D", path || "/dev/spidev0.0", "-p", payload]);
 }
 
-function encodeWire(payload: string, encoding: string | undefined, lineEnding?: string) {
+const paceClock = ((globalThis as typeof globalThis & { __relayPace__?: Map<string, number> }).__relayPace__ ??= new Map());
+
+async function paceDevice(id: string, minIntervalMs?: number) {
+  const gap = Math.max(0, minIntervalMs ?? 0);
+  if (!gap) return;
+  const wait = (paceClock.get(id) ?? 0) + gap - Date.now();
+  if (wait > 0) await sleep(wait);
+  paceClock.set(id, Date.now());
+}
+
+function wireEncoding(driver: DriverSpec, command?: DriverCommand) {
+  const lan = driver.transports.lan;
+  return command?.payloadEncoding || lan?.payloadEncoding || lan?.encoding;
+}
+
+function encodeWire(payload: string, encoding: string | undefined, lineEnding?: string): Buffer | { error: string } {
   const ending = lineEnding === undefined ? "" : lineEnding.replace(/\\r/g, "\r").replace(/\\n/g, "\n");
   if (encoding === "hex") {
     const hex = payload.replace(/[^0-9a-f]/gi, "");
-    if (hex.length % 2) return Buffer.from(payload);
+    if (!hex.length || hex.length % 2) return { error: "Odd hex payload" };
     return Buffer.from(hex, "hex");
   }
   return Buffer.from(`${payload}${ending}`, "utf8");
 }
 
-async function tcpWrite(host: string, port: number, payload: Buffer, timeout: number): Promise<CommandResult> {
+function decodeWire(buf: Buffer, encoding: string | undefined) {
+  if (!buf.length) return "ok";
+  if (encoding === "hex") return buf.toString("hex");
+  return buf.toString("utf8").slice(0, 400);
+}
+
+async function tcpWrite(host: string, port: number, payload: Buffer, timeout: number, encoding?: string): Promise<CommandResult> {
   const net = await import("node:net");
   return new Promise((resolve) => {
     const sock = net.connect({ host, port });
@@ -273,7 +294,7 @@ async function tcpWrite(host: string, port: number, payload: Buffer, timeout: nu
     sock.on("data", (d) => { buf = Buffer.concat([buf, d]); });
     sock.on("connect", () => { sock.write(payload); setTimeout(() => sock.end(), 80); });
     sock.on("error", (err) => { clearTimeout(timer); resolve({ ok: false, message: err.message }); });
-    sock.on("close", () => { clearTimeout(timer); resolve({ ok: true, message: buf.toString("utf8").slice(0, 300) || "ok" }); });
+    sock.on("close", () => { clearTimeout(timer); resolve({ ok: true, message: decodeWire(buf, encoding) }); });
   });
 }
 
@@ -612,24 +633,27 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
   const host = device.host;
   const port = device.port ?? lan.port;
   const timeout = lan.timeoutMs ?? 3000;
+  const encoding = wireEncoding(driver, command);
+  await paceDevice(device.id, driver.pacing?.minIntervalMs);
   pushTrace(device.id, "tx", `${command?.namespace ? command.namespace.split(".").pop() + " " : ""}${payload.slice(0, 160)}`);
   let result: CommandResult;
-  const wire = encodeWire(payload, command?.payloadEncoding || lan.encoding, lan.lineEnding ?? (lan.protocol === "pjlink" ? "\r" : undefined));
+  const wire = encodeWire(payload, encoding, lan.lineEnding ?? (lan.protocol === "pjlink" ? "\r" : undefined));
+  if ("error" in wire) return { ok: false, message: wire.error };
   if (lan.protocol === "wol") result = await sendWol(device.auth?.mac || "", host);
   else if (lan.protocol === "cast") result = await sendCast(host, port, payload, timeout, command?.namespace);
   else if (lan.protocol === "http" || lan.protocol === "https") {
     const path = (command?.httpPath || lan.http?.path || "/").replace("{auth.token}", device.auth?.token ?? "");
     result = await sendHttp(`${lan.protocol}://${host}:${port}${path}`, command?.httpMethod || lan.http?.method || "GET", payload, timeout);
-  } else if (lan.protocol === "websocket") result = await sendSamsungKey(host, port, payload, device.auth?.token, timeout);
+  } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") result = await sendSamsungKey(host, port, payload, device.auth?.token, timeout);
   else if (lan.protocol === "udp") {
     const dgram = await import("node:dgram");
     result = await new Promise((resolve) => {
       const sock = dgram.createSocket("udp4");
       sock.send(wire, port, host, (err) => { sock.close(); resolve(err ? { ok: false, message: err.message } : { ok: true, message: "udp sent" }); });
     });
-  } else if (lan.session) {
+  } else if (lan.session && encoding !== "hex") {
     result = await tcpSessionWrite(device.id, host, port, wire, lan.session, device.auth || {}, timeout);
-  } else result = await tcpWrite(host, port, wire, timeout);
+  } else result = await tcpWrite(host, port, wire, timeout, encoding);
   pushTrace(device.id, result.ok ? "rx" : "note", result.message);
   return result;
 }
@@ -810,6 +834,7 @@ function parseFeedback(rule: DriverSpec["feedback"][number]["parse"] | undefined
   const piles = parseHaystacks(raw, rule.value ?? rule.pattern);
   let out = raw.trim();
   if (rule.type === "jsonpath") out = pickJsonField(raw, rule.path ?? "") ?? out;
+  else if (rule.type === "map") out = raw.trim();
   else if (rule.type === "regex" && rule.pattern) {
     const re = new RegExp(rule.pattern);
     out = piles.map((text) => text.match(re)?.[1]).find(Boolean) ?? out;
