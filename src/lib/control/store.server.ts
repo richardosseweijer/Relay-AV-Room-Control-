@@ -2,7 +2,7 @@ import { bundledDrivers, defaultDeviceState, emptyRoomConfig } from "./defaults"
 import { readMonitorValue, runMacro, traces } from "./engine";
 import type { DeviceHealth, DeviceStateMap, DriverSpec, LogEntry, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
 import { applyMonitors, clampVar, resolveTemplate, seedVars, type VarMap } from "./vars";
-import { mkdir, readFile, writeFile, readdir, unlink, access } from "node:fs/promises";
+import { mkdir, readFile, writeFile, readdir, unlink, access, rename } from "node:fs/promises";
 import path from "node:path";
 
 const ROW_ID = "current";
@@ -199,18 +199,17 @@ export async function loadPersisted(): Promise<Memory> {
 
 async function writeFileStore(mem: Memory) {
   await mkdir(path.dirname(FILE_STORE), { recursive: true });
-  await writeFile(
-    FILE_STORE,
-    JSON.stringify({
-      config: normalize(mem.config),
-      drivers: mem.drivers,
-      state: mem.state,
-      vars: mem.vars,
-      latches: mem.latches ?? {},
-      stamps: Object.fromEntries(lastScheduleRun),
-    }),
-    "utf8",
-  );
+  const body = JSON.stringify({
+    config: normalize(mem.config),
+    drivers: mem.drivers,
+    state: mem.state,
+    vars: mem.vars,
+    latches: mem.latches ?? {},
+    stamps: Object.fromEntries(lastScheduleRun),
+  });
+  const tmp = `${FILE_STORE}.tmp`;
+  await writeFile(tmp, body, "utf8");
+  await rename(tmp, FILE_STORE);
 }
 
 let persistChain = Promise.resolve();
@@ -219,13 +218,9 @@ let persistDirty = false;
 
 async function flushPersist() {
   if (!persistDirty) return;
-  persistDirty = false;
   const mem = memory();
-  try {
-    await writeFileStore(mem);
-  } catch {
-    /* file busy */
-  }
+  await writeFileStore(mem);
+  persistDirty = false;
   const sql = await sqlOrNull();
   if (!sql) return;
   try {
@@ -242,13 +237,13 @@ async function flushPersist() {
         updated_at = now()
     `;
   } catch {
-    /* file store is enough */
+    /* file store already committed */
   }
 }
 
 export async function persistNow() {
   persistDirty = true;
-  persistChain = persistChain.then(flushPersist).catch(() => undefined);
+  persistChain = persistChain.then(flushPersist);
   await persistChain;
 }
 
@@ -257,7 +252,9 @@ export function persist() {
   if (persistTimer) return persistChain;
   persistTimer = setTimeout(() => {
     persistTimer = null;
-    persistChain = persistChain.then(flushPersist).catch(() => undefined);
+    persistChain = persistChain.then(flushPersist).catch(() => {
+      persistDirty = true;
+    });
   }, 800);
   return persistChain;
 }
@@ -365,8 +362,10 @@ async function runDueTriggers() {
     const right = String(resolveTemplate(rule.equals, mem.vars, mem.config.variables) ?? rule.equals);
     const hit = matchesTrigger(left, rule.compare || "eq", right);
     const prev = lastTriggerValue.get(rule.id);
-    lastTriggerValue.set(rule.id, `${hit}:${left}`);
-    if (!hit) continue;
+    if (!hit) {
+      lastTriggerValue.set(rule.id, `false:${left}`);
+      continue;
+    }
     if (rule.mode === "change") {
       if (prev === undefined || prev.startsWith("true:")) continue;
     }
@@ -374,10 +373,12 @@ async function runDueTriggers() {
     if (rule.mode === "interval" && now - (lastTriggerFire.get(rule.id) ?? 0) < wait) continue;
     if (rule.mode === "change" && now - (lastTriggerFire.get(rule.id) ?? 0) < 400) continue;
     const macro = mem.config.macros.find((m) => m.id === rule.macroId);
-    if (!macro || mem.runningMacro) {
-      if (macro && mem.runningMacro && !triggerQueue.includes(rule.id)) triggerQueue.push(rule.id);
+    if (!macro) continue;
+    if (mem.runningMacro) {
+      if (!triggerQueue.includes(rule.id)) triggerQueue.push(rule.id);
       continue;
     }
+    lastTriggerValue.set(rule.id, `true:${left}`);
     lastTriggerFire.set(rule.id, now);
     const waitMs = Math.min(rule.delayMs || 0, 15000);
     const macroRef = macro;
@@ -385,14 +386,21 @@ async function runDueTriggers() {
     void (async () => {
       if (waitMs) await new Promise((r) => setTimeout(r, waitMs));
       const live = memory();
-      if (live.runningMacro) return;
+      if (live.runningMacro) {
+        if (!triggerQueue.includes(rule.id)) triggerQueue.push(rule.id);
+        lastTriggerValue.set(rule.id, prev ?? "false:");
+        return;
+      }
       live.runningMacro = macroRef.id;
       const result = await runMacro({ config: live.config, drivers: live.drivers, state: live.state, vars: live.vars, health: live.health ?? (live.health = {}), macro: macroRef, host: live.host });
       live.runningMacro = null;
       if (result.ok) live.activeScene = macroRef.id;
       pushLog({ kind: "macro", ok: result.ok, title: `Trigger ${label}`, detail: result.message });
       const nextId = triggerQueue.shift();
-      if (nextId) lastTriggerFire.delete(nextId);
+      if (nextId) {
+        lastTriggerFire.delete(nextId);
+        lastTriggerValue.delete(nextId);
+      }
     })();
   }
 }

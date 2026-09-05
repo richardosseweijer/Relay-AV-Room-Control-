@@ -261,9 +261,7 @@ npm run driver:check -- data/drivers/samsung-qe50q65t.json
 npm run driver:check -- data/drivers/file.json --host 10.0.0.20 --command power.on --feedback power.state
 ```
 
-Static mode runs `validateDriver`, rejects unknown parse types, and warns about tokens the engine does not substitute and about an empty TCP probe that still expects the letters `ok`.
-
-Live mode (`--host`) builds a one-device room, runs `probeDevice`, then optionally one command with `raw: true` (no hidden `requires`) and one feedback parse. Pairing tokens may be passed with `--token`.
+Static mode validates manufacturer/model, command ids, parse types, and substitution tokens. With `--host` it opens a TCP connection to the advertised port. Full command execution remains in the running application.
 
 ---
 

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { applyHost, authenticateDevice, executeCommand, listHostInterfaces, pingReachable, probeDevice, runMacro, scanDevicePorts, sendRaw, syncInventory } from "./engine";
+import { applyHost, authenticateDevice, executeCommand, listHostInterfaces, pingReachable, probeDevice, runMacro, scanDevicePorts, sendRaw, syncInventory, traces } from "./engine";
 import { validateDriver } from "./schema";
 import { bundledDrivers } from "./defaults";
 import { ensureLoaded, memory, persist, persistNow, pushLog, snapshot, clearLog, normalize, writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName } from "./store.server";
@@ -74,6 +74,10 @@ export const getRoomState = createServerFn({ method: "POST" }).handler(async () 
 
 export const issuePanelSession = createServerFn({ method: "POST" }).handler(async () => {
   await ensureLoaded();
+  const room = memory().config.room;
+  if (room.panelAccess === "pin" && room.panelPin?.trim()) {
+    return { ok: false, token: null as string | null };
+  }
   return { ok: true, token: mint("panel") };
 });
 
@@ -82,7 +86,7 @@ export const getEditorConfig = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false as const, config: null };
-    return { ok: true as const, config: normalize(memory().config) };
+    return { ok: true as const, config: normalize(memory().config), traces: traces() };
   });
 
 export const verifyConfigPin = createServerFn({ method: "POST" })
@@ -137,7 +141,11 @@ export const saveConfig = createServerFn({ method: "POST" })
       if (!old || old.default !== v.default) vars[v.id] = v.default;
     }
     memory().vars = vars;
-    await persistNow();
+    try {
+      await persistNow();
+    } catch {
+      return { ok: false, message: "Save failed on disk" };
+    }
     return { ok: true, message: "Saved" };
   });
 

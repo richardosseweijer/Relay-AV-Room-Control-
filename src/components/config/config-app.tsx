@@ -182,6 +182,11 @@ export function ConfigApp() {
   async function refresh() {
     const next = await loadRoom();
     if (!next?.config?.room) return next;
+    if (token) {
+      const ed = await getEditorConfig({ data: { token } });
+      if (ed.ok && ed.traces) next.traces = ed.traces;
+      if (ed.ok && ed.config) setDraft((cur) => cur ?? structuredClone(ed.config));
+    }
     setSnap(next);
     return next;
   }

@@ -387,6 +387,7 @@ export function ControlPanel() {
             const res = await verifyPanelPin({ data: { pin } });
             if (res.ok && res.token) {
               sessionStorage.setItem("relay-panel-token", res.token);
+              setSession(res.token);
               setLocked(false);
             } else setNote("Wrong PIN");
           }}

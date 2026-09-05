@@ -24,7 +24,12 @@ export function traces(): Record<string, TraceLine[]> {
 export function pushTrace(deviceId: string, dir: TraceLine["dir"], text: string) {
   const bag = traces();
   const list = bag[deviceId] ?? (bag[deviceId] = []);
-  list.unshift({ at: Date.now(), dir, text: text.slice(0, 500) });
+  const safe = text
+    .replace(/("token"\s*:\s*")[^"]*/gi, "$1***")
+    .replace(/("password"\s*:\s*")[^"]*/gi, "$1***")
+    .replace(/(token=)[^&\s"]+/gi, "$1***")
+    .slice(0, 500);
+  list.unshift({ at: Date.now(), dir, text: safe });
   if (list.length > 40) list.length = 40;
 }
 
@@ -283,6 +288,48 @@ function decodeWire(buf: Buffer, encoding: string | undefined) {
   if (!buf.length) return "ok";
   if (encoding === "hex") return buf.toString("hex");
   return buf.toString("utf8").slice(0, 400);
+}
+
+async function sendPjlink(host: string, port: number, payload: string, password: string | undefined, timeout: number): Promise<CommandResult> {
+  const net = await import("node:net");
+  const crypto = await import("node:crypto");
+  const body = payload.replace(/\r?\n/g, "") + "\r";
+  return new Promise((resolve) => {
+    const sock = net.connect({ host, port });
+    let buf = "";
+    let sent = false;
+    const timer = setTimeout(() => { sock.destroy(); resolve({ ok: false, message: "PJLink timeout" }); }, timeout);
+    const fail = (message: string) => { clearTimeout(timer); sock.destroy(); resolve({ ok: false, message }); };
+    sock.setEncoding("utf8");
+    sock.on("error", (err) => fail(err.message));
+    sock.on("data", (chunk) => {
+      buf += chunk.toString();
+      if (!sent) {
+        const banner = buf.match(/PJLINK\s+(\d)(?:\s+([0-9a-fA-F]+))?/i);
+        if (!banner) return;
+        const secured = banner[1] === "1";
+        const rand = banner[2] ?? "";
+        if (secured) {
+          if (!password) return fail("PJLink password required");
+          const digest = crypto.createHash("md5").update(rand + password).digest("hex");
+          sock.write(digest + body);
+        } else sock.write(body);
+        sent = true;
+        buf = buf.slice(buf.indexOf(banner[0]) + banner[0].length);
+        return;
+      }
+      const line = buf.trim();
+      if (!line.includes("=") && !line.includes("ERR")) return;
+      clearTimeout(timer);
+      sock.end();
+      if (/ERRA/i.test(line)) resolve({ ok: false, message: "PJLink auth failed" });
+      else if (/ERR\d/i.test(line)) resolve({ ok: false, message: line.slice(0, 80) });
+      else resolve({ ok: true, message: line.slice(0, 200) });
+    });
+    sock.on("close", () => {
+      if (!sent) fail("no PJLink banner");
+    });
+  });
 }
 
 async function tcpWrite(host: string, port: number, payload: Buffer, timeout: number, encoding?: string): Promise<CommandResult> {
@@ -645,6 +692,7 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
     const path = (command?.httpPath || lan.http?.path || "/").replace("{auth.token}", device.auth?.token ?? "");
     result = await sendHttp(`${lan.protocol}://${host}:${port}${path}`, command?.httpMethod || lan.http?.method || "GET", payload, timeout);
   } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") result = await sendSamsungKey(host, port, payload, device.auth?.token, timeout);
+  else if (lan.protocol === "pjlink") result = await sendPjlink(host, port, payload, device.auth?.password || device.auth?.pin, timeout);
   else if (lan.protocol === "udp") {
     const dgram = await import("node:dgram");
     result = await new Promise((resolve) => {

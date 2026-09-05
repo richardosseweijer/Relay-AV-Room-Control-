@@ -12,6 +12,8 @@ public internet.
 ## Built-in limits
 
 - Configurator actions require the config PIN session.
+- A panel PIN, when set, must be verified before a panel session token is issued.
+- `/api/room` does not include device traces. Traces are redacted and only returned to the configurator session.
 - OS reboot is only available from the locked configurator, not from the
   room panel or macros.
 - `/api/vars` writes require header `x-relay-pin` equal to the config PIN.

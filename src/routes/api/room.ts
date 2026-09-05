@@ -21,6 +21,7 @@ export const Route = createFileRoute("/api/room")({
           if (!room) return Response.json(snap);
           return Response.json({
             ...snap,
+            traces: {},
             config: {
               ...snap.config,
               room: { ...room, configPin: "", panelPin: room.panelAccess === "pin" ? "" : null },
