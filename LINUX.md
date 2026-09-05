@@ -103,11 +103,26 @@ If the page never loads, check that nothing else is bound to 8081 (`ss -lptn | g
 
 ## 6. Start on boot (systemd)
 
-Replace the user and path if they differ. The block below uses the current login name and home.
+Linux starts background programs from **unit files**. Relay’s unit is a new file you create:
+
+`/etc/systemd/system/relay.service`
+
+You do not edit anything inside the Relay folder for this step. Stop the test server from §5 first (Ctrl+C in that terminal) so port 8081 is free.
+
+### 6a. Create the file in one paste
+
+This writes the unit with your current username and home directory:
+
+```bash
+whoami
+echo $HOME
+```
+
+You should see a name like `pi` and a path like `/home/pi`. Then paste all of the next block at once:
 
 ```bash
 USER_NAME="$(whoami)"
-HOME_DIR="$(eval echo "~$USER_NAME")"
+HOME_DIR="$HOME"
 sudo tee /etc/systemd/system/relay.service >/dev/null <<EOF
 [Unit]
 Description=Relay room controller
@@ -126,21 +141,76 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
+```
 
+`sudo tee …` creates the file as root. You will be asked for the account password. There is no output if it succeeds.
+
+Check the file:
+
+```bash
+cat /etc/systemd/system/relay.service
+```
+
+`User=` must be your login. `WorkingDirectory=` must be the folder from §4 (usually `/home/YOURNAME/Relay-AV-Room-Control-`).
+
+### 6b. Or create it with an editor
+
+```bash
+sudo nano /etc/systemd/system/relay.service
+```
+
+Paste this, then change `pi` and `/home/pi` if that is not your account (`whoami` and `echo $HOME`):
+
+```
+[Unit]
+Description=Relay room controller
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/Relay-AV-Room-Control-
+Environment=PATH=/usr/bin:/usr/local/bin
+ExecStart=/usr/bin/npx vite dev --host 0.0.0.0 --port 8081
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Save: Ctrl+O, Enter. Leave the editor: Ctrl+X.
+
+### 6c. Enable and start
+
+```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now relay
 sudo systemctl status relay --no-pager
 ```
 
-If Node came from nvm, add the nvm binary directory to `Environment=PATH=...` and keep `User=` as that account.
+`enable --now` means: start immediately and start again after every reboot.
 
-Useful later:
+You want `Active: active (running)` in green. Open `http://localhost:8081/` on the Pi.
+
+If it failed:
+
+```bash
+sudo journalctl -u relay -e --no-pager
+```
+
+Typical causes: the test server from §5 is still running, `WorkingDirectory` is wrong, or Node is not in `/usr/bin` (nvm users: put the nvm `bin` directory on the `Environment=PATH=` line).
+
+Later:
 
 ```bash
 sudo systemctl restart relay
-sudo journalctl -u relay -f
+sudo systemctl stop relay
+sudo nano /etc/systemd/system/relay.service
+sudo systemctl daemon-reload
+sudo systemctl restart relay
 ```
-
 ---
 
 ## 7. Update from GitHub
