@@ -1353,6 +1353,9 @@ function PagesEditor({
                 w.bind = { kind: "variable", variable: draft.variables[0]?.id ?? null };
               } else if (type === "button") {
                 w.bind = { kind: "macro", id: draft.macros[0]?.id ?? w.bind.id, gotoPage: null };
+              } else if (type === "schedule") {
+                w.label = w.label === "Button" || w.label === "Next" || !w.label ? "Next scheduled task" : w.label;
+                w.bind = { kind: "macro" };
               }
             })}
           >
@@ -1360,6 +1363,7 @@ function PagesEditor({
             <option value="slider">Slider</option>
             <option value="status">Status</option>
             <option value="label">Label</option>
+            <option value="schedule">Next schedule</option>
           </select>
           </label>
           {selected.type === "button" ? (

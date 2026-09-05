@@ -185,7 +185,7 @@ export type DriverFeedback = {
 };
 
 export type PanelAccess = "open" | "pin";
-export type WidgetType = "button" | "toggle" | "slider" | "label" | "status";
+export type WidgetType = "button" | "toggle" | "slider" | "label" | "status" | "schedule";
 export type BindKind = "command" | "feedback" | "macro" | "gotoPage" | "range" | "variable";
 export type FailKind = "macro" | "gotoPage" | "none";
 export type WidgetColor = "steel" | "sage" | "clay" | "fog" | "ink" | "ocean" | "pine" | "rust" | "sand" | "slate" | "rose";

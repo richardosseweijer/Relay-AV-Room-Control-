@@ -4,6 +4,7 @@ import { Settings2 } from "lucide-react";
 import { clearDeviceError, fireCommand, fireMacro, issuePanelSession, setLatch, setVariable, verifyPanelPin } from "@/lib/control/actions";
 import type { RoomSnapshot, Widget } from "@/lib/control/types";
 import { resolveBoundNumber } from "@/lib/control/vars";
+import { nextScheduled } from "@/lib/control/schedule";
 import { Button } from "@/components/ui/button";
 import { WidgetShell } from "./widget-face";
 import { cn } from "@/lib/utils";
@@ -222,7 +223,7 @@ export function ControlPanel() {
       setDim(false);
       return;
     }
-    if (widget.type === "status" || widget.type === "label") return;
+    if (widget.type === "status" || widget.type === "label" || widget.type === "schedule") return;
     if (!enabled(snap, widget)) return;
     if (widget.confirm && confirm?.id !== widget.id) {
       setConfirm(widget);
@@ -461,6 +462,26 @@ export function ControlPanel() {
                 style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
               >
                 {widget.label}
+              </div>
+            );
+          }
+          if (widget.type === "schedule") {
+            const upcoming = nextScheduled(snap.config.schedules, snap.config.room.network?.timezone);
+            return (
+              <div
+                key={widget.id}
+                style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
+              >
+                <WidgetShell widget={{ ...widget, label: widget.label === "Next" || widget.label === "Button" || !widget.label ? "Next scheduled task:" : widget.label }}>
+                  {upcoming ? (
+                    <span className="flex flex-col gap-1">
+                      <span className="text-xl font-medium leading-tight">{upcoming.label}</span>
+                      <span className="text-base text-muted">{upcoming.when}</span>
+                    </span>
+                  ) : (
+                    <span className="text-xl font-medium">Nothing scheduled</span>
+                  )}
+                </WidgetShell>
               </div>
             );
           }
