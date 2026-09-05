@@ -1,229 +1,201 @@
 # Relay driver authoring prompt
 
-Copy everything below the line to another AI. Attach the device manual or paste model + protocol notes. Do not attach Relay source.
+Copy everything below the line to another AI. Attach the device manual (or model + protocol notes). Do not attach Relay source. Do not write JavaScript.
 
 ---
 
-You are writing a **Relay room-controller driver**. Output **one JSON file only** (no markdown fence unless asked). Filename: `{manufacturer}-{model}.json` in lowercase, hyphens, `.json` suffix.
+You write **one Relay driver**: a single JSON file. Filename `{manufacturer}-{model}.json` (lowercase, hyphens).
 
-Relay talks to devices through **transports**. The JSON must describe every command, poll, pairing step, and value conversion. Do not invent engine features. If the manual is unclear, omit that command and mention it in `device.notes`.
+Relay is a room controller. The JSON is **data only**. The engine already sends HTTP, TCP, WebSocket, Cast, WOL, and hex/ASCII payloads. You fill ports, paths, and bytes from the manual. You do not invent keys, parse types, or a scripting language.
 
-## File shape
+If the manual is unclear, **omit that command** and mention it in `device.notes`.
+
+## 10-minute workflow
+
+1. Read the vendor protocol (PDF / MIDI-TCP / HTTP). Companion and MixPad are inventories, not the spec.
+2. Pick **one** LAN plane (table below).
+3. Copy the matching skeleton. Keep `specVersion` `"2"`.
+4. Add 8–25 room commands only (power, source, mute, 1–2 levels, a few scenes). Not the full remote dump.
+5. Add feedback only if you can parse it with `contains` / `exact` / `regex` / `jsonpath` / `map`.
+6. Probe must be cheap (empty TCP or one GET). Pairing is a separate Authenticate step.
+7. Output valid JSON only.
+
+## Pick a transport
+
+| If the manual says | `protocol` | `payloadEncoding` | `lineEnding` |
+|---|---|---|---|
+| REST / JSON HTTP | `http` or `https` | `ascii` | `""` |
+| ASCII socket (PJLink, Extron, ADCP) | `tcp` | `ascii` | `"\r"` unless the doc says otherwise |
+| Raw bytes / MIDI-TCP | `tcp` | `hex` | `""` |
+| Browser WebSocket | `websocket` | `ascii` | `""` |
+| TLS WebSocket (Samsung 8002) | `tls-websocket` | `ascii` | `""` |
+| Chromecast | `cast` | `ascii` | `""` |
+
+One plane per driver. Example only: Allen & Heath SQ third-party control is MIDI-TCP **51325**, not MixPad 51326. Other desks use their own port.
+
+## Skeleton A — HTTP
 
 ```json
 {
   "specVersion": "2",
-  "device": {
-    "manufacturer": "Brand",
-    "model": "Exact model",
-    "type": "display | projector | amplifier | lights | camera | switcher | host | other",
-    "notes": "Short operator notes: ports, pairing, quirks."
-  },
+  "device": { "manufacturer": "Brand", "model": "Model", "type": "display", "notes": "Port 80. Token in the device card." },
   "transports": {
     "lan": {
-      "protocol": "http | https | tcp | websocket | tls-websocket | cast",
+      "protocol": "http",
       "port": 80,
       "encoding": "ascii",
-      "payloadEncoding": "ascii",
-      "lineEnding": "\r",
       "timeoutMs": 2000,
       "http": { "method": "GET", "path": "/api", "contentType": "application/json" }
     }
   },
-  "auth": {
-    "type": "none | token | pin | userpass | pair",
-    "instanceFields": ["token"],
-    "pairing": {
-      "discoverPath": "/api/v2/",
-      "prompt": "Accept Allow on the device"
+  "auth": { "type": "token", "instanceFields": ["token"] },
+  "pacing": { "minIntervalMs": 120 },
+  "probe": { "transport": "lan", "payload": "", "success": { "type": "contains", "value": "ok" } },
+  "commands": [
+    {
+      "id": "power.on",
+      "label": "Power On",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "",
+      "httpPath": "/api/{token}/power",
+      "httpMethod": "PUT"
+    }
+  ],
+  "feedback": [
+    {
+      "id": "power.state",
+      "label": "Power",
+      "kind": "enum",
+      "values": ["off", "on"],
+      "transport": "lan",
+      "mode": "poll",
+      "httpPath": "/api/{token}/power",
+      "pollMs": 4000,
+      "parse": { "type": "jsonpath", "path": "state", "map": { "on": "on", "off": "off" } }
+    }
+  ],
+  "inventory": []
+}
+```
+
+## Skeleton B — ASCII TCP
+
+```json
+{
+  "specVersion": "2",
+  "device": { "manufacturer": "Brand", "model": "Model", "type": "projector", "notes": "TCP 4352. Password prompt PJLINK 1." },
+  "transports": {
+    "lan": {
+      "protocol": "tcp",
+      "port": 4352,
+      "encoding": "ascii",
+      "payloadEncoding": "ascii",
+      "lineEnding": "\r",
+      "timeoutMs": 2000,
+      "session": { "passwordPrompt": "PJLINK 1", "keepMs": 30000 }
     }
   },
-  "pacing": { "minIntervalMs": 120, "powerOnDelayMs": 0 },
+  "auth": { "type": "pin", "instanceFields": ["password"] },
+  "pacing": { "minIntervalMs": 150 },
   "probe": { "transport": "lan", "payload": "", "success": { "type": "contains", "value": "ok" } },
-  "commands": [],
+  "commands": [
+    { "id": "power.on", "label": "Power On", "kind": "action", "transport": "lan", "payload": "%1POWR 1" },
+    { "id": "power.off", "label": "Power Off", "kind": "action", "transport": "lan", "payload": "%1POWR 0" }
+  ],
+  "feedback": [
+    {
+      "id": "power.state",
+      "label": "Power",
+      "kind": "enum",
+      "values": ["off", "on"],
+      "transport": "lan",
+      "mode": "poll",
+      "query": "%1POWR ?",
+      "pollMs": 5000,
+      "parse": { "type": "contains", "value": "POWR=1", "map": { "POWR=1": "on", "POWR=0": "off" } }
+    }
+  ],
+  "inventory": []
+}
+```
+
+## Skeleton C — hex TCP (MIDI / binary)
+
+Write the **entire** frame. Relay does not add status nibbles.
+
+```json
+{
+  "specVersion": "2",
+  "device": { "manufacturer": "Allen & Heath", "model": "SQ-5", "type": "amplifier", "notes": "MIDI-TCP 51325. MIDI channel 1 (status B0). Blank scenes will not load." },
+  "transports": {
+    "lan": { "protocol": "tcp", "port": 51325, "encoding": "hex", "payloadEncoding": "hex", "lineEnding": "", "timeoutMs": 2000 }
+  },
+  "auth": { "type": "none", "instanceFields": ["midiChannel"] },
+  "pacing": { "minIntervalMs": 40 },
+  "probe": { "transport": "lan", "payload": "", "success": { "type": "contains", "value": "ok" } },
+  "commands": [
+    { "id": "lr.mute.on", "label": "LR Mute", "kind": "action", "transport": "lan", "payload": "B06300B06244B0067F", "payloadEncoding": "hex" },
+    { "id": "lr.mute.off", "label": "LR Unmute", "kind": "action", "transport": "lan", "payload": "B06300B06244B00600", "payloadEncoding": "hex" }
+  ],
   "feedback": [],
   "inventory": []
 }
 ```
 
-`specVersion` must be `"2"`. `rs232` and `local` may be added next to `lan` but LAN is enough for v1.
+## Tokens the engine substitutes
 
-## Transports
-
-Use **one primary LAN protocol** that the manual specifies.
-
-| protocol | when |
+| token | becomes |
 |---|---|
-| `http` / `https` | REST or simple GET/POST |
-| `tcp` | raw ASCII/hex socket (PJLink, ADCP, Extron, MIDI-TCP, many mixers) |
-| `websocket` | unencrypted WS |
-| `tls-websocket` | Samsung 8002 and similar |
-| `cast` | Chromecast / Google Cast TLS protobuf |
+| `{value}` | mapped command value as text |
+| `{value:hex2}` | number clamped 0–255 → two lowercase hex chars (`7f`) |
+| `{value:nrpn14}` | number clamped 0–16383 → two 7-bit bytes as four hex chars (`765c`). Not a full NRPN message. |
+| `{midiChannel}` | `device.auth.midiChannel` or `channel`, default `1`, range 1–16. Decimal. Not `B0`. |
+| `{token}` `{auth.token}` | stored token |
+| `{auth.FIELD}` | any other instance field |
+| `{host}` `{port}` `{id}` | this device |
+| `{varId}` | room variable with that id |
 
-Optional LAN fields:
+`valueMap` (`float` \| `int` \| `text`) runs **before** `{value}` / `{value:hex2}`. Optional `hexBytes` on an `int` map writes zero-padded hex into `{value}` — do not also wrap that in `{value:hex2}`.
 
-- `session`: `{ "login": "payload", "passwordPrompt": "text", "keepMs": 30000 }` for devices that greet then wait for a password
-- `payloadEncoding`: `"ascii"` (default) or `"hex"` (binary protocols)
-- `lineEnding`: `"\r"`, `"\n"`, `"\r\n"`, or `""`
-- `wake`: on a command, `{ "protocol": "wol" }` plus the instance MAC
-
-Optional `rs232`: `{ "baud": 9600, "dataBits": 8, "parity": "none", "stopBits": 1, "encoding": "ascii", "lineEnding": "\r" }`
-
-Optional `local.kind`: `serial | gpio | i2c | spi | ir | cec`
-
-## Auth and pairing
-
-`auth.type`:
+## Auth
 
 - `none` — open port
-- `token` — operator pastes a token; field id `token`
-- `pin` / `userpass` — instance fields `pin` or `user` + `password`
-- `pair` — device shows Allow; Relay stores `token` from the response
+- `token` — operator pastes `token`
+- `pin` / `userpass` — `pin` or `user` + `password`
+- `pair` — device shows Allow; store `token` from the response (`pairing.discoverPath` + `prompt`)
 
-`instanceFields` lists keys stored per device. Built-in labels: `token`, `mac`, `user`, `password`, `pin`. Any other name (example `midiChannel`) is shown as a plain field and stored on `device.auth`.
+List extras in `instanceFields` (`midiChannel`, `mac`, …). They appear on the device card.
 
-Pairing must be described in JSON only (paths, ports, success text). After pairing, later commands use `{token}` or `{auth.token}`.
+## Commands and feedback
 
-## Commands
-
-```json
-{
-  "id": "power.on",
-  "label": "Power On",
-  "kind": "action",
-  "transport": "lan",
-  "payload": "",
-  "httpPath": "/api/power",
-  "httpMethod": "POST",
-  "requires": [],
-  "valueMap": null,
-  "ack": { "success": { "type": "contains", "value": "OK" } }
-}
-```
-
-Rules:
-
-- `id` is stable, dotted, lowercase: `power.on`, `power.off`, `volume.set`, `input.hdmi1`
 - `kind`: `action` | `range` | `enum` | `toggle`
-- `range` needs `min`, `max`, `step`, optional `unit`
-- `requires` is optional. Example `["power.state=on"]`. Test buttons send `raw` and ignore this
-- `wake.protocol = "wol"` on power-on when the device sleeps hard
-- Do not hide extra conditions in prose; put them in `requires` or omit them
-
-### Templates the engine actually substitutes
-
-Write the **full** payload yourself. Relay does not add MIDI status bytes, running status, or NRPN framing.
-
-| token | what it becomes |
-|---|---|
-| `{value}` | string of the mapped command value |
-| `{value:hex2}` | that number clamped 0–255 as two lowercase hex chars (`00`–`ff`). No spaces. |
-| `{value:nrpn14}` | that number clamped 0–16383 as two 7-bit bytes, four lowercase hex chars (`765c`). Not a full NRPN message. |
-| `{midiChannel}` | `device.auth.midiChannel` or `device.auth.channel`, default `1`, clamped 1–16 |
-| `{token}` / `{auth.token}` | stored token |
-| `{auth.FIELD}` | any other key on `device.auth` |
-| `{host}` `{port}` `{id}` | device instance |
-| `{varName}` | room variable |
-
-Prefer `{value:hex2}` for one data byte. Use `{value:nrpn14}` only when the device wants 14-bit data bytes and you write the rest of the frame.
-
-Worked NRPN data-entry (MIDI channel 1 hardcoded in the status nibble `B0`):
-
-```json
-{
-  "id": "lr.mute.on",
-  "label": "LR Mute",
-  "kind": "action",
-  "transport": "lan",
-  "payload": "B06300B06244B0067F",
-  "payloadEncoding": "hex"
-}
-```
-
-Same frame with an operator-set channel — you still write `B0`; only replace data you do not know. Relay will not turn `{midiChannel}` into `B0`.
-
-If the channel must appear in the status byte, put the whole nibble in the payload (`B0` … `BF`) and state “MIDI channel 1” in `device.notes`, or list `midiChannel` in `instanceFields` and only use `{midiChannel}` where a decimal 1–16 is legal.
-
-`valueMap.hexBytes` (optional, `kind: "int"` only) writes the mapped integer as zero-padded hex **before** `{value}` substitution. Do not also wrap that in `{value:hex2}`.
-
-### Value maps
-
-Panel 0–100 → device 0–1:
-
-```json
-"valueMap": { "kind": "float", "inMin": 0, "inMax": 100, "outMin": 0, "outMax": 1 }
-```
-
-`kind`: `float` | `int` | `text`.
-
-## Feedback (polls)
-
-```json
-{
-  "id": "power.state",
-  "label": "Power",
-  "kind": "enum",
-  "values": ["off", "on"],
-  "transport": "lan",
-  "mode": "poll",
-  "query": "",
-  "httpPath": "/api/v2/",
-  "pollMs": 4000,
-  "parse": { "type": "jsonpath", "path": "device.PowerState", "map": { "on": "on", "off": "off" } }
-}
-```
-
-`parse.type`: `contains` | `exact` | `regex` | `jsonpath` | `map`.
-
-Do not invent `midi`, `nrpn`, or `sysex`.
-
-If the reply is binary **or** `value` / `pattern` looks like hex (`B02601` or `B0 26 01`), Relay also matches against a hex dump of the bytes (lowercase and uppercase, packed and spaced). ASCII/JSON polls are not hex-dumped.
-
-Use a quiet HTTP status plane when the control socket should stay idle.
-
-## Inventory
-
-```json
-{
-  "id": "lights",
-  "label": "Lights",
-  "resource": "lights",
-  "query": "/api/{token}/lights",
-  "parse": { "type": "jsonpath", "path": "" },
-  "command": "light.on"
-}
-```
+- Range needs `min`, `max`, `step`
+- `requires`: optional `["power.state=on"]`. Test buttons send `raw` and skip this
+- `wake`: `{ "protocol": "wol" }` plus instance `mac` for hard-sleep power-on
+- Parse types only: `contains`, `exact`, `regex`, `jsonpath`, `map`
+- Binary replies: hex needle (`B02601` or `B0 26 01`) is also matched against a hex dump. JSON/ASCII polls are not hex-dumped
+- Inventory: only for bridges that list children (lights, scenes)
 
 ## Probe
 
-Cheap reachability only. Empty TCP connect is enough (`payload: ""`). Must not pop a pairing dialog. Pairing is Authenticate.
+Empty payload + TCP connect is enough. Do not dump mixer state. `pollMs` ≥ 4000 if you must GET a parameter. Pairing dialogs belong on Authenticate, not probe.
 
-## What Relay already does (do not reimplement in JSON)
+## Do not
 
-- WOL from `wake`
-- Range mapping via `valueMap`
-- The templates in the table above
-- Macros, delays, retries, nested macros, variables, schedules, triggers
-- Host UI (`relay-host.json` only)
-- Serial/GPIO when the operator picks an interface
+- Invent parse types (`midi`, `nrpn`, `sysex`) or engine keys
+- Put JS, formulas, or loops in the JSON
+- Stuff decimal `{value}` into a hex payload
+- Port a Companion catalog (48 inputs × N mixes)
+- Use MixPad / vendor-app framing because a sniffer saw it
+- Claim live MIDI feedback unless you can parse a poll with the types above — if not, omit it and say so in `device.notes`
+- Put host UI (dim, lock, toast) in a device driver
 
 ## Quality bar
 
-- 8–25 commands operators actually use
-- Labels: two or three words
-- No secrets
-- Valid JSON
-- Vendor protocol first; Companion / MixPad / HA are inventories, not the spec
-- If the only honest encoding needs a live inbound stream, a taper law, or a parse type Relay does not have: omit the command and say so in `device.notes`
-
-## Rules from real modules
-
-- Do not port a full NRPN / action catalog.
-- One LAN plane per driver. Example only: Allen & Heath SQ third-party MIDI-TCP is port **51325**, not MixPad 51326. Other mixers use their own documented port.
-- `pollMs` ≥ 4000 if a parameter GET is the only probe.
-- Do not stuff decimal `{value}` into a hex payload.
-- If absolute faders need a taper law you cannot express, ship ±1 dB or omit set.
-- Notes install the device (port, MIDI channel, blank scenes) not the protocol essay.
+- 8–25 labels an operator would tap: `Power On`, `HDMI 2`, `LR Mute`, `Scene 1`
+- Every payload appears in a vendor doc, a capture, or a module that cites the doc
+- Notes install the box (port, channel, “blank scenes will not load”), not a protocol essay
 
 ## Task
 
@@ -231,4 +203,4 @@ Manufacturer: {{MANUFACTURER}}
 Model: {{MODEL}}
 Manual or notes: {{PASTE}}
 
-Write the driver JSON now.
+Write the driver JSON now. Pick skeleton A, B, or C and fill it.
