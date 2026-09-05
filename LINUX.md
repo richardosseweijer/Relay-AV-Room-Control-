@@ -1,20 +1,59 @@
-# Relay — Linux / Raspberry Pi
+# Relay — Linux / Raspberry Pi from a blank install
 
-Works on Debian, Ubuntu, Raspberry Pi OS (64-bit), and similar.
+This guide assumes a newly installed 64-bit Debian, Ubuntu, or Raspberry Pi OS. No Node, Git, or extra packages are required beforehand. A network connection that can reach GitHub and deb.nodesource.com is required.
 
-Default login after first start: config PIN `1234`. Change it before a real room.
+Default configurator PIN after first start: `1234`. Change it before a live room.
 
-## 1. Packages
+Commands below are run in a terminal as a normal user that can use `sudo`.
+
+---
+
+## 0. Confirm the machine is online
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg
+ping -c 1 github.com
+```
+
+If `ping` fails, fix Wi-Fi or Ethernet before continuing (`nmtui` on many desktops, or the Raspberry Pi Imager Wi-Fi settings).
+
+---
+
+## 1. Base tools
+
+```bash
+sudo apt-get install -y git build-essential
+```
+
+`build-essential` is only needed if `npm install` later compiles a native module. It is cheap to include on a fresh card.
+
+---
+
+## 2. Node.js 22 LTS
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs git gpiod i2c-tools cec-utils lirc
-node -v   # expect v22.x
+sudo apt-get install -y nodejs
+node -v
+npm -v
 ```
 
-On Raspberry Pi you can use [nvm](https://github.com/nvm-sh/nvm) instead of the NodeSource apt repo. If you do, put the nvm `node` on `PATH` for the service user (see §4).
+`node -v` must print `v22` or newer. If the NodeSource script fails (no outbound HTTPS), install Node 22 from [https://nodejs.org](https://nodejs.org) instead and ensure `node` and `npm` are on `PATH`.
 
-| Relay interface | Tool | Package |
+On a Raspberry Pi you may use [nvm](https://github.com/nvm-sh/nvm) instead of NodeSource. If you do, the systemd unit in §6 must include that user’s nvm `bin` directory on `PATH`.
+
+---
+
+## 3. Optional hardware packages
+
+Install these if this machine will drive GPIO, I2C, CEC, or IR. Skip on a plain PC that only talks LAN.
+
+```bash
+sudo apt-get install -y gpiod i2c-tools cec-utils lirc
+```
+
+| Function | Tool | Package |
 |---|---|---|
 | LAN | Node 22 | `nodejs` |
 | GPIO | `gpioset` | `gpiod` |
@@ -22,38 +61,54 @@ On Raspberry Pi you can use [nvm](https://github.com/nvm-sh/nvm) instead of the 
 | CEC | `cec-client` | `cec-utils` |
 | IR | `ir-ctl` / `irsend` | `lirc` |
 | Serial | `/dev/tty*` | kernel |
-| SPI | `spidev_test` | not a standard apt package; add later if you use SPI |
 
-On a Pi, enable I2C / Serial / SPI in `sudo raspi-config` → Interface Options, then reboot.
+On Raspberry Pi OS: `sudo raspi-config` → Interface Options → enable I2C / Serial / SPI as needed → reboot.
 
-## 2. Get the project
+---
+
+## 4. Clone Relay
 
 ```bash
+cd ~
 git clone https://github.com/richardosseweijer/Relay-AV-Room-Control-.git
-cd Relay-AV-Room-Control-
+cd ~/Relay-AV-Room-Control-
 npm install
 ```
 
-If you only have a zip, unpack it and `cd` into that folder instead, then `npm install`.
+`npm install` can take several minutes. Deprecation warnings from npm are normal.
 
-## 3. Test once
+A zip download works for a first run (`unzip`, then `cd` into the folder and `npm install`). The in-app **Update from GitHub** button only works on a `git clone`.
+
+---
+
+## 5. Start once and confirm
 
 ```bash
+cd ~/Relay-AV-Room-Control-
 npx vite dev --host 0.0.0.0 --port 8081
 ```
 
-On this machine: [http://localhost:8081/](http://localhost:8081/)  
-From a phone: `http://PI-IP:8081/` — `hostname -I` prints the address.  
-Configurator: [http://localhost:8081/config](http://localhost:8081/config) — PIN `1234`.
+Leave that terminal open. You should see `Local: http://localhost:8081/`.
 
-Ctrl+C when it looks healthy.
+- This machine: [http://localhost:8081/](http://localhost:8081/)
+- Another device on the same LAN: `http://HOST-IP:8081/`  
+  Print the address with `hostname -I`.
+- Configurator: [http://localhost:8081/config](http://localhost:8081/config) — PIN `1234`.
 
-## 4. Start on boot (systemd)
+Stop the test process with Ctrl+C.
 
-Replace `pi` and the path if your user or folder differ.
+If the page never loads, check that nothing else is bound to 8081 (`ss -lptn | grep 8081`) and that a host firewall is not blocking the port (`sudo ufw allow 8081/tcp` when ufw is active). Do not forward 8081 to the public internet.
+
+---
+
+## 6. Start on boot (systemd)
+
+Replace the user and path if they differ. The block below uses the current login name and home.
 
 ```bash
-sudo tee /etc/systemd/system/relay.service >/dev/null <<'EOF'
+USER_NAME="$(whoami)"
+HOME_DIR="$(eval echo "~$USER_NAME")"
+sudo tee /etc/systemd/system/relay.service >/dev/null <<EOF
 [Unit]
 Description=Relay room controller
 After=network-online.target
@@ -61,8 +116,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/Relay-AV-Room-Control-
+User=${USER_NAME}
+WorkingDirectory=${HOME_DIR}/Relay-AV-Room-Control-
 Environment=PATH=/usr/bin:/usr/local/bin
 ExecStart=/usr/bin/npx vite dev --host 0.0.0.0 --port 8081
 Restart=on-failure
@@ -77,7 +132,7 @@ sudo systemctl enable --now relay
 sudo systemctl status relay --no-pager
 ```
 
-If Node came from nvm, set `User` to that account and add the nvm bin dir to `Environment=PATH=...`.
+If Node came from nvm, add the nvm binary directory to `Environment=PATH=...` and keep `User=` as that account.
 
 Useful later:
 
@@ -86,34 +141,38 @@ sudo systemctl restart relay
 sudo journalctl -u relay -f
 ```
 
-After `git pull && npm install`, run `sudo systemctl restart relay`.
+---
 
-## 5. Update from GitHub
+## 7. Update from GitHub
 
-The folder must be a `git clone` of [Relay-AV-Room-Control-](https://github.com/richardosseweijer/Relay-AV-Room-Control-).
+The application directory must be a clone of [Relay-AV-Room-Control-](https://github.com/richardosseweijer/Relay-AV-Room-Control-).
 
 Configurator → Room → **Save all**, then **Update from GitHub**. Confirm the warning.
 
-That stops Relay, runs `git pull --ff-only` and `npm install`, then starts it again. Under systemd it runs `systemctl restart relay`. The room is down for a minute. Log: `data/relay-update.log`.
+That stops Relay, runs `git pull --ff-only` and `npm install`, then starts it again. Under systemd it runs `systemctl restart relay`. The room is unavailable for about a minute. Log: `data/relay-update.log`.
 
-Local uncommitted edits can block the pull. Zip installs cannot use this button.
+Uncommitted local edits can block the pull. A zip-only copy cannot use the button.
 
-Manual:
+Manual equivalent:
 
 ```bash
-cd Relay-AV-Room-Control-
+cd ~/Relay-AV-Room-Control-
 git pull --ff-only
 npm install
 sudo systemctl restart relay
 ```
 
-## 6. Data
+---
 
-Room data lives in `data/relay-room.json` and `data/drivers/`. Back those up if you rebuild the card.
+## 8. Data
+
+Room configuration is stored in `data/relay-room.json` and `data/drivers/`. Copy those files off the card before a re-image.
+
+---
 
 ## Notes
 
-- Stay on a private LAN. Do not port-forward 8081 to the internet.
-- Serial / GPIO / CEC only work on the machine that has the hardware.
-- `vite dev` is the supported run mode today. Do not use `npm start` — there isn’t one.
+- Keep Relay on a private LAN. Do not port-forward 8081.
+- Serial, GPIO, and CEC only work on the machine that has the hardware.
+- The supported run mode is `npx vite dev`. There is no `npm start` script.
 - Check a driver file: `npm run driver:check -- data/drivers/samsung-qe50q65t.json`
