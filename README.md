@@ -18,6 +18,4 @@ The software is provided **as is**, with **no warranties** of any kind, express 
 
 **You use it entirely at your own risk.** The author and contributors accept **no liability** for any loss, damage, injury, downtime, data loss, device damage, or other claim that arises from installing, configuring, or running this software.
 
-If you need a product you can hold someone accountable for, do not use this code in a live room until a qualified person has reviewed it.
-
 See also the license file in this repository.
