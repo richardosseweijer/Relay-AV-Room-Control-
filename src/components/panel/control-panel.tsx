@@ -111,8 +111,9 @@ export function ControlPanel() {
   const [session, setSession] = useState("");
   const [drag, setDrag] = useState<Record<string, number>>({});
   const dragRef = useRef<Record<string, number>>({});
-  const hold = useRef<number | null>(null);
   const slideTimer = useRef<number | null>(null);
+  const misses = useRef(0);
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     const t = window.setInterval(() => setClock(new Date()), 30000);
@@ -194,19 +195,22 @@ export function ControlPanel() {
   }, [awake]);
 
   async function refresh() {
-    const res = await fetch("/api/room", { cache: "no-store" });
-    if (!res.ok) {
-      setLoadErr(`Room ${res.status}`);
+    try {
+      const res = await fetch("/api/room", { cache: "no-store", signal: AbortSignal.timeout(4000) });
+      if (!res.ok) throw new Error(`Room ${res.status}`);
+      const next = await res.json().catch(() => null) as RoomSnapshot | null;
+      if (!next?.config?.room) throw new Error("Room file unreadable");
+      misses.current = 0;
+      setOffline(false);
+      setLoadErr(null);
+      setSnap(next);
+      return next;
+    } catch (err) {
+      misses.current += 1;
+      if (misses.current >= 2) setOffline(true);
+      setLoadErr(err instanceof Error ? err.message : "Room unreachable");
       return snap;
     }
-    const next = await res.json().catch(() => null) as RoomSnapshot | null;
-    if (!next?.config?.room) {
-      setLoadErr("Room file unreadable");
-      return snap;
-    }
-    setLoadErr(null);
-    setSnap(next);
-    return next;
   }
 
   useEffect(() => {
@@ -230,7 +234,6 @@ export function ControlPanel() {
       }
     })();
     const tick = () => {
-      if (document.visibilityState === "hidden") return;
       if (Object.keys(dragRef.current).length) return;
       refresh().catch(() => undefined);
     };
@@ -461,15 +464,11 @@ export function ControlPanel() {
           <button
             type="button"
             className="inline-flex size-12 items-center justify-center rounded-2xl border border-border/80 bg-surface/80 text-subtle"
-            onPointerDown={() => {
-              hold.current = window.setTimeout(() => {
-                sessionStorage.removeItem("relay-config-token");
-                void navigate({ to: "/config" });
-              }, 2000);
+            onClick={() => {
+              sessionStorage.removeItem("relay-config-token");
+              void navigate({ to: "/config" });
             }}
-            onPointerUp={() => { if (hold.current) window.clearTimeout(hold.current); }}
-            onPointerLeave={() => { if (hold.current) window.clearTimeout(hold.current); }}
-            aria-label="Hold for setup"
+            aria-label="Setup"
           >
             <Settings2 className="size-4" />
           </button>
@@ -598,6 +597,12 @@ export function ControlPanel() {
         })}
       </section>
 
+      {offline ? (
+        <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-bg/95 px-8 text-center">
+          <p className="max-w-4xl text-4xl font-medium leading-tight tracking-tight text-clay sm:text-6xl">Controller unreachable</p>
+          <p className="mt-6 text-sm text-muted">Waiting for the room host…</p>
+        </div>
+      ) : null}
       {note ? (
         <button
           type="button"
