@@ -29,14 +29,32 @@ function mint(kind: "config" | "panel", label?: string) {
   return secret;
 }
 
+function findSessionBySecret(token: string | undefined) {
+  if (!token) return undefined;
+  return tokenStore().get(token) ?? Object.values(memory().sessions ?? {}).find((item) => item.secret === token);
+}
+
+function reuseOrMintPanel(label = "panel") {
+  const mem = memory();
+  mem.sessions = mem.sessions ?? {};
+  const existing = Object.values(mem.sessions).find((row) => row.kind === "panel" && row.secret);
+  if (existing?.secret) {
+    existing.lastSeen = Date.now();
+    tokenStore().set(existing.secret, existing);
+    return existing.secret;
+  }
+  return mint("panel", label);
+}
+
 function validToken(token: string | undefined, kind: "config" | "panel") {
   if (!token) return false;
   const mem = memory();
-  const row = tokenStore().get(token) ?? Object.values(mem.sessions ?? {}).find((item) => item.secret === token || (!item.secret && mem.sessions && mem.sessions[token] === item));
+  const row = findSessionBySecret(token);
   if (!row || row.kind !== kind) return false;
   if (row.exp && row.exp < Date.now()) {
     tokenStore().delete(token);
-    if (row.id && mem.sessions) delete mem.sessions[row.id];
+    const id = Object.entries(mem.sessions ?? {}).find(([, item]) => item === row || item.secret === token)?.[0];
+    if (id && mem.sessions) delete mem.sessions[id];
     return false;
   }
   row.lastSeen = Date.now();
@@ -100,7 +118,7 @@ export const issuePanelSession = createServerFn({ method: "POST" })
     if (room.panelAccess === "pin" && room.panelPin?.trim()) {
       return { ok: false, token: null as string | null };
     }
-    return { ok: true, token: mint("panel", "panel") };
+    return { ok: true, token: reuseOrMintPanel("panel") };
   });
 
 export const checkPanelSession = createServerFn({ method: "POST" })
@@ -116,13 +134,15 @@ export const getEditorConfig = createServerFn({ method: "POST" })
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false as const, config: null };
     const config = normalize(memory().config);
-    const paired = Object.entries(memory().sessions ?? {}).map(([id, row]) => ({
-      id,
-      kind: row.kind,
-      label: row.label || row.kind,
-      created: row.created ?? 0,
-      lastSeen: row.lastSeen ?? 0,
-    }));
+    const paired = Object.values(memory().sessions ?? {})
+      .filter((row) => row.kind === "panel" && row.secret)
+      .map((row) => ({
+        id: Object.entries(memory().sessions ?? {}).find(([, item]) => item === row)?.[0] || row.secret!,
+        kind: row.kind,
+        label: row.label || row.kind,
+        created: row.created ?? 0,
+        lastSeen: row.lastSeen ?? 0,
+      }));
     return { ok: true as const, config, traces: traces(), mustChange: isWeakPin(config.room.configPin), paired };
   });
 
@@ -170,13 +190,13 @@ export const verifyPanelPin = createServerFn({ method: "POST" })
     const host = memory().host ?? (memory().host = { dim: false, locked: false, toast: null, block: null, pageId: null });
     if (cfg.room.panelAccess !== "pin") {
       host.locked = false;
-      return { ok: true, token: mint("panel") };
+      return { ok: true, token: reuseOrMintPanel("panel") };
     }
     const expected = cfg.room.panelPin?.trim() ?? "";
     if (!expected) return { ok: false, token: null };
     const ok = data.pin === expected;
     if (ok) host.locked = false;
-    return ok ? { ok: true, token: mint("panel") } : { ok: false, token: null };
+    return ok ? { ok: true, token: reuseOrMintPanel("panel") } : { ok: false, token: null };
   });
 
 export const saveConfig = createServerFn({ method: "POST" })
