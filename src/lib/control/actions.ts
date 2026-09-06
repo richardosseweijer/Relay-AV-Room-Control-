@@ -9,7 +9,7 @@ import { isWeakPin } from "./pins";
 import { randomBytes } from "node:crypto";
 
 const g = globalThis as typeof globalThis & {
-  __relayTokens__?: Map<string, { kind: "config" | "panel"; exp: number }>;
+  __relayTokens__?: Map<string, { kind: "config" | "panel"; exp: number; created?: number; label?: string }>;
 };
 
 function tokenStore() {
@@ -17,9 +17,9 @@ function tokenStore() {
   return g.__relayTokens__;
 }
 
-function mint(kind: "config" | "panel") {
+function mint(kind: "config" | "panel", label?: string) {
   const token = `${kind}-${randomBytes(18).toString("hex")}`;
-  const row = { kind, exp: Date.now() + 1000 * 60 * 60 * 24 * 30 };
+  const row = { kind, exp: 0, created: Date.now(), label: (label || kind).slice(0, 80) };
   tokenStore().set(token, row);
   const mem = memory();
   mem.sessions = mem.sessions ?? {};
@@ -32,7 +32,7 @@ function validToken(token: string | undefined, kind: "config" | "panel") {
   if (!token) return false;
   const row = tokenStore().get(token) ?? memory().sessions?.[token];
   if (!row || row.kind !== kind) return false;
-  if (row.exp < Date.now()) {
+  if (row.exp && row.exp < Date.now()) {
     tokenStore().delete(token);
     if (memory().sessions) delete memory().sessions[token];
     return false;
@@ -107,7 +107,24 @@ export const getEditorConfig = createServerFn({ method: "POST" })
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false as const, config: null };
     const config = normalize(memory().config);
-    return { ok: true as const, config, traces: traces(), mustChange: isWeakPin(config.room.configPin) };
+    const paired = Object.entries(memory().sessions ?? {}).map(([id, row]) => ({
+      id,
+      kind: row.kind,
+      label: row.label || row.kind,
+      created: row.created ?? 0,
+    }));
+    return { ok: true as const, config, traces: traces(), mustChange: isWeakPin(config.room.configPin), paired };
+  });
+
+export const revokeSession = createServerFn({ method: "POST" })
+  .validator((data: { token: string; id: string }) => data)
+  .handler(async ({ data }) => {
+    await ensureLoaded();
+    if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
+    tokenStore().delete(data.id);
+    if (memory().sessions) delete memory().sessions[data.id];
+    persist();
+    return { ok: true, message: "Device forgotten" };
   });
 
 export const verifyConfigPin = createServerFn({ method: "POST" })

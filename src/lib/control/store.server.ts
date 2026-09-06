@@ -70,7 +70,7 @@ type Memory = {
   activeScene: string | null;
   latches: Record<string, string>;
   host: { dim: boolean; locked: boolean; toast: string | null; block: string | null; pageId: string | null; fullscreenAt?: number };
-  sessions: Record<string, { kind: "config" | "panel"; exp: number }>;
+  sessions: Record<string, { kind: "config" | "panel"; exp: number; created?: number; label?: string }>;
 };
 
 const g = globalThis as typeof globalThis & {
@@ -90,7 +90,7 @@ type SecretFile = {
   configPin?: string;
   panelPin?: string | null;
   peerSecret?: string;
-  sessions?: Record<string, { kind: "config" | "panel"; exp: number }>;
+  sessions?: Record<string, { kind: "config" | "panel"; exp: number; created?: number; label?: string }>;
   devices?: Record<string, Record<string, string>>;
 };
 

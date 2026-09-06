@@ -23,6 +23,7 @@ import {
   listHostPorts,
   rebootHost,
   restartHost,
+  revokeSession,
   updateHost,
   verifyConfigPin,
 } from "@/lib/control/actions";
@@ -158,7 +159,7 @@ export function ConfigApp() {
   const [pendingDriver, setPendingDriver] = useState<string | null>(null);
   const [mustChange, setMustChange] = useState(false);
   const [newPin, setNewPin] = useState("");
-  const [newPin2, setNewPin2] = useState("");
+  const [paired, setPaired] = useState<{ id: string; kind: string; label: string; created: number }[]>([]);
 
   async function scanPorts(quiet = false) {
     const res = await listHostPorts({ data: { token: token || "" } });
@@ -202,6 +203,7 @@ export function ConfigApp() {
         if (res.config) {
           setDraft(structuredClone(res.config));
           setMustChange(Boolean(res.mustChange));
+          if (res.paired) setPaired(res.paired);
         }
         else sessionStorage.removeItem("relay-config-token");
       }).catch(() => undefined);
@@ -301,6 +303,7 @@ export function ConfigApp() {
             setMustChange(Boolean(res.mustChange));
             const editor = await getEditorConfig({ data: { token: res.token } });
             if (editor.ok && editor.config) setDraft(structuredClone(editor.config));
+            if (editor.ok && editor.paired) setPaired(editor.paired);
           } else flash("Wrong PIN", "");
         }}>Unlock</Button>
         <Link to="/" onClick={() => sessionStorage.removeItem("relay-config-token")} className="text-center text-sm text-muted underline-offset-4 hover:underline">Back to room</Link>
@@ -550,6 +553,20 @@ export function ConfigApp() {
                 const secret = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
                 update((c) => { c.room.peerSecret = secret; });
               }}>Generate secret</Button>
+            </div>
+            <div className="sm:col-span-2 grid gap-2">
+              <p className="text-sm text-muted">Paired browsers stay trusted until you forget them.</p>
+              {paired.filter((row) => row.kind === "panel").length === 0 ? <p className="text-sm text-subtle">None yet.</p> : paired.filter((row) => row.kind === "panel").map((row) => (
+                <div key={row.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm">
+                  <span>{row.kind} · {row.label} · {row.created ? new Date(row.created).toLocaleDateString() : "—"}</span>
+                  <Button size="sm" variant="danger" onClick={async () => {
+                    const res = await revokeSession({ data: { token: token || "", id: row.id } });
+                    flash(res.ok ? "Forgotten" : "Failed", res.message);
+                    const ed = await getEditorConfig({ data: { token: token || "" } });
+                    if (ed.paired) setPaired(ed.paired);
+                  }}>Forget</Button>
+                </div>
+              ))}
             </div>
           </section>
         ) : null}
