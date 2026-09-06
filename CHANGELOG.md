@@ -4,6 +4,8 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## 0.7.0 — 2026-09-06
 
+- Renamed WHITEPAPER.md to ARCHITECTURE.md.
+
 Beta. Engine freeze intended; drivers and docs may still move.
 
 - Interface tab: scan on open; path text field; Pi UART entries in the port list.

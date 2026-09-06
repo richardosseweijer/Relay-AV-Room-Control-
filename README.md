@@ -10,7 +10,7 @@ Room `http://HOST:8081/` — configurator `http://HOST:8081/config` — default 
 - [Known issues](KNOWN_ISSUES.md)
 - [Changelog](CHANGELOG.md)
 - [Driver prompt](DRIVER-PROMPT.md)
-- [Architecture](WHITEPAPER.md)
+- [Architecture](ARCHITECTURE.md)
 - [Security](SECURITY.md)
 - [Privacy](PRIVACY.md)
 - [Legal notice](NOTICE)

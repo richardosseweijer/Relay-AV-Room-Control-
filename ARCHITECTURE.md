@@ -12,7 +12,7 @@ Relay is a single-process, LAN-hosted controller for audiovisual and related equ
 
 The application is intended to run on a machine that remains on the same private network as the devices (a Windows PC during commissioning, a Raspberry Pi in a finished room). It does not depend on a cloud service for control. Device protocols implemented by third parties are used without affiliation; see NOTICE.
 
-The repository also contains Vite / TanStack Start scaffolding (authentication helpers, preview embedding, PGLite). That scaffolding starts the development server. It does not participate in device I/O. Room control lives under `src/lib/control/`, `src/components/panel/`, `src/components/config/`, and `src/routes/`.
+The repository also contains Vite / TanStack Start scaffolding used to boot the HTTP server. Device I/O is only in `src/lib/control/`, `src/components/panel/`, `src/components/config/`, and `src/routes/`.
 
 ---
 
@@ -235,6 +235,9 @@ The development server listens on all interfaces. Combined with external control
 | `LINUX.md` | Debian / Raspberry Pi packages, systemd unit, update procedure. |
 | `WINDOWS.md` | Windows install and update procedure. |
 | `DRIVER-PROMPT.md` | Instructions for generating a driver JSON without this source tree. |
+| `CHANGELOG.md` | Notable changes. |
+| `KNOWN_ISSUES.md` | Current limitations. |
+| `ARCHITECTURE.md` | Process model, data path, source map. |
 | `README.md` | Orientation and disclaimer. |
 | `LICENSE`, `NOTICE`, `PRIVACY.md`, `SECURITY.md` | Licence, attributions, data handling, and stated security properties. |
 
