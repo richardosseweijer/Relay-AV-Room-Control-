@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Usage: node scripts/samsung-pair.mjs 10.0.0.20 [8001|8002] */
+/** Usage: node scripts/samsung-pair.mjs 10.0.25.234 [8001|8002] */
 import net from "node:net";
 import tls from "node:tls";
 

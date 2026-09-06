@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Maximize2, Settings2, Sun } from "lucide-react";
-import { checkPanelSession, clearDeviceError, fireCommand, fireMacro, issuePanelSession, setLatch, setVariable, verifyPanelPin } from "@/lib/control/actions";
 import type { RoomSnapshot, Widget } from "@/lib/control/types";
 import { resolveBoundNumber } from "@/lib/control/vars";
 import { nextScheduled } from "@/lib/control/schedule";
 import { Button } from "@/components/ui/button";
 import { WidgetShell } from "./widget-face";
 import { cn } from "@/lib/utils";
+
+async function rpc() {
+  return import("@/lib/control/actions");
+}
 
 function readFeedback(snap: RoomSnapshot, device?: string, feedback?: string) {
   if (!device || !feedback) return "";
@@ -251,18 +254,23 @@ export function ControlPanel() {
     (async () => {
       try {
         const stored = localStorage.getItem("relay-panel-token") || sessionStorage.getItem("relay-panel-token") || "";
-        const issued = stored ? await issuePanelSession({ data: { token: stored } }).catch(() => ({ token: null })) : { token: null as string | null };
-        if (issued.token) {
-          setSession(issued.token);
-          localStorage.setItem("relay-panel-token", issued.token);
+        let token = "";
+        if (stored) {
+          try {
+            const res = await fetch("/api/room", { headers: { Authorization: `Bearer ${stored}` } });
+            if (res.ok) token = stored;
+          } catch { /* stale */ }
         }
-        if (!issued.token && stored) localStorage.removeItem("relay-panel-token");
+        if (token) {
+          setSession(token);
+          localStorage.setItem("relay-panel-token", token);
+        } else {
+          localStorage.removeItem("relay-panel-token");
+          sessionStorage.removeItem("relay-panel-token");
+        }
         const next = await refresh();
         if (cancel) return;
-        const token = issued.token || localStorage.getItem("relay-panel-token") || "";
-        const ok = token ? (await checkPanelSession({ data: { token } }).catch(() => ({ ok: false }))).ok : false;
-        if (ok && token) setSession(token);
-        setLocked(!(ok && next?.config?.room));
+        setLocked(!(token && next?.config?.room));
       } catch {
         if (!cancel) setLocked(true);
       }
@@ -348,6 +356,7 @@ export function ControlPanel() {
         return;
       }
       if (widget.bind.kind === "macro" && widget.bind.id) {
+        const { fireMacro } = await rpc();
         const res = await fireMacro({ data: { macroId: widget.bind.id, token: session } });
         ok = res.ok;
         if (!res.ok) setNote(friendlyError(res.message, snap));
@@ -355,6 +364,7 @@ export function ControlPanel() {
         if (!res.ok && fail?.kind === "gotoPage" && fail.id) setPageId(fail.id);
       }
       if ((widget.bind.kind === "command" || widget.bind.kind === "range") && widget.bind.device && widget.bind.command) {
+        const { fireCommand } = await rpc();
         const res = await fireCommand({
           data: { deviceId: widget.bind.device, commandId: widget.bind.command, value: widget.bind.value, token: session },
         });
@@ -362,6 +372,7 @@ export function ControlPanel() {
         if (!res.ok) setNote(friendlyError(res.message, snap));
       }
       if (ok && (widget.highlight === "latch" || widget.latchGroup)) {
+        const { setLatch } = await rpc();
         await setLatch({ data: { group: widget.latchGroup || widget.id, widgetId: widget.id, token: session } });
       }
       if (ok && widget.bind.gotoPage) setPageId(widget.bind.gotoPage);
@@ -374,7 +385,8 @@ export function ControlPanel() {
   function sendSlide(widget: Widget, value: number) {
     void (async () => {
       const varId = sliderVariable(snap!, widget);
-      if (widget.bind.device && widget.bind.command) {
+        const { fireCommand, setVariable } = await rpc();
+        if (widget.bind.device && widget.bind.command) {
         await fireCommand({
           data: { deviceId: widget.bind.device, commandId: widget.bind.command, value, variable: varId, token: session },
         });
@@ -406,47 +418,46 @@ export function ControlPanel() {
     sendSlide(widget, value);
   }
 
-  if (locked || snap?.host?.locked) {
+  if (!session) {
+    async function unlockRoom() {
+      setNote(null);
+      try {
+        const res = await fetch("/api/panel-unlock", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ pin: pin.trim() }),
+        });
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; token?: string; message?: string };
+        if (data.ok && data.token) {
+          sessionStorage.setItem("relay-panel-token", data.token);
+          localStorage.setItem("relay-panel-token", data.token);
+          setSession(data.token);
+          const next = await refresh();
+          if (next?.config?.room) setLocked(false);
+          else setNote(loadErr || "Room did not load");
+          return;
+        }
+        setNote(data.message || "Wrong PIN");
+      } catch (err) {
+        setNote(err instanceof Error ? err.message : "Unlock failed");
+      }
+    }
     return (
-      <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-5 bg-bg px-6">
+      <main className="relative z-20 mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-5 bg-bg px-6">
         <p className="text-[11px] tracking-[0.28em] uppercase text-subtle">Relay</p>
         <h1 className="text-4xl font-medium tracking-tight">{snap?.config?.room?.name || "Room"}</h1>
-        <p className="text-sm text-muted">PIN to open the room.</p>
+        <p className="text-sm text-muted">PIN to open the room. First-run default is 1234.</p>
         <input
           inputMode="numeric"
           value={pin}
           onChange={(e) => setPin(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget.nextElementSibling as HTMLButtonElement | null)?.click(); }}
+          onKeyDown={(e) => { if (e.key === "Enter") void unlockRoom(); }}
           className="h-14 rounded-2xl border border-border bg-surface px-4 text-center text-2xl tracking-[0.5em]"
           placeholder="••••"
         />
         {note ? <p className="text-center text-sm text-clay">{note}</p> : null}
-        {loadErr && locked ? <p className="text-center text-xs text-muted">{loadErr}</p> : null}
-        <Button
-          onClick={async () => {
-            setNote(null);
-            try {
-              const res = await fetch("/api/panel-unlock", {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ pin: pin.trim() }),
-              });
-              const data = await res.json().catch(() => ({})) as { ok?: boolean; token?: string; message?: string };
-              if (data.ok && data.token) {
-                sessionStorage.setItem("relay-panel-token", data.token);
-                localStorage.setItem("relay-panel-token", data.token);
-                setSession(data.token);
-                const next = await refresh();
-                if (next?.config?.room) setLocked(false);
-                else setNote(loadErr || "Room did not load");
-                return;
-              }
-              setNote(data.message || "Wrong PIN");
-            } catch (err) {
-              setNote(err instanceof Error ? err.message : "Unlock failed");
-            }
-          }}
-        >
+        {loadErr ? <p className="text-center text-xs text-muted">{loadErr}</p> : null}
+        <Button type="button" className="relative z-20 h-14 w-full text-base" onClick={() => void unlockRoom()}>
           Unlock
         </Button>
         <Link to="/config" className="text-center text-sm text-muted underline-offset-4 hover:underline">Configurator</Link>
@@ -496,6 +507,7 @@ export function ControlPanel() {
             size="sm"
             variant="secondary"
             onClick={async () => {
+              const { clearDeviceError } = await rpc();
               await clearDeviceError({ data: { token: session } });
               await refresh();
             }}
@@ -610,6 +622,26 @@ export function ControlPanel() {
         })}
       </section>
 
+      {snap.host?.locked ? (
+        <div className="fixed inset-0 z-[68] flex flex-col items-center justify-center gap-5 bg-bg px-8 text-center">
+          <p className="text-4xl font-medium">Room locked</p>
+          <Button
+            type="button"
+            className="h-14 w-full max-w-sm text-base"
+            onClick={async () => {
+              const hostId = snap.config.devices.find((d) => d.driver === "relay-host.json")?.id;
+              if (hostId) {
+                const { fireCommand } = await rpc();
+                await fireCommand({ data: { deviceId: hostId, commandId: "panel.unlock", token: session } }).catch(() => undefined);
+              }
+              setSnap((cur) => (cur ? { ...cur, host: { ...cur.host, locked: false } } : cur));
+              setLocked(false);
+            }}
+          >
+            Unlock
+          </Button>
+        </div>
+      ) : null}
       {dim ? (
         <button
           type="button"

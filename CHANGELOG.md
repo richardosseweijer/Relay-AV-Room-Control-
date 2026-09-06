@@ -4,6 +4,18 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## 0.7.2 — 2026-09-06
 
+- Panel/config PIN pages use `/api/panel-unlock` and `/api/config-unlock` so client bundles do not import `node:crypto`.
+- Unlock re-reads `data/relay-secrets.json` so a reset PIN is live without a process restart.
+- Security: peer secret is visible, with Copy and Generate. Relay-host devices use Secret (other room’s peer secret), not Token.
+- Vite HMR error overlay disabled so a hot-reload fault does not freeze a tablet.
+- Peers can only fire Security allow-listed macros.
+
+- Removed unauthenticated `getSnapshot` / `getRoomState` server functions. Panel uses `/api/room`.
+- `system.restart` and `update-relay.mjs` spawn `vite preview` when already in preview, or `systemctl restart relay` under systemd.
+- Peers can only fire Security allow-listed macros (no host commands).
+- `/api/room` rate-limit uses the socket address. `X-Forwarded-For` only if `RELAY_TRUST_PROXY=1`.
+- Empty schedule days never fire. PINs documented as hashed.
+
 - Panel and configurator PIN screens no longer wait on `/api/room`.
 - Unlock is `POST /api/panel-unlock` and `POST /api/config-unlock` (scrypt + 5-try lockout).
 - First PIN change writes both config and room PINs. Set them apart on Security if the tablet must not open `/config`.
@@ -29,7 +41,7 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## 0.7.0 — 2026-09-06
 
-- Relay-to-Relay: remote `relay-host` device (IP:8081 + peer secret) uses `/api/peer` for macros, host commands, inventory.
+- Relay-to-Relay: remote `relay-host` device (IP:8081 + peer secret) uses `/api/peer` for allow-listed macros only.
 
 Beta. Engine freeze intended; drivers and docs may still move.
 

@@ -30,7 +30,7 @@ export function nextScheduled(jobs: Schedule[] | undefined, tz?: string | null) 
     const row = parts(at, tz);
     const dow = DAY[grab(row, "weekday") as keyof typeof DAY] ?? 0;
     for (const job of enabled) {
-      if (job.days.length && !job.days.includes(dow)) continue;
+      if (!job.days.length || !job.days.includes(dow)) continue;
       const [hh, mm] = job.time.split(":").map(Number);
       const stamp = (Number(hh) || 0) * 60 + (Number(mm) || 0);
       if (dayOffset === 0 && stamp <= nowMin) continue;

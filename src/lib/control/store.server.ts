@@ -150,6 +150,14 @@ async function readSecretFile(): Promise<SecretFile> {
   }
 }
 
+export async function reloadSecretsFromDisk() {
+  const secrets = await readSecretFile();
+  const mem = memory();
+  mem.config = applySecrets(mem.config, secrets);
+  if (secrets.sessions) mem.sessions = secrets.sessions;
+  return secrets;
+}
+
 export function normalize(config?: RoomConfig | null): RoomConfig {
   const demo = emptyRoomConfig();
   if (!config) return demo;

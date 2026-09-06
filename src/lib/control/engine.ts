@@ -1117,10 +1117,15 @@ export async function applyHost(
       root = parent;
     }
     const port = process.env.PORT || process.argv.find((a, i, all) => all[i - 1] === "--port") || "8081";
+    if (process.env.INVOCATION_ID && process.platform !== "win32") {
+      spawn("systemctl", ["restart", "relay"], { detached: true, stdio: "ignore" }).unref();
+      return { ok: true, message: "Restarting systemd unit relay" };
+    }
+    const preview = process.env.npm_lifecycle_event === "start" || process.argv.includes("preview") || process.env.NODE_ENV === "production";
     const viteJs = path.join(root, "node_modules", "vite", "bin", "vite.js");
-    const args = fs.existsSync(viteJs)
-      ? [viteJs, "dev", "--host", "0.0.0.0", "--port", String(port)]
-      : ["--yes", "vite", "dev", "--host", "0.0.0.0", "--port", String(port)];
+    const args = preview
+      ? (fs.existsSync(viteJs) ? [viteJs, "preview", "--host", "0.0.0.0", "--port", String(port)] : ["--yes", "vite", "preview", "--host", "0.0.0.0", "--port", String(port)])
+      : (fs.existsSync(viteJs) ? [viteJs, "dev", "--host", "0.0.0.0", "--port", String(port)] : ["--yes", "vite", "dev", "--host", "0.0.0.0", "--port", String(port)]);
     const cmd = fs.existsSync(viteJs) ? process.execPath : "npx";
     spawn(cmd, args, {
       detached: true,
@@ -1130,7 +1135,7 @@ export async function applyHost(
       env: { ...process.env, CHOKIDAR_USEPOLLING: "1" },
     }).unref();
     setTimeout(() => process.exit(0), 400);
-    return { ok: true, message: `Relay restarting in ${root}` };
+    return { ok: true, message: preview ? `Relay preview restarting in ${root}` : `Relay restarting in ${root}` };
   }
   else if (commandId === "system.update") {
     if (!flags?.allowAdmin) return { ok: false, message: "Update only from configurator" };

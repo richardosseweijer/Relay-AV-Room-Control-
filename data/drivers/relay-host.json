@@ -1,21 +1,21 @@
 {
-  "specVersion": "2.0",
+  "specVersion": "2",
   "device": {
     "manufacturer": "Relay",
     "model": "Host",
     "type": "host",
-    "notes": "This Pi / PC. Dim, lock, toast, reboot. Add one device that uses this driver."
+    "notes": "localhost = this process. Other room: LAN IP + that room’s listen port + that room’s peer secret in Secret (not Token). Restart / update / reboot only from this configurator."
   },
   "transports": {
     "lan": {
-      "protocol": "tcp",
-      "port": 0,
-      "timeoutMs": 500
+      "protocol": "http",
+      "port": 8081,
+      "timeoutMs": 4000
     }
   },
   "auth": {
-    "type": "none",
-    "instanceFields": []
+    "type": "token",
+    "instanceFields": ["secret"]
   },
   "pacing": {
     "minIntervalMs": 0,
@@ -47,224 +47,40 @@
         "id": "macros",
         "label": "Macros",
         "httpMethod": "GET",
-        "httpPath": "/api/room",
+        "httpPath": "/api/peer",
         "itemId": "key",
-        "itemName": "label",
+        "itemName": "name",
         "useCommand": "macro.run"
       }
     ]
   },
   "commands": [
-    {
-      "id": "display.dim",
-      "label": "Dim panel",
-      "kind": "action",
-      "transport": "lan",
-      "payload": "dim"
-    },
-    {
-      "id": "display.wake",
-      "label": "Wake panel",
-      "kind": "action",
-      "transport": "lan",
-      "payload": "wake"
-    },
-    {
-      "id": "panel.lock",
-      "label": "Lock panel",
-      "kind": "action",
-      "transport": "lan",
-      "payload": "lock"
-    },
-    {
-      "id": "panel.unlock",
-      "label": "Unlock panel",
-      "kind": "action",
-      "transport": "lan",
-      "payload": "unlock"
-    },
-    {
-      "id": "ui.toast",
-      "label": "Show message",
-      "kind": "enum",
-      "transport": "lan",
-      "payload": "{value}",
-      "values": []
-    },
-    {
-      "id": "ui.block",
-      "label": "Block UI",
-      "kind": "enum",
-      "transport": "lan",
-      "payload": "{value}",
-      "values": []
-    },
-    {
-      "id": "ui.unblock",
-      "label": "Unblock UI",
-      "kind": "action",
-      "transport": "lan",
-      "payload": "unblock"
-    },
-    {
-      "id": "ui.clear",
-      "label": "Clear messages",
-      "kind": "action",
-      "transport": "lan",
-      "payload": "clear"
-    },
-    {
-      "id": "ui.page",
-      "label": "Go to page",
-      "kind": "enum",
-      "transport": "lan",
-      "payload": "{value}",
-      "values": []
-    },
-    {
-      "id": "system.restart",
-      "label": "Restart Relay",
-      "kind": "action",
-      "transport": "lan",
-      "payload": "restart"
-    },
-    {
-      "id": "system.reboot",
-      "label": "Reboot machine",
-      "kind": "action",
-      "transport": "lan",
-      "payload": "reboot"
-    },
-    {
-      "id": "var.get",
-      "label": "Read variable",
-      "kind": "enum",
-      "transport": "lan",
-      "payload": "{value}"
-    },
-    {
-      "id": "var.set",
-      "label": "Write variable",
-      "kind": "enum",
-      "transport": "lan",
-      "payload": "{value}"
-    },
-    {
-      "id": "macro.run",
-      "label": "Run macro",
-      "kind": "enum",
-      "transport": "lan",
-      "payload": "{value}"
-    }
+    { "id": "display.dim", "label": "Dim panel", "kind": "action", "transport": "lan", "payload": "dim" },
+    { "id": "display.wake", "label": "Wake panel", "kind": "action", "transport": "lan", "payload": "wake" },
+    { "id": "display.fullscreen", "label": "Push fullscreen", "kind": "action", "transport": "lan", "payload": "fullscreen" },
+    { "id": "panel.lock", "label": "Lock panel", "kind": "action", "transport": "lan", "payload": "lock" },
+    { "id": "panel.unlock", "label": "Unlock panel", "kind": "action", "transport": "lan", "payload": "unlock" },
+    { "id": "ui.toast", "label": "Show message", "kind": "enum", "transport": "lan", "payload": "{value}", "values": [] },
+    { "id": "ui.block", "label": "Block UI", "kind": "enum", "transport": "lan", "payload": "{value}", "values": [] },
+    { "id": "ui.unblock", "label": "Unblock UI", "kind": "action", "transport": "lan", "payload": "unblock" },
+    { "id": "ui.clear", "label": "Clear messages", "kind": "action", "transport": "lan", "payload": "clear" },
+    { "id": "ui.page", "label": "Go to page", "kind": "enum", "transport": "lan", "payload": "{value}", "values": [] },
+    { "id": "system.restart", "label": "Restart Relay", "kind": "action", "transport": "lan", "payload": "restart" },
+    { "id": "system.update", "label": "Update Relay", "kind": "action", "transport": "lan", "payload": "update" },
+    { "id": "system.reboot", "label": "Reboot machine", "kind": "action", "transport": "lan", "payload": "reboot" },
+    { "id": "var.get", "label": "Read variable", "kind": "enum", "transport": "lan", "payload": "{value}" },
+    { "id": "var.set", "label": "Write variable", "kind": "enum", "transport": "lan", "payload": "{value}" },
+    { "id": "macro.run", "label": "Run macro", "kind": "enum", "transport": "lan", "payload": "{value}" }
   ],
   "feedback": [
-    {
-      "id": "system.uptime",
-      "label": "OS uptime (s)",
-      "kind": "range",
-      "transport": "lan",
-      "mode": "poll",
-      "query": "uptime",
-      "pollMs": 5000,
-      "parse": {
-        "type": "exact"
-      }
-    },
-    {
-      "id": "relay.uptime",
-      "label": "Relay uptime (s)",
-      "kind": "range",
-      "transport": "lan",
-      "mode": "poll",
-      "query": "relay-uptime",
-      "pollMs": 5000,
-      "parse": {
-        "type": "exact"
-      }
-    },
-    {
-      "id": "system.temp",
-      "label": "CPU temp °C",
-      "kind": "range",
-      "transport": "lan",
-      "mode": "poll",
-      "query": "temp",
-      "pollMs": 5000,
-      "parse": {
-        "type": "exact"
-      }
-    },
-    {
-      "id": "system.memory",
-      "label": "Free RAM MB",
-      "kind": "range",
-      "transport": "lan",
-      "mode": "poll",
-      "query": "mem",
-      "pollMs": 5000,
-      "parse": {
-        "type": "exact"
-      }
-    },
-    {
-      "id": "system.load",
-      "label": "Load",
-      "kind": "range",
-      "transport": "lan",
-      "mode": "poll",
-      "query": "load",
-      "pollMs": 5000,
-      "parse": {
-        "type": "exact"
-      }
-    },
-    {
-      "id": "system.version",
-      "label": "Version",
-      "kind": "string",
-      "transport": "lan",
-      "mode": "poll",
-      "query": "version",
-      "pollMs": 30000,
-      "parse": {
-        "type": "exact"
-      }
-    },
-    {
-      "id": "system.platform",
-      "label": "Platform",
-      "kind": "string",
-      "transport": "lan",
-      "mode": "poll",
-      "query": "platform",
-      "pollMs": 30000,
-      "parse": {
-        "type": "exact"
-      }
-    },
-    {
-      "id": "panel.locked",
-      "label": "Panel lock",
-      "kind": "toggle",
-      "transport": "lan",
-      "mode": "poll",
-      "query": "lock",
-      "pollMs": 2000,
-      "parse": {
-        "type": "exact"
-      }
-    },
-    {
-      "id": "display.dimmed",
-      "label": "Panel dim",
-      "kind": "toggle",
-      "transport": "lan",
-      "mode": "poll",
-      "query": "dim",
-      "pollMs": 2000,
-      "parse": {
-        "type": "exact"
-      }
-    }
+    { "id": "system.uptime", "label": "OS uptime (s)", "kind": "range", "transport": "lan", "mode": "poll", "query": "uptime", "pollMs": 5000, "parse": { "type": "exact" } },
+    { "id": "relay.uptime", "label": "Relay uptime (s)", "kind": "range", "transport": "lan", "mode": "poll", "query": "relay-uptime", "pollMs": 5000, "parse": { "type": "exact" } },
+    { "id": "system.temp", "label": "CPU temp °C", "kind": "range", "transport": "lan", "mode": "poll", "query": "temp", "pollMs": 5000, "parse": { "type": "exact" } },
+    { "id": "system.memory", "label": "Free RAM MB", "kind": "range", "transport": "lan", "mode": "poll", "query": "mem", "pollMs": 5000, "parse": { "type": "exact" } },
+    { "id": "system.load", "label": "Load", "kind": "range", "transport": "lan", "mode": "poll", "query": "load", "pollMs": 5000, "parse": { "type": "exact" } },
+    { "id": "system.version", "label": "Version", "kind": "string", "transport": "lan", "mode": "poll", "query": "version", "pollMs": 30000, "parse": { "type": "exact" } },
+    { "id": "system.platform", "label": "Platform", "kind": "string", "transport": "lan", "mode": "poll", "query": "platform", "pollMs": 30000, "parse": { "type": "exact" } },
+    { "id": "panel.locked", "label": "Panel lock", "kind": "toggle", "transport": "lan", "mode": "poll", "query": "lock", "pollMs": 2000, "parse": { "type": "exact" } },
+    { "id": "display.dimmed", "label": "Panel dim", "kind": "toggle", "transport": "lan", "mode": "poll", "query": "dim", "pollMs": 2000, "parse": { "type": "exact" } }
   ]
 }

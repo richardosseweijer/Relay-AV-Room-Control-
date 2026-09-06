@@ -21,6 +21,16 @@ function limited(ip: string) {
   return recent.length > 40;
 }
 
+function clientIp(request: Request) {
+  if (process.env.RELAY_TRUST_PROXY === "1") {
+    return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || request.headers.get("x-real-ip")
+      || "proxy";
+  }
+  const sock = (request as Request & { socket?: { remoteAddress?: string } }).socket?.remoteAddress;
+  return sock || "local";
+}
+
 function hasSession(token: string) {
   if (!token) return false;
   const row = Object.values(memory().sessions ?? {}).find((item) => item.secret === token);
@@ -34,7 +44,7 @@ export const Route = createFileRoute("/api/room")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+          const ip = clientIp(request);
           if (limited(ip)) return Response.json({ error: "rate limited" }, { status: 429 });
           await ensureLoaded();
           const snap = snapshot();

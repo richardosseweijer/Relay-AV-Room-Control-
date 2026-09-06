@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ensureLoaded, memory, persist } from "@/lib/control/store.server";
+import { ensureLoaded, memory, persist, reloadSecretsFromDisk } from "@/lib/control/store.server";
 import { hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey } from "@/lib/control/pins.server";
 import { isHashedPin, isWeakPin } from "@/lib/control/pins";
 
@@ -14,6 +14,7 @@ export const Route = createFileRoute("/api/config-unlock")({
     handlers: {
       POST: async ({ request }) => {
         await ensureLoaded();
+        await reloadSecretsFromDisk();
         const body = await request.json().catch(() => ({})) as { pin?: string };
         const pin = String(body.pin ?? "").trim();
         const gate = checkLockout(lockoutKey("config"));

@@ -32,8 +32,8 @@
 ## Config / engine
 
 - Corrupt `data/relay-room.json`: boot falls back to an empty room. The bad file is not auto-deleted.
-- Empty schedule `days` skips the job.
-- PINs, peer secret, and session tokens are plaintext in `data/relay-secrets.json`. See issues #3 and #14.
+- Empty schedule `days` skips the job (never runs; pick at least one day).
+- PINs are scrypt hashes. Peer secret, session secrets, and device tokens stay in `data/relay-secrets.json`. See issue #14.
 - Room file and secrets file are two renames; a crash between them can desync. See issue #18.
 - `npm ci` may reject the lockfile (missing AJV). Use `npm install`. See issue #19.
 - No in-repo tests for HMAC / triggers / persist. See issue #20.

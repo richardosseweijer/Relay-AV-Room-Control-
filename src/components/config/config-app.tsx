@@ -301,22 +301,26 @@ export function ConfigApp() {
       <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-4 bg-bg px-6">
         <p className="text-xs uppercase tracking-[0.2em] text-subtle">Relay setup</p>
         <h1 className="text-3xl font-medium tracking-tight">Configurator</h1>
-        <p className="text-sm text-muted">Enter the configurator PIN.</p>
+        <p className="text-sm text-muted">Enter the configurator PIN. First-run default is 1234.</p>
         <input className={fieldClass()} inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN" />
-        <Button onClick={async () => {
-          const res = await fetch("/api/config-unlock", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pin: pin.trim() }) });
-          const data = await res.json().catch(() => ({})) as { ok?: boolean; token?: string; mustChange?: boolean; message?: string };
-          if (data.ok && data.token) {
-            setToken(data.token);
-            sessionStorage.setItem("relay-config-token", data.token);
-            setMustChange(Boolean(data.mustChange));
-            const editor = await getEditorConfig({ data: { token: data.token } }).catch(() => ({ ok: false as const, config: null, paired: [] }));
-            if (editor.ok && editor.config) setDraft(structuredClone(editor.config));
-            else {
-              const room = await loadRoom();
-              if (room?.config) setDraft(structuredClone(room.config));
-            }
-          } else flash(data.message || "Wrong PIN", "");
+        <Button type="button" className="relative z-20 h-14 w-full text-base" onClick={async () => {
+          try {
+            const res = await fetch("/api/config-unlock", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pin: pin.trim() }) });
+            const data = await res.json().catch(() => ({})) as { ok?: boolean; token?: string; mustChange?: boolean; message?: string };
+            if (data.ok && data.token) {
+              setToken(data.token);
+              sessionStorage.setItem("relay-config-token", data.token);
+              setMustChange(Boolean(data.mustChange));
+              const editor = await getEditorConfig({ data: { token: data.token } }).catch(() => ({ ok: false as const, config: null, paired: [] }));
+              if (editor.ok && editor.config) setDraft(structuredClone(editor.config));
+              else {
+                const room = await loadRoom();
+                if (room?.config) setDraft(structuredClone(room.config));
+              }
+            } else flash(data.message || "Wrong PIN", "");
+          } catch (err) {
+            flash(err instanceof Error ? err.message : "Unlock failed", "");
+          }
         }}>Unlock</Button>
         <Link to="/" onClick={() => sessionStorage.removeItem("relay-config-token")} className="text-center text-sm text-muted underline-offset-4 hover:underline">Back to room</Link>
         {toast ? <p className="text-sm text-clay">{toast.body || toast.title}</p> : null}
@@ -549,9 +553,30 @@ export function ConfigApp() {
               <input type="checkbox" checked={draft.room.externalControl === true} onChange={(e) => update((c) => { c.room.externalControl = e.target.checked; })} />
               Allow commands from the LAN with no token (debug only)
             </label>
-            <label className="grid gap-1 text-sm text-muted sm:col-span-2">Peer secret
-              <input className={fieldClass()} type="password" autoComplete="off" value={draft.room.peerSecret ?? ""} onChange={(e) => update((c) => { c.room.peerSecret = e.target.value; })} />
-              <span className="text-xs">HMAC key for room-to-room. Never sent on the wire. Put the *other* room’s secret in that device’s PIN field.</span>
+            <label className="grid gap-1 text-sm text-muted sm:col-span-2">This room’s peer secret
+              <div className="flex flex-wrap gap-2">
+                <input className={cn(fieldClass(), "min-w-0 flex-1 font-mono text-xs")} autoComplete="off" value={draft.room.peerSecret ?? ""} onChange={(e) => update((c) => { c.room.peerSecret = e.target.value; })} />
+                <Button type="button" variant="secondary" onClick={async () => {
+                  const value = draft.room.peerSecret ?? "";
+                  try {
+                    await navigator.clipboard.writeText(value);
+                    flash("Copied", "Paste this into the other room’s Relay device → Secret field.");
+                  } catch {
+                    flash("Copy failed", value || "Generate a secret first");
+                  }
+                }}>Copy</Button>
+                <Button type="button" variant="secondary" onClick={() => {
+                  const bytes = new Uint8Array(24);
+                  crypto.getRandomValues(bytes);
+                  const secret = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+                  update((c) => { c.room.peerSecret = secret; });
+                  void navigator.clipboard.writeText(secret).then(
+                    () => flash("Secret ready", "Copied. Save all. On the other Pi, paste it in that room’s Relay device → Secret."),
+                    () => flash("Secret ready", "Select the field and copy it, then Save all."),
+                  );
+                }}>Generate secret</Button>
+              </div>
+              <span className="text-xs">HMAC key this room uses to check incoming room-to-room calls. Save all after changing it.</span>
             </label>
             <div className="sm:col-span-2 grid gap-2">
               <p className="text-sm text-muted">Peer may run these macros (none = deny all remote macros)</p>
@@ -570,14 +595,6 @@ export function ConfigApp() {
                   {macro.label}
                 </label>
               ))}
-            </div>
-            <div className="sm:col-span-2">
-              <Button variant="secondary" onClick={() => {
-                const bytes = new Uint8Array(24);
-                crypto.getRandomValues(bytes);
-                const secret = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-                update((c) => { c.room.peerSecret = secret; });
-              }}>Generate secret</Button>
             </div>
             <div className="sm:col-span-2 grid gap-2">
               <p className="text-sm text-muted">Paired browsers stay trusted until you forget them.</p>
@@ -649,7 +666,7 @@ export function ConfigApp() {
                     {(() => {
                       const kind = (draft.interfaces ?? []).find((item) => item.id === device.interfaceId)?.kind;
                       const fields = driver?.auth?.instanceFields ?? [];
-                      const needsToken = driver?.auth?.type === "token" || !!driver?.auth?.pairing || fields.includes("token");
+                      const needsToken = fields.includes("token") || (!fields.length && (!!driver?.auth?.pairing || driver?.auth?.type === "token"));
                       const needsSecret = driver?.auth?.type === "password" || fields.includes("password") || fields.includes("mac") || driver?.transports.lan?.protocol === "wol";
                       return (
                         <>
@@ -704,8 +721,10 @@ export function ConfigApp() {
                             </>
                           ) : null}
                           {fields.filter((name) => !["token", "mac", "password", "user"].includes(name)).map((name) => (
-                            <label key={name} className="grid gap-1 text-sm text-muted">{name}
+                            <label key={name} className="grid gap-1 text-sm text-muted">
+                              {name === "secret" ? "Secret (other room’s peer secret)" : name}
                               <input className={fieldClass()} value={device.auth?.[name] ?? ""} onChange={(e) => update((c) => { c.devices[index]!.auth = { ...c.devices[index]!.auth, [name]: e.target.value }; })} />
+                              {name === "secret" ? <span className="text-xs">From the other Relay: Security → This room’s peer secret.</span> : null}
                             </label>
                           ))}
                         </>

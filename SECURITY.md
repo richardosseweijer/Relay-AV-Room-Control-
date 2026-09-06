@@ -20,7 +20,7 @@ Trusted LAN / VLAN only. Bind is `0.0.0.0:8081`. Do not port-forward that port. 
 
 ## Room-to-room
 
-HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex characters. Replay cache stores the digest for 90s. Peers may run only macros listed on Security. Host restart/update/reboot are rejected.
+HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex characters. Replay cache stores the digest for 90s. Peers may run only macros listed on Security. Host commands are rejected.
 
 ## Secrets on disk
 

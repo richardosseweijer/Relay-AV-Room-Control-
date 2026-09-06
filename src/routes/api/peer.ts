@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { applyHost, runMacro } from "@/lib/control/engine";
+import { runMacro } from "@/lib/control/engine";
 import { peerKey, verifyPeerRequest } from "@/lib/control/peer-auth";
 import { ensureLoaded, memory, persist, pushLog } from "@/lib/control/store.server";
 
@@ -38,24 +38,16 @@ export const Route = createFileRoute("/api/peer")({
         const raw = await request.text();
         if (!await authorized(request, raw, "/api/peer")) return Response.json({ ok: false, message: "Auth failed" }, { status: 401 });
         const body = (() => { try { return JSON.parse(raw) as { command?: string; value?: string | number; macroId?: string }; } catch { return {}; } })();
-        const dangerous = /system\.(reboot|update|restart)/.test(body.command || "");
         const mem = memory();
-        if (dangerous) return Response.json({ ok: false, message: "Host commands are not allowed from a peer" }, { status: 403 });
-        if (body.macroId) {
-          const allowed = mem.config.room.peerMacroIds ?? [];
-          const macro = mem.config.macros.find((m) => m.id === body.macroId || m.label === body.macroId);
-          if (!macro || !allowed.includes(macro.id)) return Response.json({ ok: false, message: "Macro not allowed" }, { status: 403 });
-          mem.runningMacro = macro.id;
-          const result = await runMacro({ config: mem.config, drivers: mem.drivers, state: mem.state, vars: mem.vars, health: mem.health ?? (mem.health = {}), macro, host: mem.host });
-          mem.runningMacro = null;
-          if (result.ok) mem.activeScene = macro.id;
-          pushLog({ kind: "macro", ok: result.ok, title: `Peer ${macro.label}`, detail: result.message });
-          await persist();
-          return Response.json(result);
-        }
-        if (!body.command) return Response.json({ ok: false, message: "Missing command" }, { status: 400 });
-        const result = await applyHost(body.command, body.value, mem.host, mem.vars, { allowReboot: dangerous });
-        pushLog({ kind: "system", ok: result.ok, title: `Peer ${body.command}`, detail: result.message });
+        if (!body.macroId) return Response.json({ ok: false, message: "Peers may only run allow-listed macros" }, { status: 403 });
+        const allowed = mem.config.room.peerMacroIds ?? [];
+        const macro = mem.config.macros.find((m) => m.id === body.macroId || m.label === body.macroId);
+        if (!macro || !allowed.includes(macro.id)) return Response.json({ ok: false, message: "Macro not allowed" }, { status: 403 });
+        mem.runningMacro = macro.id;
+        const result = await runMacro({ config: mem.config, drivers: mem.drivers, state: mem.state, vars: mem.vars, health: mem.health ?? (mem.health = {}), macro, host: mem.host });
+        mem.runningMacro = null;
+        if (result.ok) mem.activeScene = macro.id;
+        pushLog({ kind: "macro", ok: result.ok, title: `Peer ${macro.label}`, detail: result.message });
         await persist();
         return Response.json(result);
       },

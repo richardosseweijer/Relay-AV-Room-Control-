@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { applyHost, authenticateDevice, executeCommand, listHostInterfaces, pingReachable, probeDevice, runMacro, scanDevicePorts, sendRaw, syncInventory, traces, scrubSecret } from "./engine";
 import { validateDriver } from "./schema";
 import { bundledDrivers } from "./defaults";
-import { ensureLoaded, memory, persist, persistNow, pushLog, snapshot, clearLog, normalize, writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName } from "./store.server";
+import { ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize, writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName } from "./store.server";
 import type { DriverSpec, RoomConfig } from "./types";
 import { clampVar, driverInUse, seedVars } from "./vars";
 import { isWeakPin, isHashedPin } from "./pins";
@@ -73,29 +73,6 @@ function redactAuth(auth?: Record<string, string>) {
   return next;
 }
 
-function publicSnap() {
-  const snap = snapshot();
-  const room = snap.config?.room;
-  if (!room) return { ...snap, traces: {}, config: snap.config };
-  return {
-    ...snap,
-    traces: {},
-    log: (snap.log ?? []).map((row) => ({ ...row, detail: scrubSecret(row.detail), title: scrubSecret(row.title) })),
-    health: Object.fromEntries(Object.entries(snap.health ?? {}).map(([id, row]) => [id, { ...row, message: scrubSecret(row.message ?? "") }])),
-    lastError: snap.lastError ? scrubSecret(snap.lastError) : null,
-    config: {
-      ...snap.config,
-      room: {
-        ...snap.config.room,
-        configPin: "",
-        peerSecret: "",
-        panelPin: snap.config.room.panelAccess === "pin" ? "" : null,
-      },
-      devices: snap.config.devices.map((device) => ({ ...device, auth: redactAuth(device.auth) })),
-    },
-  };
-}
-
 function allowLanControl(token?: string) {
   if (memory().config.room.externalControl === true) return true;
   return validToken(token, "panel") || validToken(token, "config");
@@ -107,16 +84,6 @@ export function sessionKind(token?: string | null) {
   if (validToken(token, "panel")) return "panel" as const;
   return null;
 }
-
-export const getSnapshot = createServerFn({ method: "GET" }).handler(async () => {
-  await ensureLoaded();
-  return publicSnap();
-});
-
-export const getRoomState = createServerFn({ method: "POST" }).handler(async () => {
-  await ensureLoaded();
-  return publicSnap();
-});
 
 export const issuePanelSession = createServerFn({ method: "POST" })
   .validator((data: { token?: string } = {}) => data)

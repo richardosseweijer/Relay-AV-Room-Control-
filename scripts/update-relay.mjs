@@ -59,11 +59,12 @@ if (process.env.INVOCATION_ID && process.platform !== "win32") {
   process.exit(0);
 }
 
+const preview = process.env.npm_lifecycle_event === "start" || process.argv.includes("preview") || process.env.NODE_ENV === "production";
 const viteJs = path.join(root, "node_modules", "vite", "bin", "vite.js");
 const cmd = fs.existsSync(viteJs) ? process.execPath : process.platform === "win32" ? "npx.cmd" : "npx";
 const args = fs.existsSync(viteJs)
-  ? [viteJs, "dev", "--host", "0.0.0.0", "--port", String(port)]
-  : ["vite", "dev", "--host", "0.0.0.0", "--port", String(port)];
+  ? [viteJs, preview ? "preview" : "dev", "--host", "0.0.0.0", "--port", String(port)]
+  : ["vite", preview ? "preview" : "dev", "--host", "0.0.0.0", "--port", String(port)];
 log(`spawn ${cmd} ${args.join(" ")}`);
 spawn(cmd, args, {
   cwd: root,
