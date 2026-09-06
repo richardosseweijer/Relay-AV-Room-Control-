@@ -4,7 +4,7 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## 0.7.0 — 2026-09-06
 
-- Trigger hold: condition must stay true for N ms before the macro (occupancy / vacancy).
+- Relay-to-Relay: remote `relay-host` device (IP:8081 + PIN) uses `/api/peer` for macros, host commands, inventory.
 
 Beta. Engine freeze intended; drivers and docs may still move.
 

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ConfigRouteImport } from './routes/config'
+import { Route as ApiPeerRouteImport } from './routes/api/peer'
 import { Route as ApiPingRouteImport } from './routes/api/ping'
 import { Route as ApiRoomRouteImport } from './routes/api/room'
 import { Route as ApiVarsRouteImport } from './routes/api/vars'
@@ -23,6 +24,11 @@ const IndexRoute = IndexRouteImport.update({
 const ConfigRoute = ConfigRouteImport.update({
   id: '/config',
   path: '/config',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPeerRoute = ApiPeerRouteImport.update({
+  id: '/api/peer',
+  path: '/api/peer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPingRoute = ApiPingRouteImport.update({
@@ -44,6 +50,7 @@ const ApiVarsRoute = ApiVarsRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
@@ -59,21 +67,31 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/config' | '/api/ping' | '/api/room' | '/api/vars'
+  fullPaths:
+    '/' | '/config' | '/api/peer' | '/api/ping' | '/api/room' | '/api/vars'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/config' | '/api/ping' | '/api/room' | '/api/vars'
-  id: '__root__' | '/' | '/config' | '/api/ping' | '/api/room' | '/api/vars'
+  to: '/' | '/config' | '/api/peer' | '/api/ping' | '/api/room' | '/api/vars'
+  id:
+    | '__root__'
+    | '/'
+    | '/config'
+    | '/api/peer'
+    | '/api/ping'
+    | '/api/room'
+    | '/api/vars'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfigRoute: typeof ConfigRoute
+  ApiPeerRoute: typeof ApiPeerRoute
   ApiPingRoute: typeof ApiPingRoute
   ApiRoomRoute: typeof ApiRoomRoute
   ApiVarsRoute: typeof ApiVarsRoute
@@ -93,6 +111,13 @@ declare module '@tanstack/react-router' {
       path: '/config'
       fullPath: '/config'
       preLoaderRoute: typeof ConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/peer': {
+      id: '/api/peer'
+      path: '/api/peer'
+      fullPath: '/api/peer'
+      preLoaderRoute: typeof ApiPeerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/ping': {
@@ -122,6 +147,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfigRoute: ConfigRoute,
+  ApiPeerRoute: ApiPeerRoute,
   ApiPingRoute: ApiPingRoute,
   ApiRoomRoute: ApiRoomRoute,
   ApiVarsRoute: ApiVarsRoute,

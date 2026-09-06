@@ -298,9 +298,9 @@ export const sonyFhz120lDriver: DriverSpec = {
 
 export const relayHostDriver: DriverSpec = {
   specVersion: "2.0",
-  device: { manufacturer: "Relay", model: "Host", type: "host", notes: "This Pi / PC. Dim, lock, toast, reboot. Add one device that uses this driver." },
-  transports: { lan: { protocol: "tcp", port: 0, timeoutMs: 500 } },
-  auth: { type: "none", instanceFields: [] },
+  device: { manufacturer: "Relay", model: "Host", type: "host", notes: "This Pi or another Relay on the LAN. Localhost = this machine. Other IP + port 8081 + PIN = that room." },
+  transports: { lan: { protocol: "http", port: 8081, timeoutMs: 4000 } },
+  auth: { type: "pin", instanceFields: ["pin"] },
   pacing: { minIntervalMs: 0, powerOnDelayMs: 0 },
   probe: { transport: "lan", payload: "", success: { type: "contains", value: "" } },
   helpers: { checksum: "none" },

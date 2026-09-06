@@ -859,6 +859,34 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
   const resources = driver?.inventory?.resources ?? [];
   if (!resources.length) return { ok: false, message: "No inventory on driver" };
   if (driver.device.type === "host" || device.driver === "relay-host.json") {
+    if (!isLocalRelayHost(device.host)) {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 8000);
+        const pin = device.auth?.pin || device.auth?.token || "";
+        const res = await fetch(`http://${device.host}:${device.port || 8081}/api/peer`, {
+          headers: { "x-relay-pin": pin },
+          signal: ctrl.signal,
+        });
+        clearTimeout(t);
+        const parsed = await res.json() as {
+          ok?: boolean;
+          message?: string;
+          vars?: Record<string, { name?: string; value?: string | number }>;
+          macros?: Record<string, { name?: string }>;
+        };
+        if (!res.ok || parsed.ok === false) return { ok: false, message: parsed.message || "Peer refused" };
+        const vars = Object.entries(parsed.vars ?? {}).map(([id, row]) => ({
+          id, name: String(row.name || id), value: row.value, group: "vars", kind: "var",
+        }));
+        const macros = Object.entries(parsed.macros ?? {}).map(([id, row]) => ({
+          id, name: String(row.name || id), group: "macros", kind: "macro",
+        }));
+        return { ok: true, message: `${vars.length} vars`, inventory: { vars, macros } };
+      } catch (err) {
+        return { ok: false, message: err instanceof Error ? err.message : "peer inventory failed" };
+      }
+    }
     const items = (opts.config.variables ?? []).map((item) => ({
       id: item.id,
       name: item.label,
@@ -979,6 +1007,28 @@ export async function readMonitorValue(opts: {
   const slot = opts.state[device.id] ?? {};
   const driver = opts.drivers[device.driver];
   if (driver?.device.type === "host" || device.driver === "relay-host.json") {
+    if (!isLocalRelayHost(device.host)) {
+      try {
+        const pin = device.auth?.pin || device.auth?.token || "";
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 4000);
+        const res = await fetch(`http://${device.host}:${device.port || 8081}/api/peer`, {
+          headers: { "x-relay-pin": pin },
+          signal: ctrl.signal,
+        });
+        clearTimeout(t);
+        const parsed = await res.json() as { host?: { dim?: boolean; locked?: boolean }; vars?: Record<string, { value?: string | number }> };
+        let value = "";
+        if (opts.feedbackId === "panel.locked") value = parsed.host?.locked ? "1" : "0";
+        else if (opts.feedbackId === "display.dimmed") value = parsed.host?.dim ? "1" : "0";
+        else if (parsed.vars?.[opts.feedbackId]) value = String(parsed.vars[opts.feedbackId]!.value ?? "");
+        else value = "";
+        opts.state[device.id] = { ...slot, [opts.feedbackId]: value };
+        return { ok: res.ok, value, message: value || "peer" };
+      } catch (err) {
+        return { ok: false, value: "", message: err instanceof Error ? err.message : "peer poll failed" };
+      }
+    }
     const result = await readHostFeedback(opts.feedbackId, opts.host);
     opts.state[device.id] = { ...slot, [opts.feedbackId]: result.value };
     return result;
@@ -1113,6 +1163,44 @@ export async function applyHost(
   return { ok: true, message: commandId };
 }
 
+export function isLocalRelayHost(host?: string) {
+  const h = String(host ?? "").trim().toLowerCase();
+  return !h || h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0" || h === "::1";
+}
+
+function relayPeerUrl(device: { host: string; port?: number }, path: string) {
+  return `http://${device.host}:${device.port || 8081}${path}`;
+}
+
+async function callRelayPeer(
+  device: { host: string; port?: number; auth?: Record<string, string> },
+  method: string,
+  path: string,
+  body?: Record<string, unknown>,
+): Promise<CommandResult> {
+  const pin = device.auth?.pin || device.auth?.token || "";
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch(relayPeerUrl(device, path), {
+      method,
+      headers: { "content-type": "application/json", "x-relay-pin": pin },
+      body: method === "GET" ? undefined : JSON.stringify(body ?? {}),
+      signal: ctrl.signal,
+    });
+    clearTimeout(t);
+    const text = await res.text();
+    try {
+      const parsed = JSON.parse(text) as { ok?: boolean; message?: string };
+      return { ok: parsed.ok !== false && res.ok, message: parsed.message || text.slice(0, 200) };
+    } catch {
+      return { ok: res.ok, message: text.slice(0, 200) || String(res.status) };
+    }
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "peer failed" };
+  }
+}
+
 export async function executeCommand(opts: {
   config: RoomConfig;
   drivers: Record<string, DriverSpec>;
@@ -1133,6 +1221,14 @@ export async function executeCommand(opts: {
   const command = driver?.commands.find((c) => c.id === opts.commandId);
   if (!driver || !command) return { ok: false, message: "Unknown command" };
   if (driver.device.type === "host" || device.driver === "relay-host.json") {
+    if (!isLocalRelayHost(device.host)) {
+      if (opts.commandId === "macro.run") {
+        const target = String(resolveTemplate(opts.value, opts.vars ?? {}, opts.config.variables) ?? "");
+        return callRelayPeer(device, "POST", "/api/peer", { macroId: target });
+      }
+      const resolved = resolveTemplate(opts.value, opts.vars ?? {}, opts.config.variables);
+      return callRelayPeer(device, "POST", "/api/peer", { command: opts.commandId, value: resolved });
+    }
     if (opts.commandId === "macro.run") {
       const target = String(resolveTemplate(opts.value, opts.vars ?? {}, opts.config.variables) ?? "");
       const nested = opts.config.macros.find((m) => m.id === target || m.label === target);
