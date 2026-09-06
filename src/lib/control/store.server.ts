@@ -507,30 +507,42 @@ async function runDueTriggers() {
       if (!triggerQueue.some((item) => item.id === rule.id)) triggerQueue.push({ id: rule.id, macroId: rule.macroId, label: rule.label });
       continue;
     }
-    lastTriggerValue.set(rule.id, `true:${left}`);
-    lastTriggerFire.set(rule.id, now);
     const waitMs = Math.min((rule.delaySec || 0) * 1000, 120_000);
     const job = { id: rule.id, macroId: rule.macroId, label: rule.label };
     const macroRef = macro;
     void (async () => {
       if (waitMs) await new Promise((r) => setTimeout(r, waitMs));
-      await runQueuedTrigger(job, macroRef, prev);
+      await runQueuedTrigger(job, macroRef);
     })();
   }
 }
 
-async function runQueuedTrigger(job: { id: string; macroId: string; label: string }, macro: Macro, prev?: string) {
+async function runQueuedTrigger(job: { id: string; macroId: string; label: string }, macro: Macro) {
   const live = memory();
+  const rule = live.config.triggers.find((item) => item.id === job.id);
+  if (rule?.variable) {
+    const left = String(live.vars[rule.variable] ?? "");
+    const right = String(resolveTemplate(rule.equals, live.vars, live.config.variables) ?? rule.equals);
+    if (!matchesTrigger(left, rule.compare || "eq", right)) {
+      lastTriggerValue.set(job.id, `false:${left}`);
+      lastTriggerHeld.delete(job.id);
+      return;
+    }
+  }
   if (live.runningMacro) {
     if (!triggerQueue.some((item) => item.id === job.id)) triggerQueue.push(job);
-    if (prev !== undefined) lastTriggerValue.set(job.id, prev);
     return;
   }
   live.runningMacro = macro.id;
   const result = await runMacro({ config: live.config, drivers: live.drivers, state: live.state, vars: live.vars, health: live.health ?? (live.health = {}), macro, host: live.host });
   live.runningMacro = null;
+  if (result.ok) {
+    const left = rule?.variable ? String(live.vars[rule.variable] ?? "") : "";
+    lastTriggerValue.set(job.id, `true:${left}`);
+    lastTriggerFire.set(job.id, Date.now());
+    live.activeScene = macro.id;
+  }
   if (!result.ok && live.host?.block) live.host.block = null;
-  if (result.ok) live.activeScene = macro.id;
   pushLog({ kind: "macro", ok: result.ok, title: `Trigger ${job.label}`, detail: result.message });
   const next = triggerQueue.shift();
   if (!next) return;
