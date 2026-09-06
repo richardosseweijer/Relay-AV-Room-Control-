@@ -60,9 +60,27 @@ sudo apt-get install -y gpiod i2c-tools cec-utils lirc
 | I2C | `i2cset` | `i2c-tools` |
 | CEC | `cec-client` | `cec-utils` |
 | IR | `ir-ctl` / `irsend` | `lirc` |
-| Serial | `/dev/tty*` | kernel |
+| Serial | `/dev/tty*` / `/dev/serial0` | kernel |
 
 On Raspberry Pi OS: `sudo raspi-config` → Interface Options → enable I2C / Serial / SPI as needed → reboot.
+
+### Onboard serial (GPIO 14/15)
+
+Relay’s interface scan lists USB adapters (`ttyUSB*`, `ttyACM*`) and the Pi UART nodes (`ttyAMA0`, `ttyS0`, `serial0`, `serial1`) when those files exist.
+
+The header UART is off by default. Enable it:
+
+1. `sudo raspi-config`
+2. Interface Options → Serial Port
+3. Login shell over serial: **No**
+4. Serial hardware: **Yes**
+5. Finish → reboot
+
+Use **`/dev/serial0`** for a device on GPIO 14/15. That alias follows the current Pi model. `ttyAMA0` is often taken by Bluetooth on Pi 3/4/5.
+
+If scan still has no onboard port: UART is disabled, console still owns it, or you scanned a PC. Type `/dev/serial0` by hand only after the steps above.
+
+Wiring is 3.3 V TTL, not RS-232 levels. A projector or Denon on the header needs a level shifter or a USB–serial adapter (`/dev/ttyUSB0`).
 
 ---
 
@@ -226,7 +244,9 @@ sudo systemctl status relay --no-pager
 curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8081/
 ```
 
-`200` means the page is answering. `000` or `failed` means it is not.---
+`200` means the page is answering. `000` or connection refused means it is not.
+
+---
 
 ## 7. Update from GitHub
 
@@ -251,7 +271,8 @@ sudo systemctl restart relay
 
 ## 8. Data
 
-Room configuration is stored in `data/relay-room.json` and `data/drivers/`. Copy those files off the card before a re-image.
+Room configuration is stored in `data/relay-room.json` and `data/drivers/`.
+Copy those files off the card before a re-image.
 
 ---
 
