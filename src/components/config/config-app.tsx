@@ -155,6 +155,7 @@ export function ConfigApp() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [driverName, setDriverName] = useState("");
   const [driverText, setDriverText] = useState("");
+  const [libraryPick, setLibraryPick] = useState("");
   const [gate, setGate] = useState<{ action: "wipe"; pin: string } | null>(null);
   const [reach, setReach] = useState<Record<string, "sim" | "up" | "down" | "wait">>({});
   const [hostPorts, setHostPorts] = useState<{ kind: string; path: string; label: string }[]>([]);
