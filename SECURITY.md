@@ -10,19 +10,21 @@ Trusted LAN / VLAN only. Bind is `0.0.0.0:8081`. Do not port-forward that port. 
 
 ## What the PIN actually does
 
-- First login accepts `1234`, then forces a stronger PIN.
-- Configurator writes need a config PIN session.
-- Panel PIN (optional) gates the operator UI once; that browser stays paired until Forget.
-- Open LAN control is **off** by default. Turn it on only if you want anonymous `fireMacro` from the VLAN.
-- `/api/room` is a public snapshot (layout + vars + IPs). PINs and `peerSecret` are stripped.
+- Room `/` unlocks with the panel PIN **or** the config PIN. Config `/config` accepts only the config PIN.
+- First login accepts `1234`, then forces a stronger PIN. Stored PINs are scrypt hashes.
+- Five failed PIN tries lock that gate for five minutes.
+- Configurator writes need a config session. Host restart/update/reboot also ask for the PIN again.
+- Each tablet pairs with the panel PIN and gets its own session (30 days from last use).
+- Open LAN control is **off** by default.
+- `/api/room` without a Bearer token omits IPs, drivers, and the action log. 40 requests / 10s per client.
 
 ## Room-to-room
 
-HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex characters. Replay cache stores the digest for 90s. Save all creates a secret if missing. Put that secret on the far Relay’s host device card. The same check authorises peer `system.restart` / `update` / `reboot`.
+HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex characters. Replay cache stores the digest for 90s. Peers may run only macros listed on Security. Host restart/update/reboot are rejected.
 
 ## Secrets on disk
 
-`data/relay-secrets.json` holds PINs, peer secret, and paired session secrets in plaintext (issues #3, #14). `data/relay-room.json` is layout and IPs. Export never includes the secrets file. Treat the SD card as secret. Save all reports failure if either file cannot be written.
+`data/relay-secrets.json` (or `RELAY_SECRETS_FILE`) holds hashed PINs, peer secret, and session secrets. Put that file off the SD card backup set. Export never includes it.
 
 ## Host commands
 

@@ -67,8 +67,8 @@ If the phone cannot connect: Windows Security → Firewall → allow `node.exe`.
 
 ## 5. First room
 
-1. Open `/config`, PIN `1234`.
-2. Room tab: name, change PIN, Save all.
+1. Open `/config`, PIN `1234`. Set a new PIN when asked. Optionally set a different room PIN on Security.
+2. Room tab: name, Save all.
 3. Devices: add driver from library, set IP, turn Simulate off for real hardware.
 4. Authenticate if the driver has pairing (Samsung: Allow on the TV, port 8002, save token).
 5. Pages / Macros: bind buttons.

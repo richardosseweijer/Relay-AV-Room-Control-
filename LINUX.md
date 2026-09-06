@@ -2,7 +2,7 @@
 
 This guide assumes a newly installed 64-bit Debian, Ubuntu, or Raspberry Pi OS. No Node, Git, or extra packages are required beforehand. A network connection that can reach GitHub and deb.nodesource.com is required.
 
-Default configurator PIN after first start: `1234`. The app then requires a stronger PIN. Tablets stay paired until you Forget them on Security.
+Default configurator PIN after first start: `1234`. The app then requires a stronger PIN. Every tablet must unlock with the panel PIN; each tablet gets its own session (30 days, sliding).
 
 Commands below are run in a terminal as a normal user that can use `sudo`.
 
@@ -95,6 +95,8 @@ npm install
 
 `npm install` can take several minutes. Deprecation warnings from npm are normal.
 
+The clone has no room file and no secrets file. Those appear under `data/` after the first start. Do not copy `data/relay-room.json` or `data/relay-secrets.json` from another machine unless you intend to move that room.
+
 A zip download works for a first run (`unzip`, then `cd` into the folder and `npm install`). The in-app **Update from GitHub** button only works on a `git clone`.
 
 ---
@@ -107,6 +109,21 @@ npx vite dev --host 0.0.0.0 --port 8081
 ```
 
 Leave that terminal open. You should see `Local: http://localhost:8081/`.
+
+For 24/7, prefer a production build instead of `vite dev`:
+
+```bash
+npm run build
+npm run start
+```
+
+Optional: store secrets off the card you back up.
+
+```bash
+sudo mkdir -p /var/lib/relay
+sudo chown "$USER" /var/lib/relay
+export RELAY_SECRETS_FILE=/var/lib/relay/secrets.json
+```
 
 - This machine: [http://localhost:8081/](http://localhost:8081/)
 - Another device on the same LAN: `http://HOST-IP:8081/`  
@@ -152,7 +169,8 @@ Type=simple
 User=${USER_NAME}
 WorkingDirectory=${HOME_DIR}/Relay-AV-Room-Control-
 Environment=PATH=/usr/bin:/usr/local/bin
-ExecStart=/usr/bin/npx vite dev --host 0.0.0.0 --port 8081
+ExecStart=/usr/bin/npm run start
+Environment=PORT=8081
 Restart=on-failure
 RestartSec=5
 
@@ -190,7 +208,8 @@ Type=simple
 User=pi
 WorkingDirectory=/home/pi/Relay-AV-Room-Control-
 Environment=PATH=/usr/bin:/usr/local/bin
-ExecStart=/usr/bin/npx vite dev --host 0.0.0.0 --port 8081
+ExecStart=/usr/bin/npm run start
+Environment=PORT=8081
 Restart=on-failure
 RestartSec=5
 

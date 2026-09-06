@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ConfigRouteImport } from './routes/config'
+import { Route as ApiConfigUnlockRouteImport } from './routes/api/config-unlock'
+import { Route as ApiPanelUnlockRouteImport } from './routes/api/panel-unlock'
 import { Route as ApiPeerRouteImport } from './routes/api/peer'
 import { Route as ApiPingRouteImport } from './routes/api/ping'
 import { Route as ApiRoomRouteImport } from './routes/api/room'
@@ -24,6 +26,16 @@ const IndexRoute = IndexRouteImport.update({
 const ConfigRoute = ConfigRouteImport.update({
   id: '/config',
   path: '/config',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiConfigUnlockRoute = ApiConfigUnlockRouteImport.update({
+  id: '/api/config-unlock',
+  path: '/api/config-unlock',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPanelUnlockRoute = ApiPanelUnlockRouteImport.update({
+  id: '/api/panel-unlock',
+  path: '/api/panel-unlock',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPeerRoute = ApiPeerRouteImport.update({
@@ -50,6 +62,8 @@ const ApiVarsRoute = ApiVarsRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/api/config-unlock': typeof ApiConfigUnlockRoute
+  '/api/panel-unlock': typeof ApiPanelUnlockRoute
   '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
   '/api/room': typeof ApiRoomRoute
@@ -58,6 +72,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/api/config-unlock': typeof ApiConfigUnlockRoute
+  '/api/panel-unlock': typeof ApiPanelUnlockRoute
   '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
   '/api/room': typeof ApiRoomRoute
@@ -67,6 +83,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
+  '/api/config-unlock': typeof ApiConfigUnlockRoute
+  '/api/panel-unlock': typeof ApiPanelUnlockRoute
   '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
   '/api/room': typeof ApiRoomRoute
@@ -75,13 +93,30 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/config' | '/api/peer' | '/api/ping' | '/api/room' | '/api/vars'
+    | '/'
+    | '/config'
+    | '/api/config-unlock'
+    | '/api/panel-unlock'
+    | '/api/peer'
+    | '/api/ping'
+    | '/api/room'
+    | '/api/vars'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/config' | '/api/peer' | '/api/ping' | '/api/room' | '/api/vars'
+  to:
+    | '/'
+    | '/config'
+    | '/api/config-unlock'
+    | '/api/panel-unlock'
+    | '/api/peer'
+    | '/api/ping'
+    | '/api/room'
+    | '/api/vars'
   id:
     | '__root__'
     | '/'
     | '/config'
+    | '/api/config-unlock'
+    | '/api/panel-unlock'
     | '/api/peer'
     | '/api/ping'
     | '/api/room'
@@ -91,6 +126,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfigRoute: typeof ConfigRoute
+  ApiConfigUnlockRoute: typeof ApiConfigUnlockRoute
+  ApiPanelUnlockRoute: typeof ApiPanelUnlockRoute
   ApiPeerRoute: typeof ApiPeerRoute
   ApiPingRoute: typeof ApiPingRoute
   ApiRoomRoute: typeof ApiRoomRoute
@@ -111,6 +148,20 @@ declare module '@tanstack/react-router' {
       path: '/config'
       fullPath: '/config'
       preLoaderRoute: typeof ConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/config-unlock': {
+      id: '/api/config-unlock'
+      path: '/api/config-unlock'
+      fullPath: '/api/config-unlock'
+      preLoaderRoute: typeof ApiConfigUnlockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/panel-unlock': {
+      id: '/api/panel-unlock'
+      path: '/api/panel-unlock'
+      fullPath: '/api/panel-unlock'
+      preLoaderRoute: typeof ApiPanelUnlockRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/peer': {
@@ -147,6 +198,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfigRoute: ConfigRoute,
+  ApiConfigUnlockRoute: ApiConfigUnlockRoute,
+  ApiPanelUnlockRoute: ApiPanelUnlockRoute,
   ApiPeerRoute: ApiPeerRoute,
   ApiPingRoute: ApiPingRoute,
   ApiRoomRoute: ApiRoomRoute,

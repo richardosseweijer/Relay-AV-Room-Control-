@@ -40,9 +40,11 @@ export const Route = createFileRoute("/api/peer")({
         const body = (() => { try { return JSON.parse(raw) as { command?: string; value?: string | number; macroId?: string }; } catch { return {}; } })();
         const dangerous = /system\.(reboot|update|restart)/.test(body.command || "");
         const mem = memory();
+        if (dangerous) return Response.json({ ok: false, message: "Host commands are not allowed from a peer" }, { status: 403 });
         if (body.macroId) {
+          const allowed = mem.config.room.peerMacroIds ?? [];
           const macro = mem.config.macros.find((m) => m.id === body.macroId || m.label === body.macroId);
-          if (!macro) return Response.json({ ok: false, message: "Unknown macro" }, { status: 404 });
+          if (!macro || !allowed.includes(macro.id)) return Response.json({ ok: false, message: "Macro not allowed" }, { status: 403 });
           mem.runningMacro = macro.id;
           const result = await runMacro({ config: mem.config, drivers: mem.drivers, state: mem.state, vars: mem.vars, health: mem.health ?? (mem.health = {}), macro, host: mem.host });
           mem.runningMacro = null;

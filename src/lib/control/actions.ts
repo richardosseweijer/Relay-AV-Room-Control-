@@ -5,8 +5,8 @@ import { bundledDrivers } from "./defaults";
 import { ensureLoaded, memory, persist, persistNow, pushLog, snapshot, clearLog, normalize, writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName } from "./store.server";
 import type { DriverSpec, RoomConfig } from "./types";
 import { clampVar, driverInUse, seedVars } from "./vars";
-import { isWeakPin } from "./pins";
-import { randomBytes } from "node:crypto";
+import { isWeakPin, isHashedPin } from "./pins";
+import { hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey } from "./pins.server";
 
 const g = globalThis as typeof globalThis & {
   __relayTokens__?: Map<string, { id?: string; secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
@@ -17,10 +17,18 @@ function tokenStore() {
   return g.__relayTokens__;
 }
 
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+function randomHex(bytes: number) {
+  const buf = new Uint8Array(bytes);
+  globalThis.crypto.getRandomValues(buf);
+  return Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function mint(kind: "config" | "panel", label?: string) {
-  const id = randomBytes(8).toString("hex");
-  const secret = `${kind}-${randomBytes(18).toString("hex")}`;
-  const row = { id, secret, kind, exp: 0, created: Date.now(), lastSeen: Date.now(), label: (label || kind).slice(0, 80) };
+  const id = randomHex(8);
+  const secret = `${kind}-${randomHex(18)}`;
+  const row = { id, secret, kind, exp: Date.now() + SESSION_TTL_MS, created: Date.now(), lastSeen: Date.now(), label: (label || kind).slice(0, 80) };
   tokenStore().set(secret, row);
   const mem = memory();
   mem.sessions = mem.sessions ?? {};
@@ -35,14 +43,6 @@ function findSessionBySecret(token: string | undefined) {
 }
 
 function reuseOrMintPanel(label = "panel") {
-  const mem = memory();
-  mem.sessions = mem.sessions ?? {};
-  const existing = Object.values(mem.sessions).find((row) => row.kind === "panel" && row.secret);
-  if (existing?.secret) {
-    existing.lastSeen = Date.now();
-    tokenStore().set(existing.secret, existing);
-    return existing.secret;
-  }
   return mint("panel", label);
 }
 
@@ -51,13 +51,15 @@ function validToken(token: string | undefined, kind: "config" | "panel") {
   const mem = memory();
   const row = findSessionBySecret(token);
   if (!row || row.kind !== kind) return false;
-  if (row.exp && row.exp < Date.now()) {
+  if (!row.exp) row.exp = Date.now() + SESSION_TTL_MS;
+  if (row.exp < Date.now()) {
     tokenStore().delete(token);
     const id = Object.entries(mem.sessions ?? {}).find(([, item]) => item === row || item.secret === token)?.[0];
     if (id && mem.sessions) delete mem.sessions[id];
     return false;
   }
   row.lastSeen = Date.now();
+  row.exp = Date.now() + SESSION_TTL_MS;
   tokenStore().set(token, row);
   return true;
 }
@@ -73,6 +75,8 @@ function redactAuth(auth?: Record<string, string>) {
 
 function publicSnap() {
   const snap = snapshot();
+  const room = snap.config?.room;
+  if (!room) return { ...snap, traces: {}, config: snap.config };
   return {
     ...snap,
     traces: {},
@@ -97,6 +101,13 @@ function allowLanControl(token?: string) {
   return validToken(token, "panel") || validToken(token, "config");
 }
 
+export function sessionKind(token?: string | null) {
+  if (!token) return null;
+  if (validToken(token, "config")) return "config" as const;
+  if (validToken(token, "panel")) return "panel" as const;
+  return null;
+}
+
 export const getSnapshot = createServerFn({ method: "GET" }).handler(async () => {
   await ensureLoaded();
   return publicSnap();
@@ -114,11 +125,7 @@ export const issuePanelSession = createServerFn({ method: "POST" })
     if (validToken(data.token, "panel") || validToken(data.token, "config")) {
       return { ok: true, token: data.token as string };
     }
-    const room = memory().config.room;
-    if (room.panelAccess === "pin" && room.panelPin?.trim()) {
-      return { ok: false, token: null as string | null };
-    }
-    return { ok: true, token: reuseOrMintPanel("panel") };
+    return { ok: false, token: null as string | null };
   });
 
 export const checkPanelSession = createServerFn({ method: "POST" })
@@ -177,9 +184,20 @@ export const verifyConfigPin = createServerFn({ method: "POST" })
   .validator((data: { pin: string }) => data)
   .handler(async ({ data }) => {
     await ensureLoaded();
-    const ok = data.pin === memory().config.room.configPin;
-    if (!ok) return { ok: false, token: null as string | null, mustChange: false };
-    return { ok: true, token: mint("config"), mustChange: isWeakPin(data.pin) };
+    const gate = checkLockout(lockoutKey("config"));
+    if (gate.blocked) return { ok: false, token: null as string | null, mustChange: false, message: "Try again later" };
+    const stored = memory().config.room.configPin;
+    const ok = verifyStoredPin(data.pin, stored);
+    if (!ok) {
+      notePinFail(lockoutKey("config"));
+      return { ok: false, token: null as string | null, mustChange: false };
+    }
+    clearPinFail(lockoutKey("config"));
+    if (stored && !isHashedPin(stored)) {
+      memory().config.room.configPin = hashPin(data.pin);
+      persist();
+    }
+    return { ok: true, token: mint("config"), mustChange: isWeakPin(data.pin) || isWeakPin(stored) };
   });
 
 export const verifyPanelPin = createServerFn({ method: "POST" })
@@ -188,15 +206,22 @@ export const verifyPanelPin = createServerFn({ method: "POST" })
     await ensureLoaded();
     const cfg = memory().config;
     const host = memory().host ?? (memory().host = { dim: false, locked: false, toast: null, block: null, pageId: null });
-    if (cfg.room.panelAccess !== "pin") {
-      host.locked = false;
-      return { ok: true, token: reuseOrMintPanel("panel") };
+    const gate = checkLockout(lockoutKey("panel"));
+    if (gate.blocked) return { ok: false, token: null as string | null };
+    const panelStored = cfg.room.panelPin?.trim();
+    const configStored = cfg.room.configPin;
+    const ok = verifyStoredPin(data.pin, panelStored) || verifyStoredPin(data.pin, configStored);
+    if (!ok) {
+      notePinFail(lockoutKey("panel"));
+      return { ok: false, token: null };
     }
-    const expected = cfg.room.panelPin?.trim() ?? "";
-    if (!expected) return { ok: false, token: null };
-    const ok = data.pin === expected;
-    if (ok) host.locked = false;
-    return ok ? { ok: true, token: reuseOrMintPanel("panel") } : { ok: false, token: null };
+    clearPinFail(lockoutKey("panel"));
+    if (cfg.room.panelPin && !isHashedPin(cfg.room.panelPin)) {
+      cfg.room.panelPin = hashPin(data.pin);
+      persist();
+    }
+    host.locked = false;
+    return { ok: true, token: mint("panel") };
   });
 
 export const saveConfig = createServerFn({ method: "POST" })
@@ -204,16 +229,22 @@ export const saveConfig = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
-    if (data.pin && data.pin !== memory().config.room.configPin) return { ok: false, message: "PIN did not match" };
-    const pin = data.config.room.configPin?.trim() || memory().config.room.configPin;
-    if (isWeakPin(pin)) return { ok: false, message: "Choose a PIN that is not 1234, 0000, or a repeat/sequence" };
-    const panelPin = data.config.room.panelAccess === "pin"
-      ? (data.config.room.panelPin?.trim() || memory().config.room.panelPin)
+    if (data.pin && !verifyStoredPin(data.pin, memory().config.room.configPin)) return { ok: false, message: "PIN did not match" };
+    const incomingPin = data.config.room.configPin?.trim();
+    const pin = !incomingPin || isHashedPin(incomingPin) ? (incomingPin || memory().config.room.configPin) : hashPin(incomingPin);
+    if (!isHashedPin(pin) && isWeakPin(incomingPin || pin)) return { ok: false, message: "Choose a PIN that is not 1234, 0000, or a repeat/sequence" };
+    const incomingPanel = data.config.room.panelAccess === "pin" ? data.config.room.panelPin?.trim() : null;
+    let panelPin = data.config.room.panelAccess === "pin"
+      ? (!incomingPanel || isHashedPin(incomingPanel) ? (incomingPanel || memory().config.room.panelPin) : hashPin(incomingPanel))
       : null;
-    if (data.config.room.panelAccess === "pin" && isWeakPin(panelPin)) {
-      return { ok: false, message: "Panel PIN is too weak" };
+    if (data.config.room.panelAccess === "pin" && incomingPanel && !isHashedPin(incomingPanel) && isWeakPin(incomingPanel)) {
+      if (isWeakPin(incomingPanel) && incomingPin && !isWeakPin(incomingPin) && !isHashedPin(incomingPin)) {
+        panelPin = hashPin(incomingPin);
+      } else {
+        return { ok: false, message: "Panel PIN is too weak" };
+      }
     }
-    const peerSecret = data.config.room.peerSecret?.trim() || memory().config.room.peerSecret || randomBytes(24).toString("hex");
+    const peerSecret = data.config.room.peerSecret?.trim() || memory().config.room.peerSecret || randomHex(24);
     const config: RoomConfig = {
       ...data.config,
       room: { ...data.config.room, configPin: pin, panelPin, peerSecret },
@@ -308,6 +339,9 @@ export const fireCommand = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await ensureLoaded();
     if (!allowLanControl(data.token)) return { ok: false, message: "External control off" };
+    if (/^system\.(restart|update|reboot)$/.test(data.commandId) && !validToken(data.token, "config")) {
+      return { ok: false, message: "Config lock required" };
+    }
     const mem = memory();
     mem.health = mem.health ?? {};
     const result = await executeCommand({
@@ -363,26 +397,29 @@ export const setLatch = createServerFn({ method: "POST" })
   });
 
 export const restartHost = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
+  .validator((data: { token: string; pin: string }) => data)
   .handler(async ({ data }) => {
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
-    return applyHost("system.restart", undefined, memory().host);
+    if (!verifyStoredPin(data.pin, memory().config.room.configPin)) return { ok: false, message: "PIN did not match" };
+    return applyHost("system.restart", undefined, memory().host, memory().vars, { allowAdmin: true });
   });
 
 export const updateHost = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
+  .validator((data: { token: string; pin: string }) => data)
   .handler(async ({ data }) => {
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
-    return applyHost("system.update", undefined, memory().host);
+    if (!verifyStoredPin(data.pin, memory().config.room.configPin)) return { ok: false, message: "PIN did not match" };
+    return applyHost("system.update", undefined, memory().host, memory().vars, { allowAdmin: true });
   });
 
 export const rebootHost = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
+  .validator((data: { token: string; pin: string }) => data)
   .handler(async ({ data }) => {
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
+    if (!verifyStoredPin(data.pin, memory().config.room.configPin)) return { ok: false, message: "PIN did not match" };
     return applyHost("system.reboot", undefined, memory().host, memory().vars, { allowReboot: true });
   });
 

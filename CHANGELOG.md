@@ -2,6 +2,18 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.7.2 — 2026-09-06
+
+- Panel and configurator PIN screens no longer wait on `/api/room`.
+- Unlock is `POST /api/panel-unlock` and `POST /api/config-unlock` (scrypt + 5-try lockout).
+- First PIN change writes both config and room PINs. Set them apart on Security if the tablet must not open `/config`.
+- Room unlock also accepts the config PIN.
+- PINs stored as scrypt. Host restart/update/reboot need a config session and a second PIN. Peers cannot run them.
+- `/api/room` rate-limited; unauthenticated calls lose IPs, drivers, and logs.
+- Device connects limited to RFC1918 (localhost only for the host driver).
+- `npm run start` is vite preview. systemd unit uses that. Secrets path: `RELAY_SECRETS_FILE`.
+- Room and secrets files are gitignored. A clone has no used room.
+
 ## 0.7.1 — 2026-09-06
 
 - HMAC signatures must be 64 lowercase hex chars; replay cache uses the digest.

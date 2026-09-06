@@ -11,3 +11,7 @@ export function isWeakPin(pin: string | null | undefined) {
   if ("01234567890".includes(p) || "09876543210".includes(p)) return true;
   return COMMON.has(p);
 }
+
+export function isHashedPin(stored: string | null | undefined) {
+  return String(stored ?? "").startsWith("scrypt$");
+}

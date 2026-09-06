@@ -14,6 +14,8 @@
 - Default bind is `0.0.0.0`. Do not port-forward the panel to the public internet.
 - HTTP only. No TLS. See issue #15.
 - Open LAN control is **off** unless enabled on Security. Then `fireCommand` / `fireMacro` / `setVariable` accept unauthenticated LAN calls.
+- Room unlock accepts the configurator PIN as well as the panel PIN. Split them on Security if that is unwanted.
+- PIN lockout (5 tries / 5 min) is process memory. A restart clears the counter.
 - First start PIN is `1234`. The configurator blocks until you set a stronger one.
 - `system.reboot` reboots the machine. `system.restart` respawns Vite only.
 - Vite on Windows: copying files over a running `npx vite` yields `Invalid server function ID` or missing `@/` imports. Restart Vite after a replace.

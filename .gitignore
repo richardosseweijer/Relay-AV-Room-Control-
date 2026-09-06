@@ -5,5 +5,6 @@ node_modules/
 .env.*
 data/relay-secrets.json
 data/relay-room.json
-
-
+data/*.tmp
+attachments/
+artifacts/

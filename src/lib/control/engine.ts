@@ -21,6 +21,19 @@ export function traces(): Record<string, TraceLine[]> {
   return g.__relayTraces__;
 }
 
+export function allowedLanHost(host: string | undefined, opts?: { localOk?: boolean }) {
+  const raw = String(host ?? "").trim();
+  if (!raw) return false;
+  if (/^(file:|unix:|\\\\)/i.test(raw) || raw.startsWith("/")) return false;
+  if (/^(localhost|127\.0\.0\.1|::1)$/i.test(raw)) return Boolean(opts?.localOk);
+  const m = raw.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  const oct = m.slice(1).map(Number);
+  if (oct.some((n) => n > 255)) return false;
+  const [a, b] = oct;
+  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
+}
+
 export function scrubSecret(text: string) {
   return String(text ?? "")
     .replace(/("(?:token|password|secret|username)"\s*:\s*")[^"]*/gi, "$1***")
@@ -710,6 +723,9 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
   const lan = driver.transports.lan;
   if (!lan) return { ok: false, message: "No LAN transport on this driver" };
   const host = device.host;
+  if (!allowedLanHost(host, { localOk: device.driver === "relay-host.json" || driver.device.type === "host" })) {
+    return { ok: false, message: "Host not on room LAN" };
+  }
   const port = device.port ?? lan.port;
   const timeout = lan.timeoutMs ?? 3000;
   const encoding = wireEncoding(driver, command);
@@ -741,6 +757,7 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
 export async function pingReachable(opts: { host: string; port?: number; path?: string; timeoutMs?: number }): Promise<CommandResult> {
   if (!opts.host) return { ok: false, message: "No host" };
   const local = /^(localhost|127\.0\.0\.1|::1)$/i.test(opts.host.trim());
+  if (!allowedLanHost(opts.host, { localOk: local })) return { ok: false, message: "Host not on room LAN" };
   if (local && (!opts.port || opts.port === 0)) return { ok: true, message: "local" };
   const port = opts.port ?? 80;
   const timeout = Math.max(opts.timeoutMs ?? 800, 1500);
@@ -1059,7 +1076,7 @@ export async function applyHost(
   value: string | number | undefined,
   host: { dim: boolean; locked: boolean; toast: string | null; toastAt?: number; block?: string | null; pageId: string | null; pageAt?: number; fullscreenAt?: number },
   vars?: Record<string, string | number>,
-  flags?: { allowReboot?: boolean },
+  flags?: { allowReboot?: boolean; allowAdmin?: boolean },
 ): Promise<CommandResult> {
   if (commandId === "display.dim") host.dim = true;
   else if (commandId === "display.wake") host.dim = false;
@@ -1088,6 +1105,7 @@ export async function applyHost(
     return { ok: true, message: `${id}=${next}` };
   }
   else if (commandId === "system.restart") {
+    if (!flags?.allowAdmin) return { ok: false, message: "Restart only from configurator" };
     const { spawn } = await import("node:child_process");
     const fs = await import("node:fs");
     const path = await import("node:path");
@@ -1115,6 +1133,7 @@ export async function applyHost(
     return { ok: true, message: `Relay restarting in ${root}` };
   }
   else if (commandId === "system.update") {
+    if (!flags?.allowAdmin) return { ok: false, message: "Update only from configurator" };
     const { spawn } = await import("node:child_process");
     const fs = await import("node:fs");
     const path = await import("node:path");

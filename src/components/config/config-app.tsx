@@ -56,7 +56,7 @@ async function pingHost(host: string, port?: number, path?: string) {
 }
 
 async function loadRoom(): Promise<RoomSnapshot | null> {
-  const res = await fetch("/api/room", { cache: "no-store" });
+  const res = await fetch("/api/room", { cache: "no-store", headers: { Authorization: `Bearer ${sessionStorage.getItem("relay-config-token") || ""}` } });
   if (!res.ok) return null;
   const next = await res.json().catch(() => null) as RoomSnapshot | null;
   return next?.config?.room ? next : null;
@@ -203,15 +203,20 @@ export function ConfigApp() {
   useEffect(() => {
     const stored = sessionStorage.getItem("relay-config-token");
     if (stored) {
-      setToken(stored);
       getEditorConfig({ data: { token: stored } }).then((res) => {
-        if (res.config) {
+        if (res.ok && res.config) {
+          setToken(stored);
           setDraft(structuredClone(res.config));
           setMustChange(Boolean(res.mustChange));
           if (res.paired) setPaired(res.paired);
+        } else {
+          sessionStorage.removeItem("relay-config-token");
+          setToken(null);
         }
-        else sessionStorage.removeItem("relay-config-token");
-      }).catch(() => undefined);
+      }).catch(() => {
+        sessionStorage.removeItem("relay-config-token");
+        setToken(null);
+      });
     }
     refresh().catch(() => undefined);
   }, []);
@@ -291,9 +296,7 @@ export function ConfigApp() {
   const page = draft?.pages.find((p) => p.id === pageId) ?? draft?.pages[0];
   const selected = page?.widgets.find((w) => w.id === selectedId) ?? null;
 
-  if (!snap) return <main className="flex min-h-dvh items-center justify-center bg-bg text-muted">Loading config…</main>;
-
-  if (!token && !draft) {
+  if (!token) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-4 bg-bg px-6">
         <p className="text-xs uppercase tracking-[0.2em] text-subtle">Relay setup</p>
@@ -301,15 +304,19 @@ export function ConfigApp() {
         <p className="text-sm text-muted">Enter the configurator PIN.</p>
         <input className={fieldClass()} inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN" />
         <Button onClick={async () => {
-          const res = await verifyConfigPin({ data: { pin } });
-          if (res.ok && res.token) {
-            setToken(res.token);
-            sessionStorage.setItem("relay-config-token", res.token);
-            setMustChange(Boolean(res.mustChange));
-            const editor = await getEditorConfig({ data: { token: res.token } });
+          const res = await fetch("/api/config-unlock", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pin: pin.trim() }) });
+          const data = await res.json().catch(() => ({})) as { ok?: boolean; token?: string; mustChange?: boolean; message?: string };
+          if (data.ok && data.token) {
+            setToken(data.token);
+            sessionStorage.setItem("relay-config-token", data.token);
+            setMustChange(Boolean(data.mustChange));
+            const editor = await getEditorConfig({ data: { token: data.token } }).catch(() => ({ ok: false as const, config: null, paired: [] }));
             if (editor.ok && editor.config) setDraft(structuredClone(editor.config));
-            if (editor.ok && editor.paired) setPaired(editor.paired);
-          } else flash("Wrong PIN", "");
+            else {
+              const room = await loadRoom();
+              if (room?.config) setDraft(structuredClone(room.config));
+            }
+          } else flash(data.message || "Wrong PIN", "");
         }}>Unlock</Button>
         <Link to="/" onClick={() => sessionStorage.removeItem("relay-config-token")} className="text-center text-sm text-muted underline-offset-4 hover:underline">Back to room</Link>
         {toast ? <p className="text-sm text-clay">{toast.body || toast.title}</p> : null}
@@ -331,6 +338,8 @@ export function ConfigApp() {
           update((c) => { c.room.configPin = newPin; });
           const next = structuredClone(draft);
           next.room.configPin = newPin;
+          next.room.panelPin = newPin;
+          next.room.panelAccess = "pin";
           const res = await saveConfig({ data: { token: token || "", config: next } });
           if (!res.ok) { flash("PIN not saved", res.message ?? ""); return; }
           setDraft(next);
@@ -499,17 +508,20 @@ export function ConfigApp() {
               <Button variant="danger" onClick={() => setGate({ action: "wipe", pin: "" })}>Clear config</Button>
               <Button variant="secondary" onClick={async () => {
                 if (!window.confirm("Restart Relay? The page will drop for a few seconds.")) return;
-                const res = await restartHost({ data: { token: token || "" } });
+                const pin = window.prompt("Config PIN") || "";
+                const res = await restartHost({ data: { token: token || "", pin } });
                 flash(res.ok ? "Restarting Relay" : "Restart failed", res.message);
               }}>Restart Relay</Button>
               <Button variant="secondary" onClick={async () => {
-                if (!window.confirm("Update Relay from GitHub?\n\nSave all first. The room will go offline for a minute. git pull --ff-only then npm install, then Relay starts again.\n\nNeeds a git clone (not a zip) and network access to GitHub. Local uncommitted edits can block the pull.")) return;
-                const res = await updateHost({ data: { token: token || "" } });
+                if (!window.confirm("Update Relay from GitHub?\n\nSave all first. The room will go offline for a minute.")) return;
+                const pin = window.prompt("Config PIN") || "";
+                const res = await updateHost({ data: { token: token || "", pin } });
                 flash(res.ok ? "Updating from GitHub" : "Update failed", res.message);
               }}>Update from GitHub</Button>
               <Button variant="danger" onClick={async () => {
                 if (!window.confirm("Reboot the whole machine?")) return;
-                const res = await rebootHost({ data: { token: token || "" } });
+                const pin = window.prompt("Config PIN") || "";
+                const res = await rebootHost({ data: { token: token || "", pin } });
                 flash(res.ok ? "Rebooting machine" : "Reboot failed", res.message);
               }}>Reboot machine</Button>
             </div>
@@ -519,7 +531,7 @@ export function ConfigApp() {
         {tab === "security" ? (
           <section className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1 text-sm text-muted">Config PIN
-              <input className={fieldClass()} type="password" autoComplete="off" value={draft.room.configPin} onChange={(e) => update((c) => { c.room.configPin = e.target.value; })} />
+              <input className={fieldClass()} type="password" autoComplete="off" placeholder="unchanged" value={String(draft.room.configPin || "").startsWith("scrypt$") ? "" : draft.room.configPin} onChange={(e) => update((c) => { c.room.configPin = e.target.value; })} />
             </label>
             <label className="grid gap-1 text-sm text-muted">
               Panel access
@@ -530,7 +542,7 @@ export function ConfigApp() {
             </label>
             {draft.room.panelAccess === "pin" ? (
               <label className="grid gap-1 text-sm text-muted">Panel PIN
-                <input className={fieldClass()} type="password" autoComplete="off" value={draft.room.panelPin ?? ""} onChange={(e) => update((c) => { c.room.panelPin = e.target.value; })} />
+                <input className={fieldClass()} type="password" autoComplete="off" placeholder="unchanged" value={String(draft.room.panelPin ?? "").startsWith("scrypt$") ? "" : (draft.room.panelPin ?? "")} onChange={(e) => update((c) => { c.room.panelPin = e.target.value; })} />
               </label>
             ) : null}
             <label className="flex items-center gap-2 text-sm sm:col-span-2">
@@ -541,6 +553,24 @@ export function ConfigApp() {
               <input className={fieldClass()} type="password" autoComplete="off" value={draft.room.peerSecret ?? ""} onChange={(e) => update((c) => { c.room.peerSecret = e.target.value; })} />
               <span className="text-xs">HMAC key for room-to-room. Never sent on the wire. Put the *other* room’s secret in that device’s PIN field.</span>
             </label>
+            <div className="sm:col-span-2 grid gap-2">
+              <p className="text-sm text-muted">Peer may run these macros (none = deny all remote macros)</p>
+              {(draft.macros ?? []).map((macro) => (
+                <label key={macro.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={(draft.room.peerMacroIds ?? []).includes(macro.id)}
+                    onChange={(e) => update((c) => {
+                      const cur = new Set(c.room.peerMacroIds ?? []);
+                      if (e.target.checked) cur.add(macro.id);
+                      else cur.delete(macro.id);
+                      c.room.peerMacroIds = [...cur];
+                    })}
+                  />
+                  {macro.label}
+                </label>
+              ))}
+            </div>
             <div className="sm:col-span-2">
               <Button variant="secondary" onClick={() => {
                 const bytes = new Uint8Array(24);

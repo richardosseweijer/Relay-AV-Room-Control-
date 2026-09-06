@@ -1,6 +1,6 @@
 {
   "name": "relay",
-  "version": "0.7.0",
+  "version": "0.7.2",
   "license": "MIT",
   "private": true,
   "sideEffects": false,
@@ -13,13 +13,13 @@
     "build": "node scripts/with-app-env.mjs vite build && npm run db:migrate",
     "db:migrate": "node scripts/migrate.mjs",
     "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
-    "preview": "node scripts/with-app-env.mjs vite preview",
+    "start": "node scripts/with-app-env.mjs vite preview --host 0.0.0.0 --port 8081",
     "preview:restart": "node scripts/preview.mjs restart",
     "preview:stop": "node scripts/preview.mjs stop",
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "driver:check": "node scripts/driver-check.mjs",
-    "test": "node --test 'scripts/**/*.test.mjs'",
+    "test": "node --experimental-strip-types --test scripts/**/*.test.mjs",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

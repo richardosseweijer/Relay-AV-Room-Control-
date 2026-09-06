@@ -7,7 +7,7 @@ import path from "node:path";
 
 const ROW_ID = "current";
 const FILE_STORE = path.join(process.cwd(), "data", "relay-room.json");
-const SECRET_STORE = path.join(process.cwd(), "data", "relay-secrets.json");
+const SECRET_STORE = process.env.RELAY_SECRETS_FILE || path.join(process.cwd(), "data", "relay-secrets.json");
 const DRIVER_DIR = path.join(process.cwd(), "data", "drivers");
 
 export function safeDriverName(name: string) {

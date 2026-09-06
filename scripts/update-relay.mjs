@@ -40,8 +40,18 @@ if (!fs.existsSync(path.join(root, ".git"))) {
   process.exit(2);
 }
 
-run("git", ["pull", "--ff-only"]);
-run(process.platform === "win32" ? "npm.cmd" : "npm", ["install"]);
+const tag = process.env.RELAY_RELEASE || "";
+if (tag) run("git", ["fetch", "--tags"]);
+if (tag) run("git", ["checkout", "--force", `tags/${tag}`]);
+else run("git", ["pull", "--ff-only"]);
+const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const ci = spawnSync(npm, ["ci"], { cwd: root, encoding: "utf8", shell: process.platform === "win32", env: process.env });
+if (ci.stdout) log(ci.stdout.trimEnd());
+if (ci.stderr) log(ci.stderr.trimEnd());
+if (ci.status !== 0) {
+  log("npm ci failed, falling back to npm install");
+  run(npm, ["install"]);
+}
 
 if (process.env.INVOCATION_ID && process.platform !== "win32") {
   log("restarting systemd unit relay");

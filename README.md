@@ -1,9 +1,19 @@
 # Relay
 
-Relay **0.7.1** (beta). Room controller for local AV devices. Private LAN only.
+Relay **0.7.2** (beta). Room controller for local AV devices. Private LAN only.
 
-Supported start: `npx vite dev --host 0.0.0.0 --port 8081`  
-Room `http://HOST:8081/` — configurator `http://HOST:8081/config` — first PIN `1234`, then you must set a stronger one. Open LAN control is off. Tablets pair until Forget.
+Clone is unused until you start it. First boot writes `data/relay-room.json` and `data/relay-secrets.json` on the host. Those files are not in git.
+
+```
+git clone https://github.com/richardosseweijer/Relay-AV-Room-Control-.git
+cd Relay-AV-Room-Control-
+npm install
+npx vite dev --host 0.0.0.0 --port 8081
+```
+
+Room `http://HOST:8081/` — configurator `http://HOST:8081/config`
+
+First PIN is `1234`. You must set a stronger one. Open LAN control is off. Each tablet pairs until Forget.
 
 - [Linux / Pi](LINUX.md)
 - [Windows](WINDOWS.md)
