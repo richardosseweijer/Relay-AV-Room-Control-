@@ -1,23 +1,25 @@
 # Relay
 
-Room controller for local AV devices. Use it on a private LAN.
+Room controller for local AV devices. Private LAN only.
 
-- [How it is built](WHITEPAPER.md)
-- [Linux setup](LINUX.md)
-- [Windows setup](WINDOWS.md)
-- [Driver prompt for other AIs](DRIVER-PROMPT.md)
-- [Changelog](CHANGELOG.md)
+Supported start: `npx vite dev --host 0.0.0.0 --port 8081`  
+Room `http://HOST:8081/` — configurator `http://HOST:8081/config` — default PIN `1234`.
+
+- [Linux / Pi](LINUX.md)
+- [Windows](WINDOWS.md)
 - [Known issues](KNOWN_ISSUES.md)
-- [Legal notice](NOTICE)
+- [Changelog](CHANGELOG.md)
+- [Driver prompt](DRIVER-PROMPT.md)
+- [Architecture](WHITEPAPER.md)
+- [Security](SECURITY.md)
 - [Privacy](PRIVACY.md)
+- [Legal notice](NOTICE)
 
-Check a driver file:
+Validate a driver:
 
 ```
 npm run driver:check -- data/drivers/samsung-qe50q65t.json
 ```
-
-Default configurator PIN after first start: `1234`. Change it before a live room.
 
 ## Disclaimer
 
@@ -27,4 +29,4 @@ The software is provided **as is**, with **no warranties** of any kind, express 
 
 **You use it entirely at your own risk.** The author and contributors accept **no liability** for any loss, damage, injury, downtime, data loss, device damage, or other claim that arises from installing, configuring, or running this software.
 
-See also the license file in this repository.
+See `LICENSE`.

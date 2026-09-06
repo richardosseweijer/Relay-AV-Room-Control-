@@ -21,3 +21,4 @@ Format: date, then bullets. Older work lives in `git log`.
 - Samsung WOL + token pair; Chromecast volume `0–1`; monitors write-on-error.
 - Driver library vs instance config; confirm delete when in use.
 - Docs: LINUX.md, WINDOWS.md, DRIVER-PROMPT.md, NOTICE, disclaimer in README.
+- Docs cleanup: one Windows guide, stubs for old filenames, SECURITY.md aligned with external-control and host reboot, README index, LINUX.md heading fix.

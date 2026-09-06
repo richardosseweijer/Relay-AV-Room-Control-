@@ -1,82 +1,70 @@
 # Relay — Windows
 
-Tested with Windows 10/11. Use a normal Command Prompt or PowerShell.
+Windows 10/11. Command Prompt or PowerShell.
 
-Default login after first start: config PIN `1234`. Change it before a real room.
+Default configurator PIN: `1234`. Change it before a live room.
 
-## 1. Install Node.js 22 LTS
+Folder used below: `C:\relay`. If you cloned to `C:\Relay-AV-Room-Control-`, use that path instead.
 
-Download the LTS installer from [https://nodejs.org](https://nodejs.org) and keep the “Add to PATH” box checked.
+## 1. Node.js 22 LTS
 
-Close and reopen the terminal, then:
+Installer: [https://nodejs.org](https://nodejs.org) — keep “Add to PATH”.
 
 ```bat
 node -v
 npm -v
 ```
 
-You want v22 or newer.
+Need v22+.
 
 ## 2. Get the project
 
-If you use git:
-
 ```bat
 cd C:\
-git clone https://github.com/richardosseweijer/Relay-AV-Room-Control-.git
-cd C:\Relay-AV-Room-Control-
+git clone https://github.com/richardosseweijer/Relay-AV-Room-Control-.git relay
+cd C:\relay
 ```
 
-If you already keep the project in `C:\relay`, `cd` there instead.
+Zip works for a first run. In-app **Update from GitHub** needs a git clone.
 
-## 3. Install packages (once)
+## 3. Packages (once)
 
 ```bat
 cd C:\relay
 npm install
 ```
 
-This can take several minutes the first time. Deprecation warnings from npm are normal.
+Deprecation warnings from npm are normal.
 
-## 4. Start Relay
+## 4. Start
 
 ```bat
 cd C:\relay
 npx vite dev --host 0.0.0.0 --port 8081
 ```
 
-Leave this window open. You should see:
+Leave the window open.
 
 ```
 Local:   http://localhost:8081/
 Network: http://YOUR-LAN-IP:8081/
 ```
 
-Room: [http://localhost:8081/](http://localhost:8081/)  
-Configurator: [http://localhost:8081/config](http://localhost:8081/config) — PIN `1234`.
+Configurator: `http://localhost:8081/config`
 
-## 5. After you replace files
+## 5. After replacing files
 
-Stop the server with Ctrl+C. You do **not** need `npm install` again unless `package.json` changed.
+Ctrl+C, then the same `npx vite` line. `npm install` only if `package.json` changed.
 
-```bat
-cd C:\relay
-npx vite dev --host 0.0.0.0 --port 8081
-```
-
-If the page shows “Invalid server function ID”, Ctrl+C and start it again.
+`Invalid server function ID`: restart Vite.
 
 ## 6. Update from GitHub
 
-The checkout must be a `git clone` of [Relay-AV-Room-Control-](https://github.com/richardosseweijer/Relay-AV-Room-Control-), not a zip.
+Clone of [Relay-AV-Room-Control-](https://github.com/richardosseweijer/Relay-AV-Room-Control-) required.
 
-Configurator → Room → **Save all**, then **Update from GitHub**. Confirm the warning.
+Configurator → Room → **Save all** → **Update from GitHub**.
 
-That stops Relay, runs `git pull --ff-only` and `npm install`, then starts it again on port 8081. The room is down for a minute. Log: `data\relay-update.log`.
-
-Uncommitted local edits can block the pull. Do not use Update if you only unpacked a zip.
-
-Manual equivalent:
+Runs `git pull --ff-only`, `npm install`, restarts on 8081. Log: `data\relay-update.log`. Uncommitted edits can block the pull.
 
 ```bat
 cd C:\relay
@@ -87,8 +75,8 @@ npx vite dev --host 0.0.0.0 --port 8081
 
 ## Notes
 
-- Stay on a private LAN. Do not port-forward 8081.
+- Private LAN. Do not port-forward 8081.
 - COM ports: Configurator → Interfaces → Scan.
-- Room data: `C:\relay\data\relay-room.json` and `C:\relay\data\drivers\`.
-- To stop a forgotten server: Task Manager → end the `node.exe` that is using port 8081, or `netstat -ano | findstr 8081` then `taskkill /PID <id> /F`.
-- Check a driver file: `npm run driver:check -- data\drivers\samsung-qe50q65t.json`
+- Data: `C:\relay\data\relay-room.json`, `C:\relay\data\drivers\`.
+- Kill a stray process: `netstat -ano | findstr 8081` then `taskkill /PID <id> /F`.
+- `npm run driver:check -- data\drivers\samsung-qe50q65t.json`

@@ -1,28 +1,34 @@
 # Security
 
-## Report a vulnerability
+## Report
 
-Email the maintainer privately. Do not open a public issue with exploit details.
+Contact the maintainer privately. Do not file a public issue with exploit details.
 
-## Assumptions
+## Scope
 
-Relay is meant for a **trusted local network** (one room / one VLAN), not the
-public internet.
+Trusted LAN / VLAN only. Bind is `0.0.0.0:8081`. Do not port-forward that port.
 
-## Built-in limits
+## What the PIN actually does
 
-- Configurator actions require the config PIN session.
-- A panel PIN, when set, must be verified before a panel session token is issued.
-- `/api/room` does not include device traces. Traces are redacted and only returned to the configurator session.
-- OS reboot is only available from the locked configurator, not from the
-  room panel or macros.
-- `/api/vars` writes require header `x-relay-pin` equal to the config PIN.
-- Room export strips PINs, tokens and passwords.
+- Configurator pages require a config PIN session for editor writes.
+- Panel PIN (optional) gates the operator UI in the browser.
+- If Room → external control is on (default), `fireCommand` / `fireMacro` / `setVariable` accept LAN calls without a token.
+- Turn external control off to require a panel or config token on those handlers.
+- `/api/room` is a public snapshot with PINs and secrets stripped. It is still a live view of the room.
 
-## Operator checklist
+## Secrets on disk
 
-- Change the default config PIN before any real deployment.
-- Do not forward port 8081 to the internet.
-- Keep pairing tokens off shared USB sticks; treat `data/relay-room.json`
-  as a secret.
-- Put guest Wi-Fi on another VLAN.
+`data/relay-room.json` holds PINs and pairing tokens in plaintext. Treat the file as secret.
+
+Export strips PINs and tokens. Import does not invent a new PIN if you paste one.
+
+## Host commands
+
+`relay-host.json` can restart Vite, reboot the OS, dim, lock, and toast. Those run if a macro or the configurator fires them. Restrict who can reach `/config` and who can edit macros.
+
+## Checklist
+
+- Change PIN `1234` before a live room.
+- Disable external control if the LAN is not fully trusted.
+- Guest Wi-Fi on another VLAN.
+- Keep `data/` off shared sticks.
