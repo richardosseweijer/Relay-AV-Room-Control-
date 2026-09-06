@@ -18,7 +18,7 @@ Trusted LAN / VLAN only. Bind is `0.0.0.0:8081`. Do not port-forward that port.
 
 ## Secrets on disk
 
-`data/relay-secrets.json` holds PINs and pairing tokens in plaintext. `data/relay-room.json` holds layout and IPs only. Room-to-room calls use HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). The PIN or peer secret is not sent. Signatures older than 90 seconds are rejected. Generate a peer secret on Security. Put the far room’s secret in that device’s PIN/secret field.
+`data/relay-secrets.json` holds PINs and pairing tokens in plaintext. `data/relay-room.json` holds layout and IPs only. Default rooms refuse open LAN control. A tablet that opened the panel keeps a 30-day token in the browser and in `relay-secrets.json`. That is the whitelist — not MAC addresses (browsers cannot send those). Bind stays `0.0.0.0:8081`. First login must replace `1234`.
 
 ## Host commands
 

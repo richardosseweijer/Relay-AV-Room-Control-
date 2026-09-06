@@ -70,6 +70,7 @@ type Memory = {
   activeScene: string | null;
   latches: Record<string, string>;
   host: { dim: boolean; locked: boolean; toast: string | null; block: string | null; pageId: string | null; fullscreenAt?: number };
+  sessions: Record<string, { kind: "config" | "panel"; exp: number }>;
 };
 
 const g = globalThis as typeof globalThis & {
@@ -89,6 +90,7 @@ type SecretFile = {
   configPin?: string;
   panelPin?: string | null;
   peerSecret?: string;
+  sessions?: Record<string, { kind: "config" | "panel"; exp: number }>;
   devices?: Record<string, Record<string, string>>;
 };
 
@@ -159,7 +161,7 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
       ...(config.room ?? {}),
       network: { ...demo.room.network, ...(config.room?.network ?? {}) },
       grid: { ...demo.room.grid, ...(config.room?.grid ?? {}) },
-      externalControl: config.room?.externalControl !== false,
+      externalControl: config.room?.externalControl === true,
       theme: config.room?.theme === "pastel" || config.room?.theme === "light" ? "pastel" : "dark",
     },
     variables: config.variables ?? demo.variables,
@@ -191,6 +193,7 @@ function emptyMemory(): Memory {
     activeScene: null,
     host: { dim: false, locked: false, toast: null, block: null, pageId: null },
     latches: {},
+    sessions: {},
   };
 }
 
@@ -244,6 +247,7 @@ export async function loadPersisted(): Promise<Memory> {
       mem.state = saved.state ?? defaultDeviceState();
       mem.vars = seedVars(mem.config, saved.vars);
       mem.latches = saved.latches ?? {};
+      mem.sessions = fromDisk.sessions ?? {};
       mem.health = {};
       lastScheduleRun.clear();
       for (const [id, stamp] of Object.entries(saved.stamps ?? {})) lastScheduleRun.set(id, stamp);
@@ -288,6 +292,7 @@ async function writeFileStore(mem: Memory) {
   try {
     await mkdir(path.dirname(FILE_STORE), { recursive: true });
     const secrets = pickSecrets(mem.config);
+    secrets.sessions = mem.sessions ?? {};
     const body = JSON.stringify({
       config: publicConfig(normalize(mem.config)),
       drivers: mem.drivers,

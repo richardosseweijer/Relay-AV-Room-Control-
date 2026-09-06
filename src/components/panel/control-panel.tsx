@@ -249,17 +249,20 @@ export function ControlPanel() {
     let cancel = false;
     (async () => {
       const issued = await issuePanelSession();
-      if (issued.token) setSession(issued.token);
-      const stored = sessionStorage.getItem("relay-panel-token");
+      if (issued.token) {
+        setSession(issued.token);
+        localStorage.setItem("relay-panel-token", issued.token);
+      }
+      const stored = localStorage.getItem("relay-panel-token") || sessionStorage.getItem("relay-panel-token");
       if (!issued.token && stored) {
         const check = await checkPanelSession({ data: { token: stored } });
         if (check.ok) setSession(stored);
-        else sessionStorage.removeItem("relay-panel-token");
+        else localStorage.removeItem("relay-panel-token");
       }
       const next = await refresh();
       if (cancel) return;
       if (next?.config?.room.panelAccess === "pin") {
-        const token = sessionStorage.getItem("relay-panel-token");
+        const token = localStorage.getItem("relay-panel-token") || sessionStorage.getItem("relay-panel-token");
         const ok = token ? (await checkPanelSession({ data: { token } })).ok : false;
         if (ok && token) setSession(token);
         setLocked(!ok);
@@ -435,6 +438,7 @@ export function ControlPanel() {
             const res = await verifyPanelPin({ data: { pin } });
             if (res.ok && res.token) {
               sessionStorage.setItem("relay-panel-token", res.token);
+              localStorage.setItem("relay-panel-token", res.token);
               setSession(res.token);
               setLocked(false);
             } else setNote("Wrong PIN");
@@ -476,7 +480,7 @@ export function ControlPanel() {
             size="sm"
             variant="secondary"
             onClick={async () => {
-              await clearDeviceError({ data: {} });
+              await clearDeviceError({ data: { token: session } });
               await refresh();
             }}
           >

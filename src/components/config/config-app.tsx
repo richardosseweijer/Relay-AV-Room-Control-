@@ -156,7 +156,9 @@ export function ConfigApp() {
   const [hostPorts, setHostPorts] = useState<{ kind: string; path: string; label: string }[]>([]);
   const importRef = useRef<HTMLInputElement>(null);
   const [pendingDriver, setPendingDriver] = useState<string | null>(null);
-  const [libraryPick, setLibraryPick] = useState("");
+  const [mustChange, setMustChange] = useState(false);
+  const [newPin, setNewPin] = useState("");
+  const [newPin2, setNewPin2] = useState("");
 
   async function scanPorts(quiet = false) {
     const res = await listHostPorts({ data: { token: token || "" } });
@@ -197,7 +199,10 @@ export function ConfigApp() {
     if (stored) {
       setToken(stored);
       getEditorConfig({ data: { token: stored } }).then((res) => {
-        if (res.config) setDraft(structuredClone(res.config));
+        if (res.config) {
+          setDraft(structuredClone(res.config));
+          setMustChange(Boolean(res.mustChange));
+        }
         else sessionStorage.removeItem("relay-config-token");
       }).catch(() => undefined);
     }
@@ -293,6 +298,7 @@ export function ConfigApp() {
           if (res.ok && res.token) {
             setToken(res.token);
             sessionStorage.setItem("relay-config-token", res.token);
+            setMustChange(Boolean(res.mustChange));
             const editor = await getEditorConfig({ data: { token: res.token } });
             if (editor.ok && editor.config) setDraft(structuredClone(editor.config));
           } else flash("Wrong PIN", "");
@@ -304,6 +310,29 @@ export function ConfigApp() {
   }
 
   if (!draft?.room || !page) return <main className="flex min-h-dvh items-center justify-center bg-bg text-muted">Loading config…</main>;
+
+  if (mustChange) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-4 bg-bg px-6">
+        <h1 className="text-3xl font-medium tracking-tight">Set a new PIN</h1>
+        <p className="text-sm text-muted">1234 and other simple codes are not allowed.</p>
+        <input className={fieldClass()} type="password" inputMode="numeric" value={newPin} onChange={(e) => setNewPin(e.target.value)} placeholder="New PIN" />
+        <input className={fieldClass()} type="password" inputMode="numeric" value={newPin2} onChange={(e) => setNewPin2(e.target.value)} placeholder="Repeat PIN" />
+        <Button onClick={async () => {
+          if (newPin !== newPin2) { flash("PIN mismatch", ""); return; }
+          update((c) => { c.room.configPin = newPin; });
+          const next = structuredClone(draft);
+          next.room.configPin = newPin;
+          const res = await saveConfig({ data: { token: token || "", config: next } });
+          if (!res.ok) { flash("PIN not saved", res.message ?? ""); return; }
+          setDraft(next);
+          setMustChange(false);
+          flash("PIN set", "Remember this code.");
+        }}>Save PIN</Button>
+        {toast ? <p className="text-sm text-clay">{toast.body || toast.title}</p> : null}
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-dvh bg-bg text-fg">
@@ -508,7 +537,7 @@ export function ConfigApp() {
             ) : null}
             <label className="flex items-center gap-2 text-sm sm:col-span-2">
               <input type="checkbox" checked={draft.room.externalControl !== false} onChange={(e) => update((c) => { c.room.externalControl = e.target.checked; })} />
-              Allow unsigned LAN reads when no peer secret is set
+              Allow open LAN control without a paired token (not recommended)
             </label>
             <label className="grid gap-1 text-sm text-muted sm:col-span-2">Peer secret
               <input className={fieldClass()} type="password" autoComplete="off" value={draft.room.peerSecret ?? ""} onChange={(e) => update((c) => { c.room.peerSecret = e.target.value; })} />
@@ -714,7 +743,7 @@ export function ConfigApp() {
                   {snap.health?.[device.id] && !snap.health[device.id]!.ok ? (
                     <div className="mt-2 flex items-center gap-2 text-sm text-clay">
                       {snap.health[device.id]!.message}
-                      <Button size="sm" variant="secondary" onClick={async () => { await clearDeviceError({ data: { deviceId: device.id } }); }}>Retry</Button>
+                      <Button size="sm" variant="secondary" onClick={async () => { await clearDeviceError({ data: { deviceId: device.id, token: token || "" } }); }}>Retry</Button>
                     </div>
                   ) : null}
                   <textarea className={`${fieldClass()} mt-3 min-h-16 font-mono text-xs`} placeholder="Raw payload" id={`raw-${device.id}`} />
@@ -1291,7 +1320,7 @@ export function ConfigApp() {
                 <option value="monitor">Monitors</option>
                 <option value="error">Errors</option>
               </select>
-              <Button size="sm" variant="secondary" onClick={async () => { await wipeLog(); await refresh(); }}>Clear log</Button>
+              <Button size="sm" variant="secondary" onClick={async () => { await wipeLog({ data: { token: token || "" } }); await refresh(); }}>Clear log</Button>
             </div>
             {(snap.log ?? []).filter((row) => logKind === "all" || row.kind === logKind || (logKind === "error" && !row.ok)).map((row) => (
               <div key={row.id} className="rounded-md border border-border bg-surface px-3 py-2 text-sm">

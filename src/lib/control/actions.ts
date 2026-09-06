@@ -5,6 +5,8 @@ import { bundledDrivers } from "./defaults";
 import { ensureLoaded, memory, persist, persistNow, pushLog, snapshot, clearLog, normalize, writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName } from "./store.server";
 import type { DriverSpec, RoomConfig } from "./types";
 import { clampVar, driverInUse, seedVars } from "./vars";
+import { isWeakPin } from "./pins";
+import { randomBytes } from "node:crypto";
 
 const g = globalThis as typeof globalThis & {
   __relayTokens__?: Map<string, { kind: "config" | "panel"; exp: number }>;
@@ -16,19 +18,26 @@ function tokenStore() {
 }
 
 function mint(kind: "config" | "panel") {
-  const token = `${kind}-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
-  tokenStore().set(token, { kind, exp: Date.now() + 1000 * 60 * 60 * 8 });
+  const token = `${kind}-${randomBytes(18).toString("hex")}`;
+  const row = { kind, exp: Date.now() + 1000 * 60 * 60 * 24 * 30 };
+  tokenStore().set(token, row);
+  const mem = memory();
+  mem.sessions = mem.sessions ?? {};
+  mem.sessions[token] = row;
+  persist();
   return token;
 }
 
 function validToken(token: string | undefined, kind: "config" | "panel") {
   if (!token) return false;
-  const row = tokenStore().get(token);
+  const row = tokenStore().get(token) ?? memory().sessions?.[token];
   if (!row || row.kind !== kind) return false;
   if (row.exp < Date.now()) {
     tokenStore().delete(token);
+    if (memory().sessions) delete memory().sessions[token];
     return false;
   }
+  tokenStore().set(token, row);
   return true;
 }
 
@@ -97,7 +106,8 @@ export const getEditorConfig = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false as const, config: null };
-    return { ok: true as const, config: normalize(memory().config), traces: traces() };
+    const config = normalize(memory().config);
+    return { ok: true as const, config, traces: traces(), mustChange: isWeakPin(config.room.configPin) };
   });
 
 export const verifyConfigPin = createServerFn({ method: "POST" })
@@ -105,7 +115,8 @@ export const verifyConfigPin = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await ensureLoaded();
     const ok = data.pin === memory().config.room.configPin;
-    return ok ? { ok: true, token: mint("config") } : { ok: false, token: null };
+    if (!ok) return { ok: false, token: null as string | null, mustChange: false };
+    return { ok: true, token: mint("config"), mustChange: isWeakPin(data.pin) };
   });
 
 export const verifyPanelPin = createServerFn({ method: "POST" })
@@ -132,9 +143,13 @@ export const saveConfig = createServerFn({ method: "POST" })
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     if (data.pin && data.pin !== memory().config.room.configPin) return { ok: false, message: "PIN did not match" };
     const pin = data.config.room.configPin?.trim() || memory().config.room.configPin;
+    if (isWeakPin(pin)) return { ok: false, message: "Choose a PIN that is not 1234, 0000, or a repeat/sequence" };
     const panelPin = data.config.room.panelAccess === "pin"
       ? (data.config.room.panelPin?.trim() || memory().config.room.panelPin)
       : null;
+    if (data.config.room.panelAccess === "pin" && isWeakPin(panelPin)) {
+      return { ok: false, message: "Panel PIN is too weak" };
+    }
     const config: RoomConfig = {
       ...data.config,
       room: { ...data.config.room, configPin: pin, panelPin },
@@ -474,6 +489,7 @@ export const clearDeviceError = createServerFn({ method: "POST" })
   .validator((data: { deviceId?: string; token?: string }) => data)
   .handler(async ({ data }) => {
     await ensureLoaded();
+    if (!allowLanControl(data.token)) return { ok: false, message: "External control off" };
     const mem = memory();
     mem.health = mem.health ?? {};
     if (data.deviceId) mem.health[data.deviceId] = { ok: true, message: "cleared" };
@@ -514,11 +530,14 @@ export const debugSend = createServerFn({ method: "POST" })
     });
   });
 
-export const wipeLog = createServerFn({ method: "POST" }).handler(async () => {
-  await ensureLoaded();
-  clearLog();
-  return { ok: true };
-});
+export const wipeLog = createServerFn({ method: "POST" })
+  .validator((data: { token?: string }) => data)
+  .handler(async ({ data }) => {
+    await ensureLoaded();
+    if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
+    clearLog();
+    return { ok: true };
+  });
 
 export const clearConfig = createServerFn({ method: "POST" })
   .validator((data: { token: string; pin: string }) => data)
