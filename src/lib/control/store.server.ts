@@ -161,7 +161,12 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
     variables: config.variables ?? demo.variables,
     schedules: config.schedules ?? demo.schedules,
     monitors: config.monitors ?? demo.monitors,
-    triggers: config.triggers ?? [],
+    triggers: (config.triggers ?? []).map((rule) => {
+      const holdSec = rule.holdSec ?? Math.round((rule.holdMs || 0) / 1000);
+      const delaySec = rule.delaySec ?? Math.round((rule.delayMs || 0) / 1000);
+      const intervalSec = rule.intervalSec ?? Math.max(1, Math.round((rule.intervalMs || 5000) / 1000));
+      return { ...rule, holdSec, delaySec, intervalSec, holdMs: undefined, delayMs: undefined, intervalMs: undefined };
+    }),
     interfaces: config.interfaces ?? [],
   };
 }
@@ -459,7 +464,7 @@ async function runDueTriggers() {
       lastTriggerHeld.delete(rule.id);
       continue;
     }
-    const holdMs = Math.min(Math.max(rule.holdMs || 0, 0), 7_200_000);
+    const holdMs = Math.min(Math.max((rule.holdSec ?? 0) * 1000, 0), 7_200_000);
     if (holdMs) {
       const since = lastTriggerHeld.get(rule.id);
       if (since === undefined) {
@@ -477,7 +482,7 @@ async function runDueTriggers() {
       }
       if (prev.startsWith("true:")) continue;
     }
-    const wait = Math.max(500, rule.intervalMs || 1000);
+    const wait = Math.max(500, (rule.intervalSec || 1) * 1000);
     if (rule.mode === "interval" && now - (lastTriggerFire.get(rule.id) ?? 0) < wait) continue;
     if (rule.mode === "change" && now - (lastTriggerFire.get(rule.id) ?? 0) < 400) continue;
     const macro = mem.config.macros.find((m) => m.id === rule.macroId);
@@ -488,7 +493,7 @@ async function runDueTriggers() {
     }
     lastTriggerValue.set(rule.id, `true:${left}`);
     lastTriggerFire.set(rule.id, now);
-    const waitMs = Math.min(rule.delayMs || 0, 15000);
+    const waitMs = Math.min((rule.delaySec || 0) * 1000, 120_000);
     const job = { id: rule.id, macroId: rule.macroId, label: rule.label };
     const macroRef = macro;
     void (async () => {

@@ -277,8 +277,11 @@ export type VariableTrigger = {
   compare: TriggerCompare;
   equals: string;
   mode: TriggerMode;
-  intervalMs: number;
-  delayMs: number;
+  intervalSec?: number;
+  delaySec?: number;
+  holdSec?: number;
+  intervalMs?: number;
+  delayMs?: number;
   holdMs?: number;
   macroId: string;
 };

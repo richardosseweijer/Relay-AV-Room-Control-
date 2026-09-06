@@ -313,6 +313,7 @@ export const relayHostDriver: DriverSpec = {
   commands: [
     { id: "display.dim", label: "Dim panel", kind: "action", transport: "lan", payload: "dim" },
     { id: "display.wake", label: "Wake panel", kind: "action", transport: "lan", payload: "wake" },
+    { id: "display.fullscreen", label: "Panel fullscreen", kind: "action", transport: "lan", payload: "fullscreen" },
     { id: "panel.lock", label: "Lock panel", kind: "action", transport: "lan", payload: "lock" },
     { id: "panel.unlock", label: "Unlock panel", kind: "action", transport: "lan", payload: "unlock" },
     { id: "ui.toast", label: "Show message", kind: "enum", transport: "lan", payload: "{value}", values: [] },
@@ -519,7 +520,7 @@ export function defaultRoomConfig(): RoomConfig {
       { id: "mon-cam-preset", label: "Camera preset", enabled: true, device: "cam", feedback: "preset.current", pollMs: 5000, writeVar: "camPreset", mapMode: "raw", map: [] },
     ],
     triggers: [
-      { id: "tr-loud", label: "Volume warning", enabled: false, variable: "watchVol", compare: "gt", equals: "35", mode: "change", intervalMs: 1000, delayMs: 0, macroId: "announce" },
+      { id: "tr-loud", label: "Volume warning", enabled: false, variable: "watchVol", compare: "gt", equals: "35", mode: "change", intervalSec: 1, delaySec: 0, holdSec: 0, macroId: "announce" },
     ],
     interfaces: [],
   };
