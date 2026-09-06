@@ -2,7 +2,7 @@
 
 Windows 10/11. Command Prompt or PowerShell.
 
-Default configurator PIN: `1234`. Change it before a live room.
+Default configurator PIN: `1234`. The app then requires a stronger PIN. Tablets stay paired until Forget on Security.
 
 Working folder in this guide: `C:\relay`.
 

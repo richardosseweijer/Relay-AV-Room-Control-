@@ -2,9 +2,18 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.7.1 — 2026-09-06
+
+- Security tab: peer secret, paired tablets until Forget, weak PIN wall (`1234` must be changed).
+- Open LAN control **off** by default. HMAC uses the peer secret only; `/api/ping` needs a config session.
+- Panel reuses a stored token (no mint on every refresh). `/api/room` hides `peerSecret`.
+- Triggers re-check after delay and stamp only on success.
+- Kiosk grid fits the screen; dim is an overlay; config scroll clipped under the header.
+- Restore demo button removed. Clear config remains.
+
 ## 0.7.0 — 2026-09-06
 
-- Relay-to-Relay: remote `relay-host` device (IP:8081 + PIN) uses `/api/peer` for macros, host commands, inventory.
+- Relay-to-Relay: remote `relay-host` device (IP:8081 + peer secret) uses `/api/peer` for macros, host commands, inventory.
 
 Beta. Engine freeze intended; drivers and docs may still move.
 

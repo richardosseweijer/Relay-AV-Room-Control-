@@ -1,6 +1,6 @@
 # Relay
 
-Relay **0.7.0** (beta). Room controller for local AV devices. Private LAN only.
+Relay **0.7.1** (beta). Room controller for local AV devices. Private LAN only.
 
 Supported start: `npx vite dev --host 0.0.0.0 --port 8081`  
 Room `http://HOST:8081/` — configurator `http://HOST:8081/config` — default PIN `1234`.

@@ -2,7 +2,7 @@
 
 This guide assumes a newly installed 64-bit Debian, Ubuntu, or Raspberry Pi OS. No Node, Git, or extra packages are required beforehand. A network connection that can reach GitHub and deb.nodesource.com is required.
 
-Default configurator PIN after first start: `1234`. Change it before a live room.
+Default configurator PIN after first start: `1234`. The app then requires a stronger PIN. Tablets stay paired until you Forget them on Security.
 
 Commands below are run in a terminal as a normal user that can use `sudo`.
 
