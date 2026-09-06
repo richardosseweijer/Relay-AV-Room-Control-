@@ -40,14 +40,6 @@ export const Route = createFileRoute("/api/peer")({
         const body = (() => { try { return JSON.parse(raw) as { command?: string; value?: string | number; macroId?: string }; } catch { return {}; } })();
         const dangerous = /system\.(reboot|update|restart)/.test(body.command || "");
         const mem = memory();
-        if (dangerous && !verifyPeerRequest({
-          key: mem.config.room.configPin || peerKey(mem.config.room),
-          method: "POST",
-          path: "/api/peer",
-          ts: request.headers.get("x-relay-ts") || "",
-          body: raw,
-          sig: request.headers.get("x-relay-auth") || "",
-        })) return Response.json({ ok: false, message: "Config key required" }, { status: 401 });
         if (body.macroId) {
           const macro = mem.config.macros.find((m) => m.id === body.macroId || m.label === body.macroId);
           if (!macro) return Response.json({ ok: false, message: "Unknown macro" }, { status: 404 });

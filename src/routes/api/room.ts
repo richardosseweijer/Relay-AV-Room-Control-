@@ -42,7 +42,7 @@ export const Route = createFileRoute("/api/room")({
               drivers: bundledDrivers,
               library: bundledDrivers,
               state: defaultDeviceState(),
-              vars: Object.fromEntries(demo.variables.map((v) => [v.id, v.value])),
+              vars: Object.fromEntries(demo.variables.map((v) => [v.id, v.default])),
               health: {},
               log: [],
               traces: {},

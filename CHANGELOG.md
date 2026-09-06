@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## 0.7.1 — 2026-09-06
 
+- HMAC signatures must be 64 lowercase hex chars; replay cache uses the digest.
+- Peer host restart/update/reboot uses the first HMAC only (no second PIN check).
+- Save all fails the request if the room or secrets file cannot be written.
+- Change-triggers queue at most once per edge.
 - Security tab: peer secret, paired tablets until Forget, weak PIN wall (`1234` must be changed).
 - Open LAN control **off** by default. HMAC uses the peer secret only; `/api/ping` needs a config session.
 - Panel reuses a stored token (no mint on every refresh). `/api/room` hides `peerSecret`.

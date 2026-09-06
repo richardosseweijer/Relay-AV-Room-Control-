@@ -316,7 +316,7 @@ async function sendPjlink(host: string, port: number, payload: string, password:
     sock.on("error", (err) => fail(err.message));
     sock.on("data", (chunk) => {
       buf += chunk.toString();
-      const take = () => {
+      const take = (): string | null => {
         const at = buf.search(/\r|\n/);
         if (at < 0) return null;
         const line = buf.slice(0, at).trim();

@@ -70,7 +70,7 @@ type Memory = {
   activeScene: string | null;
   latches: Record<string, string>;
   host: { dim: boolean; locked: boolean; toast: string | null; block: string | null; pageId: string | null; fullscreenAt?: number };
-  sessions: Record<string, { secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
+  sessions: Record<string, { id?: string; secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
 };
 
 const g = globalThis as typeof globalThis & {
@@ -90,7 +90,7 @@ type SecretFile = {
   configPin?: string;
   panelPin?: string | null;
   peerSecret?: string;
-  sessions?: Record<string, { secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
+  sessions?: Record<string, { id?: string; secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
   devices?: Record<string, Record<string, string>>;
 };
 
@@ -162,7 +162,7 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
       network: { ...demo.room.network, ...(config.room?.network ?? {}) },
       grid: { ...demo.room.grid, ...(config.room?.grid ?? {}) },
       externalControl: config.room?.externalControl === true,
-      theme: config.room?.theme === "pastel" || config.room?.theme === "light" ? "pastel" : "dark",
+      theme: config.room?.theme === "pastel" ? "pastel" : "dark",
     },
     variables: config.variables ?? demo.variables,
     schedules: config.schedules ?? demo.schedules,
@@ -295,27 +295,23 @@ export async function loadPersisted(): Promise<Memory> {
 }
 
 async function writeFileStore(mem: Memory) {
-  try {
-    await mkdir(path.dirname(FILE_STORE), { recursive: true });
-    const secrets = pickSecrets(mem.config);
-    secrets.sessions = mem.sessions ?? {};
-    const body = JSON.stringify({
-      config: publicConfig(normalize(mem.config)),
-      drivers: mem.drivers,
-      state: mem.state,
-      vars: mem.vars,
-      latches: mem.latches ?? {},
-      stamps: Object.fromEntries(lastScheduleRun),
-    });
-    const tmp = `${FILE_STORE}.tmp`;
-    await writeFile(tmp, body, "utf8");
-    await rename(tmp, FILE_STORE);
-    const secretTmp = `${SECRET_STORE}.tmp`;
-    await writeFile(secretTmp, JSON.stringify(secrets), "utf8");
-    await rename(secretTmp, SECRET_STORE);
-  } catch {
-    /* disk missing or not writable */
-  }
+  await mkdir(path.dirname(FILE_STORE), { recursive: true });
+  const secrets = pickSecrets(mem.config);
+  secrets.sessions = mem.sessions ?? {};
+  const body = JSON.stringify({
+    config: publicConfig(normalize(mem.config)),
+    drivers: mem.drivers,
+    state: mem.state,
+    vars: mem.vars,
+    latches: mem.latches ?? {},
+    stamps: Object.fromEntries(lastScheduleRun),
+  });
+  const tmp = `${FILE_STORE}.tmp`;
+  await writeFile(tmp, body, "utf8");
+  await rename(tmp, FILE_STORE);
+  const secretTmp = `${SECRET_STORE}.tmp`;
+  await writeFile(secretTmp, JSON.stringify(secrets), "utf8");
+  await rename(secretTmp, SECRET_STORE);
 }
 
 let persistChain = Promise.resolve();
@@ -349,9 +345,14 @@ async function flushPersist() {
 
 export async function persistNow() {
   persistDirty = true;
-  const run = persistChain.catch(() => undefined).then(flushPersist);
-  persistChain = run.catch(() => undefined);
-  await run;
+  try {
+    const run = persistChain.catch(() => undefined).then(flushPersist);
+    persistChain = run.catch(() => undefined);
+    await run;
+  } catch (err) {
+    persistDirty = true;
+    throw err;
+  }
 }
 
 export function persist() {
@@ -503,8 +504,10 @@ async function runDueTriggers() {
     if (rule.mode === "change" && now - (lastTriggerFire.get(rule.id) ?? 0) < 400) continue;
     const macro = mem.config.macros.find((m) => m.id === rule.macroId);
     if (!macro) continue;
+    if (triggerQueue.some((item) => item.id === rule.id)) continue;
     if (mem.runningMacro) {
-      if (!triggerQueue.some((item) => item.id === rule.id)) triggerQueue.push({ id: rule.id, macroId: rule.macroId, label: rule.label });
+      triggerQueue.push({ id: rule.id, macroId: rule.macroId, label: rule.label });
+      lastTriggerValue.set(rule.id, `true:${left}`);
       continue;
     }
     const waitMs = Math.min((rule.delaySec || 0) * 1000, 120_000);
@@ -519,7 +522,7 @@ async function runDueTriggers() {
 
 async function runQueuedTrigger(job: { id: string; macroId: string; label: string }, macro: Macro) {
   const live = memory();
-  const rule = live.config.triggers.find((item) => item.id === job.id);
+  const rule = (live.config.triggers ?? []).find((item) => item.id === job.id);
   if (rule?.variable) {
     const left = String(live.vars[rule.variable] ?? "");
     const right = String(resolveTemplate(rule.equals, live.vars, live.config.variables) ?? rule.equals);

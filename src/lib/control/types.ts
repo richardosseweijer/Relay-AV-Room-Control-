@@ -95,6 +95,7 @@ export type DriverSpec = {
       dataBits?: number;
       parity?: string;
       stopBits?: number;
+      lineEnding?: string;
       bus?: number;
       address?: string;
       speed?: number;

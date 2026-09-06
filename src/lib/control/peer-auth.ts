@@ -21,16 +21,18 @@ export function verifyPeerRequest(opts: {
   if (!opts.key || !opts.sig || !opts.ts) return false;
   const stamp = Number(opts.ts);
   if (!Number.isFinite(stamp) || Math.abs(Date.now() - stamp) > 90_000) return false;
-  const replay = `${opts.sig}:${opts.ts}`;
+  const sig = opts.sig.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(sig)) return false;
+  const expect = signPeer(opts.key, opts.method, opts.path, opts.ts, opts.body);
+  const replay = `${expect}:${opts.ts}`;
   const now = Date.now();
   for (const [key, at] of used) {
     if (now - at > 90_000) used.delete(key);
   }
   if (used.has(replay)) return false;
-  const expect = signPeer(opts.key, opts.method, opts.path, opts.ts, opts.body);
   try {
     const a = Buffer.from(expect, "hex");
-    const b = Buffer.from(opts.sig, "hex");
+    const b = Buffer.from(sig, "hex");
     if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
     used.set(replay, now);
     return true;
