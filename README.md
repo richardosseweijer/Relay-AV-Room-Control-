@@ -6,6 +6,8 @@ Room controller for local AV devices. Use it on a private LAN.
 - [Linux setup](LINUX.md)
 - [Windows setup](WINDOWS.md)
 - [Driver prompt for other AIs](DRIVER-PROMPT.md)
+- [Changelog](CHANGELOG.md)
+- [Known issues](KNOWN_ISSUES.md)
 - [Legal notice](NOTICE)
 - [Privacy](PRIVACY.md)
 
