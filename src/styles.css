@@ -32,14 +32,37 @@
   --radius-xl: 30px;
 }
 
+html[data-theme="pastel"] {
+  --color-bg: #f3eee8;
+  --color-surface: #fffaf4;
+  --color-raised: #efe6dc;
+  --color-fg: #3a3530;
+  --color-muted: #7a726a;
+  --color-subtle: #9a9188;
+  --color-border: #e0d5c8;
+  --color-accent: #c9a48c;
+  --color-accent-fg: #3a3530;
+  --color-steel: #a8b8c8;
+  --color-sage: #b5c9b0;
+  --color-clay: #e0b0a4;
+  --color-fog: #c4c0c8;
+  --color-ink: #8a8480;
+  --color-ocean: #9bb8c8;
+  --color-pine: #9cbfae;
+  --color-rust: #e0b090;
+  --color-sand: #e8d5a8;
+  --color-slate: #b0b8c0;
+  --color-rose: #e0b0b8;
+}
+
 @layer base {
   html,
   body,
   #app {
     min-height: 100%;
     background:
-      radial-gradient(900px 480px at 50% -8%, #1a1a22 0%, transparent 58%),
-      radial-gradient(700px 400px at 100% 100%, #121218 0%, transparent 50%),
+      radial-gradient(900px 480px at 50% -8%, color-mix(in oklab, var(--color-raised) 80%, transparent) 0%, transparent 58%),
+      radial-gradient(700px 400px at 100% 100%, color-mix(in oklab, var(--color-surface) 70%, transparent) 0%, transparent 50%),
       var(--color-bg);
     color: var(--color-fg);
     font-feature-settings: "ss01" on, "kern" on;
