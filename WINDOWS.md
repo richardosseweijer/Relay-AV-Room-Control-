@@ -97,7 +97,8 @@ npx vite dev --host 0.0.0.0 --port 8081
 
 ## 8. Data and COM ports
 
-- Room file: `C:\relay\data\relay-room.json`
+- Room file: `C:\relay\data\relay-room.json` (layout, IPs)
+- Secrets: `C:\relay\data\relay-secrets.json` (PINs, tokens — not in Export)
 - Drivers: `C:\relay\data\drivers\`
 - COM ports: Configurator → Interfaces → Scan
 - Driver check: `npm run driver:check -- data\drivers\samsung-qe50q65t.json`

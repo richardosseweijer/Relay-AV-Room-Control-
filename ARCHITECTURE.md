@@ -48,6 +48,7 @@ Operator browser          Integrator browser
           │                        │
           ▼                        ▼
    data/relay-room.json      LAN / serial / GPIO
+   data/relay-secrets.json   PINs and device tokens
    data/drivers/*.json       HDMI-CEC / IR / …
 ```
 
@@ -59,7 +60,7 @@ Operator browser          Integrator browser
 
 `ensureLoaded()` in `store.server.ts`:
 
-1. Reads `data/relay-room.json` if present. A missing or unreadable file yields the bundled demonstration room (`defaults.ts`).
+1. Reads `data/relay-room.json` if present and overlays `data/relay-secrets.json`. A missing room file yields an empty room.
 2. Loads every `*.json` in `data/drivers/` into the driver library. Empty directories are seeded from bundled drivers.
 3. Normalises the configuration (missing arrays, default grid, timezone).
 4. Seeds room variables from declared defaults.
@@ -245,7 +246,8 @@ The development server listens on all interfaces. Combined with external control
 
 | Path | Responsibility |
 |---|---|
-| `data/relay-room.json` | Last saved room. |
+| `data/relay-room.json` | Layout, IPs, variables. No PINs or pairing tokens. |
+| `data/relay-secrets.json` | Config PIN, panel PIN, device tokens. Created on first save. |
 | `data/drivers/` | Library of driver files. |
 | `public/drivers/` | Optional static copies of a subset of drivers. |
 

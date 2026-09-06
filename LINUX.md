@@ -271,8 +271,7 @@ sudo systemctl restart relay
 
 ## 8. Data
 
-Room configuration is stored in `data/relay-room.json` and `data/drivers/`.
-Copy those files off the card before a re-image.
+Room configuration is stored in `data/relay-room.json` (layout, IPs) and `data/relay-secrets.json` (PINs, tokens). Copy both off the card before a re-image. Do not put the secrets file in an export or a git repo.
 
 ---
 

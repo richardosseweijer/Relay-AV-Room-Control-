@@ -18,9 +18,7 @@ Trusted LAN / VLAN only. Bind is `0.0.0.0:8081`. Do not port-forward that port.
 
 ## Secrets on disk
 
-`data/relay-room.json` holds PINs and pairing tokens in plaintext. Treat the file as secret.
-
-Export strips PINs and tokens. Import does not invent a new PIN if you paste one.
+`data/relay-secrets.json` holds PINs and pairing tokens in plaintext. `data/relay-room.json` holds layout and IPs only. Export never includes the secrets file.
 
 ## Host commands
 

@@ -7,6 +7,7 @@ import path from "node:path";
 
 const ROW_ID = "current";
 const FILE_STORE = path.join(process.cwd(), "data", "relay-room.json");
+const SECRET_STORE = path.join(process.cwd(), "data", "relay-secrets.json");
 const DRIVER_DIR = path.join(process.cwd(), "data", "drivers");
 
 export function safeDriverName(name: string) {
@@ -83,6 +84,65 @@ const lastTriggerFire = new Map<string, number>();
 const goodPolls = new Map<string, number>();
 const triggerQueue: { id: string; macroId: string; label: string }[] = [];
 
+type SecretFile = {
+  configPin?: string;
+  panelPin?: string | null;
+  devices?: Record<string, Record<string, string>>;
+};
+
+function isSecretKey(key: string) {
+  return /token|password|secret|key|username|pin/i.test(key);
+}
+
+function pickSecrets(config: RoomConfig): SecretFile {
+  const devices: Record<string, Record<string, string>> = {};
+  for (const device of config.devices) {
+    const hide: Record<string, string> = {};
+    for (const [key, value] of Object.entries(device.auth ?? {})) {
+      if (isSecretKey(key) && String(value ?? "").trim()) hide[key] = String(value);
+    }
+    if (Object.keys(hide).length) devices[device.id] = hide;
+  }
+  return {
+    configPin: config.room.configPin,
+    panelPin: config.room.panelPin,
+    devices,
+  };
+}
+
+function publicConfig(config: RoomConfig): RoomConfig {
+  const next = structuredClone(config);
+  next.room.configPin = "";
+  next.room.panelPin = next.room.panelAccess === "pin" ? "" : null;
+  for (const device of next.devices) {
+    const keep: Record<string, string> = {};
+    for (const [key, value] of Object.entries(device.auth ?? {})) {
+      if (!isSecretKey(key)) keep[key] = value;
+    }
+    device.auth = keep;
+  }
+  return next;
+}
+
+function applySecrets(config: RoomConfig, secrets?: SecretFile | null): RoomConfig {
+  const next = structuredClone(config);
+  if (secrets?.configPin) next.room.configPin = secrets.configPin;
+  if (next.room.panelAccess === "pin" && secrets?.panelPin) next.room.panelPin = secrets.panelPin;
+  for (const device of next.devices) {
+    const extra = secrets?.devices?.[device.id];
+    if (extra) device.auth = { ...device.auth, ...extra };
+  }
+  return next;
+}
+
+async function readSecretFile(): Promise<SecretFile> {
+  try {
+    return JSON.parse(await readFile(SECRET_STORE, "utf8")) as SecretFile;
+  } catch {
+    return {};
+  }
+}
+
 export function normalize(config?: RoomConfig | null): RoomConfig {
   const demo = emptyRoomConfig();
   if (!config) return demo;
@@ -152,7 +212,13 @@ export async function loadPersisted(): Promise<Memory> {
     const raw = await readFile(FILE_STORE, "utf8");
     const saved = JSON.parse(raw) as { config?: RoomConfig; drivers?: Record<string, DriverSpec>; state?: DeviceStateMap; vars?: VarMap; latches?: Record<string, string>; stamps?: Record<string, string> };
     if (saved.config) {
-      mem.config = normalize(saved.config);
+      const fromDisk = await readSecretFile();
+      const fromRoom = pickSecrets(saved.config);
+      mem.config = applySecrets(normalize(saved.config), {
+        configPin: fromDisk.configPin || fromRoom.configPin,
+        panelPin: fromDisk.panelPin || fromRoom.panelPin,
+        devices: { ...fromRoom.devices, ...fromDisk.devices },
+      });
       mem.library = await loadDriverFiles();
       mem.drivers = {};
       const savedNames = saved.drivers ? Object.keys(saved.drivers) : Object.keys(mem.library);
@@ -191,7 +257,7 @@ export async function loadPersisted(): Promise<Memory> {
       persist();
       return mem;
     }
-    mem.config = normalize(JSON.parse(row.config_json) as RoomConfig);
+    mem.config = applySecrets(normalize(JSON.parse(row.config_json) as RoomConfig), await readSecretFile());
     mem.library = await loadDriverFiles();
     mem.drivers = { ...mem.library };
     mem.state = JSON.parse(row.state_json) as DeviceStateMap;
@@ -210,8 +276,9 @@ export async function loadPersisted(): Promise<Memory> {
 async function writeFileStore(mem: Memory) {
   try {
     await mkdir(path.dirname(FILE_STORE), { recursive: true });
+    const secrets = pickSecrets(mem.config);
     const body = JSON.stringify({
-      config: normalize(mem.config),
+      config: publicConfig(normalize(mem.config)),
       drivers: mem.drivers,
       state: mem.state,
       vars: mem.vars,
@@ -221,6 +288,9 @@ async function writeFileStore(mem: Memory) {
     const tmp = `${FILE_STORE}.tmp`;
     await writeFile(tmp, body, "utf8");
     await rename(tmp, FILE_STORE);
+    const secretTmp = `${SECRET_STORE}.tmp`;
+    await writeFile(secretTmp, JSON.stringify(secrets), "utf8");
+    await rename(secretTmp, SECRET_STORE);
   } catch {
     /* disk missing or not writable */
   }

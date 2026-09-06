@@ -4,7 +4,7 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## 0.7.0 — 2026-09-06
 
-- Renamed WHITEPAPER.md to ARCHITECTURE.md.
+- Secrets live in `data/relay-secrets.json`. Export and `relay-room.json` keep IPs and layout only.
 
 Beta. Engine freeze intended; drivers and docs may still move.
 

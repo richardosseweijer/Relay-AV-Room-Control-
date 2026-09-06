@@ -2,7 +2,7 @@
 
 Relay does not send room data to a cloud service as part of the controller
 itself. Configuration, device tokens, traces and variable values stay on the
-machine that runs the app (`data/relay-room.json` and, if enabled, a local
+machine that runs the app (`data/relay-room.json`, `data/relay-secrets.json`, and, if enabled, a local
 database).
 
 ## What is stored
@@ -22,7 +22,7 @@ database).
 ## Your rights (GDPR-style)
 
 You are the controller of data on your Pi/PC. Wipe the room from the
-configurator, or delete `data/relay-room.json`, to erase stored configuration.
+configurator, or delete `data/relay-room.json` and `data/relay-secrets.json`, to erase stored configuration.
 There is no user account and no cross-border transfer by Relay itself.
 
 If you expose the UI beyond your LAN, you take on extra GDPR duties (security

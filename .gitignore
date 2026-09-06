@@ -3,3 +3,7 @@ node_modules/
 .github_repo
 .env
 .env.*
+data/relay-secrets.json
+data/relay-room.json
+
+
