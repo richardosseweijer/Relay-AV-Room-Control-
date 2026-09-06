@@ -14,7 +14,6 @@ import {
   fireMacro,
   getEditorConfig,
   wipeLog,
-  resetDemo,
   saveConfig,
   saveDriver,
   pullInventory,
@@ -342,7 +341,7 @@ export function ConfigApp() {
   }
 
   return (
-    <main className="min-h-dvh bg-bg text-fg">
+    <main className="flex h-dvh flex-col overflow-hidden bg-bg text-fg">
       {toast ? (
         <div className="fixed right-4 top-4 z-50 max-w-sm rounded-xl border border-border bg-surface p-4">
           <p className="font-medium">{toast.title}</p>
@@ -387,7 +386,7 @@ export function ConfigApp() {
           </div>
         </div>
       ) : null}
-      <header className="sticky top-0 z-30 border-b border-border bg-bg px-4 py-3">
+      <header className="sticky top-0 z-30 shrink-0 border-b border-border bg-bg px-4 py-3">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Link to="/" onClick={() => sessionStorage.removeItem("relay-config-token")} className="inline-flex size-11 items-center justify-center rounded-md border border-border bg-surface">
@@ -433,7 +432,7 @@ export function ConfigApp() {
         </nav>
       </header>
 
-      <div className="mx-auto max-w-5xl px-4 py-6">
+      <div className="mx-auto min-h-0 w-full max-w-5xl flex-1 overflow-auto px-4 py-6">
         {tab === "room" ? (
           <section className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1 text-sm text-muted">Room name<input className={fieldClass()} value={draft.room.name} onChange={(e) => update((c) => { c.room.name = e.target.value; })} /></label>
@@ -495,16 +494,6 @@ export function ConfigApp() {
                 }}
               />
               <Button variant="secondary" onClick={() => importRef.current?.click()}>Import</Button>
-              <Button variant="secondary" onClick={async () => {
-                const res = await resetDemo({ data: { token: token || "" } });
-                flash(res.ok ? "Demo restored" : "Failed", res.message);
-                const next = await refresh();
-                if (res.ok) {
-                  const ed = await getEditorConfig({ data: { token: token || "" } });
-                  if (ed.config) setDraft(structuredClone(ed.config));
-                  else if (next?.config) setDraft(structuredClone(next.config));
-                }
-              }}>Restore demo</Button>
               <Button variant="danger" onClick={() => setGate({ action: "wipe", pin: "" })}>Clear config</Button>
               <Button variant="secondary" onClick={async () => {
                 if (!window.confirm("Restart Relay? The page will drop for a few seconds.")) return;
@@ -1424,7 +1413,7 @@ function PagesEditor({
             })} />
           </label>
         </div>
-        <div className="relative grid gap-1" style={{ gridTemplateColumns: `repeat(${page.grid.cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${page.grid.rows}, 3.2rem)` }}>
+        <div className="relative isolate z-0 grid gap-1" style={{ gridTemplateColumns: `repeat(${page.grid.cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${page.grid.rows}, 3.2rem)` }}>
           {cells.map(({ x, y }) => {
             const covered = page.widgets.some((w) => x >= w.x && x < w.x + w.w && y >= w.y && y < w.y + w.h);
             return (

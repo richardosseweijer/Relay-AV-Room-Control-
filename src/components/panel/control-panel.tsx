@@ -451,7 +451,7 @@ export function ControlPanel() {
 
   return (
     <main
-      className={cn("relative flex h-dvh max-h-dvh flex-col overflow-hidden bg-bg px-3 pt-3 sm:px-8", dim && "opacity-25")}
+      className="relative flex h-dvh max-h-dvh flex-col overflow-hidden bg-bg px-3 pt-3 sm:px-8"
       style={{ paddingBottom: "max(3.25rem, env(safe-area-inset-bottom))" }}
       onPointerDownCapture={(e) => {
         if (!dim) return;
@@ -468,7 +468,7 @@ export function ControlPanel() {
         </div>
       </header>
       {faults.length ? (
-        <div className="mx-auto mb-3 flex w-full max-w-3xl flex-wrap items-center gap-2 rounded-xl border border-clay/40 bg-clay/10 px-3 py-2">
+        <div className="pointer-events-auto absolute left-1/2 top-2 z-30 flex w-[min(100%-1.5rem,48rem)] -translate-x-1/2 flex-wrap items-center gap-2 rounded-xl border border-clay/40 bg-bg/90 px-3 py-2">
           <p className="flex-1 text-sm text-clay">
             {faults.map(([id]) => snap.config.devices.find((d) => d.id === id)?.name ?? "Device").join(", ")} isn’t answering
           </p>
@@ -489,7 +489,7 @@ export function ControlPanel() {
         className="mx-auto grid min-h-0 w-full max-w-3xl flex-1 content-start gap-3 overflow-auto"
         style={{
           gridTemplateColumns: `repeat(${page.grid.cols}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${page.grid.rows}, minmax(4.25rem, 1fr))`,
+          gridTemplateRows: `repeat(${page.grid.rows}, minmax(0, 1fr))`,
         }}
       >
         {page.widgets.map((widget) => {
@@ -590,6 +590,15 @@ export function ControlPanel() {
         })}
       </section>
 
+      {dim ? (
+        <button
+          type="button"
+          className="absolute inset-0 z-40 bg-bg/80"
+          aria-label="Wake"
+          onClick={() => setDim(false)}
+        />
+      ) : null}
+
       {askFull && !full ? (
         <button
           type="button"
@@ -628,7 +637,7 @@ export function ControlPanel() {
       <div className="absolute bottom-3 left-4 z-20 flex items-center gap-2">
         <button
           type="button"
-          className="size-9 rounded-full border border-border/70 bg-surface/80 text-sm text-muted"
+          className="size-11 rounded-full border border-border/70 bg-surface text-sm text-muted"
           onClick={() => setLegal(true)}
           aria-label="Licenses"
         >
@@ -637,7 +646,7 @@ export function ControlPanel() {
         {!awake ? (
           <button
             type="button"
-            className="inline-flex size-9 items-center justify-center rounded-full border border-border/70 bg-surface/80 text-subtle"
+            className="inline-flex size-11 items-center justify-center rounded-full border border-border/70 bg-surface text-subtle"
             aria-label="Keep awake"
             onClick={() => setAwake(true)}
           >
@@ -647,7 +656,7 @@ export function ControlPanel() {
         {!full ? (
           <button
             type="button"
-            className="inline-flex size-9 items-center justify-center rounded-full border border-border/70 bg-surface/80 text-subtle"
+            className="inline-flex size-11 items-center justify-center rounded-full border border-border/70 bg-surface text-subtle"
             aria-label="Fullscreen"
             onClick={() => void enterFull()}
           >
@@ -656,7 +665,7 @@ export function ControlPanel() {
         ) : null}
         <button
           type="button"
-          className="inline-flex size-9 items-center justify-center rounded-full border border-border/70 bg-surface/80 text-subtle"
+          className="inline-flex size-11 items-center justify-center rounded-full border border-border/70 bg-surface text-subtle"
           onClick={() => {
             sessionStorage.removeItem("relay-config-token");
             void navigate({ to: "/config" });
