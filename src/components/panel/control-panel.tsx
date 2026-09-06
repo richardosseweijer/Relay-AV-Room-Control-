@@ -451,7 +451,8 @@ export function ControlPanel() {
 
   return (
     <main
-      className={cn("relative flex min-h-dvh flex-col bg-bg px-3 pb-16 pt-4 sm:px-8", dim && "opacity-25")}
+      className={cn("relative flex h-dvh max-h-dvh flex-col overflow-hidden bg-bg px-3 pt-3 sm:px-8", dim && "opacity-25")}
+      style={{ paddingBottom: "max(3.25rem, env(safe-area-inset-bottom))" }}
       onPointerDownCapture={(e) => {
         if (!dim) return;
         e.preventDefault();
@@ -459,7 +460,7 @@ export function ControlPanel() {
         setDim(false);
       }}
     >
-      <header className="mx-auto mb-5 flex w-full max-w-3xl items-end justify-between gap-3">
+      <header className="mx-auto mb-3 flex w-full max-w-3xl shrink-0 items-end justify-between gap-3">
         <div>
           <p className="text-[11px] tracking-[0.22em] uppercase text-subtle">
             {clock.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -486,10 +487,10 @@ export function ControlPanel() {
       ) : null}
 
       <section
-        className="mx-auto grid w-full max-w-3xl gap-3"
+        className="mx-auto grid min-h-0 w-full max-w-3xl flex-1 content-start gap-3 overflow-auto"
         style={{
           gridTemplateColumns: `repeat(${page.grid.cols}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${page.grid.rows}, minmax(5rem, 5rem))`,
+          gridTemplateRows: `repeat(${page.grid.rows}, minmax(4.25rem, 1fr))`,
         }}
       >
         {page.widgets.map((widget) => {
