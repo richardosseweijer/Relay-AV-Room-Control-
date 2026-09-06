@@ -138,7 +138,7 @@ export function ConfigApp() {
   const [draft, setDraft] = useState<RoomConfig | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [pin, setPin] = useState("");
-  const [tab, setTab] = useState<"room" | "drivers" | "devices" | "interfaces" | "macros" | "pages" | "logic" | "log">("room");
+  const [tab, setTab] = useState<"room" | "security" | "drivers" | "devices" | "interfaces" | "macros" | "pages" | "logic" | "log">("room");
   const [logicTab, setLogicTab] = useState<"variables" | "monitor" | "schedule" | "triggers">("variables");
   const [logKind, setLogKind] = useState("all");
   const [toast, setToast] = useState<{ title: string; body: string; sticky?: boolean } | null>(null);
@@ -391,7 +391,7 @@ export function ConfigApp() {
           </div>
         </div>
         <nav className="mx-auto mt-3 flex max-w-5xl gap-1 overflow-x-auto">
-          {(["room", "drivers", "devices", "interfaces", "macros", "pages", "logic", "log"] as const).map((id) => (
+          {(["room", "security", "drivers", "devices", "interfaces", "macros", "pages", "logic", "log"] as const).map((id) => (
             <button key={id} type="button" onClick={() => setTab(id)} className={cn("h-10 rounded-md px-3 text-sm capitalize", tab === id ? "bg-accent text-accent-fg" : "text-muted")}>{id}</button>
           ))}
         </nav>
@@ -407,19 +407,6 @@ export function ConfigApp() {
                 <option value="pastel">Pastel</option>
               </select>
             </label>
-            <label className="grid gap-1 text-sm text-muted">Config PIN<input className={fieldClass()} type="password" value={draft.room.configPin} onChange={(e) => update((c) => { c.room.configPin = e.target.value; })} /></label>
-            <label className="grid gap-1 text-sm text-muted">
-              Panel access
-              <select className={fieldClass()} value={draft.room.panelAccess} onChange={(e) => update((c) => { c.room.panelAccess = e.target.value as "open" | "pin"; })}>
-                <option value="open">Open on LAN</option>
-                <option value="pin">Panel PIN</option>
-              </select>
-            </label>
-            {draft.room.panelAccess === "pin" ? (
-              <label className="grid gap-1 text-sm text-muted">Panel PIN
-                <input className={fieldClass()} type="password" value={draft.room.panelPin ?? ""} onChange={(e) => update((c) => { c.room.panelPin = e.target.value; })} />
-              </label>
-            ) : null}
             <label className="grid gap-1 text-sm text-muted">Idle dim (s)
               <input type="number" min={0} className={fieldClass()} value={draft.room.idleDimSeconds} onChange={(e) => update((c) => { c.room.idleDimSeconds = Math.max(0, Number(e.target.value) || 0); })} />
               <span className="text-xs">0 = never</span>
@@ -498,6 +485,42 @@ export function ConfigApp() {
                 const res = await rebootHost({ data: { token: token || "" } });
                 flash(res.ok ? "Rebooting machine" : "Reboot failed", res.message);
               }}>Reboot machine</Button>
+            </div>
+          </section>
+        ) : null}
+
+        {tab === "security" ? (
+          <section className="grid gap-4 sm:grid-cols-2">
+            <label className="grid gap-1 text-sm text-muted">Config PIN
+              <input className={fieldClass()} type="password" autoComplete="off" value={draft.room.configPin} onChange={(e) => update((c) => { c.room.configPin = e.target.value; })} />
+            </label>
+            <label className="grid gap-1 text-sm text-muted">
+              Panel access
+              <select className={fieldClass()} value={draft.room.panelAccess} onChange={(e) => update((c) => { c.room.panelAccess = e.target.value as "open" | "pin"; })}>
+                <option value="open">Open on LAN</option>
+                <option value="pin">Panel PIN</option>
+              </select>
+            </label>
+            {draft.room.panelAccess === "pin" ? (
+              <label className="grid gap-1 text-sm text-muted">Panel PIN
+                <input className={fieldClass()} type="password" autoComplete="off" value={draft.room.panelPin ?? ""} onChange={(e) => update((c) => { c.room.panelPin = e.target.value; })} />
+              </label>
+            ) : null}
+            <label className="flex items-center gap-2 text-sm sm:col-span-2">
+              <input type="checkbox" checked={draft.room.externalControl !== false} onChange={(e) => update((c) => { c.room.externalControl = e.target.checked; })} />
+              Allow unsigned LAN reads when no peer secret is set
+            </label>
+            <label className="grid gap-1 text-sm text-muted sm:col-span-2">Peer secret
+              <input className={fieldClass()} type="password" autoComplete="off" value={draft.room.peerSecret ?? ""} onChange={(e) => update((c) => { c.room.peerSecret = e.target.value; })} />
+              <span className="text-xs">HMAC key for room-to-room. Never sent on the wire. Put the *other* room’s secret in that device’s PIN field.</span>
+            </label>
+            <div className="sm:col-span-2">
+              <Button variant="secondary" onClick={() => {
+                const bytes = new Uint8Array(24);
+                crypto.getRandomValues(bytes);
+                const secret = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+                update((c) => { c.room.peerSecret = secret; });
+              }}>Generate secret</Button>
             </div>
           </section>
         ) : null}

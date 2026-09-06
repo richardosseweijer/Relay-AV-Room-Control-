@@ -88,6 +88,7 @@ const triggerQueue: { id: string; macroId: string; label: string }[] = [];
 type SecretFile = {
   configPin?: string;
   panelPin?: string | null;
+  peerSecret?: string;
   devices?: Record<string, Record<string, string>>;
 };
 
@@ -107,6 +108,7 @@ function pickSecrets(config: RoomConfig): SecretFile {
   return {
     configPin: config.room.configPin,
     panelPin: config.room.panelPin,
+    peerSecret: config.room.peerSecret,
     devices,
   };
 }
@@ -114,6 +116,7 @@ function pickSecrets(config: RoomConfig): SecretFile {
 function publicConfig(config: RoomConfig): RoomConfig {
   const next = structuredClone(config);
   next.room.configPin = "";
+  next.room.peerSecret = "";
   next.room.panelPin = next.room.panelAccess === "pin" ? "" : null;
   for (const device of next.devices) {
     const keep: Record<string, string> = {};
@@ -128,6 +131,7 @@ function publicConfig(config: RoomConfig): RoomConfig {
 function applySecrets(config: RoomConfig, secrets?: SecretFile | null): RoomConfig {
   const next = structuredClone(config);
   if (secrets?.configPin) next.room.configPin = secrets.configPin;
+  if (secrets?.peerSecret) next.room.peerSecret = secrets.peerSecret;
   if (next.room.panelAccess === "pin" && secrets?.panelPin) next.room.panelPin = secrets.panelPin;
   for (const device of next.devices) {
     const extra = secrets?.devices?.[device.id];
@@ -223,6 +227,7 @@ export async function loadPersisted(): Promise<Memory> {
       mem.config = applySecrets(normalize(saved.config), {
         configPin: fromDisk.configPin || fromRoom.configPin,
         panelPin: fromDisk.panelPin || fromRoom.panelPin,
+        peerSecret: fromDisk.peerSecret || fromRoom.peerSecret,
         devices: { ...fromRoom.devices, ...fromDisk.devices },
       });
       mem.library = await loadDriverFiles();

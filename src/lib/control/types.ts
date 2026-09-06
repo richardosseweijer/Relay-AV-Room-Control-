@@ -357,6 +357,7 @@ export type RoomConfig = {
     panelAccess: PanelAccess;
     panelPin: string | null;
     configPin: string;
+    peerSecret?: string;
     externalControl?: boolean;
     theme: "dark" | "pastel";
     idleDimSeconds: number;

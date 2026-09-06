@@ -300,7 +300,7 @@ export const relayHostDriver: DriverSpec = {
   specVersion: "2.0",
   device: { manufacturer: "Relay", model: "Host", type: "host", notes: "This Pi or another Relay on the LAN. Localhost = this machine. Other IP + port 8081 + PIN = that room." },
   transports: { lan: { protocol: "http", port: 8081, timeoutMs: 4000 } },
-  auth: { type: "pin", instanceFields: ["pin"] },
+  auth: { type: "pin", instanceFields: ["pin", "secret"] },
   pacing: { minIntervalMs: 0, powerOnDelayMs: 0 },
   probe: { transport: "lan", payload: "", success: { type: "contains", value: "" } },
   helpers: { checksum: "none" },

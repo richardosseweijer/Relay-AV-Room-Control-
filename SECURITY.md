@@ -18,7 +18,7 @@ Trusted LAN / VLAN only. Bind is `0.0.0.0:8081`. Do not port-forward that port.
 
 ## Secrets on disk
 
-`data/relay-secrets.json` holds PINs and pairing tokens in plaintext. `data/relay-room.json` holds layout and IPs only. Export never includes the secrets file.
+`data/relay-secrets.json` holds PINs and pairing tokens in plaintext. `data/relay-room.json` holds layout and IPs only. Room-to-room calls use HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). The PIN or peer secret is not sent. Signatures older than 90 seconds are rejected. Generate a peer secret on Security. Put the far room’s secret in that device’s PIN/secret field.
 
 ## Host commands
 

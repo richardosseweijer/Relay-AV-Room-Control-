@@ -861,14 +861,7 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
   if (driver.device.type === "host" || device.driver === "relay-host.json") {
     if (!isLocalRelayHost(device.host)) {
       try {
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 8000);
-        const pin = device.auth?.pin || device.auth?.token || "";
-        const res = await fetch(`http://${device.host}:${device.port || 8081}/api/peer`, {
-          headers: { "x-relay-pin": pin },
-          signal: ctrl.signal,
-        });
-        clearTimeout(t);
+        const res = await signedPeerFetch(device, "GET", "/api/peer");
         const parsed = await res.json() as {
           ok?: boolean;
           message?: string;
@@ -1009,14 +1002,7 @@ export async function readMonitorValue(opts: {
   if (driver?.device.type === "host" || device.driver === "relay-host.json") {
     if (!isLocalRelayHost(device.host)) {
       try {
-        const pin = device.auth?.pin || device.auth?.token || "";
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 4000);
-        const res = await fetch(`http://${device.host}:${device.port || 8081}/api/peer`, {
-          headers: { "x-relay-pin": pin },
-          signal: ctrl.signal,
-        });
-        clearTimeout(t);
+        const res = await signedPeerFetch(device, "GET", "/api/peer");
         const parsed = await res.json() as { host?: { dim?: boolean; locked?: boolean }; vars?: Record<string, { value?: string | number }> };
         let value = "";
         if (opts.feedbackId === "panel.locked") value = parsed.host?.locked ? "1" : "0";
@@ -1172,23 +1158,29 @@ function relayPeerUrl(device: { host: string; port?: number }, path: string) {
   return `http://${device.host}:${device.port || 8081}${path}`;
 }
 
+async function signedPeerFetch(device: { host: string; port?: number; auth?: Record<string, string> }, method: string, path: string, body?: string) {
+  const key = device.auth?.secret || device.auth?.pin || device.auth?.token || "";
+  const payload = method === "GET" ? "" : (body ?? "");
+  const ts = String(Date.now());
+  const { signPeer } = await import("./peer-auth");
+  const headers: Record<string, string> = { "x-relay-ts": ts, "x-relay-auth": key ? signPeer(key, method, path, ts, payload) : "" };
+  if (method !== "GET") headers["content-type"] = "application/json";
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 8000);
+  const res = await fetch(relayPeerUrl(device, path), { method, headers, body: method === "GET" ? undefined : payload, signal: ctrl.signal });
+  clearTimeout(t);
+  return res;
+}
+
 async function callRelayPeer(
   device: { host: string; port?: number; auth?: Record<string, string> },
   method: string,
   path: string,
   body?: Record<string, unknown>,
 ): Promise<CommandResult> {
-  const pin = device.auth?.pin || device.auth?.token || "";
+  const payload = method === "GET" ? "" : JSON.stringify(body ?? {});
   try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
-    const res = await fetch(relayPeerUrl(device, path), {
-      method,
-      headers: { "content-type": "application/json", "x-relay-pin": pin },
-      body: method === "GET" ? undefined : JSON.stringify(body ?? {}),
-      signal: ctrl.signal,
-    });
-    clearTimeout(t);
+    const res = await signedPeerFetch(device, method, path, payload);
     const text = await res.text();
     try {
       const parsed = JSON.parse(text) as { ok?: boolean; message?: string };

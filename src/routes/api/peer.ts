@@ -1,17 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { applyHost, runMacro } from "@/lib/control/engine";
+import { peerKey, verifyPeerRequest } from "@/lib/control/peer-auth";
 import { ensureLoaded, memory, persist, pushLog } from "@/lib/control/store.server";
 
-function pinOk(request: Request) {
+async function authorized(request: Request, body: string, path = "/api/peer") {
   const mem = memory();
-  const pin = request.headers.get("x-relay-pin") || "";
-  if (mem.config.room.externalControl !== false) return true;
-  return Boolean(pin && (pin === mem.config.room.configPin || pin === mem.config.room.panelPin));
-}
-
-function pinStrict(request: Request) {
-  const pin = request.headers.get("x-relay-pin") || "";
-  return Boolean(pin && pin === memory().config.room.configPin);
+  const key = peerKey(mem.config.room);
+  const sig = request.headers.get("x-relay-auth") || "";
+  const ts = request.headers.get("x-relay-ts") || "";
+  if (key) return verifyPeerRequest({ key, method: request.method, path, ts, body, sig });
+  return mem.config.room.externalControl !== false;
 }
 
 export const Route = createFileRoute("/api/peer")({
@@ -19,7 +17,7 @@ export const Route = createFileRoute("/api/peer")({
     handlers: {
       GET: async ({ request }) => {
         await ensureLoaded();
-        if (!pinOk(request)) return Response.json({ ok: false, message: "External control off" }, { status: 401 });
+        if (!await authorized(request, "", "/api/peer")) return Response.json({ ok: false, message: "Auth failed" }, { status: 401 });
         const mem = memory();
         const vars: Record<string, { name: string; value: string | number }> = {};
         for (const item of mem.config.variables) {
@@ -30,22 +28,26 @@ export const Route = createFileRoute("/api/peer")({
         return Response.json({
           ok: true,
           room: mem.config.room.name,
-          host: {
-            dim: mem.host.dim,
-            locked: mem.host.locked,
-            pageId: mem.host.pageId,
-          },
+          host: { dim: mem.host.dim, locked: mem.host.locked, pageId: mem.host.pageId },
           vars,
           macros,
         });
       },
       POST: async ({ request }) => {
         await ensureLoaded();
-        const body = await request.json().catch(() => ({})) as { command?: string; value?: string | number; macroId?: string };
+        const raw = await request.text();
+        if (!await authorized(request, raw, "/api/peer")) return Response.json({ ok: false, message: "Auth failed" }, { status: 401 });
+        const body = (() => { try { return JSON.parse(raw) as { command?: string; value?: string | number; macroId?: string }; } catch { return {}; } })();
         const dangerous = /system\.(reboot|update|restart)/.test(body.command || "");
-        if (dangerous && !pinStrict(request)) return Response.json({ ok: false, message: "Config PIN required" }, { status: 401 });
-        if (!pinOk(request)) return Response.json({ ok: false, message: "External control off" }, { status: 401 });
         const mem = memory();
+        if (dangerous && !verifyPeerRequest({
+          key: mem.config.room.configPin || peerKey(mem.config.room),
+          method: "POST",
+          path: "/api/peer",
+          ts: request.headers.get("x-relay-ts") || "",
+          body: raw,
+          sig: request.headers.get("x-relay-auth") || "",
+        })) return Response.json({ ok: false, message: "Config key required" }, { status: 401 });
         if (body.macroId) {
           const macro = mem.config.macros.find((m) => m.id === body.macroId || m.label === body.macroId);
           if (!macro) return Response.json({ ok: false, message: "Unknown macro" }, { status: 404 });
@@ -58,7 +60,7 @@ export const Route = createFileRoute("/api/peer")({
           return Response.json(result);
         }
         if (!body.command) return Response.json({ ok: false, message: "Missing command" }, { status: 400 });
-        const result = await applyHost(body.command, body.value, mem.host, mem.vars, { allowReboot: dangerous && pinStrict(request) });
+        const result = await applyHost(body.command, body.value, mem.host, mem.vars, { allowReboot: dangerous });
         pushLog({ kind: "system", ok: result.ok, title: `Peer ${body.command}`, detail: result.message });
         await persist();
         return Response.json(result);
