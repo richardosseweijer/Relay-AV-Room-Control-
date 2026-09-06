@@ -81,6 +81,7 @@ const lastScheduleRun = new Map<string, string>();
 const lastMonitorRun = new Map<string, number>();
 const lastTriggerValue = new Map<string, string>();
 const lastTriggerFire = new Map<string, number>();
+const lastTriggerHeld = new Map<string, number>();
 const goodPolls = new Map<string, number>();
 const triggerQueue: { id: string; macroId: string; label: string }[] = [];
 
@@ -455,7 +456,19 @@ async function runDueTriggers() {
     const prev = lastTriggerValue.get(rule.id);
     if (!hit) {
       lastTriggerValue.set(rule.id, `false:${left}`);
+      lastTriggerHeld.delete(rule.id);
       continue;
+    }
+    const holdMs = Math.min(Math.max(rule.holdMs || 0, 0), 7_200_000);
+    if (holdMs) {
+      const since = lastTriggerHeld.get(rule.id);
+      if (since === undefined) {
+        lastTriggerHeld.set(rule.id, now);
+        continue;
+      }
+      if (now - since < holdMs) continue;
+    } else {
+      lastTriggerHeld.set(rule.id, now);
     }
     if (rule.mode === "change") {
       if (prev === undefined) {

@@ -1153,6 +1153,10 @@ export function ConfigApp() {
                               <input className={fieldClass()} type="number" value={rule.intervalMs} onChange={(e) => update((c) => { c.triggers![ti]!.intervalMs = Number(e.target.value) || 1000; })} />
                             </label>
                           ) : null}
+                          <label className="grid gap-1 text-sm text-muted">Must stay true (ms)
+                            <input className={fieldClass()} type="number" min={0} value={rule.holdMs ?? 0} onChange={(e) => update((c) => { c.triggers![ti]!.holdMs = Math.max(0, Number(e.target.value) || 0); })} />
+                            <span className="text-xs">0 = fire as soon as the condition matches. Vacancy: 600000 = 10 min.</span>
+                          </label>
                           <label className="grid gap-1 text-sm text-muted">Wait ms before run
                             <input className={fieldClass()} type="number" value={rule.delayMs} onChange={(e) => update((c) => { c.triggers![ti]!.delayMs = Number(e.target.value) || 0; })} />
                           </label>
@@ -1173,7 +1177,7 @@ export function ConfigApp() {
                 })}
                 <Button variant="secondary" onClick={() => update((c) => {
                   c.triggers = c.triggers ?? [];
-                  c.triggers.push({ id: `trg-${Date.now().toString(36)}`, label: "New trigger", enabled: false, variable: c.variables[0]?.id ?? "", compare: "eq", equals: "on", mode: "change", intervalMs: 5000, delayMs: 0, macroId: c.macros[0]?.id ?? "" });
+                  c.triggers.push({ id: `trg-${Date.now().toString(36)}`, label: "New trigger", enabled: false, variable: c.variables[0]?.id ?? "", compare: "eq", equals: "on", mode: "change", intervalMs: 5000, delayMs: 0, holdMs: 0, macroId: c.macros[0]?.id ?? "" });
                 })}>Add trigger</Button>
               </section>
             ) : null}

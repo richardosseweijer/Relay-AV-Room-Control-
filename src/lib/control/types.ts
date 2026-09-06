@@ -279,6 +279,7 @@ export type VariableTrigger = {
   mode: TriggerMode;
   intervalMs: number;
   delayMs: number;
+  holdMs?: number;
   macroId: string;
 };
 

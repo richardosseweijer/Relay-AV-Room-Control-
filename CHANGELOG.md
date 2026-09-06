@@ -4,7 +4,7 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## 0.7.0 — 2026-09-06
 
-- Secrets live in `data/relay-secrets.json`. Export and `relay-room.json` keep IPs and layout only.
+- Trigger hold: condition must stay true for N ms before the macro (occupancy / vacancy).
 
 Beta. Engine freeze intended; drivers and docs may still move.
 
