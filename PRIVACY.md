@@ -9,8 +9,9 @@ database).
 
 - Room layout, macros, schedules
 - Device addresses and pairing tokens
-- Configurator / panel PINs and the peer secret (plaintext in `relay-secrets.json`)
-- Paired browser session secrets
+- Configurator / panel PINs as scrypt hashes in `relay-secrets.json`
+- Peer secret and paired browser session secrets (not hashed)
+- Device pairing tokens in the secrets file
 - Recent command traces and a capped action log
 
 ## What is not done
