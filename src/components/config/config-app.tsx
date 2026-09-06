@@ -162,6 +162,7 @@ export function ConfigApp() {
   const [pendingDriver, setPendingDriver] = useState<string | null>(null);
   const [mustChange, setMustChange] = useState(false);
   const [newPin, setNewPin] = useState("");
+  const [newPin2, setNewPin2] = useState("");
   const [paired, setPaired] = useState<{ id: string; kind: string; label: string; created: number; lastSeen?: number }[]>([]);
 
   async function scanPorts(quiet = false) {
