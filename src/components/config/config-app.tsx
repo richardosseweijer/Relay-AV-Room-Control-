@@ -755,7 +755,7 @@ export function ConfigApp() {
                         flash(res.ok ? "Inventory" : "Sync failed", res.message);
                       }}
                       onUse={async (command, id) => {
-                        const res = await fireCommand({ data: { deviceId: device.id, commandId: command, value: command === "var.set" ? `${id}=` : id, raw: true } });
+                        const res = await fireCommand({ data: { deviceId: device.id, commandId: command, value: command === "var.set" ? `${id}=` : id, raw: true, token: token || "" } });
                         flash(res.ok ? command : `${command} failed`, res.message);
                       }}
                     />
@@ -886,7 +886,7 @@ export function ConfigApp() {
                     <span className="cursor-grab text-subtle">::</span>
                     <button type="button" className="flex flex-1 text-left font-medium" onClick={() => setOpenMacros((cur) => ({ ...cur, [macro.id]: !open }))}>{macro.label}</button>
                     <Button size="sm" variant="secondary" onClick={async () => {
-                      const res = await fireMacro({ data: { macroId: macro.id } });
+                      const res = await fireMacro({ data: { macroId: macro.id, token: token || "" } });
                       flash(res.ok ? macro.label : "Failed", res.message);
                     }}>Test</Button>
                   </div>
