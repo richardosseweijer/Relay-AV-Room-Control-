@@ -9,7 +9,7 @@ import { isWeakPin } from "./pins";
 import { randomBytes } from "node:crypto";
 
 const g = globalThis as typeof globalThis & {
-  __relayTokens__?: Map<string, { kind: "config" | "panel"; exp: number; created?: number; label?: string }>;
+  __relayTokens__?: Map<string, { id?: string; secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
 };
 
 function tokenStore() {
@@ -18,25 +18,28 @@ function tokenStore() {
 }
 
 function mint(kind: "config" | "panel", label?: string) {
-  const token = `${kind}-${randomBytes(18).toString("hex")}`;
-  const row = { kind, exp: 0, created: Date.now(), label: (label || kind).slice(0, 80) };
-  tokenStore().set(token, row);
+  const id = randomBytes(8).toString("hex");
+  const secret = `${kind}-${randomBytes(18).toString("hex")}`;
+  const row = { id, secret, kind, exp: 0, created: Date.now(), lastSeen: Date.now(), label: (label || kind).slice(0, 80) };
+  tokenStore().set(secret, row);
   const mem = memory();
   mem.sessions = mem.sessions ?? {};
-  mem.sessions[token] = row;
+  mem.sessions[id] = row;
   persist();
-  return token;
+  return secret;
 }
 
 function validToken(token: string | undefined, kind: "config" | "panel") {
   if (!token) return false;
-  const row = tokenStore().get(token) ?? memory().sessions?.[token];
+  const mem = memory();
+  const row = tokenStore().get(token) ?? Object.values(mem.sessions ?? {}).find((item) => item.secret === token || (!item.secret && mem.sessions && mem.sessions[token] === item));
   if (!row || row.kind !== kind) return false;
   if (row.exp && row.exp < Date.now()) {
     tokenStore().delete(token);
-    if (memory().sessions) delete memory().sessions[token];
+    if (row.id && mem.sessions) delete mem.sessions[row.id];
     return false;
   }
+  row.lastSeen = Date.now();
   tokenStore().set(token, row);
   return true;
 }
@@ -63,6 +66,7 @@ function publicSnap() {
       room: {
         ...snap.config.room,
         configPin: "",
+        peerSecret: "",
         panelPin: snap.config.room.panelAccess === "pin" ? "" : null,
       },
       devices: snap.config.devices.map((device) => ({ ...device, auth: redactAuth(device.auth) })),
@@ -71,7 +75,7 @@ function publicSnap() {
 }
 
 function allowLanControl(token?: string) {
-  if (memory().config.room.externalControl !== false) return true;
+  if (memory().config.room.externalControl === true) return true;
   return validToken(token, "panel") || validToken(token, "config");
 }
 
@@ -85,14 +89,19 @@ export const getRoomState = createServerFn({ method: "POST" }).handler(async () 
   return publicSnap();
 });
 
-export const issuePanelSession = createServerFn({ method: "POST" }).handler(async () => {
-  await ensureLoaded();
-  const room = memory().config.room;
-  if (room.panelAccess === "pin" && room.panelPin?.trim()) {
-    return { ok: false, token: null as string | null };
-  }
-  return { ok: true, token: mint("panel") };
-});
+export const issuePanelSession = createServerFn({ method: "POST" })
+  .validator((data: { token?: string } = {}) => data)
+  .handler(async ({ data }) => {
+    await ensureLoaded();
+    if (validToken(data.token, "panel") || validToken(data.token, "config")) {
+      return { ok: true, token: data.token as string };
+    }
+    const room = memory().config.room;
+    if (room.panelAccess === "pin" && room.panelPin?.trim()) {
+      return { ok: false, token: null as string | null };
+    }
+    return { ok: true, token: mint("panel", "panel") };
+  });
 
 export const checkPanelSession = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
@@ -112,6 +121,7 @@ export const getEditorConfig = createServerFn({ method: "POST" })
       kind: row.kind,
       label: row.label || row.kind,
       created: row.created ?? 0,
+      lastSeen: row.lastSeen ?? 0,
     }));
     return { ok: true as const, config, traces: traces(), mustChange: isWeakPin(config.room.configPin), paired };
   });
@@ -121,10 +131,26 @@ export const revokeSession = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
+    const row = memory().sessions?.[data.id];
+    if (row?.secret) tokenStore().delete(row.secret);
     tokenStore().delete(data.id);
     if (memory().sessions) delete memory().sessions[data.id];
     persist();
     return { ok: true, message: "Device forgotten" };
+  });
+
+export const revokeAllSessions = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    await ensureLoaded();
+    if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
+    for (const [id, row] of Object.entries(memory().sessions ?? {})) {
+      if (row.kind !== "panel") continue;
+      if (row.secret) tokenStore().delete(row.secret);
+      delete memory().sessions[id];
+    }
+    persist();
+    return { ok: true, message: "Panel devices forgotten" };
   });
 
 export const verifyConfigPin = createServerFn({ method: "POST" })
@@ -167,9 +193,10 @@ export const saveConfig = createServerFn({ method: "POST" })
     if (data.config.room.panelAccess === "pin" && isWeakPin(panelPin)) {
       return { ok: false, message: "Panel PIN is too weak" };
     }
+    const peerSecret = data.config.room.peerSecret?.trim() || memory().config.room.peerSecret || randomBytes(24).toString("hex");
     const config: RoomConfig = {
       ...data.config,
-      room: { ...data.config.room, configPin: pin, panelPin },
+      room: { ...data.config.room, configPin: pin, panelPin, peerSecret },
       variables: data.config.variables ?? [],
       schedules: data.config.schedules ?? [],
       monitors: data.config.monitors ?? [],

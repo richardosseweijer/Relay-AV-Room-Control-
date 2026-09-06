@@ -248,17 +248,13 @@ export function ControlPanel() {
   useEffect(() => {
     let cancel = false;
     (async () => {
-      const issued = await issuePanelSession();
+      const stored = localStorage.getItem("relay-panel-token") || sessionStorage.getItem("relay-panel-token") || "";
+      const issued = await issuePanelSession({ data: { token: stored } });
       if (issued.token) {
         setSession(issued.token);
         localStorage.setItem("relay-panel-token", issued.token);
       }
-      const stored = localStorage.getItem("relay-panel-token") || sessionStorage.getItem("relay-panel-token");
-      if (!issued.token && stored) {
-        const check = await checkPanelSession({ data: { token: stored } });
-        if (check.ok) setSession(stored);
-        else localStorage.removeItem("relay-panel-token");
-      }
+      if (!issued.token && stored) localStorage.removeItem("relay-panel-token");
       const next = await refresh();
       if (cancel) return;
       if (next?.config?.room.panelAccess === "pin") {

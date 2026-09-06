@@ -28,13 +28,34 @@ export const Route = createFileRoute("/api/room")({
             health: Object.fromEntries(Object.entries(snap.health ?? {}).map(([id, row]) => [id, { ...row, message: scrubSecret(row.message ?? "") }])),
             config: {
               ...snap.config,
-              room: { ...room, configPin: "", panelPin: room.panelAccess === "pin" ? "" : null },
+              room: { ...room, configPin: "", peerSecret: "", panelPin: room.panelAccess === "pin" ? "" : null },
               devices: snap.config.devices.map((device) => ({ ...device, auth: redact(device.auth) })),
             },
           });
         } catch (err) {
           if (err instanceof Error && err.name === "AbortError") return new Response(null, { status: 204 });
-          return Response.json({ error: "room unavailable" }, { status: 503 });
+          try {
+            const { emptyRoomConfig, bundledDrivers, defaultDeviceState } = await import("@/lib/control/defaults");
+            const demo = emptyRoomConfig();
+            return Response.json({
+              config: { ...demo, room: { ...demo.room, configPin: "", panelPin: null } },
+              drivers: bundledDrivers,
+              library: bundledDrivers,
+              state: defaultDeviceState(),
+              vars: Object.fromEntries(demo.variables.map((v) => [v.id, v.value])),
+              health: {},
+              log: [],
+              traces: {},
+              monitorStatus: {},
+              latches: {},
+              lastError: "Demo host has no saved room file",
+              runningMacro: null,
+              activeScene: null,
+              host: { dim: false, locked: false, toast: null, block: null, pageId: null },
+            });
+          } catch {
+            return Response.json({ error: "room unavailable" }, { status: 503 });
+          }
         }
       },
     },

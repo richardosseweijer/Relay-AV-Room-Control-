@@ -70,7 +70,7 @@ type Memory = {
   activeScene: string | null;
   latches: Record<string, string>;
   host: { dim: boolean; locked: boolean; toast: string | null; block: string | null; pageId: string | null; fullscreenAt?: number };
-  sessions: Record<string, { kind: "config" | "panel"; exp: number; created?: number; label?: string }>;
+  sessions: Record<string, { secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
 };
 
 const g = globalThis as typeof globalThis & {
@@ -90,7 +90,7 @@ type SecretFile = {
   configPin?: string;
   panelPin?: string | null;
   peerSecret?: string;
-  sessions?: Record<string, { kind: "config" | "panel"; exp: number; created?: number; label?: string }>;
+  sessions?: Record<string, { secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
   devices?: Record<string, Record<string, string>>;
 };
 
@@ -248,6 +248,12 @@ export async function loadPersisted(): Promise<Memory> {
       mem.vars = seedVars(mem.config, saved.vars);
       mem.latches = saved.latches ?? {};
       mem.sessions = fromDisk.sessions ?? {};
+      const nextSessions: Memory["sessions"] = {};
+      for (const [key, row] of Object.entries(mem.sessions)) {
+        const id = row.id || (row.secret ? key : key.length === 16 ? key : undefined) || key.slice(-16);
+        nextSessions[id] = { ...row, secret: row.secret || key };
+      }
+      mem.sessions = nextSessions;
       mem.health = {};
       lastScheduleRun.clear();
       for (const [id, stamp] of Object.entries(saved.stamps ?? {})) lastScheduleRun.set(id, stamp);

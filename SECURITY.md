@@ -18,7 +18,13 @@ Trusted LAN / VLAN only. Bind is `0.0.0.0:8081`. Do not port-forward that port.
 
 ## Secrets on disk
 
-`data/relay-secrets.json` holds PINs and pairing tokens in plaintext. `data/relay-room.json` holds layout and IPs only. Default rooms refuse open LAN control. A tablet that opened the panel keeps a 30-day token in the browser and in `relay-secrets.json`. That is the whitelist — not MAC addresses (browsers cannot send those). Bind stays `0.0.0.0:8081`. First login must replace `1234`.
+`data/relay-secrets.json` holds PINs and pairing tokens in plaintext. `data/relay-room.json` holds layout and IPs only. PINs and tokens stay plaintext in `data/relay-secrets.json`. Treat the card as secret. Export never includes that file.
+
+GET `/api/room` is the panel bootstrap (layout + vars, no PINs). Keep it on the room VLAN.
+
+HMAC uses the peer secret only (not the PIN). Reused signatures are rejected for 90s. Generate a secret on Security or Save all will create one.
+
+`/api/ping` and `/api/vars` writes need a config session or HMAC. Open LAN control is off unless you tick it.
 
 ## Host commands
 

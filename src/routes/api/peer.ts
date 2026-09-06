@@ -9,7 +9,7 @@ async function authorized(request: Request, body: string, path = "/api/peer") {
   const sig = request.headers.get("x-relay-auth") || "";
   const ts = request.headers.get("x-relay-ts") || "";
   if (key) return verifyPeerRequest({ key, method: request.method, path, ts, body, sig });
-  return mem.config.room.externalControl !== false;
+  return false;
 }
 
 export const Route = createFileRoute("/api/peer")({

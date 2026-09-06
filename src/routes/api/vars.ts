@@ -8,9 +8,7 @@ function allowed(request: Request, body: string) {
   const sig = request.headers.get("x-relay-auth") || "";
   const ts = request.headers.get("x-relay-ts") || "";
   if (key && sig) return verifyPeerRequest({ key, method: request.method, path: "/api/vars", ts, body, sig });
-  if (mem.config.room.externalControl !== false && request.method === "GET" && !sig) return true;
-  const pin = request.headers.get("x-relay-pin") || "";
-  return Boolean(pin && pin === mem.config.room.configPin);
+  return mem.config.room.externalControl === true && request.method === "GET";
 }
 
 export const Route = createFileRoute("/api/vars")({

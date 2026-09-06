@@ -24,6 +24,7 @@ import {
   rebootHost,
   restartHost,
   revokeSession,
+  revokeAllSessions,
   updateHost,
   verifyConfigPin,
 } from "@/lib/control/actions";
@@ -44,12 +45,15 @@ function fieldClass() {
 }
 
 async function pingHost(host: string, port?: number, path?: string) {
-  const res = await fetch("/api/ping", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ host, port, path }),
+  const { pingDevice } = await import("@/lib/control/actions");
+  return pingDevice({
+    data: {
+      token: sessionStorage.getItem("relay-config-token") || "",
+      host,
+      port,
+      path,
+    },
   });
-  return res.json() as Promise<{ ok: boolean; message: string }>;
 }
 
 async function loadRoom(): Promise<RoomSnapshot | null> {
@@ -159,7 +163,7 @@ export function ConfigApp() {
   const [pendingDriver, setPendingDriver] = useState<string | null>(null);
   const [mustChange, setMustChange] = useState(false);
   const [newPin, setNewPin] = useState("");
-  const [paired, setPaired] = useState<{ id: string; kind: string; label: string; created: number }[]>([]);
+  const [paired, setPaired] = useState<{ id: string; kind: string; label: string; created: number; lastSeen?: number }[]>([]);
 
   async function scanPorts(quiet = false) {
     const res = await listHostPorts({ data: { token: token || "" } });
@@ -558,7 +562,7 @@ export function ConfigApp() {
               <p className="text-sm text-muted">Paired browsers stay trusted until you forget them.</p>
               {paired.filter((row) => row.kind === "panel").length === 0 ? <p className="text-sm text-subtle">None yet.</p> : paired.filter((row) => row.kind === "panel").map((row) => (
                 <div key={row.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm">
-                  <span>{row.kind} · {row.label} · {row.created ? new Date(row.created).toLocaleDateString() : "—"}</span>
+                  <span>{row.label} · {row.lastSeen ? new Date(row.lastSeen).toLocaleString() : row.created ? new Date(row.created).toLocaleDateString() : "—"}</span>
                   <Button size="sm" variant="danger" onClick={async () => {
                     const res = await revokeSession({ data: { token: token || "", id: row.id } });
                     flash(res.ok ? "Forgotten" : "Failed", res.message);
@@ -567,6 +571,14 @@ export function ConfigApp() {
                   }}>Forget</Button>
                 </div>
               ))}
+              {paired.some((row) => row.kind === "panel") ? (
+                <Button size="sm" variant="danger" onClick={async () => {
+                  const res = await revokeAllSessions({ data: { token: token || "" } });
+                  flash(res.ok ? "All tablets forgotten" : "Failed", res.message);
+                  const ed = await getEditorConfig({ data: { token: token || "" } });
+                  if (ed.paired) setPaired(ed.paired);
+                }}>Forget all tablets</Button>
+              ) : null}
             </div>
           </section>
         ) : null}
