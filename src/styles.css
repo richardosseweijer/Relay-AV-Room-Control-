@@ -33,15 +33,15 @@
 }
 
 html[data-theme="pastel"] {
-  --color-bg: #08080a;
+  --color-bg: #f3eee8;
   --color-surface: #fffaf4;
   --color-raised: #efe6dc;
-  --color-fg: #f4f1ea;
-  --color-muted: #c4b8ac;
-  --color-subtle: #8a827a;
-  --color-border: #3a342e;
+  --color-fg: #3a3530;
+  --color-muted: #7a726a;
+  --color-subtle: #9a9188;
+  --color-border: #e0d5c8;
   --color-accent: #c9a48c;
-  --color-accent-fg: #08080a;
+  --color-accent-fg: #3a3530;
   --color-steel: #a8b8c8;
   --color-sage: #b5c9b0;
   --color-clay: #e0b0a4;
