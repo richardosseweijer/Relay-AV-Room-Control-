@@ -466,39 +466,6 @@ export function ControlPanel() {
           </p>
           {snap.runningMacro ? <p className="mt-1 text-sm text-muted">Just a moment…</p> : null}
         </div>
-        <div className="flex items-center gap-2">
-          {!awake ? (
-            <button
-              type="button"
-              className="inline-flex size-12 items-center justify-center rounded-2xl border border-border/80 bg-surface/80 text-subtle"
-              aria-label="Keep awake"
-              onClick={() => setAwake(true)}
-            >
-              <Sun className="size-4" />
-            </button>
-          ) : null}
-          {!full ? (
-            <button
-              type="button"
-              className="inline-flex size-12 items-center justify-center rounded-2xl border border-border/80 bg-surface/80 text-subtle"
-              aria-label="Fullscreen"
-              onClick={() => void enterFull()}
-            >
-              <Maximize2 className="size-4" />
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="inline-flex size-12 items-center justify-center rounded-2xl border border-border/80 bg-surface/80 text-subtle"
-            onClick={() => {
-              sessionStorage.removeItem("relay-config-token");
-              void navigate({ to: "/config" });
-            }}
-            aria-label="Setup"
-          >
-            <Settings2 className="size-4" />
-          </button>
-        </div>
       </header>
       {faults.length ? (
         <div className="mx-auto mb-3 flex w-full max-w-3xl flex-wrap items-center gap-2 rounded-xl border border-clay/40 bg-clay/10 px-3 py-2">
@@ -658,14 +625,47 @@ export function ControlPanel() {
       <p className="pointer-events-none absolute bottom-4 right-5 text-[10px] tracking-[0.22em] uppercase text-subtle">
         {snap.config.room.name}
       </p>
-      <button
-        type="button"
-        className="absolute bottom-3 left-4 z-20 size-9 rounded-full border border-border/70 bg-surface/80 text-sm text-muted"
-        onClick={() => setLegal(true)}
-        aria-label="Licenses"
-      >
-        i
-      </button>
+      <div className="absolute bottom-3 left-4 z-20 flex items-center gap-2">
+        <button
+          type="button"
+          className="size-9 rounded-full border border-border/70 bg-surface/80 text-sm text-muted"
+          onClick={() => setLegal(true)}
+          aria-label="Licenses"
+        >
+          i
+        </button>
+        {!awake ? (
+          <button
+            type="button"
+            className="inline-flex size-9 items-center justify-center rounded-full border border-border/70 bg-surface/80 text-subtle"
+            aria-label="Keep awake"
+            onClick={() => setAwake(true)}
+          >
+            <Sun className="size-3.5" />
+          </button>
+        ) : null}
+        {!full ? (
+          <button
+            type="button"
+            className="inline-flex size-9 items-center justify-center rounded-full border border-border/70 bg-surface/80 text-subtle"
+            aria-label="Fullscreen"
+            onClick={() => void enterFull()}
+          >
+            <Maximize2 className="size-3.5" />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="inline-flex size-9 items-center justify-center rounded-full border border-border/70 bg-surface/80 text-subtle"
+          onClick={() => {
+            sessionStorage.removeItem("relay-config-token");
+            void navigate({ to: "/config" });
+          }}
+          aria-label="Setup"
+        >
+          <Settings2 className="size-3.5" />
+        </button>
+      </div>
       {legal ? (
         <button type="button" className="fixed inset-0 z-50 overflow-auto bg-bg/96 px-6 py-10 text-left" onClick={() => setLegal(false)}>
           <article className="mx-auto max-w-lg space-y-3 text-sm leading-relaxed text-muted" onClick={(e) => e.stopPropagation()}>
