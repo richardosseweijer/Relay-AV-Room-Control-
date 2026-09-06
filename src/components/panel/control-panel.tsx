@@ -122,6 +122,20 @@ export function ControlPanel() {
 
   const seenToastAt = useRef(0);
   const seenPageAt = useRef(0);
+  const seenFullAt = useRef(0);
+  const [askFull, setAskFull] = useState(false);
+
+  async function enterFull() {
+    const node = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
+    try {
+      if (node.requestFullscreen) await node.requestFullscreen();
+      else node.webkitRequestFullscreen?.();
+    } catch { /* needs a tap */ }
+    const on = Boolean(document.fullscreenElement || (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement);
+    setFull(on);
+    setAskFull(!on);
+    return on;
+  }
 
   useEffect(() => {
     if (!snap?.host) return;
@@ -141,7 +155,12 @@ export function ControlPanel() {
       seenPageAt.current = pageAt;
       setPageId(snap.host.pageId);
     }
-  }, [snap?.host?.dim, snap?.host?.toast, snap?.host?.toastAt, snap?.host?.block, snap?.host?.pageId, snap?.host?.pageAt]);
+    const fullAt = snap.host.fullscreenAt ?? 0;
+    if (fullAt > seenFullAt.current) {
+      seenFullAt.current = fullAt;
+      void enterFull();
+    }
+  }, [snap?.host?.dim, snap?.host?.toast, snap?.host?.toastAt, snap?.host?.block, snap?.host?.pageId, snap?.host?.pageAt, snap?.host?.fullscreenAt]);
 
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [legal, setLegal] = useState(false);
@@ -150,7 +169,11 @@ export function ControlPanel() {
   const wakeRef = useRef<{ release: () => Promise<void> } | null>(null);
 
   useEffect(() => {
-    const sync = () => setFull(Boolean(document.fullscreenElement || (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement));
+    const sync = () => {
+      const on = Boolean(document.fullscreenElement || (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement);
+      setFull(on);
+      if (on) setAskFull(false);
+    };
     document.addEventListener("fullscreenchange", sync);
     document.addEventListener("webkitfullscreenchange", sync);
     return () => {
@@ -158,6 +181,10 @@ export function ControlPanel() {
       document.removeEventListener("webkitfullscreenchange", sync);
     };
   }, []);
+
+  useEffect(() => {
+    if (snap?.config.room.panelFullscreen && !full) setAskFull(true);
+  }, [snap?.config.room.panelFullscreen, full]);
 
   useEffect(() => {
     let gone = false;
@@ -212,6 +239,11 @@ export function ControlPanel() {
       return snap;
     }
   }
+
+  useEffect(() => {
+    const theme = snap?.config.room.theme === "pastel" ? "pastel" : "dark";
+    document.documentElement.dataset.theme = theme;
+  }, [snap?.config.room.theme]);
 
   useEffect(() => {
     let cancel = false;
@@ -450,13 +482,7 @@ export function ControlPanel() {
               type="button"
               className="inline-flex size-12 items-center justify-center rounded-2xl border border-border/80 bg-surface/80 text-subtle"
               aria-label="Fullscreen"
-              onClick={async () => {
-                const node = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
-                try {
-                  if (node.requestFullscreen) await node.requestFullscreen();
-                  else node.webkitRequestFullscreen?.();
-                } catch { /* iOS home-screen app only */ }
-              }}
+              onClick={() => void enterFull()}
             >
               <Maximize2 className="size-4" />
             </button>
@@ -597,6 +623,16 @@ export function ControlPanel() {
         })}
       </section>
 
+      {askFull && !full ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-[65] flex flex-col items-center justify-center bg-bg/95 px-8 text-center"
+          onClick={() => void enterFull()}
+        >
+          <p className="max-w-4xl text-4xl font-medium leading-tight tracking-tight sm:text-6xl">Tap for fullscreen</p>
+          <p className="mt-6 text-sm text-muted">Tap to dismiss</p>
+        </button>
+      ) : null}
       {offline ? (
         <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-bg/95 px-8 text-center">
           <p className="max-w-4xl text-4xl font-medium leading-tight tracking-tight text-clay sm:text-6xl">Controller unreachable</p>

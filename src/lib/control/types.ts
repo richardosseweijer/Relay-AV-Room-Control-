@@ -354,7 +354,7 @@ export type RoomConfig = {
     panelPin: string | null;
     configPin: string;
     externalControl?: boolean;
-    theme: "dark" | "light";
+    theme: "dark" | "pastel";
     idleDimSeconds: number;
     keepAwake?: boolean;
     panelFullscreen?: boolean;
@@ -416,6 +416,7 @@ export type HostUi = {
   block: string | null;
   pageId: string | null;
   pageAt?: number;
+  fullscreenAt?: number;
 };
 
 export type RoomSnapshot = {

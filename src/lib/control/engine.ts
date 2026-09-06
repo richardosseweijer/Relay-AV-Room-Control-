@@ -198,26 +198,22 @@ export async function listHostInterfaces(): Promise<{ ok: boolean; message: stri
       const names = await fs.readdir("/dev").catch(() => [] as string[]);
       for (const name of names) {
         if (/^tty(USB|ACM|AMA|S)\d+$/i.test(name)) add("serial", `/dev/${name}`);
+        if (/^serial[0-9]+$/i.test(name)) add("serial", `/dev/${name}`, `${name} (Pi UART)`);
         if (/^gpiochip\d+$/i.test(name)) add("gpio", `/dev/${name}`, name);
         if (/^i2c-\d+$/i.test(name)) add("i2c", `/dev/${name}`, name);
         if (/^spidev\d+\.\d+$/i.test(name)) add("spi", `/dev/${name}`);
         if (/^cec\d+$/i.test(name)) add("cec", `/dev/${name}`);
         if (/^lirc\d+$/i.test(name)) add("ir", `/dev/${name}`);
       }
+      for (const alias of ["/dev/serial0", "/dev/serial1", "/dev/ttyAMA0", "/dev/ttyS0"]) {
+        const exists = await fs.access(alias).then(() => true).catch(() => false);
+        if (exists) add("serial", alias, alias.includes("serial") ? `${alias} (Pi UART)` : alias);
+      }
     }
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "scan failed", ports };
   }
-  if (!ports.length) {
-    if (win) {
-      for (let i = 1; i <= 8; i++) add("serial", `COM${i}`, `COM${i} (not detected)`);
-    } else {
-      add("serial", "/dev/ttyUSB0", "/dev/ttyUSB0 (not detected)");
-      add("serial", "/dev/ttyACM0", "/dev/ttyACM0 (not detected)");
-      add("gpio", "/dev/gpiochip0", "gpiochip0 (not detected)");
-    }
-  }
-  return { ok: true, message: `${ports.length} found`, ports };
+  return { ok: true, message: ports.length ? `${ports.length} found` : "None found", ports };
 }
 
 async function sendLocal(driver: DriverSpec, device: DeviceInstance, payload: string): Promise<CommandResult> {
@@ -1025,7 +1021,7 @@ export async function readMonitorValue(opts: {
 export async function applyHost(
   commandId: string,
   value: string | number | undefined,
-  host: { dim: boolean; locked: boolean; toast: string | null; toastAt?: number; block?: string | null; pageId: string | null; pageAt?: number },
+  host: { dim: boolean; locked: boolean; toast: string | null; toastAt?: number; block?: string | null; pageId: string | null; pageAt?: number; fullscreenAt?: number },
   vars?: Record<string, string | number>,
   flags?: { allowReboot?: boolean },
 ): Promise<CommandResult> {
@@ -1038,6 +1034,7 @@ export async function applyHost(
   else if (commandId === "ui.unblock") { host.block = null; }
   else if (commandId === "ui.clear") { host.toast = null; host.toastAt = Date.now(); }
   else if (commandId === "ui.page") { host.pageId = String(value ?? ""); host.pageAt = Date.now(); }
+  else if (commandId === "display.fullscreen") { host.fullscreenAt = Date.now(); }
   else if (commandId === "var.get") {
     if (!vars) return { ok: false, message: "No vars" };
     const id = String(value ?? "").split("=")[0] ?? "";

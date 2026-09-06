@@ -158,10 +158,10 @@ export function ConfigApp() {
   const [pendingDriver, setPendingDriver] = useState<string | null>(null);
   const [libraryPick, setLibraryPick] = useState("");
 
-  async function scanPorts() {
+  async function scanPorts(quiet = false) {
     const res = await listHostPorts({ data: { token: token || "" } });
     setHostPorts(res.ports ?? []);
-    flash(res.ok ? "Interfaces" : "Scan failed", res.message);
+    if (!quiet) flash(res.ok ? "Interfaces" : "Scan failed", res.message);
   }
 
   function flash(title: string, body: string) {
@@ -251,6 +251,16 @@ export function ConfigApp() {
     const id = window.setInterval(() => { tick().catch(() => undefined); }, 8000);
     return () => { cancel = true; window.clearInterval(id); };
   }, [tab, token, draft, snap]);
+
+  useEffect(() => {
+    if (tab !== "interfaces" || !token) return;
+    scanPorts(true).catch(() => undefined);
+  }, [tab, token]);
+
+  useEffect(() => {
+    const theme = (draft?.room.theme ?? snap?.config.room.theme) === "pastel" ? "pastel" : "dark";
+    document.documentElement.dataset.theme = theme;
+  }, [draft?.room.theme, snap?.config.room.theme]);
 
   function update(mut: (c: RoomConfig) => void) {
     if (!draft) return;
@@ -391,6 +401,12 @@ export function ConfigApp() {
         {tab === "room" ? (
           <section className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1 text-sm text-muted">Room name<input className={fieldClass()} value={draft.room.name} onChange={(e) => update((c) => { c.room.name = e.target.value; })} /></label>
+            <label className="grid gap-1 text-sm text-muted">Theme
+              <select className={fieldClass()} value={draft.room.theme === "pastel" ? "pastel" : "dark"} onChange={(e) => update((c) => { c.room.theme = e.target.value as "dark" | "pastel"; })}>
+                <option value="dark">Dark</option>
+                <option value="pastel">Pastel</option>
+              </select>
+            </label>
             <label className="grid gap-1 text-sm text-muted">Config PIN<input className={fieldClass()} type="password" value={draft.room.configPin} onChange={(e) => update((c) => { c.room.configPin = e.target.value; })} /></label>
             <label className="grid gap-1 text-sm text-muted">
               Panel access
@@ -709,8 +725,7 @@ export function ConfigApp() {
               <Button size="sm" variant="secondary" onClick={() => scanPorts()}>Scan</Button>
             </div>
             {(draft.interfaces ?? []).map((iface, ii) => {
-              const options = hostPorts.filter((p) => p.kind === iface.kind || (iface.kind === "serial" && p.kind === "serial"));
-              const paths = options.length ? options : hostPorts;
+              const paths = hostPorts.filter((p) => p.kind === iface.kind && !/not detected/i.test(p.label));
               return (
               <article key={iface.id} className="grid gap-2 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2">
                 <label className="grid gap-1 text-sm text-muted">Label
@@ -727,13 +742,17 @@ export function ConfigApp() {
                 </select>
                 </label>
                 {iface.kind === "serial" || iface.kind === "spi" || iface.kind === "ir" ? (
-                  <label className="grid gap-1 text-sm text-muted">{iface.kind === "serial" ? "COM port" : iface.kind === "spi" ? "SPI device" : "IR device"}
-                    <select className={fieldClass()} value={iface.path ?? ""} onChange={(e) => update((c) => { c.interfaces![ii]!.path = e.target.value; })}>
-                      <option value="">Select…</option>
-                      {iface.path && !paths.some((p) => p.path === iface.path) ? <option value={iface.path}>{iface.path}</option> : null}
-                      {paths.filter((p) => p.kind === iface.kind || (iface.kind === "serial" && p.kind === "serial")).map((p) => <option key={`${p.kind}-${p.path}`} value={p.path}>{p.label}</option>)}
+                  <>
+                  <label className="grid gap-1 text-sm text-muted">{iface.kind === "serial" ? "Port" : iface.kind === "spi" ? "SPI device" : "IR device"}
+                    <select className={fieldClass()} value={paths.some((p) => p.path === iface.path) ? (iface.path ?? "") : ""} onChange={(e) => update((c) => { c.interfaces![ii]!.path = e.target.value; })}>
+                      <option value="">{paths.length ? "Select…" : "None found"}</option>
+                      {paths.map((p) => <option key={`${p.kind}-${p.path}`} value={p.path}>{p.label}</option>)}
                     </select>
                   </label>
+                  <label className="grid gap-1 text-sm text-muted">Path
+                    <input className={fieldClass()} placeholder="/dev/serial0 or COM3" value={iface.path ?? ""} onChange={(e) => update((c) => { c.interfaces![ii]!.path = e.target.value; })} />
+                  </label>
+                  </>
                 ) : null}
                 {iface.kind === "gpio" ? (
                   <>

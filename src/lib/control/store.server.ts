@@ -27,23 +27,32 @@ export async function removeDriverFile(name: string) {
 }
 
 export async function loadDriverFiles(): Promise<Record<string, DriverSpec>> {
-  await mkdir(DRIVER_DIR, { recursive: true });
-  const existing = await readdir(DRIVER_DIR).catch(() => [] as string[]);
-  if (!existing.some((n) => n.endsWith(".json"))) {
-    for (const [name, spec] of Object.entries(bundledDrivers)) {
-      await writeFile(path.join(DRIVER_DIR, name), JSON.stringify(spec, null, 2));
-    }
+  const bundled = { ...bundledDrivers };
+  try {
+    await mkdir(DRIVER_DIR, { recursive: true });
+  } catch {
+    return bundled;
   }
-  const out: Record<string, DriverSpec> = {};
-  for (const name of await readdir(DRIVER_DIR)) {
-    if (!name.endsWith(".json")) continue;
-    try {
-      out[name] = JSON.parse(await readFile(path.join(DRIVER_DIR, name), "utf8")) as DriverSpec;
-    } catch {
-      /* skip bad file */
+  try {
+    const existing = await readdir(DRIVER_DIR).catch(() => [] as string[]);
+    if (!existing.some((n) => n.endsWith(".json"))) {
+      for (const [name, spec] of Object.entries(bundledDrivers)) {
+        await writeFile(path.join(DRIVER_DIR, name), JSON.stringify(spec, null, 2)).catch(() => undefined);
+      }
     }
+    const out: Record<string, DriverSpec> = {};
+    for (const name of await readdir(DRIVER_DIR).catch(() => [] as string[])) {
+      if (!name.endsWith(".json")) continue;
+      try {
+        out[name] = JSON.parse(await readFile(path.join(DRIVER_DIR, name), "utf8")) as DriverSpec;
+      } catch {
+        /* skip bad file */
+      }
+    }
+    return Object.keys(out).length ? out : bundled;
+  } catch {
+    return bundled;
   }
-  return out;
 }
 
 type Memory = {
@@ -59,7 +68,7 @@ type Memory = {
   runningMacro: string | null;
   activeScene: string | null;
   latches: Record<string, string>;
-  host: { dim: boolean; locked: boolean; toast: string | null; block: string | null; pageId: string | null };
+  host: { dim: boolean; locked: boolean; toast: string | null; block: string | null; pageId: string | null; fullscreenAt?: number };
 };
 
 const g = globalThis as typeof globalThis & {
@@ -86,6 +95,7 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
       network: { ...demo.room.network, ...(config.room?.network ?? {}) },
       grid: { ...demo.room.grid, ...(config.room?.grid ?? {}) },
       externalControl: config.room?.externalControl !== false,
+      theme: config.room?.theme === "pastel" || config.room?.theme === "light" ? "pastel" : "dark",
     },
     variables: config.variables ?? demo.variables,
     schedules: config.schedules ?? demo.schedules,
@@ -99,8 +109,8 @@ function emptyMemory(): Memory {
   const config = emptyRoomConfig();
   return {
     config,
-    drivers: {},
-    library: {},
+    drivers: { ...bundledDrivers },
+    library: { ...bundledDrivers },
     state: defaultDeviceState(),
     vars: seedVars(config),
     health: {},
@@ -198,18 +208,22 @@ export async function loadPersisted(): Promise<Memory> {
 }
 
 async function writeFileStore(mem: Memory) {
-  await mkdir(path.dirname(FILE_STORE), { recursive: true });
-  const body = JSON.stringify({
-    config: normalize(mem.config),
-    drivers: mem.drivers,
-    state: mem.state,
-    vars: mem.vars,
-    latches: mem.latches ?? {},
-    stamps: Object.fromEntries(lastScheduleRun),
-  });
-  const tmp = `${FILE_STORE}.tmp`;
-  await writeFile(tmp, body, "utf8");
-  await rename(tmp, FILE_STORE);
+  try {
+    await mkdir(path.dirname(FILE_STORE), { recursive: true });
+    const body = JSON.stringify({
+      config: normalize(mem.config),
+      drivers: mem.drivers,
+      state: mem.state,
+      vars: mem.vars,
+      latches: mem.latches ?? {},
+      stamps: Object.fromEntries(lastScheduleRun),
+    });
+    const tmp = `${FILE_STORE}.tmp`;
+    await writeFile(tmp, body, "utf8");
+    await rename(tmp, FILE_STORE);
+  } catch {
+    /* disk missing or not writable */
+  }
 }
 
 let persistChain = Promise.resolve();
@@ -505,12 +519,22 @@ export function ensureLoaded() {
   if (!boot) {
     boot = loadPersisted()
       .then((mem) => {
+        if (!Object.keys(mem.drivers ?? {}).length) {
+          mem.drivers = { ...bundledDrivers };
+          mem.library = { ...bundledDrivers };
+        }
+        if (!mem.config?.room) mem.config = emptyRoomConfig();
         startScheduler();
         return mem;
       })
-      .catch((err) => {
-        boot = null;
-        throw err;
+      .catch(() => {
+        const mem = memory();
+        mem.config = emptyRoomConfig();
+        mem.drivers = { ...bundledDrivers };
+        mem.library = { ...bundledDrivers };
+        mem.vars = seedVars(mem.config, mem.vars);
+        startScheduler();
+        return mem;
       });
   }
   return boot;
