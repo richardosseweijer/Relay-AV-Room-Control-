@@ -6,7 +6,7 @@
 - Screen Wake Lock dies when the tab is backgrounded, the device sleeps, or the OS battery-saver kills it. The sun control returns; tap again.
 - iOS Safari does not implement `requestFullscreen` the same way. Add to Home Screen for a near-kiosk chrome.
 - Panel poll of `/api/room` looks frozen if the browser parks the tab. Foreground the page.
-- Security → Forget drops the server row only. An open panel mints a new token on next load. See issue #17.
+- Security → Forget drops the server row only. The browser still holds `localStorage`. Open panel then reuses the remaining (or next) session. See issue #17.
 
 ## Host / deploy
 
@@ -32,4 +32,8 @@
 - Corrupt `data/relay-room.json`: boot falls back to an empty room. The bad file is not auto-deleted.
 - Empty schedule `days` skips the job.
 - PINs, peer secret, and session tokens are plaintext in `data/relay-secrets.json`. See issues #3 and #14.
+- Room file and secrets file are two renames; a crash between them can desync. See issue #18.
+- `npm ci` may reject the lockfile (missing AJV). Use `npm install`. See issue #19.
+- No in-repo tests for HMAC / triggers / persist. See issue #20.
+- Nine framework PWA/title tests still fail. See issue #21.
 - Config nav labels are raw ids. See issue #16.

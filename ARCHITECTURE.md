@@ -158,9 +158,9 @@ Host commands `ui.toast`, `ui.block`, `ui.unblock`, and `ui.clear` draw overlays
 
 ### 6.2 Configurator (`config-app.tsx`)
 
-Tabs: Room, Drivers, Devices, Interfaces, Pages, Macros, Logic (variables, monitors, schedules, triggers), Log.
+Tabs: Room, Security, Drivers, Devices, Interfaces, Pages, Macros, Logic (variables, monitors, schedules, triggers), Log.
 
-Room actions include export, import, restore demo, clear configuration, restart the Node process, update from GitHub, and reboot the host. Export requires a configurator session and writes a JSON bundle with PINs and device tokens removed. Import accepts that bundle or a raw room object and preserves existing secrets when the file left the corresponding fields empty.
+Room actions: export, import, clear configuration, restart Vite, update from GitHub, reboot the host. There is no Restore demo. Export requires a configurator session and writes a JSON bundle with PINs and tokens removed. Import preserves existing secrets when the bundle left those fields empty.
 
 ---
 
@@ -168,14 +168,15 @@ Room actions include export, import, restore demo, clear configuration, restart 
 
 | Location | Contents |
 |---|---|
-| `data/relay-room.json` | Normalised room configuration, variable values, latches, and related runtime fields written on save and on a short debounce after mutations. |
+| `data/relay-room.json` | Layout, IPs, variables, latches. No PINs or tokens. |
+| `data/relay-secrets.json` | Config PIN, panel PIN, peer secret, device tokens, paired session secrets. |
 | `data/drivers/*.json` | Driver library. |
 | `data/relay-update.log` | Output of `scripts/update-relay.mjs`. |
-| In-process memory | Device state, health flags, action log (capped), monitor timestamps, last schedule stamp. |
+| In-process memory | Device state, health, action log, monitor/schedule/trigger stamps. |
 
-Configurator PIN and panel PIN are stored in the room file in plaintext, as stated in PRIVACY.md. Session tokens for the editor are process-local and expire when the process exits.
+Save all calls `persistNow()`. If either JSON file cannot be written, the save returns failure and the dirty flag stays set (issue #18: the two files are still separate renames).
 
-`system.update` (Room tab) requires a Git checkout. It runs `git pull --ff-only` and `npm install`, then relaunches Vite or, under systemd (`INVOCATION_ID` set), `systemctl restart relay`. A zip-only copy cannot use this path. Uncommitted local changes can cause the fast-forward pull to fail; the previous process remains the one that must be restarted by hand.
+`system.update` (Room tab) requires a Git checkout. It runs `git pull --ff-only` and `npm install`, then relaunches Vite or, under systemd (`INVOCATION_ID` set), `systemctl restart relay`.
 
 ---
 
@@ -183,12 +184,13 @@ Configurator PIN and panel PIN are stored in the room file in plaintext, as stat
 
 | Control | Effect |
 |---|---|
-| Configurator PIN | Required to open `/config` and to call editor server functions. |
-| Panel PIN | Optional. When set, the operator surface asks for the PIN after lock or on first load. |
-| External control | When disabled, LAN clients cannot invoke `fireMacro` / `fireCommand` / `setVariable` without a valid session. When enabled, those handlers accept unauthenticated calls from any host that can reach the bind address. |
-| Export / import / update / reboot | Configurator session required. |
+| Configurator PIN | First login may use `1234`, then a stronger PIN is required. Editor writes need a config session. |
+| Panel pairing | Open panel reuses one stored panel session. Panel PIN asks once; that browser stays trusted until Forget. |
+| Open LAN control | Off by default. When on, `fireMacro` / `fireCommand` / `setVariable` accept calls with no token. |
+| Peer HMAC | `x-relay-ts` + `x-relay-auth` (64 lowercase hex). Replay cache keys the digest for 90s. Peer secret only — not the PIN. Host restart/update/reboot use that same first check. |
+| Export / import / update / reboot / ping | Configurator session required. |
 
-The development server listens on all interfaces. Combined with external control left enabled, that is equivalent to an open room on the LAN. Do not publish port 8081 to the public internet.
+Do not publish port 8081 to the public internet. HTTP only (issue #15).
 
 ---
 
@@ -203,7 +205,9 @@ The development server listens on all interfaces. Combined with external control
 | `src/lib/control/store.server.ts` | Process memory, file load/save, snapshot assembly, monitor/schedule/trigger timer. |
 | `src/lib/control/actions.ts` | TanStack server functions used by the panel and configurator. |
 | `src/lib/control/vars.ts` | Variable seeding, clamping, template substitution, enable-when evaluation. |
-| `src/lib/control/schema.ts` | Driver validation and detection of bindings that point at missing commands. |
+| `src/lib/control/schema.ts` | Driver validation and orphan bindings. |
+| `src/lib/control/peer-auth.ts` | HMAC sign/verify and replay cache. |
+| `src/lib/control/pins.ts` | Weak PIN list. |
 | `src/lib/control/schedule.ts` | Next enabled schedule occurrence for the schedule widget. |
 | `src/lib/control/defaults.ts` | Demonstration room and primary bundled drivers. |
 | `src/lib/control/extra-drivers.ts` | Additional bundled drivers not required by the demonstration room. |
@@ -222,6 +226,7 @@ The development server listens on all interfaces. Combined with external control
 | `src/routes/index.tsx` | Route `/`. |
 | `src/routes/config.tsx` | Route `/config`. |
 | `src/routes/api/room.ts` | Snapshot HTTP handler. |
+| `src/routes/api/peer.ts` | Relay-to-Relay HMAC API. |
 | `src/routes/api/ping.ts` | Reachability helper used by the device card. |
 | `src/routes/api/vars.ts` | Variable listing used by the host inventory path. |
 | `src/routes/__root.tsx` | HTML shell, fonts, application metadata. |
@@ -247,7 +252,7 @@ The development server listens on all interfaces. Combined with external control
 | Path | Responsibility |
 |---|---|
 | `data/relay-room.json` | Layout, IPs, variables. No PINs or pairing tokens. |
-| `data/relay-secrets.json` | Config PIN, panel PIN, device tokens. Created on first save. |
+| `data/relay-secrets.json` | Config PIN, panel PIN, peer secret, device tokens, paired sessions. |
 | `data/drivers/` | Library of driver files. |
 | `public/drivers/` | Optional static copies of a subset of drivers. |
 

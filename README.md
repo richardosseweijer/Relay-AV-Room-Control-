@@ -3,7 +3,7 @@
 Relay **0.7.1** (beta). Room controller for local AV devices. Private LAN only.
 
 Supported start: `npx vite dev --host 0.0.0.0 --port 8081`  
-Room `http://HOST:8081/` — configurator `http://HOST:8081/config` — default PIN `1234`.
+Room `http://HOST:8081/` — configurator `http://HOST:8081/config` — first PIN `1234`, then you must set a stronger one. Open LAN control is off. Tablets pair until Forget.
 
 - [Linux / Pi](LINUX.md)
 - [Windows](WINDOWS.md)

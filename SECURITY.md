@@ -18,11 +18,11 @@ Trusted LAN / VLAN only. Bind is `0.0.0.0:8081`. Do not port-forward that port. 
 
 ## Room-to-room
 
-HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`) using the **peer secret**, not the PIN. Save all creates a secret if missing. Put that secret on the far Relay’s host device card.
+HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex characters. Replay cache stores the digest for 90s. Save all creates a secret if missing. Put that secret on the far Relay’s host device card. The same check authorises peer `system.restart` / `update` / `reboot`.
 
 ## Secrets on disk
 
-`data/relay-secrets.json` holds PINs, peer secret, and paired session secrets in plaintext (issues #3, #14). `data/relay-room.json` is layout and IPs. Export never includes the secrets file. Treat the SD card as secret.
+`data/relay-secrets.json` holds PINs, peer secret, and paired session secrets in plaintext (issues #3, #14). `data/relay-room.json` is layout and IPs. Export never includes the secrets file. Treat the SD card as secret. Save all reports failure if either file cannot be written.
 
 ## Host commands
 
