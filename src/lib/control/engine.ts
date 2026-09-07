@@ -229,6 +229,11 @@ export async function listHostInterfaces(): Promise<{ ok: boolean; message: stri
   return { ok: true, message: ports.length ? `${ports.length} found` : "None found", ports };
 }
 
+function localArg(value: string | number | undefined, re: RegExp) {
+  const s = String(value ?? "").trim();
+  return re.test(s) ? s : null;
+}
+
 async function sendLocal(driver: DriverSpec, device: DeviceInstance, payload: string): Promise<CommandResult> {
   const local = driver.transports.local;
   const serial = driver.transports.rs232;
@@ -237,9 +242,12 @@ async function sendLocal(driver: DriverSpec, device: DeviceInstance, payload: st
   const path = device.interface || device.host || local?.path || "COM1";
   pushTrace(device.id, "tx", `${kind} ${path} ${payload.slice(0, 80)}`);
   if (kind === "gpio") {
-    const line = Number(device.auth?.pin ?? device.port ?? local?.line ?? 0);
-    const chip = device.auth?.chip || local?.chip || "gpiochip0";
-    const level = /off|low|0/i.test(payload) ? "0" : /on|high|1/i.test(payload) ? "1" : payload.trim();
+    const line = localArg(device.auth?.pin ?? device.port ?? local?.line ?? 0, /^(0|[1-9]\d{0,2})$/);
+    const chip = localArg(device.auth?.chip || local?.chip || "gpiochip0", /^gpiochip\d+$/);
+    const level = /off|low|0/i.test(payload) ? "0" : /on|high|1/i.test(payload) ? "1" : null;
+    if (!chip || !line || Number(line) > 511 || (level !== "0" && level !== "1")) {
+      return { ok: false, message: "GPIO chip/line/level rejected" };
+    }
     return runTool("gpioset", [chip, `${line}=${level}`], local?.timeoutMs ?? 1500);
   }
   if (kind === "serial") {
@@ -267,21 +275,40 @@ async function sendLocal(driver: DriverSpec, device: DeviceInstance, payload: st
     }
   }
   if (kind === "i2c") {
-    return runTool("i2cset", ["-y", String(device.bus ?? local?.bus ?? 1), device.address || local?.address || "0x3c", ...payload.trim().split(/\s+/)]);
+    const bus = localArg(device.bus ?? local?.bus ?? 1, /^(0|[1-9]\d?)$/);
+    const address = localArg(device.address || local?.address || "0x3c", /^0x[0-9a-f]{1,2}$/i);
+    const hex = payload.replace(/[^0-9a-f]/gi, "");
+    if (!bus || !address || !hex.length || hex.length % 2) return { ok: false, message: "I2C bus/address/data rejected" };
+    const bytes: string[] = [];
+    for (let i = 0; i < hex.length; i += 2) bytes.push(`0x${hex.slice(i, i + 2)}`);
+    return runTool("i2cset", ["-y", bus, address, ...bytes]);
   }
   if (kind === "ir") {
-    const remote = device.auth?.remote || "relay";
-    if (/^[a-z0-9]+:/i.test(payload.trim())) {
-      return runTool("ir-ctl", ["-d", path === "COM1" ? "/dev/lirc0" : path, `--scancode=${payload.trim()}`], local?.timeoutMs ?? 2000);
+    const remote = localArg(device.auth?.remote || "relay", /^[A-Za-z0-9._-]{1,32}$/);
+    const scan = localArg(payload, /^[A-Za-z0-9:_-]{1,64}$/);
+    if (!remote || !scan) return { ok: false, message: "IR remote/scancode rejected" };
+    if (/^[a-z0-9]+:/i.test(scan)) {
+      const dev = path === "COM1" ? "/dev/lirc0" : path;
+      if (!localArg(dev, /^\/dev\/lirc\d+$/)) return { ok: false, message: "IR device rejected" };
+      return runTool("ir-ctl", ["-d", dev, `--scancode=${scan}`], local?.timeoutMs ?? 2000);
     }
-    return runTool("irsend", ["SEND_ONCE", remote, payload.trim()], local?.timeoutMs ?? 2000);
+    return runTool("irsend", ["SEND_ONCE", remote, scan], local?.timeoutMs ?? 2000);
   }
   if (kind === "cec") {
     const args = ["-s", "-d", "1"];
-    if (path && path !== "COM1") args.unshift("-p", path);
-    return runToolStdin("cec-client", args, `${payload.trim()}\n`, local?.timeoutMs ?? 4000);
+    if (path && path !== "COM1") {
+      const dev = localArg(path, /^\/dev\/cec\d+$/);
+      if (!dev) return { ok: false, message: "CEC device rejected" };
+      args.unshift("-p", dev);
+    }
+    const body = localArg(payload.replace(/\s+/g, " ").trim(), /^[A-Za-z0-9 .:_-]{1,80}$/);
+    if (!body) return { ok: false, message: "CEC payload rejected" };
+    return runToolStdin("cec-client", args, `${body}\n`, local?.timeoutMs ?? 4000);
   }
-  return runTool("spidev_test", ["-D", path || "/dev/spidev0.0", "-p", payload]);
+  const spiDev = localArg(path || "/dev/spidev0.0", /^\/dev\/spidev\d+\.\d+$/);
+  const spiData = localArg(payload, /^[0-9A-Fa-f]{2,128}$/);
+  if (!spiDev || !spiData) return { ok: false, message: "SPI device/payload rejected" };
+  return runTool("spidev_test", ["-D", spiDev, "-p", spiData]);
 }
 
 const paceClock = ((globalThis as typeof globalThis & { __relayPace__?: Map<string, number> }).__relayPace__ ??= new Map());
@@ -374,7 +401,11 @@ async function tcpWrite(host: string, port: number, payload: Buffer, timeout: nu
     let buf = Buffer.alloc(0);
     const timer = setTimeout(() => { sock.destroy(); resolve({ ok: false, message: "timeout" }); }, timeout);
     sock.on("data", (d) => { buf = Buffer.concat([buf, d]); });
-    sock.on("connect", () => { sock.write(payload); setTimeout(() => sock.end(), 80); });
+    sock.on("connect", () => {
+      // Connect-write-close on purpose. Persistent MIDI/TCP is KNOWN_ISSUES.md #4.
+      sock.write(payload);
+      setTimeout(() => sock.end(), 80);
+    });
     sock.on("error", (err) => { clearTimeout(timer); resolve({ ok: false, message: err.message }); });
     sock.on("close", () => { clearTimeout(timer); resolve({ ok: true, message: decodeWire(buf, encoding) }); });
   });
