@@ -2,6 +2,14 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 2026-09-07 — control-plane hardening
+
+- Atomic persist: secrets then room, fsync + rename. Failed second write restores the previous secrets file.
+- Panel does not accept the config PIN unless `panelAcceptsConfigPin` is on (default off). Forget clears the tablet token on the next room poll. Expired sessions are dropped from memory and secrets.
+- HMAC tests: good sig, replay, uppercase, empty key, skew, wrong path. Open-LAN policy and `system.*` admin gates covered. Change-triggers fire once per edge. Empty schedule days stay skipped.
+- Local transports (GPIO / I2C / IR / CEC / SPI) use allowlisted argv. No raw `payload.split`. TCP stays connect-write-close (issue #4).
+- Docs aligned with the above. Not audited. Not production-certified.
+
 ## 0.7.3 — 2026-09-07
 
 - Configurator PIN is asked once. Sessions stay in memory across secret reload.
@@ -29,7 +37,6 @@ Format: date, then bullets. Older work lives in `git log`.
 - Panel and configurator PIN screens no longer wait on `/api/room`.
 - Unlock is `POST /api/panel-unlock` and `POST /api/config-unlock` (scrypt + 5-try lockout).
 - First PIN change writes both config and room PINs. Set them apart on Security if the tablet must not open `/config`.
-- Room unlock also accepts the config PIN.
 - PINs stored as scrypt. Host restart/update/reboot need a config session and a second PIN. Peers cannot run them.
 - `/api/room` rate-limited; unauthenticated calls lose IPs, drivers, and logs.
 - Device connects limited to RFC1918 (localhost only for the host driver).
