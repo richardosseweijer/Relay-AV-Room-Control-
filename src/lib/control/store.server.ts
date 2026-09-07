@@ -2,6 +2,7 @@ import { bundledDrivers, defaultDeviceState, emptyRoomConfig } from "./defaults"
 import { readMonitorValue, runMacro, traces, scrubSecret } from "./engine";
 import type { DeviceHealth, DeviceStateMap, DriverSpec, LogEntry, Macro, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
 import { applyMonitors, clampVar, resolveTemplate, seedVars, type VarMap } from "./vars";
+import { matchesTrigger, scheduleShouldRun, triggerStep } from "./logic-policy";
 import { persistPair } from "../../../scripts/write-atomic.mjs";
 import { mkdir, readFile, writeFile, readdir, unlink, access, rename } from "node:fs/promises";
 import path from "node:path";
@@ -171,6 +172,7 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
       network: { ...demo.room.network, ...(config.room?.network ?? {}) },
       grid: { ...demo.room.grid, ...(config.room?.grid ?? {}) },
       externalControl: config.room?.externalControl === true,
+      panelAcceptsConfigPin: config.room?.panelAcceptsConfigPin === true,
       theme: config.room?.theme === "pastel" ? "pastel" : "dark",
     },
     variables: config.variables ?? demo.variables,
@@ -243,7 +245,9 @@ export async function loadPersisted(): Promise<Memory> {
       mem.latches = saved.latches ?? {};
       mem.sessions = fromDisk.sessions ?? {};
       const nextSessions: Memory["sessions"] = {};
+      const now = Date.now();
       for (const [key, row] of Object.entries(mem.sessions)) {
+        if (row.exp && row.exp < now) continue;
         const id = row.id || (row.secret ? key : key.length === 16 ? key : undefined) || key.slice(-16);
         nextSessions[id] = { ...row, secret: row.secret || key };
       }
@@ -380,15 +384,16 @@ async function runDueSchedules() {
   const stamp = `${tz}-${now.toISOString().slice(0, 10)}T${time}`;
   for (const job of mem.config.schedules ?? []) {
     if (!job.enabled || job.time !== time) continue;
-    if (!job.days.length) {
-      const skipKey = `empty:${job.id}`;
-      if (lastScheduleRun.get(skipKey) !== stamp) {
-        lastScheduleRun.set(skipKey, stamp);
-        pushLog({ kind: "macro", ok: true, title: `Schedule ${job.label}`, detail: "skipped empty days" });
+    if (!scheduleShouldRun(job, time, day)) {
+      if (!job.days.length) {
+        const skipKey = `empty:${job.id}`;
+        if (lastScheduleRun.get(skipKey) !== stamp) {
+          lastScheduleRun.set(skipKey, stamp);
+          pushLog({ kind: "macro", ok: true, title: `Schedule ${job.label}`, detail: "skipped empty days" });
+        }
       }
       continue;
     }
-    if (!job.days.includes(day)) continue;
     if (lastScheduleRun.get(job.id) === stamp) continue;
     const macro = mem.config.macros.find((m) => m.id === job.macroId);
     if (!macro) continue;
@@ -418,16 +423,6 @@ async function runDueSchedules() {
   }
 }
 
-function matchesTrigger(left: string, compare: string, right: string) {
-  if (compare === "gt" || compare === "lt") {
-    const a = Number(left);
-    const b = Number(right);
-    if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
-    return compare === "gt" ? a > b : a < b;
-  }
-  const same = left.trim().toLowerCase() === right.trim().toLowerCase();
-  return compare === "neq" ? !same : same;
-}
 
 async function runDueTriggers() {
   const mem = memory();
@@ -440,7 +435,8 @@ async function runDueTriggers() {
     const right = String(resolveTemplate(rule.equals, mem.vars, mem.config.variables) ?? rule.equals);
     const hit = matchesTrigger(left, rule.compare || "eq", right);
     const prev = lastTriggerValue.get(rule.id);
-    if (!hit) {
+    const step = triggerStep(rule.mode, prev, hit);
+    if (step === "reset") {
       lastTriggerValue.set(rule.id, `false:${left}`);
       lastTriggerHeld.delete(rule.id);
       continue;
@@ -456,13 +452,11 @@ async function runDueTriggers() {
     } else {
       lastTriggerHeld.set(rule.id, now);
     }
-    if (rule.mode === "change") {
-      if (prev === undefined) {
-        lastTriggerValue.set(rule.id, `true:${left}`);
-        continue;
-      }
-      if (prev.startsWith("true:")) continue;
+    if (step === "arm") {
+      lastTriggerValue.set(rule.id, `true:${left}`);
+      continue;
     }
+    if (step === "hold") continue;
     const wait = Math.max(500, (rule.intervalSec || 1) * 1000);
     if (rule.mode === "interval" && now - (lastTriggerFire.get(rule.id) ?? 0) < wait) continue;
     if (rule.mode === "change" && now - (lastTriggerFire.get(rule.id) ?? 0) < 400) continue;

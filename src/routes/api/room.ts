@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ensureLoaded, memory, snapshot } from "@/lib/control/store.server";
+import { pruneExpiredSessions } from "@/lib/control/session.server";
 import { scrubSecret } from "@/lib/control/engine";
 
 function redact(auth?: Record<string, string>) {
@@ -37,9 +38,13 @@ function clientIp(request: Request) {
 
 function hasSession(token: string) {
   if (!token) return false;
+  pruneExpiredSessions();
   const row = Object.values(memory().sessions ?? {}).find((item) => item.secret === token);
   if (!row) return false;
-  if (row.exp && row.exp < Date.now()) return false;
+  if (row.exp && row.exp < Date.now()) {
+    pruneExpiredSessions();
+    return false;
+  }
   return true;
 }
 
@@ -65,6 +70,7 @@ export const Route = createFileRoute("/api/room")({
           return Response.json({
             ...snap,
             traces: {},
+            sessionValid: token ? authed : undefined,
             drivers: authed ? snap.drivers : {},
             library: authed ? snap.library : {},
             lastError: snap.lastError ? scrubSecret(snap.lastError) : null,

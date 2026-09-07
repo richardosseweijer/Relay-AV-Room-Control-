@@ -502,6 +502,10 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
               <input type="checkbox" checked={draft.room.externalControl === true} onChange={(e) => update((c) => { c.room.externalControl = e.target.checked; })} />
               Allow commands from the LAN with no token (debug only)
             </label>
+            <label className="flex items-center gap-2 text-sm sm:col-span-2">
+              <input type="checkbox" checked={draft.room.panelAcceptsConfigPin === true} onChange={(e) => update((c) => { c.room.panelAcceptsConfigPin = e.target.checked; })} />
+              Room unlock also accepts the configurator PIN
+            </label>
             <label className="grid gap-1 text-sm text-muted sm:col-span-2">This room’s peer secret
               <div className="flex flex-wrap gap-2">
                 <input className={cn(fieldClass(), "min-w-0 flex-1 font-mono text-xs")} autoComplete="off" value={draft.room.peerSecret ?? ""} onChange={(e) => update((c) => { c.room.peerSecret = e.target.value; })} />

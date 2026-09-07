@@ -5,6 +5,7 @@ import { bundledDrivers } from "./defaults";
 import type { DriverSpec, RoomConfig } from "./types";
 import { clampVar, driverInUse, seedVars } from "./vars";
 import { isWeakPin, isHashedPin } from "./pins";
+import { actionPermitted } from "./control-policy";
 
 async function S() {
   return import("./session.server");
@@ -78,7 +79,7 @@ export const revokeSession = createServerFn({ method: "POST" })
     if (row?.secret) tokenStore().delete(row.secret);
     tokenStore().delete(data.id);
     if (memory().sessions) delete memory().sessions[data.id];
-    persist();
+    await persistNow();
     return { ok: true, message: "Device forgotten" };
   });
 
@@ -98,7 +99,7 @@ export const revokeAllSessions = createServerFn({ method: "POST" })
       if (row.secret) tokenStore().delete(row.secret);
       delete memory().sessions[id];
     }
-    persist();
+    await persistNow();
     return { ok: true, message: "Panel devices forgotten" };
   });
 
@@ -144,7 +145,7 @@ export const verifyPanelPin = createServerFn({ method: "POST" })
     if (gate.blocked) return { ok: false, token: null as string | null };
     const panelStored = cfg.room.panelPin?.trim();
     const configStored = cfg.room.configPin;
-    const ok = verifyStoredPin(data.pin, panelStored) || verifyStoredPin(data.pin, configStored);
+    const ok = verifyStoredPin(data.pin, panelStored) || (cfg.room.panelAcceptsConfigPin === true && verifyStoredPin(data.pin, configStored));
     if (!ok) {
       notePinFail(lockoutKey("panel"));
       return { ok: false, token: null };
@@ -299,12 +300,16 @@ export const fireCommand = createServerFn({ method: "POST" })
     ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
     writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
     hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
-    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex, sessionKind,
   } = await S();
     await ensureLoaded();
-    if (!allowLanControl(data.token)) return { ok: false, message: "External control off" };
-    if (/^system\.(restart|update|reboot)$/.test(data.commandId) && !validToken(data.token, "config")) {
-      return { ok: false, message: "Config lock required" };
+    const kind = sessionKind(data.token);
+    if (!actionPermitted({
+      externalControl: memory().config.room.externalControl === true,
+      tokenKind: kind,
+      commandId: data.commandId,
+    })) {
+      return { ok: false, message: /^system\.(restart|update|reboot)$/.test(data.commandId) ? "Config lock required" : "External control off" };
     }
     const mem = memory();
     mem.health = mem.health ?? {};
@@ -739,6 +744,7 @@ export const exportBundle = createServerFn({ method: "POST" })
     const mem = memory();
     const config = structuredClone(mem.config);
     config.room.configPin = "";
+    config.room.peerSecret = "";
     config.room.panelPin = config.room.panelAccess === "pin" ? "" : null;
     config.devices = config.devices.map((device) => ({ ...device, auth: redactAuth(device.auth) }));
     config.exportedAt = new Date().toISOString();

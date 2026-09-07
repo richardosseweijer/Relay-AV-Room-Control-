@@ -19,6 +19,7 @@ export function verifyPeerRequest(opts: {
   sig: string;
 }) {
   if (!opts.key || !opts.sig || !opts.ts) return false;
+  if (opts.sig !== opts.sig.trim().toLowerCase()) return false;
   const stamp = Number(opts.ts);
   if (!Number.isFinite(stamp) || Math.abs(Date.now() - stamp) > 90_000) return false;
   const sig = opts.sig.trim().toLowerCase();

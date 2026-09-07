@@ -1,4 +1,5 @@
-import { memory, persist } from "./store.server";
+import { dropExpiredSessions } from "./session-expire.ts";
+import { memory, persist } from "./store.server.ts";
 
 export {
   ensureLoaded,
@@ -12,8 +13,8 @@ export {
   removeDriverFile,
   loadDriverFiles,
   safeDriverName,
-} from "./store.server";
-export { hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey } from "./pins.server";
+} from "./store.server.ts";
+export { hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey } from "./pins.server.ts";
 
 const g = globalThis as typeof globalThis & {
   __relayTokens__?: Map<string, { id?: string; secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
@@ -49,8 +50,19 @@ export function findSessionBySecret(token: string | undefined) {
   return tokenStore().get(token) ?? Object.values(memory().sessions ?? {}).find((item) => item.secret === token);
 }
 
+export function pruneExpiredSessions(now = Date.now()) {
+  const mem = memory();
+  const { kept, dropped } = dropExpiredSessions(mem.sessions ?? {}, now);
+  if (!dropped.length && Object.keys(kept).length === Object.keys(mem.sessions ?? {}).length) return false;
+  for (const secret of dropped) tokenStore().delete(secret);
+  mem.sessions = kept;
+  persist();
+  return true;
+}
+
 export function validToken(token: string | undefined, kind: "config" | "panel") {
   if (!token) return false;
+  pruneExpiredSessions();
   const mem = memory();
   const row = findSessionBySecret(token);
   if (!row || row.kind !== kind) return false;
@@ -59,6 +71,7 @@ export function validToken(token: string | undefined, kind: "config" | "panel") 
     tokenStore().delete(token);
     const id = Object.entries(mem.sessions ?? {}).find(([, item]) => item === row || item.secret === token)?.[0];
     if (id && mem.sessions) delete mem.sessions[id];
+    persist();
     return false;
   }
   row.lastSeen = Date.now();

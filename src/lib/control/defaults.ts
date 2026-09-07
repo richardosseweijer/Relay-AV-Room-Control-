@@ -366,6 +366,7 @@ export function defaultRoomConfig(): RoomConfig {
       panelPin: DEFAULT_CONFIG_PIN,
       configPin: DEFAULT_CONFIG_PIN,
       externalControl: false,
+      panelAcceptsConfigPin: false,
       theme: "dark",
       idleDimSeconds: 90,
       keepAwake: true,

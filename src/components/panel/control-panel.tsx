@@ -6,7 +6,7 @@ import { resolveBoundNumber } from "@/lib/control/vars";
 import { nextScheduled } from "@/lib/control/schedule";
 import { Button } from "@/components/ui/button";
 import { WidgetShell } from "./widget-face";
-import { cn } from "@/lib/utils";
+import { applyRoomSession, clearPanelToken, PANEL_TOKEN_KEY } from "@/lib/control/panel-token";
 
 async function rpc() {
   return import("@/lib/control/actions");
@@ -226,11 +226,16 @@ export function ControlPanel() {
 
   async function refresh() {
     try {
-      const token = localStorage.getItem("relay-panel-token") || sessionStorage.getItem("relay-panel-token") || "";
+      const token = localStorage.getItem(PANEL_TOKEN_KEY) || sessionStorage.getItem(PANEL_TOKEN_KEY) || "";
       const res = await fetch("/api/room", { cache: "no-store", signal: AbortSignal.timeout(4000), headers: token ? { Authorization: `Bearer ${token}` } : {} });
       if (!res.ok) throw new Error(`Room ${res.status}`);
-      const next = await res.json().catch(() => null) as RoomSnapshot | null;
+      const next = await res.json().catch(() => null) as (RoomSnapshot & { sessionValid?: boolean }) | null;
       if (!next?.config?.room) throw new Error("Room file unreadable");
+      if (token && next.sessionValid === false) {
+        applyRoomSession(localStorage, false);
+        applyRoomSession(sessionStorage, false);
+        setSession("");
+      }
       misses.current = 0;
       setOffline(false);
       setLoadErr(null);
@@ -253,20 +258,21 @@ export function ControlPanel() {
     let cancel = false;
     (async () => {
       try {
-        const stored = localStorage.getItem("relay-panel-token") || sessionStorage.getItem("relay-panel-token") || "";
+        const stored = localStorage.getItem(PANEL_TOKEN_KEY) || sessionStorage.getItem(PANEL_TOKEN_KEY) || "";
         let token = "";
         if (stored) {
           try {
             const res = await fetch("/api/room", { headers: { Authorization: `Bearer ${stored}` } });
-            if (res.ok) token = stored;
+            const body = await res.json().catch(() => ({})) as { sessionValid?: boolean };
+            if (res.ok && body.sessionValid !== false) token = stored;
           } catch { /* stale */ }
         }
         if (token) {
           setSession(token);
-          localStorage.setItem("relay-panel-token", token);
+          localStorage.setItem(PANEL_TOKEN_KEY, token);
         } else {
-          localStorage.removeItem("relay-panel-token");
-          sessionStorage.removeItem("relay-panel-token");
+          clearPanelToken(localStorage);
+          clearPanelToken(sessionStorage);
         }
         const next = await refresh();
         if (cancel) return;
@@ -429,8 +435,8 @@ export function ControlPanel() {
         });
         const data = await res.json().catch(() => ({})) as { ok?: boolean; token?: string; message?: string };
         if (data.ok && data.token) {
-          sessionStorage.setItem("relay-panel-token", data.token);
-          localStorage.setItem("relay-panel-token", data.token);
+          sessionStorage.setItem(PANEL_TOKEN_KEY, data.token);
+          localStorage.setItem(PANEL_TOKEN_KEY, data.token);
           setSession(data.token);
           const next = await refresh();
           if (next?.config?.room) setLocked(false);

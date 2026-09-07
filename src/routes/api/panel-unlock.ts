@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ensureLoaded, memory, persistNow, reloadSecretsFromDisk } from "@/lib/control/store.server";
-import { hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey } from "@/lib/control/pins.server";
+import { hashPin, checkLockout, notePinFail, clearPinFail, lockoutKey } from "@/lib/control/pins.server";
 import { isHashedPin } from "@/lib/control/pins";
+import { panelUnlockAllowed } from "@/lib/control/panel-unlock-rule";
 
 function randomHex(bytes: number) {
   const buf = new Uint8Array(bytes);
@@ -22,7 +23,7 @@ export const Route = createFileRoute("/api/panel-unlock")({
         const gate = checkLockout(lockoutKey("panel"));
         if (gate.blocked) return Response.json({ ok: false, message: "Try again later" });
         if (!pin) return Response.json({ ok: false, message: "Enter a PIN" });
-        const ok = verifyStoredPin(pin, cfg.room.panelPin) || verifyStoredPin(pin, cfg.room.configPin);
+        const ok = panelUnlockAllowed(pin, cfg.room);
         if (!ok) {
           notePinFail(lockoutKey("panel"));
           return Response.json({ ok: false, message: "Wrong PIN" });
