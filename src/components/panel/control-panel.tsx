@@ -634,7 +634,16 @@ export function ControlPanel() {
                 const { fireCommand } = await rpc();
                 await fireCommand({ data: { deviceId: hostId, commandId: "panel.unlock", token: session } }).catch(() => undefined);
               }
-              setSnap((cur) => (cur ? { ...cur, host: { ...cur.host, locked: false } } : cur));
+              setSnap((cur) => (cur ? {
+                ...cur,
+                host: {
+                  dim: cur.host?.dim ?? false,
+                  locked: false,
+                  toast: cur.host?.toast ?? null,
+                  block: cur.host?.block ?? null,
+                  pageId: cur.host?.pageId ?? null,
+                },
+              } : cur));
               setLocked(false);
             }}
           >

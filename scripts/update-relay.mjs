@@ -50,7 +50,6 @@ else run("git", ["pull", "--ff-only"]);
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 run(npm, ["ci"]);
 run(process.execPath, ["scripts/with-app-env.mjs", "vite", "build", "--outDir", "dist.next"]);
-run(npm, ["run", "db:migrate"]);
 
 try {
   fs.rmSync(prev, { recursive: true, force: true });

@@ -90,32 +90,32 @@ Wiring is 3.3 V TTL, not RS-232 levels. A projector or Denon on the header needs
 cd ~
 git clone https://github.com/richardosseweijer/Relay-AV-Room-Control-.git
 cd ~/Relay-AV-Room-Control-
-npm install
+npm ci
 ```
 
-`npm install` can take several minutes. Deprecation warnings from npm are normal.
+`npm ci` installs from the lockfile. Deprecation warnings from npm are normal.
 
 The clone has no room file and no secrets file. Those appear under `data/` after the first start. Do not copy `data/relay-room.json` or `data/relay-secrets.json` from another machine unless you intend to move that room.
 
-A zip download works for a first run (`unzip`, then `cd` into the folder and `npm install`). The in-app **Update from GitHub** button only works on a `git clone`.
+A zip download works for a first run (`unzip`, then `cd` into the folder and `npm ci`). The in-app **Update from GitHub** button only works on a `git clone`.
 
 ---
 
 ## 5. Start once and confirm
 
+| Script | Command | Bind | Use |
+| --- | --- | --- | --- |
+| Dev | `npm run dev` | `0.0.0.0:8080` | Edit / preview host |
+| Production | `npm run build` then `npm start` | `0.0.0.0:8081` | Pi / 24/7 |
+
 ```bash
 cd ~/Relay-AV-Room-Control-
-npx vite dev --host 0.0.0.0 --port 8081
+npm run build
+npm start
 ```
 
 Leave that terminal open. You should see `Local: http://localhost:8081/`.
 
-For 24/7, prefer a production build instead of `vite dev`:
-
-```bash
-npm run build
-npm run start
-```
 
 Optional: store secrets off the card you back up.
 
@@ -326,5 +326,5 @@ Room configuration is stored in `data/relay-room.json` (layout, IPs) and `data/r
 
 - Keep Relay on a private LAN. Do not port-forward 8081.
 - Serial, GPIO, and CEC only work on the machine that has the hardware.
-- The supported run mode is `npx vite dev`. There is no `npm start` script.
+- Supported run: `npm start` on 8081 after `npm run build`. Dev is `npm run dev` on 8080.
 - Check a driver file: `npm run driver:check -- data/drivers/samsung-qe50q65t.json`

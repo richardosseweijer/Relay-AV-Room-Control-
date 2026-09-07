@@ -18,7 +18,7 @@
 - PIN lockout (5 tries / 5 min) is process memory. A restart clears the counter.
 - First start PIN is `1234`. The configurator blocks until you set a stronger one.
 - `system.reboot` reboots the machine. `system.restart` exits the process; systemd (`Restart=always`) starts it again. Without systemd it respawns Vite preview.
-- Vite on Windows: copying files over a running `npx vite` yields `Invalid server function ID` or missing `@/` imports. Restart Vite after a replace.
+- Vite on Windows: copying files over a running `npm run dev` yields `Invalid server function ID` or missing `@/` imports. Restart after a replace.
 
 ## Devices / transports
 
@@ -35,7 +35,7 @@
 - Empty schedule `days` skips the job (never runs; pick at least one day).
 - PINs are scrypt hashes. Peer secret, session secrets, and device tokens stay in `data/relay-secrets.json`. See issue #14.
 - Room file and secrets file are two renames; a crash between them can desync. See issue #18.
-- `npm ci` may reject the lockfile (missing AJV). Use `npm install`. See issue #19.
+
 - No in-repo tests for HMAC / triggers / persist. See issue #20.
 - Nine framework PWA/title tests still fail. See issue #21.
 - Config nav labels are raw ids. See issue #16.

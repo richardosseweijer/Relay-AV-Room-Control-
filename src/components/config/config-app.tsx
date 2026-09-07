@@ -279,7 +279,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
   const page = draft?.pages.find((p) => p.id === pageId) ?? draft?.pages[0];
   const selected = page?.widgets.find((w) => w.id === selectedId) ?? null;
 
-  if (!draft?.room || !page) return <main className="flex min-h-dvh items-center justify-center bg-bg text-muted">Loading config…</main>;
+  if (!draft?.room || !snap || !page) return <main className="flex min-h-dvh items-center justify-center bg-bg text-muted">Loading config…</main>;
 
   if (mustChange) {
     return (

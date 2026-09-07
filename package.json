@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
-    "build": "node scripts/with-app-env.mjs vite build && npm run db:migrate",
+    "build": "node scripts/with-app-env.mjs vite build",
     "db:migrate": "node scripts/migrate.mjs",
     "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
     "start": "node scripts/with-app-env.mjs vite preview --host 0.0.0.0 --port 8081",
@@ -19,17 +19,13 @@
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "driver:check": "node scripts/driver-check.mjs",
-    "test": "node --experimental-strip-types --test scripts/**/*.test.mjs",
+    "test": "node --experimental-strip-types --test scripts/control-security.test.mjs scripts/write-atomic.test.mjs",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.4",
     "@hookform/resolvers": "^5.7.0",
-    "better-auth": "~1.6.30",
     "jose": "6.2.9",
-    "kysely": "^0.28.5",
-    "pg": "^8.16.3",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.11",

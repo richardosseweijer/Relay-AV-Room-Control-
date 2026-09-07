@@ -33,19 +33,26 @@ A zip extract also works. Put `package.json` at `C:\relay\package.json`. In-app 
 
 ```bat
 cd C:\relay
-npm install
+npm ci
 ```
 
 Several minutes the first time. npm deprecation warnings are normal.
 
 ## 4. Start
 
+| Script | Command | Bind | Use |
+| --- | --- | --- | --- |
+| Dev | `npm run dev` | `0.0.0.0:8080` | Edit |
+| Production | `npm run build` then `npm start` | `0.0.0.0:8081` | 24/7 |
+
 ```bat
 cd C:\relay
-npx vite dev --host 0.0.0.0 --port 8081
+npm run build
+npm start
 ```
 
 Leave the window open.
+
 
 ```
 Local:   http://localhost:8081/
@@ -76,7 +83,7 @@ If the phone cannot connect: Windows Security → Firewall → allow `node.exe`.
 
 ## 6. After replacing source files
 
-Ctrl+C, then the same `npx vite` command. Run `npm install` only if `package.json` changed.
+Ctrl+C, then `npm start` again (or `npm run dev` while editing). Run `npm ci` only if `package-lock.json` changed.
 
 `Invalid server function ID` or missing `@/` import: stop Vite and start it again. Do not copy files over a running server.
 
@@ -93,14 +100,14 @@ cd C:\relay
 git pull --ff-only
 npm ci
 npm run build
-npx vite preview --host 0.0.0.0 --port 8081
+npm start
 ```
 
 ```bat
 cd C:\relay
 git pull --ff-only
-npm install
-npx vite dev --host 0.0.0.0 --port 8081
+npm ci
+npm run dev
 ```
 
 ## 8. Data and COM ports

@@ -1,5 +1,5 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { isHashedPin } from "./pins";
+import { isHashedPin } from "./pins.ts";
 
 const FAIL = new Map<string, { n: number; until: number }>();
 const LOCK_AFTER = 5;

@@ -7,11 +7,17 @@ Clone is unused until you start it. First boot writes `data/relay-room.json` and
 ```
 git clone https://github.com/richardosseweijer/Relay-AV-Room-Control-.git
 cd Relay-AV-Room-Control-
-npm install
-npx vite dev --host 0.0.0.0 --port 8081
+npm ci
 ```
 
-Room `http://HOST:8081/` — configurator `http://HOST:8081/config`
+| Script | Command | Bind | Use |
+| --- | --- | --- | --- |
+| Dev | `npm run dev` | `0.0.0.0:8080` | Local edit / App Builder preview |
+| Production | `npm run build` then `npm start` | `0.0.0.0:8081` | Pi / 24/7 |
+
+Room `http://HOST:PORT/` — configurator `http://HOST:PORT/config`
+
+Do not start with raw `npx vite`. Scripts run `scripts/with-app-env.mjs`.
 
 First PIN is `1234`. You must set a stronger one. Open LAN control is off. Each tablet pairs until Forget.
 

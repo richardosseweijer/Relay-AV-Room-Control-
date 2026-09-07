@@ -2,92 +2,23 @@ import { createServerFn } from "@tanstack/react-start";
 import { applyHost, authenticateDevice, executeCommand, listHostInterfaces, pingReachable, probeDevice, runMacro, scanDevicePorts, sendRaw, syncInventory, traces, scrubSecret } from "./engine";
 import { validateDriver } from "./schema";
 import { bundledDrivers } from "./defaults";
-import { ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize, writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName } from "./store.server";
 import type { DriverSpec, RoomConfig } from "./types";
 import { clampVar, driverInUse, seedVars } from "./vars";
 import { isWeakPin, isHashedPin } from "./pins";
-import { hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey } from "./pins.server";
 
-const g = globalThis as typeof globalThis & {
-  __relayTokens__?: Map<string, { id?: string; secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
-};
-
-function tokenStore() {
-  if (!g.__relayTokens__) g.__relayTokens__ = new Map();
-  return g.__relayTokens__;
-}
-
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-
-function randomHex(bytes: number) {
-  const buf = new Uint8Array(bytes);
-  globalThis.crypto.getRandomValues(buf);
-  return Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-function mint(kind: "config" | "panel", label?: string) {
-  const id = randomHex(8);
-  const secret = `${kind}-${randomHex(18)}`;
-  const row = { id, secret, kind, exp: Date.now() + SESSION_TTL_MS, created: Date.now(), lastSeen: Date.now(), label: (label || kind).slice(0, 80) };
-  tokenStore().set(secret, row);
-  const mem = memory();
-  mem.sessions = mem.sessions ?? {};
-  mem.sessions[id] = row;
-  persist();
-  return secret;
-}
-
-function findSessionBySecret(token: string | undefined) {
-  if (!token) return undefined;
-  return tokenStore().get(token) ?? Object.values(memory().sessions ?? {}).find((item) => item.secret === token);
-}
-
-function reuseOrMintPanel(label = "panel") {
-  return mint("panel", label);
-}
-
-function validToken(token: string | undefined, kind: "config" | "panel") {
-  if (!token) return false;
-  const mem = memory();
-  const row = findSessionBySecret(token);
-  if (!row || row.kind !== kind) return false;
-  if (!row.exp) row.exp = Date.now() + SESSION_TTL_MS;
-  if (row.exp < Date.now()) {
-    tokenStore().delete(token);
-    const id = Object.entries(mem.sessions ?? {}).find(([, item]) => item === row || item.secret === token)?.[0];
-    if (id && mem.sessions) delete mem.sessions[id];
-    return false;
-  }
-  row.lastSeen = Date.now();
-  row.exp = Date.now() + SESSION_TTL_MS;
-  tokenStore().set(token, row);
-  return true;
-}
-
-function redactAuth(auth?: Record<string, string>) {
-  if (!auth) return {};
-  const next = { ...auth };
-  for (const key of Object.keys(next)) {
-    if (/token|password|secret|key|username/i.test(key)) next[key] = "";
-  }
-  return next;
-}
-
-function allowLanControl(token?: string) {
-  if (memory().config.room.externalControl === true) return true;
-  return validToken(token, "panel") || validToken(token, "config");
-}
-
-export function sessionKind(token?: string | null) {
-  if (!token) return null;
-  if (validToken(token, "config")) return "config" as const;
-  if (validToken(token, "panel")) return "panel" as const;
-  return null;
+async function S() {
+  return import("./session.server");
 }
 
 export const issuePanelSession = createServerFn({ method: "POST" })
   .validator((data: { token?: string } = {}) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (validToken(data.token, "panel") || validToken(data.token, "config")) {
       return { ok: true, token: data.token as string };
@@ -98,6 +29,12 @@ export const issuePanelSession = createServerFn({ method: "POST" })
 export const checkPanelSession = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     return { ok: validToken(data.token, "panel") || validToken(data.token, "config") };
   });
@@ -105,6 +42,12 @@ export const checkPanelSession = createServerFn({ method: "POST" })
 export const getEditorConfig = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false as const, config: null };
     const config = normalize(memory().config);
@@ -123,6 +66,12 @@ export const getEditorConfig = createServerFn({ method: "POST" })
 export const revokeSession = createServerFn({ method: "POST" })
   .validator((data: { token: string; id: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     const row = memory().sessions?.[data.id];
@@ -136,6 +85,12 @@ export const revokeSession = createServerFn({ method: "POST" })
 export const revokeAllSessions = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     for (const [id, row] of Object.entries(memory().sessions ?? {})) {
@@ -150,6 +105,12 @@ export const revokeAllSessions = createServerFn({ method: "POST" })
 export const verifyConfigPin = createServerFn({ method: "POST" })
   .validator((data: { pin: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     const gate = checkLockout(lockoutKey("config"));
     if (gate.blocked) return { ok: false, token: null as string | null, mustChange: false, message: "Try again later" };
@@ -170,6 +131,12 @@ export const verifyConfigPin = createServerFn({ method: "POST" })
 export const verifyPanelPin = createServerFn({ method: "POST" })
   .validator((data: { pin: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     const cfg = memory().config;
     const host = memory().host ?? (memory().host = { dim: false, locked: false, toast: null, block: null, pageId: null });
@@ -194,6 +161,12 @@ export const verifyPanelPin = createServerFn({ method: "POST" })
 export const saveConfig = createServerFn({ method: "POST" })
   .validator((data: { token: string; pin?: string; config: RoomConfig }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     if (data.pin && !verifyStoredPin(data.pin, memory().config.room.configPin)) return { ok: false, message: "PIN did not match" };
@@ -245,6 +218,12 @@ export const saveConfig = createServerFn({ method: "POST" })
 export const saveDriver = createServerFn({ method: "POST" })
   .validator((data: { token: string; filename: string; spec: DriverSpec }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     const name = safeDriverName(data.filename);
@@ -261,6 +240,12 @@ export const saveDriver = createServerFn({ method: "POST" })
 export const resetDemo = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     const { defaultRoomConfig, defaultDeviceState } = await import("./defaults");
@@ -278,6 +263,12 @@ export const resetDemo = createServerFn({ method: "POST" })
 export const setVariable = createServerFn({ method: "POST" })
   .validator((data: { id: string; value: string | number; token?: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!allowLanControl(data.token)) return { ok: false, message: "External control off" };
     const mem = memory();
@@ -304,6 +295,12 @@ export const setVariable = createServerFn({ method: "POST" })
 export const fireCommand = createServerFn({ method: "POST" })
   .validator((data: { deviceId: string; commandId: string; value?: string | number; variable?: string | null; raw?: boolean; token?: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!allowLanControl(data.token)) return { ok: false, message: "External control off" };
     if (/^system\.(restart|update|reboot)$/.test(data.commandId) && !validToken(data.token, "config")) {
@@ -353,6 +350,12 @@ export const fireCommand = createServerFn({ method: "POST" })
 export const setLatch = createServerFn({ method: "POST" })
   .validator((data: { group: string; widgetId: string; token?: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!allowLanControl(data.token)) return { ok: false, message: "External control off" };
     await ensureLoaded();
@@ -366,6 +369,12 @@ export const setLatch = createServerFn({ method: "POST" })
 export const restartHost = createServerFn({ method: "POST" })
   .validator((data: { token: string; pin: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     if (!verifyStoredPin(data.pin, memory().config.room.configPin)) return { ok: false, message: "PIN did not match" };
@@ -375,6 +384,12 @@ export const restartHost = createServerFn({ method: "POST" })
 export const updateHost = createServerFn({ method: "POST" })
   .validator((data: { token: string; pin: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     if (!verifyStoredPin(data.pin, memory().config.room.configPin)) return { ok: false, message: "PIN did not match" };
@@ -384,6 +399,12 @@ export const updateHost = createServerFn({ method: "POST" })
 export const rebootHost = createServerFn({ method: "POST" })
   .validator((data: { token: string; pin: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     if (!verifyStoredPin(data.pin, memory().config.room.configPin)) return { ok: false, message: "PIN did not match" };
@@ -393,6 +414,12 @@ export const rebootHost = createServerFn({ method: "POST" })
 export const fireMacro = createServerFn({ method: "POST" })
   .validator((data: { macroId: string; token?: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!allowLanControl(data.token)) return { ok: false, message: "External control off" };
     const mem = memory();
@@ -412,6 +439,12 @@ export const fireMacro = createServerFn({ method: "POST" })
 export const addDriverFromLibrary = createServerFn({ method: "POST" })
   .validator((data: { token: string; filename: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     const mem = memory();
@@ -425,6 +458,12 @@ export const addDriverFromLibrary = createServerFn({ method: "POST" })
 export const deleteDriver = createServerFn({ method: "POST" })
   .validator((data: { token: string; filename: string; reassignTo?: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     const mem = memory();
@@ -438,6 +477,12 @@ export const deleteDriver = createServerFn({ method: "POST" })
 export const testDevice = createServerFn({ method: "POST" })
   .validator((data: { token: string; deviceId: string; host?: string; port?: number; simulate?: boolean; driver?: string; auth?: Record<string, string> }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     const mem = memory();
@@ -478,6 +523,12 @@ export const testDevice = createServerFn({ method: "POST" })
 export const authenticate = createServerFn({ method: "POST" })
   .validator((data: { token: string; deviceId: string; host?: string; port?: number; driver?: string; auth?: Record<string, string> }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     const mem = memory();
@@ -520,6 +571,12 @@ export const authenticate = createServerFn({ method: "POST" })
 export const pullInventory = createServerFn({ method: "POST" })
   .validator((data: { token: string; deviceId: string; host?: string; port?: number; driver?: string; auth?: Record<string, string>; simulate?: boolean }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     const mem = memory();
@@ -549,6 +606,12 @@ export const pullInventory = createServerFn({ method: "POST" })
 export const pingDevice = createServerFn({ method: "POST" })
   .validator((data: { token: string; host: string; port?: number; path?: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     return pingReachable({ host: data.host, port: data.port, path: data.path, timeoutMs: 800 });
   });
@@ -556,6 +619,12 @@ export const pingDevice = createServerFn({ method: "POST" })
 export const clearDeviceError = createServerFn({ method: "POST" })
   .validator((data: { deviceId?: string; token?: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!allowLanControl(data.token)) return { ok: false, message: "External control off" };
     const mem = memory();
@@ -568,6 +637,12 @@ export const clearDeviceError = createServerFn({ method: "POST" })
 export const listHostPorts = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required", ports: [] as { kind: string; path: string; label: string }[] };
     return listHostInterfaces();
   });
@@ -575,6 +650,12 @@ export const listHostPorts = createServerFn({ method: "POST" })
 export const debugScan = createServerFn({ method: "POST" })
   .validator((data: { token: string; host: string; ports: number[] }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required", open: [] as number[] };
     return scanDevicePorts(data.host, data.ports);
   });
@@ -582,6 +663,12 @@ export const debugScan = createServerFn({ method: "POST" })
 export const debugSend = createServerFn({ method: "POST" })
   .validator((data: { token: string; deviceId: string; payload: string; host?: string; port?: number; driver?: string; auth?: Record<string, string> }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     const mem = memory();
@@ -601,6 +688,12 @@ export const debugSend = createServerFn({ method: "POST" })
 export const wipeLog = createServerFn({ method: "POST" })
   .validator((data: { token?: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     clearLog();
@@ -610,6 +703,12 @@ export const wipeLog = createServerFn({ method: "POST" })
 export const clearConfig = createServerFn({ method: "POST" })
   .validator((data: { token: string; pin: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     if (data.pin !== memory().config.room.configPin) return { ok: false, message: "PIN did not match" };
@@ -629,6 +728,12 @@ export const clearConfig = createServerFn({ method: "POST" })
 export const exportBundle = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false as const, message: "Config lock required" };
     const mem = memory();
@@ -651,6 +756,12 @@ export const exportBundle = createServerFn({ method: "POST" })
 export const importBundle = createServerFn({ method: "POST" })
   .validator((data: { token: string; bundle: { config?: RoomConfig; drivers?: Record<string, DriverSpec> } }) => data)
   .handler(async ({ data }) => {
+  const {
+    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
+    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+  } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     const incoming = data.bundle.config ?? (data.bundle as unknown as RoomConfig);

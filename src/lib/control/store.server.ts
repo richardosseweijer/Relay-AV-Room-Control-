@@ -5,7 +5,6 @@ import { applyMonitors, clampVar, resolveTemplate, seedVars, type VarMap } from 
 import { mkdir, readFile, writeFile, readdir, unlink, access, rename, open } from "node:fs/promises";
 import path from "node:path";
 
-const ROW_ID = "current";
 const FILE_STORE = path.join(process.cwd(), "data", "relay-room.json");
 const SECRET_STORE = process.env.RELAY_SECRETS_FILE || path.join(process.cwd(), "data", "relay-secrets.json");
 const DRIVER_DIR = path.join(process.cwd(), "data", "drivers");
@@ -211,23 +210,6 @@ export function memory(): Memory {
   return g.__relayMemory__;
 }
 
-async function sqlOrNull() {
-  const url = typeof process !== "undefined" ? process.env.DATABASE_URL : undefined;
-  const prodWithoutDb = process.env.NODE_ENV === "production" && !url;
-  if (prodWithoutDb) return null;
-  try {
-    const { getSql } = await import("@/lib/db");
-    const sql = await Promise.race([
-      getSql(),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
-    ]);
-    return sql;
-  } catch {
-    return null;
-  }
-}
-
-
 export async function loadPersisted(): Promise<Memory> {
   const mem = memory();
   const files = [FILE_STORE, `${FILE_STORE}.good`];
@@ -279,32 +261,6 @@ export async function loadPersisted(): Promise<Memory> {
   }
   mem.drivers = await loadDriverFiles();
   mem.library = { ...mem.drivers };
-  const sql = await sqlOrNull();
-  if (!sql) return mem;
-  try {
-    const rows = await sql<{
-      config_json: string;
-      drivers_json: string;
-      state_json: string;
-    }>`select config_json, drivers_json, state_json from room_store where id = ${ROW_ID}`;
-    const row = rows[0];
-    if (!row) {
-      persist();
-      return mem;
-    }
-    mem.config = applySecrets(normalize(JSON.parse(row.config_json) as RoomConfig), await readSecretFile());
-    mem.library = await loadDriverFiles();
-    mem.drivers = { ...mem.library };
-    mem.state = JSON.parse(row.state_json) as DeviceStateMap;
-    const storedVars = mem.state.__vars as unknown as VarMap | undefined;
-    delete mem.state.__vars;
-    mem.vars = seedVars(mem.config, storedVars);
-    mem.health = mem.health ?? {};
-    applyMonitors(mem.config, mem.state, mem.vars);
-    await writeFileStore(mem);
-  } catch {
-    /* keep memory defaults */
-  }
   return mem;
 }
 
@@ -346,24 +302,6 @@ async function flushPersist() {
   const mem = memory();
   await writeFileStore(mem);
   persistDirty = false;
-  const sql = await sqlOrNull();
-  if (!sql) return;
-  try {
-    const configJson = JSON.stringify(normalize(mem.config));
-    const driversJson = JSON.stringify(mem.drivers);
-    const stateJson = JSON.stringify({ ...mem.state, __vars: mem.vars });
-    await sql`
-      insert into room_store (id, config_json, drivers_json, state_json, updated_at)
-      values (${ROW_ID}, ${configJson}, ${driversJson}, ${stateJson}, now())
-      on conflict (id) do update set
-        config_json = excluded.config_json,
-        drivers_json = excluded.drivers_json,
-        state_json = excluded.state_json,
-        updated_at = now()
-    `;
-  } catch {
-    /* file store already committed */
-  }
 }
 
 export async function persistNow() {

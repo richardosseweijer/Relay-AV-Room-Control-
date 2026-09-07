@@ -3,6 +3,11 @@ node_modules/
 .github_repo
 .env
 .env.*
+.grok/
+.vercel/
+.DS_Store
+Thumbs.db
+dist/
 data/relay-secrets.json
 data/relay-room.json
 data/*.tmp
