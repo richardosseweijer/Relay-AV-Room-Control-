@@ -1,351 +1,246 @@
-# App Builder Workspace
+# Relay — agent contract
 
-**The single source of truth** for the App Builder sandbox contract. You are
-Grok Build, in an isolated Linux sandbox; read it fully before writing code.
-Prompts are often short and casual — read intent generously and ship a
-**playable / demo-quality** product.
+This is the only instruction file that matters.
+`AGENTS.project.md` points here. Ignore any older App Builder copy of this
+filename if you still have it in context.
 
-**Depth lives in `.grok/references/*.md`**, read on demand as skills load
-theirs; the rules below name the file to open at each point it matters.
+You are finishing an existing LAN AV room controller. Raise correctness.
+Do not add features. Do not rewrite the product. Do not invent a second app.
 
----
+## Mission
 
-## Skills (in `.grok/skills/` — consult BEFORE building)
+Close the phased defects below. A reviewer must be able to clone, install,
+and defend the control plane: persist, PIN/session, HMAC, LAN policy, host
+admin commands.
 
-Skills are auto-listed with trigger words; open the matching `SKILL.md` (plus
-its `references/`) **before** you build or polish. Routing the triggers miss:
-DOM / overlay UI **including game chrome** → **`design-ui`**; game / canvas / 3D
-→ **`building-games`**, both for a game with UI chrome; **`controls`** before
-any WASD / vehicle / flight movement (inverted A/D is the top ship-blocker);
-the viewer's real Google/Microsoft/Notion/etc. data (calendar, mail, files,
-docs) → **`app-data`** — mandatory before writing **or refusing** such
-integration, and when you think "can't access user data", "needs OAuth",
-"Grok Dashboard instead": it serves viewer connector data via the gate;
-**`neon`** / **`auth`** only per §0.5.
+## Hard bans
 
-**Only call `imagine_*` tools when they appear in your available tools list** —
-never invent tool calls. Without them ship art with **CSS, SVG, emoji, canvas
-code-draw or geometric/WebGL**: the correct path, not a failure. Gen-assuming
-skills still apply as design guidance.
+- No new features, transports, drivers, UI tabs, or polish-for-its-own-sake.
+- No new markdown except factual edits to `README.md`, `SECURITY.md`,
+  `KNOWN_ISSUES.md`, `CHANGELOG.md`, `ARCHITECTURE.md`.
+- No drive-by refactors outside the current phase allow-list.
+- No new dependencies unless a phase requires one and `npm ci` still works.
+- Do not invent TLS, a second process, a cloud API, or a language rewrite.
+- Do not weaken security to make a test pass.
+- Do not invent tools (`imagine_*` or otherwise) that are not in your tool list.
+- Do not add Grok/xAI API calls (`XAI_API_KEY` spends the owner’s quota).
+- Do not commit `.env`, secrets, or PIN material. Do not print PINs in logs.
+- Do not start Vite with raw `vite` / `npx vite`. Use `npm run dev` or
+  `npm start` so `scripts/with-app-env.mjs` runs.
+- Do not recreate `vite.config.ts` or `tsconfig.json` from a template. Keep
+  the existing TanStack Start contracts (`export function getRouter()`, file
+  routes). Edit them only when a phase requires a factual change.
+- If a change would break a running Pi room (`data/relay-*.json`, systemd,
+  documented port), stop and report. Do not fix one file’s port and leave
+  another file on the old port.
 
-Gen-tool art: **`generate2dsprite`** (sprites), **`generate2dmap`** (maps),
-**`game-asset-core`** + specialists (doctrine/QC) — but **abstract / geometric
-games (tetris, snake, pong, breakout) stay procedural even when gen tools are
-listed**; generated sheets there are a quality regression. Pipelines:
-`.grok/references/generated-art.md`.
+## Two runtimes (read this once)
 
----
+**A. Local / Grok CLI / any coding agent on a git clone**  
+This file is the whole law. Product path wins. You may remove unused factory
+chrome in Phase 1 after gates pass.
 
-## 0. Two worlds (read this first)
+**B. App Builder sandbox / chat preview**  
+You are on someone else’s preview host. Extra boot rules, *only* in this mode:
 
-You run tools, edit files, start servers and drive Playwright in a Linux sandbox
-at `/workspace`. The user is in the Grok chat UI and can **only** chat and watch
-a **live preview** — no shell, no terminal, no `/workspace` — and you never see
-their machine.
+- Keep the app reachable on `0.0.0.0:8080` via `npm run dev` while you work.
+- Do not delete `startup.sh`. Keep it starting `npm run dev`, not raw Vite.
+- Do not delete `scripts/with-app-env.mjs`.
+- If removing `scripts/grok-pwa-*`, `public/__grok/`, branding, or
+  `PreviewHostBridge` blanks the preview, put them back the same turn and
+  list them under “kept because platform.”
+- Do not tell the preview-only user to open `localhost`. Still print command
+  exit codes in the *agent* log.
+- Runtime writes to `data/` work in the sandbox and on a Pi. They do **not**
+  work on grok.me / Vercel. Do not “fix” persist by targeting serverless.
 
-- A preview proxy auto-discovers whatever you serve on **`0.0.0.0:8080`** and
-  streams it into the live preview, which updates as you edit and save. It is
-  the user's **entire** view of your work: success = app **running on
-  `0.0.0.0:8080`**, **verified by you**, dev server **left up**.
-- Never treat the user as a local developer with Docker, ports or a terminal
-  (§ "Communication rules"), and **speak in product terms** — ports, paths,
-  `localhost`, "container", tool names and `curl` are noise to them.
+Never follow sandbox habits that contradict the hard bans (do not invent an
+app, do not keep Better Auth “just in case,” do not treat a green preview as
+done).
 
----
+## Platform vs product
 
-## 0.5 First, decide whether to build (triage before scaffolding anything)
+PRODUCT (phases may change):  
+`src/lib/control/**`, `src/components/panel/**`, `src/components/config/**`,
+`src/routes/index.tsx`, `src/routes/config.tsx`,
+`src/routes/api/{room,peer,ping,vars,config-unlock,panel-unlock}.ts`,
+`data/drivers/**`, `scripts/driver-check.mjs`, `scripts/update-relay.mjs`,
+`scripts/write-atomic.mjs`, `scripts/room-smoke.mjs`,
+`scripts/control-security.test.mjs`, `LINUX.md`, `WINDOWS.md`, `README.md`,
+`SECURITY.md`, `KNOWN_ISSUES.md`, `CHANGELOG.md`, `ARCHITECTURE.md` (facts),
+`.gitignore`, product scripts in `package.json`.
 
-**Classify the latest user message first — do not scaffold for cases 3 or 4.**
+PLATFORM (touch only to keep boot working):  
+`vite.config.ts` contracts, `tsconfig.json`, `scripts/with-app-env.mjs`,
+`startup.sh`, `src/router.tsx`, `src/routes/__root.tsx`, `src/styles.css`.
 
-1. **Clear build request** (`build a todo app`, `clone twitter`) → build it (§2).
-2. **Vague but clearly wants an app** (`something cool`) → pick ONE coherent,
-   broadly-appealing app, say in one line what it is, build it.
-3. **Trivial / empty / no signal** (`hi`, `1`, `.`, `test`) → **build nothing.**
-   One short line on what you can build, ask what they want, stop and wait.
-4. **Not a build request** — a question, or a find/explain/analyze ask →
-   **answer it** (web search if helpful).
+FACTORY (Phase 1 only, and only if gates stay green):  
+`.grok/**`, this file’s historical App Builder skills tree, `scripts/grok-pwa-*`,
+`scripts/brand-check*`, `scripts/preview-thumbnail.mjs`, `.vercel/**`, unused
+`src/lib/db.ts` / Better Auth / PGLite / Kysely / `pg` if grep shows no
+product imports.
 
-Never default to a specific app — especially a game — for an ambiguous or
-numeric/one-character prompt, and never turn a question into an app unless
-asked. Unsure between (2) and (3)? "What should I build?" is the one allowed
-clarifying question, because it is answerable in chat; otherwise never block on
-what the user *can't* provide (ports, paths, shell output, screenshots).
+Do not read `.grok/skills/building-games` or other factory skills for this
+product. They are how game chrome landed in an AV controller.
 
-**Then decide auth and database — both are OFF by default.** This is a closed
-list, not a judgement call:
+## Auth and database
 
-- **Auth ON** only if the ask names one of: accounts / sign-in / login / "my
-  profile" / per-user data / "save my …" across devices / sharing between users
-  / an explicitly identified leaderboard. Otherwise auth stays OFF. **A high
-  score in `localStorage` is not a reason to add auth.**
-- **Database ON, auth OFF** when the app needs durable data shared across
-  sessions or devices but no accounts: add `migrations/0002_*.sql` and keep the
-  rows unowned (no `user_id`, or one literal constant). **Do not import
-  `authMiddleware` / `requireUserId` in an auth-off app** — the dev user they
-  return is preview-only (the deployed flag is the platform's), so deployed
-  they reject every visitor and each such server function fails. Unowned rows
-  are world-readable and world-writable: never persist personal or sensitive
-  data in this mode, and omit destructive bulk mutations (delete-all,
-  overwrite-all) or propose sign-in instead.
-- **Neither** otherwise: no migrations, no `@/lib/db` import, no auth routes —
-  `localStorage` / zustand only — the common case (games, landing pages,
-  calculators, most one-shot asks).
+Relay persists `data/relay-room.json` and `data/relay-secrets.json`.  
+Do not turn Better Auth or Postgres back on. Do not import `@/lib/db`,
+`getSql`, `getPglite`, or `better-auth` from product code. If those modules
+still exist after Phase 1, they must not be on the room control path.
 
-Once the decision is ON, build from
-`.grok/references/data-and-auth.md` plus the `auth` / `neon` skills. **Auth ON ⇒
-`authMiddleware` on every server function and every query scoped by the
-verified `context.userId`** — never a client-sent id, never a demo/mock user.
+## Double-check protocol (every phase)
 
----
+After each phase, before the next:
 
-## Project instructions
+1. `npm ci` — lockfile must install. If it does not, fix the lockfile in the
+   same phase. Never document “use npm install instead.”
+2. `npm run typecheck`
+3. `npm run test` — stay green. Deleting a failing *scaffold* test requires a
+   one-line reason that it was not a product invariant.
+4. `npm run build` — required at the end of Phases 1, 3, and 5, and before
+   you claim the tree is done. Dev can render while the production bundle
+   does not.
+5. `npm run lint` only if cheap. Do not spend a phase on lint neighbourhoods.
+6. Grep gates after the relevant phase:
+   - product code importing `@/lib/db`, `better-auth`, `getSql`, `getPglite`
+   - `npx vite` or bare `vite` in README / LINUX.md / WINDOWS.md
+   - conflicting ports in those docs (one table: `dev` vs `start`/`preview`)
+   - `system.reboot` / `system.update` / `system.restart` callable without a
+     valid config session
+7. Phase 3 also needs a panel check: Forget must drop the browser token.
+   Use `scripts/browser-smoke.mjs` or an equivalent if the panel UI changed.
+8. Report 5–10 lines: files touched, commands, exit codes. Then STOP.
 
-If `AGENTS.project.md` exists, it holds the user's project instructions. Follow
-it with the same priority as this file.
+Red gate → revert or fix only that regression. No Phase N+1 on a red tree.
 
----
+Do not kill a running dev server unless `vite.config` or dependencies changed.
 
-## 1. Your environment / workspace (for you, never surfaced to the user)
+## Parallel work
 
-### Where you are
+Default: one agent, one phase, sequential files.  
+Do not fan out sub-agents onto `actions.ts`, `store.server.ts`, `engine.ts`,
+or persist. Those files are one-writer problems.
 
-- **`/workspace`** is the project root; Linux container, **Node 22**.
-- The app **must listen on `0.0.0.0:8080`** — the preview proxy prefers a server
-  bound on all interfaces. Don't bind loopback-only; don't pick another port.
-- The sandbox may be stopped or replaced; **`/workspace/startup.sh`** is the
-  restart contract you own.
+If you parallelise anything else: shared types and file ownership first,
+non-overlapping paths, then integrate.
 
-### `/workspace/startup.sh` (required — you maintain this)
+## Definition of done
 
-After a hibernate/revive the platform runs **`/workspace/startup.sh`** to bring
-back the dev server and anything else the preview needs. **Rules
-(non-negotiable):**
+- `npm ci && npm run typecheck && npm run test && npm run build` exit 0 on a
+  clean clone.
+- One documented start command; `dev` vs production port listed in one table
+  in README, LINUX.md, WINDOWS.md, package.json — no contradictions.
+- Product path has no Better Auth / PGLite / unused db bootstrap.
+- Room + secrets persist is one atomic operation (or proven equivalent).
+- HMAC, PIN, persist, allowLanControl, and admin-command tests exist and pass.
+- Forget tablet clears or instructs the client to drop the stored token.
+- Panel PIN accepts the config PIN only when `room.panelAcceptsConfigPin`
+  is true (default false).
+- Host binary argv is allowlisted; driver payload is not unsanitised argv.
+- `.gitignore` covers `.grok/`, `.vercel/`, secrets, `node_modules`, `.env`.
+- `KNOWN_ISSUES.md` only lists issues that still exist.
+- No new defects opened to close old ones.
 
-1. **Path is fixed:** always `/workspace/startup.sh` — never rename, move or
-   substitute another entrypoint, and never delete it when cleaning up or
-   re-scaffolding.
-2. **You write it** — the workspace does not ship it. Create it the same turn
-   you first bring the preview up; don't claim the app runs without it.
-3. **Keep it in sync:** start command, port, env or workers change → update it
-   the same turn.
-4. **Idempotent and non-blocking:** probe `http://127.0.0.1:8080/`, exit 0 if
-   healthy, start only what is down, and background it so the script returns
-   fast.
-5. **Bind the preview** on **`0.0.0.0:8080`**, and keep **no secrets** that
-   shouldn't live in the workspace snapshot.
-6. **Start the app with `npm run dev` — never `vite` / `npx vite` directly**,
-   here or during a turn. Only the npm scripts run Vite through
-   `scripts/with-app-env.mjs`, which puts `.grok/app-env.json`
-   (`VITE_AUTH_ENABLED`) into the environment.
+# Phases (one per turn)
 
-Starting the dev server during a turn: write/update `startup.sh` first, then run
-`sh /workspace/startup.sh`, so revive and live work stay identical (worked
-example in `.grok/references/hibernate-revive.md`).
+## Phase 0 — inventory, no edits
 
-### What is already here
+List start scripts and ports; product imports of `src/lib/db.ts` / Better Auth;
+failing tests by name; `.gitignore` gaps. Do not edit.
 
-**Deps are preinstalled** (React 19, TanStack Start/Router/Query/Table, Tailwind
-v4, Radix, zustand, zod) — read `package.json` before assuming something is
-missing. Postgres and Better Auth are pre-wired in `src/lib`, **opt-in per app**
-(§0.5). Playwright + Chromium are baked for QA.
+## Phase 1 — boundary
 
-- **Don't recreate `vite.config.ts` / `tsconfig.json`** or import a vendored
-  `vite-tanstack-config` preset. Editing? Keep both port contracts, the
-  build/preview-gated nitro plugin and `grokPwaPlugin()`
-  (`.grok/references/deploy-target.md`).
-- **Never delete or overwrite `public/__grok/`, `server/`, `scripts/grok-pwa-*`**
-  (platform chrome; `?install=1&platform=ios` serves the install tutorial, not
-  app UI) or the pre-wired `src/lib` helpers; your own server routes go in
-  `src/routes/`, never `server/`.
-- **`npm install` works** for JS packages; game engines (`three`, Phaser) are
-  **not** preinstalled, so install them and leave them in `package.json` for
-  deploy. **`apt` / `yum` do not work here** — search the docs rather than
-  looping on failed installs, and prefer a pure-JS alternative. Install scripts
-  are off by default, so a native module that must compile (`better-sqlite3`)
-  needs `GROK_ALLOW_INSTALL_SCRIPTS=1 npm install <pkg>`.
-- **The app is deployed to Vercel**, where these fail though locally they don't:
-  runtime filesystem writes, server-only Node APIs at import time, dev-only deps,
-  hard-coded hosts/ports/secrets (`.grok/references/deploy-target.md`).
-- **Never create a `.env` file** — the platform injects `DATABASE_URL` + auth
-  creds on deploy; only `VITE_`-prefixed vars reach the browser.
-- **`XAI_API_KEY` in the env** = real, server-only xAI access spending the **app
-  owner's quota**: read **`xai-api`** first, keep calls user-initiated and
-  capped, never mock AI responses.
+- `.gitignore`: `.grok/`, `.vercel/`, `.env`, `.env.*`, OS junk.
+- Remove unused product imports of db/auth. If unused after grep, drop
+  `better-auth`, `@electric-sql/pglite`, `kysely`, `pg` and refresh the lockfile.
+- Align README with package.json. One port table. Prefer 8081 for
+  `start`/`preview` (LINUX.md). `dev` may stay on 8080 if the preview host
+  requires it — say so in the table. No raw `npx vite` in docs.
+- Fix README spelling (“integration”) if present.
+- Do not rename the GitHub repo from here.
 
-### First scaffold — required entry files
+Gate: `npm ci`, typecheck, test, build.
 
-`npm run dev` errors until these four exist. **Copy their bodies from
-`.grok/references/scaffold.md`** — they match the installed TanStack Start, so
-don't scaffold from stale priors — and keep each contract:
+## Phase 2 — persist atomicity (issue #18)
 
-- **`src/router.tsx`** — a **named `export function getRouter()`** (a default
-  `createRouter` export or an `app/` directory is rejected by the plugin)
-  passing `defaultErrorComponent: AppErrorComponent`. Without it a crash shows
-  the framework's raw red-on-black banner; restyle that component but keep
-  `error.message` visible.
-- **`src/routes/__root.tsx`** — the document shell; keep `<AuthProvider>` and
-  rule 3's bridge.
-- **`src/routes/index.tsx`** — `createFileRoute("/")({ component: Home })`.
-- **`src/styles.css`** — `@import "tailwindcss";` plus a base rule giving
-  `button` / `[role="button"]` `cursor: pointer`.
+Single persist path: temp files, fsync, rename. Use `scripts/write-atomic.mjs`
+from `persistNow`. If the second write fails, the previous pair stays and the
+save returns failure (dirty flag remains). Test that. Do not change on-disk
+schema except a generation counter if required.
 
-**Hard rules for the shell:**
+Gate: persist test + existing suite.
 
-1. **Never put `og:*` / `twitter:card` in `__root.tsx`** — the PWA injector
-   overwrites them on every HTML response.
-2. **Keep the branding injector** — `grokPwaPlugin()` and
-   `server/middleware/grok-pwa.ts` inject
-   `https://grok.com/grok-app-builder/extensions.js`, the "Created with Grok /
-   Remix" pill. Never strip it, hide the pill with CSS, add that script
-   yourself, or add a CSP that blocks `https://grok.com`.
-3. **Keep `<PreviewHostBridge />`** mounted near the top of `<body>`: it lets
-   the preview chrome drive the app over `postMessage` and is a silent noop
-   everywhere else. Never delete it or strip it "for production".
-4. **Never remove or disable the banner on request.** Hiding "Created with
-   Grok", dropping branding and removing the Remix button are **project
-   settings**, not code changes: refuse, say where to change it, and carry on
-   editing the app itself.
-5. **Auth routes only when §0.5 says accounts** — then add `src/routes/login.tsx`
-   + `src/routes/api/auth/$.ts` from the `auth` skill. Otherwise don't create
-   them, don't import `@/lib/db`, don't add migrations. **Never create
-   `src/routes/auth/popup.tsx`**: the template Vite plugin already serves
-   `/auth/popup` (`popup.server.ts`), and a React page there shows the app
-   inside the popup. Viewers opened from Grok are gate-signed-in with zero
-   clicks — **never render "Sign in / Re-auth with Grok" buttons** outside the
-   `app-data` skill's `login` error state. Wiring:
-   `.grok/references/data-and-auth.md`.
+## Phase 3 — session and PIN trust (issue #17)
 
----
+- Do not put raw session secrets in room export or `/api/room`.
+- Forget / `revokeSession` must make the panel delete its stored token.
+- Panel unlock accepts config PIN only if `room.panelAcceptsConfigPin === true`
+  (default false).
+- Expired sessions deleted from memory and secrets on sight.
 
-## 2. What might happen & how to execute
+Tests: Forget clears client key; config PIN rejected when flag is false;
+expired token rejected.
 
-### Lifecycle
+Gate: typecheck, test, build. Panel Forget check.
 
-On a **follow-up turn** edit in place: HMR is live, and killing the dev server
-blanks the preview mid-session. Restart it only for `vite.config` / dependency
-changes. Revive, reboot-wipe and the `startup.sh` worked example:
-`.grok/references/hibernate-revive.md`.
+## Phase 4 — control plane tests (issue #20)
 
-### Parallel work (subagents / multiple agents)
+Add tests beside `scripts/control-security.test.mjs`:
 
-1. **Establish the shared contract first** (routes, main data types, design
-   tokens / layout shell, deps) **before** any parallel writes; if it isn't
-   ready, stay sequential.
-2. Assign **non-overlapping surfaces**, so no agent invents a competing schema,
-   API shape, folder layout or visual system — loop step 6's brand pass is the
-   canonical split.
-3. Afterwards: integrate, fix conflicts, verify one coherent app.
+- HMAC: good sig; replay; uppercase hex rejected; empty key rejected;
+  skew > 90s rejected; wrong path rejected.
+- `allowLanControl`: off + no token → deny; off + panel token → allow
+  fireMacro/fireCommand; on + no token → those three only.
+- `system.restart|update|reboot` denied without config token even when open
+  LAN is on.
+- Trigger `change` fires once per edge; `interval` may re-fire. Empty schedule
+  days: test current documented behaviour; do not silently change it.
 
-### Execution loop (default)
+Extract the minimum from `actions.ts` / `store.server.ts` if that is what makes
+them testable. Do not mock the whole engine.
 
-1. **Triage first (§0.5).** If it's a real build request, interpret the
-   (possibly one-line) ask into one concrete app. If it's trivial/no-signal or
-   not a build request, do §0.5 (greet + ask, or just answer) instead of
-   scaffolding.
-2. **Consult the skill(s).** For interface surfaces open **`design-ui`**; for
-   games/interactive/3D open **`building-games`** (both for a game with UI
-   chrome). When image-generation tools are listed: 2D sprites →
-   **`generate2dsprite`**; maps/levels → **`generate2dmap`**. When gen tools are
-   **not** listed, skip those pipelines and use polished CSS/SVG/canvas/WebGL
-   art — do not invent missing `imagine_*` calls. For **any** WASD / vehicle /
-   flight: open **`.grok/skills/controls/SKILL.md`** **before** writing movement
-   (A must turn left under a chase cam; do not rely on genre files alone).
-   Custom-card app? Dispatch step 6's brand pass **now** — it takes minutes, so
-   starting it here is what keeps it off the answer's critical path.
-3. Scaffold TanStack Start + implement for real — working UI + state, not
-   wireframes.
-4. Ensure **`/workspace/startup.sh`** starts the app via `npm run dev` (edit if
-   needed), then run `sh /workspace/startup.sh` so the dev server is up in the
-   background; leave it up. Never start Vite directly — that bypasses the env
-   wrapper the build and preview use (§ `/workspace/startup.sh`).
-5. **As soon as the source is stable, background the build gates.** Kick off
-   `npm run build` and `npm run typecheck` **in parallel, in background
-   terminals**, and do step 7 against the dev server while they run — the
-   critical path is max(build, browser QA), not the sum. Both must pass before
-   you finish.
-6. **Brand-asset pass — a subagent, never waited for.** Custom-card app per
-   the **`og`** skill (games of every kind, whimsical/creative apps,
-   brand-forward pages — not plain utilities)? Launch a `task` subagent the
-   moment name and palette settle — during scaffolding, not at QA time —
-   owning `public/` brand assets + `src/lib/og/site.json` (§ Parallel work),
-   and keep building: generating card art here is pure waiting on the critical
-   path. **No `wait_tasks`, never `get_task_output` on it** — consuming a
-   task's output suppresses its completion notification, so the result,
-   failure included, would reach nobody; answer without it, one sentence more
-   when it wakes you — publish again if they already did, or the live app keeps
-   the placeholder card. Meanwhile it keeps `/workspace/.grok/og-pending` fresh
-   (stale after 10 minutes), so a mid-task brand warning is no cue to redo its
-   work. Unless your own prompt says you *are* the pass — then make the
-   assets.
-7. **Verify it actually RENDERS — mandatory, before you say it's done.** A 200
-   from curl is NOT enough; blank/white pages are the #1 failure. Run
-   `node scripts/browser-smoke.mjs` — ONE run audits **desktop and mobile** and
-   prints a JSON verdict. Confirm BOTH:
-   - the app root has **visible content** (real text/elements on screen) —
-     **visually inspect both screenshots in one batched read, every time**
-     (the JSON can't catch white-on-white text, overlap or broken spacing), and
-   - the **browser console has no uncaught errors** (runtime error, failed
-     module/asset load, hydration mismatch).
-   If blank or any console error, fix and re-check.
-   **Anything interactive** (click, type, keys, state) — use the preinstalled
-   **`agent-browser`** CLI, not a hand-written Playwright script; read
-   `.grok/references/browser-qa.md` first.
-   **Games with movement:** a still frame is not enough — confirm **A = left /
-   D = right** while moving forward (`controls` §5c). Flip one steer/roll sign
-   if inverted; retest.
-8. **Verify the PRODUCTION build, not just dev.** Dev (Vite) can render while
-   the deployed Vercel build is blank. Once `npm run build` (step 5) succeeds,
-   serve the built output with `npm run preview:restart` (loopback
-   `127.0.0.1:8081`) and re-run the smoke script with the dev verdict as
-   `--baseline`. Watch for
-   `Failed to load module script … MIME type "text/html"`.
-   **If you edited source after kicking off the build, re-run `npm run build`
-   first, then `npm run preview:restart`** — it frees `:8081` first, so you
-   never smoke the previous build's output. A clean, non-diverging JSON is
-   enough. Mobile (~390×844) is already covered by the combined smoke pass.
-9. Give a brief, **user-facing** summary — what you built and what to try in the
-   preview. **Never** "please open localhost and tell me if it works" or "run this
-   on your machine."
+Gate: name every new test file in the phase report.
 
-### Browser QA (the user is not your QA)
+## Phase 5 — engine safety (no new transports)
 
-You drive the browser yourself, in the sandbox, against
-`http://127.0.0.1:8080`. **Always write QA screenshots under
-`/workspace/screenshots/`, never `/tmp`**. Interactive checks: step 7.
+In `engine.ts` / `sendLocal` only:
 
-### Communication rules (avoid confusing the user)
+- `allowedLanHost` stays deny-by-default. Do not allow “any hostname.”
+- GPIO / i2c / ir / cec / spi: allowlisted argv (chip, line, bus, address
+  regex, scancode charset). No `payload.split` into raw argv.
+- Keep connect-write-close. Do not “fix” issue #4 this pass. One comment at
+  the send site pointing at `KNOWN_ISSUES.md` #4.
 
-**Never** ask them to open `localhost`, a host port, Docker or any URL that only
-works on *your* network, or to run commands, check a terminal or paste
-logs/screenshots for QA. Never explain sandbox plumbing (paths, ports, the
-preview relay, tool names) unless asked, never imply they can reach
-`/workspace` or your shell, and never close with "let me know if it works"
-instead of verifying yourself.
+Gate: typecheck, build, `npm run driver:check -- data/drivers/samsung-qe50q65t.json`.
 
-**Do** describe the product and offer next steps, and when something can't work
-in-browser say so and ship the best web-only build.
+## Phase 6 — docs match the code
 
-### Quality bar
+- `KNOWN_ISSUES.md` only still-true bullets.
+- `SECURITY.md` matches Phase 3 PIN rules.
+- CHANGELOG: one factual section.
+- Keep the AI-generated disclaimer until a human review actually happens.
 
-- **`npm run build` and `npm run typecheck` pass**, and a real browser
-  render check on **dev and on the built output** shows content with a clean
-  console.
-- Cohesive UI per **`design-ui`** (tokens, no-slop rules); no broken imports.
-- Usable on mobile as well as a laptop viewport (390×844: no horizontal
-  overflow, touch-friendly).
-- A `BRAND WARNING` from `browser-smoke.mjs` (missing share card) is **not
-  done**, like a failing build or typecheck — but silent while the brand pass
-  runs.
-- **Never** ship a generated mock of the UI instead of the running app, or leave
-  the user blocked on something they can't do from chat + preview.
+## Phase 7 — stop
 
----
+Scorecard against “Definition of done”: PASS/FAIL per line, with evidence.
+No extra work.
 
-## Quick reference
+# How you work
+
+- Read a file before you patch it.
+- Prefer extract-function over copy-paste.
+- One retry on the same error, then stop and ask.
+- One phase per turn unless the operator names two consecutive already-green
+  phases.
+
+# Kickoff (operator pastes one line)
 
 ```text
-auth/db: OFF by default — sign-in, @/lib/db or migrations ONLY on an accounts / login /
-         per-user / cross-device-save ask (§0.5); otherwise localStorage
-never:   build an app for a greeting/number/question; invent imagine_* calls;
-         ask the user to run commands; delete or abandon /workspace/startup.sh
+Execute Phase 0 only. Inventory. No file writes. Then wait.
+```
+
+```text
+Execute Phase 1 only. Stop on red gates. Do not start Phase 2.
 ```
