@@ -1118,8 +1118,8 @@ export async function applyHost(
     }
     const port = process.env.PORT || process.argv.find((a, i, all) => all[i - 1] === "--port") || "8081";
     if (process.env.INVOCATION_ID && process.platform !== "win32") {
-      spawn("systemctl", ["restart", "relay"], { detached: true, stdio: "ignore" }).unref();
-      return { ok: true, message: "Restarting systemd unit relay" };
+      setTimeout(() => process.exit(1), 400);
+      return { ok: true, message: "Restarting (systemd Restart=always)" };
     }
     const preview = process.env.npm_lifecycle_event === "start" || process.argv.includes("preview") || process.env.NODE_ENV === "production";
     const viteJs = path.join(root, "node_modules", "vite", "bin", "vite.js");
@@ -1157,7 +1157,7 @@ export async function applyHost(
       detached: true,
       stdio: "ignore",
       cwd: root,
-      env: { ...process.env, PORT: String(port), CHOKIDAR_USEPOLLING: "1" },
+      env: { ...process.env, PORT: String(port), CHOKIDAR_USEPOLLING: "1", RELAY_PID: String(process.pid), MAINPID: process.env.MAINPID || String(process.pid) },
     }).unref();
     if (!process.env.INVOCATION_ID) setTimeout(() => process.exit(0), 800);
     return { ok: true, message: "Updating from GitHub. The page will drop for a minute." };

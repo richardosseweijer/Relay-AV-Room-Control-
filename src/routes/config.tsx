@@ -55,7 +55,7 @@ function ConfigGate() {
     );
   }
 
-  return <ConfigApp />;
+  return <ConfigApp token={token} onSessionLost={() => { sessionStorage.removeItem("relay-config-token"); setToken(null); }} />;
 }
 
 export const Route = createFileRoute("/config")({ component: ConfigGate });

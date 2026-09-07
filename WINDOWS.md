@@ -1,6 +1,6 @@
 # Relay — Windows
 
-Windows 10/11. Command Prompt or PowerShell.
+Relay **0.7.3**. Windows 10/11. Command Prompt or PowerShell.
 
 Default configurator PIN: `1234`. The app then requires a stronger PIN. Tablets stay paired until Forget on Security.
 
@@ -86,7 +86,15 @@ Requires a git clone of [Relay-AV-Room-Control-](https://github.com/richardossew
 
 Configurator → Room → **Save all** → **Update from GitHub**.
 
-Runs `git pull --ff-only`, `npm install`, restarts on 8081. Log: `data\relay-update.log`. Uncommitted local edits can block the pull.
+Runs `git pull --ff-only`, `npm ci`, `vite build` into `dist.next`. A failed build leaves `dist/` alone. Then preview restarts. Log: `data\relay-update.log`. Uncommitted local edits can block the pull.
+
+```bat
+cd C:\relay
+git pull --ff-only
+npm ci
+npm run build
+npx vite preview --host 0.0.0.0 --port 8081
+```
 
 ```bat
 cd C:\relay

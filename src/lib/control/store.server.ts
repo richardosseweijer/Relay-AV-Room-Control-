@@ -2,7 +2,7 @@ import { bundledDrivers, defaultDeviceState, emptyRoomConfig } from "./defaults"
 import { readMonitorValue, runMacro, traces, scrubSecret } from "./engine";
 import type { DeviceHealth, DeviceStateMap, DriverSpec, LogEntry, Macro, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
 import { applyMonitors, clampVar, resolveTemplate, seedVars, type VarMap } from "./vars";
-import { mkdir, readFile, writeFile, readdir, unlink, access, rename } from "node:fs/promises";
+import { mkdir, readFile, writeFile, readdir, unlink, access, rename, open } from "node:fs/promises";
 import path from "node:path";
 
 const ROW_ID = "current";
@@ -79,6 +79,7 @@ const g = globalThis as typeof globalThis & {
   __relayMon__?: ReturnType<typeof setInterval>;
 };
 const lastScheduleRun = new Map<string, string>();
+let scheduleBusy = false;
 const lastMonitorRun = new Map<string, number>();
 const lastTriggerValue = new Map<string, string>();
 const lastTriggerFire = new Map<string, number>();
@@ -154,7 +155,7 @@ export async function reloadSecretsFromDisk() {
   const secrets = await readSecretFile();
   const mem = memory();
   mem.config = applySecrets(mem.config, secrets);
-  if (secrets.sessions) mem.sessions = secrets.sessions;
+  mem.sessions = { ...(secrets.sessions ?? {}), ...(mem.sessions ?? {}) };
   return secrets;
 }
 
@@ -229,8 +230,10 @@ async function sqlOrNull() {
 
 export async function loadPersisted(): Promise<Memory> {
   const mem = memory();
+  const files = [FILE_STORE, `${FILE_STORE}.good`];
+  for (const file of files) {
   try {
-    const raw = await readFile(FILE_STORE, "utf8");
+    const raw = await readFile(file, "utf8");
     const saved = JSON.parse(raw) as { config?: RoomConfig; drivers?: Record<string, DriverSpec>; state?: DeviceStateMap; vars?: VarMap; latches?: Record<string, string>; stamps?: Record<string, string> };
     if (saved.config) {
       const fromDisk = await readSecretFile();
@@ -269,7 +272,10 @@ export async function loadPersisted(): Promise<Memory> {
       return mem;
     }
   } catch {
-    /* fall through to sql / demo */
+    if (file === FILE_STORE) {
+      await rename(FILE_STORE, `${FILE_STORE}.bad`).catch(() => undefined);
+    }
+  }
   }
   mem.drivers = await loadDriverFiles();
   mem.library = { ...mem.drivers };
@@ -302,10 +308,23 @@ export async function loadPersisted(): Promise<Memory> {
   return mem;
 }
 
+async function writeAtomic(file: string, body: string) {
+  const tmp = `${file}.tmp`;
+  const fh = await open(tmp, "w");
+  try {
+    await fh.writeFile(body, "utf8");
+    await fh.sync();
+  } finally {
+    await fh.close();
+  }
+  await rename(tmp, file);
+}
+
 async function writeFileStore(mem: Memory) {
   await mkdir(path.dirname(FILE_STORE), { recursive: true });
   const secrets = pickSecrets(mem.config);
   secrets.sessions = mem.sessions ?? {};
+  await writeAtomic(SECRET_STORE, JSON.stringify(secrets));
   const body = JSON.stringify({
     config: publicConfig(normalize(mem.config)),
     drivers: mem.drivers,
@@ -314,12 +333,8 @@ async function writeFileStore(mem: Memory) {
     latches: mem.latches ?? {},
     stamps: Object.fromEntries(lastScheduleRun),
   });
-  const tmp = `${FILE_STORE}.tmp`;
-  await writeFile(tmp, body, "utf8");
-  await rename(tmp, FILE_STORE);
-  const secretTmp = `${SECRET_STORE}.tmp`;
-  await writeFile(secretTmp, JSON.stringify(secrets), "utf8");
-  await rename(secretTmp, SECRET_STORE);
+  await writeAtomic(FILE_STORE, body);
+  await writeAtomic(`${FILE_STORE}.good`, body).catch(() => undefined);
 }
 
 let persistChain = Promise.resolve();
@@ -418,6 +433,9 @@ export function snapshot(): RoomSnapshot {
 }
 
 async function runDueSchedules() {
+  if (scheduleBusy) return;
+  scheduleBusy = true;
+  try {
   const mem = memory();
   const tz = mem.config.room.network?.timezone;
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -437,28 +455,41 @@ async function runDueSchedules() {
   const stamp = `${tz}-${now.toISOString().slice(0, 10)}T${time}`;
   for (const job of mem.config.schedules ?? []) {
     if (!job.enabled || job.time !== time) continue;
-    if (!job.days.length || !job.days.includes(day)) continue;
+    if (!job.days.length) {
+      const skipKey = `empty:${job.id}`;
+      if (lastScheduleRun.get(skipKey) !== stamp) {
+        lastScheduleRun.set(skipKey, stamp);
+        pushLog({ kind: "macro", ok: true, title: `Schedule ${job.label}`, detail: "skipped empty days" });
+      }
+      continue;
+    }
+    if (!job.days.includes(day)) continue;
     if (lastScheduleRun.get(job.id) === stamp) continue;
     const macro = mem.config.macros.find((m) => m.id === job.macroId);
     if (!macro) continue;
-    lastScheduleRun.set(job.id, stamp);
-    if (lastScheduleRun.size > 200) {
-      const first = lastScheduleRun.keys().next().value;
-      if (first) lastScheduleRun.delete(first);
-    }
     mem.runningMacro = macro.id;
     const result = await runMacro({ config: mem.config, drivers: mem.drivers, state: mem.state, vars: mem.vars, health: mem.health ?? (mem.health = {}), macro, host: mem.host });
     mem.runningMacro = null;
     if (!result.ok && mem.host?.block) mem.host.block = null;
-    if (result.ok) mem.activeScene = macro.id;
+    if (result.ok) {
+      mem.activeScene = macro.id;
+      lastScheduleRun.set(job.id, stamp);
+      if (lastScheduleRun.size > 200) {
+        const first = lastScheduleRun.keys().next().value;
+        if (first) lastScheduleRun.delete(first);
+      }
+      await persistNow();
+    }
     mem.lastError = result.ok ? null : result.message;
     pushLog({ kind: "macro", ok: result.ok, title: `Schedule ${job.label}`, detail: result.message });
-    await persist();
     const queued = triggerQueue.shift();
     if (queued) {
       const nested = mem.config.macros.find((m) => m.id === queued.macroId);
       if (nested) await runQueuedTrigger(queued, nested);
     }
+  }
+  } finally {
+    scheduleBusy = false;
   }
 }
 

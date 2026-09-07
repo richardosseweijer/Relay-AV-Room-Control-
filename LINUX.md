@@ -1,6 +1,6 @@
 # Relay — Linux / Raspberry Pi from a blank install
 
-This guide assumes a newly installed 64-bit Debian, Ubuntu, or Raspberry Pi OS. No Node, Git, or extra packages are required beforehand. A network connection that can reach GitHub and deb.nodesource.com is required.
+Relay **0.7.3**. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
 
 Default configurator PIN after first start: `1234`. The app then requires a stronger PIN. Every tablet must unlock with the panel PIN; each tablet gets its own session (30 days, sliding).
 
@@ -163,16 +163,21 @@ sudo tee /etc/systemd/system/relay.service >/dev/null <<EOF
 Description=Relay room controller
 After=network-online.target
 Wants=network-online.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
 
 [Service]
 Type=simple
 User=${USER_NAME}
 WorkingDirectory=${HOME_DIR}/Relay-AV-Room-Control-
 Environment=PATH=/usr/bin:/usr/local/bin
-ExecStart=/usr/bin/npm run start
 Environment=PORT=8081
-Restart=on-failure
+Environment=NODE_ENV=production
+ExecStartPre=/usr/bin/test -d ${HOME_DIR}/Relay-AV-Room-Control-/dist
+ExecStart=/usr/bin/npm run start
+Restart=always
 RestartSec=5
+TimeoutStartSec=120
 
 [Install]
 WantedBy=multi-user.target
@@ -202,16 +207,21 @@ Paste this, then change `pi` and `/home/pi` if that is not your account (`whoami
 Description=Relay room controller
 After=network-online.target
 Wants=network-online.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
 
 [Service]
 Type=simple
 User=pi
 WorkingDirectory=/home/pi/Relay-AV-Room-Control-
 Environment=PATH=/usr/bin:/usr/local/bin
-ExecStart=/usr/bin/npm run start
 Environment=PORT=8081
-Restart=on-failure
+Environment=NODE_ENV=production
+ExecStartPre=/usr/bin/test -d /home/pi/Relay-AV-Room-Control-/dist
+ExecStart=/usr/bin/npm run start
+Restart=always
 RestartSec=5
+TimeoutStartSec=120
 
 [Install]
 WantedBy=multi-user.target
@@ -273,7 +283,16 @@ The application directory must be a clone of [Relay-AV-Room-Control-](https://gi
 
 Configurator → Room → **Save all**, then **Update from GitHub**. Confirm the warning.
 
-That stops Relay, runs `git pull --ff-only` and `npm install`, then starts it again. Under systemd it runs `systemctl restart relay`. The room is unavailable for about a minute. Log: `data/relay-update.log`.
+That runs `git pull --ff-only`, `npm ci`, and `npm run build` into `dist.next`. If the build fails, the running `dist/` is left alone and Relay is not restarted. On success `dist/` is swapped and the process exits so systemd (`Restart=always`) starts the new build. Log: `data/relay-update.log`.
+
+First install still needs a build before `systemctl enable`:
+
+```bash
+cd ~/Relay-AV-Room-Control-
+npm ci
+npm run build
+sudo systemctl enable --now relay
+```
 
 Uncommitted local edits can block the pull. A zip-only copy cannot use the button.
 
@@ -282,9 +301,18 @@ Manual equivalent:
 ```bash
 cd ~/Relay-AV-Room-Control-
 git pull --ff-only
-npm install
+npm ci
+npm run build
 sudo systemctl restart relay
 ```
+
+Optional (only if you want the Node process itself to call `systemctl restart relay`):
+
+```bash
+echo "$USER ALL=NOPASSWD: /bin/systemctl restart relay" | sudo tee /etc/sudoers.d/relay
+```
+
+The default path does not need that: `system.restart` is `process.exit(1)` and systemd starts it again.
 
 ---
 

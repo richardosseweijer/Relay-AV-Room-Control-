@@ -137,11 +137,10 @@ function InventoryPicker(props: {
 
 const TIMEZONES = ["system", "Europe/Brussels", "Europe/Amsterdam", "Europe/London", "Europe/Berlin", "UTC", "America/New_York"];
 
-export function ConfigApp() {
+export function ConfigApp(props: { token: string; onSessionLost?: () => void }) {
   const [snap, setSnap] = useState<RoomSnapshot | null>(null);
   const [draft, setDraft] = useState<RoomConfig | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [pin, setPin] = useState("");
+  const token = props.token;
   const [tab, setTab] = useState<"room" | "security" | "drivers" | "devices" | "interfaces" | "macros" | "pages" | "logic" | "log">("room");
   const [logicTab, setLogicTab] = useState<"variables" | "monitor" | "schedule" | "triggers">("variables");
   const [logKind, setLogKind] = useState("all");
@@ -201,49 +200,33 @@ export function ConfigApp() {
   }
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("relay-config-token");
-    if (stored) {
-      getEditorConfig({ data: { token: stored } }).then((res) => {
-        if (res.ok && res.config) {
-          setToken(stored);
-          setDraft(structuredClone(res.config));
-          setMustChange(Boolean(res.mustChange));
-          if (res.paired) setPaired(res.paired);
-        } else {
-          sessionStorage.removeItem("relay-config-token");
-          setToken(null);
-        }
-      }).catch(() => {
-        sessionStorage.removeItem("relay-config-token");
-        setToken(null);
-      });
-    }
+    getEditorConfig({ data: { token } }).then((res) => {
+      if (res.ok && res.config) {
+        setDraft(structuredClone(res.config));
+        setMustChange(Boolean(res.mustChange));
+        if (res.paired) setPaired(res.paired);
+      }
+    }).catch(() => undefined);
     refresh().catch(() => undefined);
-  }, []);
-
-  useEffect(() => {
-    if (!token) return;
-    const id = window.setInterval(() => { loadRoom().then(setSnap).catch(() => undefined); }, 8000);
-    return () => window.clearInterval(id);
   }, [token]);
 
   useEffect(() => {
+    const id = window.setInterval(() => { loadRoom().then(setSnap).catch(() => undefined); }, 8000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    let misses = 0;
     const tick = async () => {
-      const key = token || sessionStorage.getItem("relay-config-token");
-      if (!key) {
-        if (token) setToken(null);
+      const res = await getEditorConfig({ data: { token } }).catch(() => ({ ok: false as const }));
+      if (res.ok) {
+        misses = 0;
         return;
       }
-      const res = await getEditorConfig({ data: { token: key } });
-      if (res.ok) {
-        if (token !== key) setToken(key);
-      } else {
-        setToken(null);
-        sessionStorage.removeItem("relay-config-token");
-      }
+      misses += 1;
+      if (misses >= 3) props.onSessionLost?.();
     };
-    tick().catch(() => undefined);
-    const id = window.setInterval(() => { tick().catch(() => undefined); }, 2500);
+    const id = window.setInterval(() => { tick().catch(() => undefined); }, 8000);
     return () => window.clearInterval(id);
   }, [token]);
 
@@ -296,38 +279,6 @@ export function ConfigApp() {
   const page = draft?.pages.find((p) => p.id === pageId) ?? draft?.pages[0];
   const selected = page?.widgets.find((w) => w.id === selectedId) ?? null;
 
-  if (!token) {
-    return (
-      <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-4 bg-bg px-6">
-        <p className="text-xs uppercase tracking-[0.2em] text-subtle">Relay setup</p>
-        <h1 className="text-3xl font-medium tracking-tight">Configurator</h1>
-        <p className="text-sm text-muted">Enter the configurator PIN. First-run default is 1234.</p>
-        <input className={fieldClass()} inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN" />
-        <Button type="button" className="relative z-20 h-14 w-full text-base" onClick={async () => {
-          try {
-            const res = await fetch("/api/config-unlock", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pin: pin.trim() }) });
-            const data = await res.json().catch(() => ({})) as { ok?: boolean; token?: string; mustChange?: boolean; message?: string };
-            if (data.ok && data.token) {
-              setToken(data.token);
-              sessionStorage.setItem("relay-config-token", data.token);
-              setMustChange(Boolean(data.mustChange));
-              const editor = await getEditorConfig({ data: { token: data.token } }).catch(() => ({ ok: false as const, config: null, paired: [] }));
-              if (editor.ok && editor.config) setDraft(structuredClone(editor.config));
-              else {
-                const room = await loadRoom();
-                if (room?.config) setDraft(structuredClone(room.config));
-              }
-            } else flash(data.message || "Wrong PIN", "");
-          } catch (err) {
-            flash(err instanceof Error ? err.message : "Unlock failed", "");
-          }
-        }}>Unlock</Button>
-        <Link to="/" onClick={() => sessionStorage.removeItem("relay-config-token")} className="text-center text-sm text-muted underline-offset-4 hover:underline">Back to room</Link>
-        {toast ? <p className="text-sm text-clay">{toast.body || toast.title}</p> : null}
-      </main>
-    );
-  }
-
   if (!draft?.room || !page) return <main className="flex min-h-dvh items-center justify-center bg-bg text-muted">Loading config…</main>;
 
   if (mustChange) {
@@ -367,7 +318,6 @@ export function ConfigApp() {
               <Button onClick={async () => {
                 const res = await verifyConfigPin({ data: { pin: lockPin } });
                 if (!res.ok || !res.token) { flash("Wrong PIN", ""); return; }
-                setToken(res.token);
                 sessionStorage.setItem("relay-config-token", res.token);
                 setNeedLock(false);
                 setToast(null);
@@ -390,7 +340,7 @@ export function ConfigApp() {
               <Button onClick={async () => {
                 const check = await verifyConfigPin({ data: { pin: gate.pin } });
                 if (!check.ok || !check.token) { flash("Wrong PIN", ""); return; }
-                setToken(check.token);
+                sessionStorage.setItem("relay-config-token", check.token);
                 const res = await clearConfig({ data: { token: check.token, pin: gate.pin } });
                 setGate(null);
                 flash(res.ok ? "Cleared" : "Wipe failed", res.message);
@@ -418,8 +368,7 @@ export function ConfigApp() {
                 variant="secondary"
                 className="border-sage/40 bg-sage/20 text-sage"
                 onClick={() => {
-                  setToken(null);
-                  sessionStorage.removeItem("relay-config-token");
+                  props.onSessionLost?.();
                 }}
               >
                 Unlocked

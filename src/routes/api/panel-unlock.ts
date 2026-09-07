@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ensureLoaded, memory, persist, reloadSecretsFromDisk } from "@/lib/control/store.server";
+import { ensureLoaded, memory, persistNow, reloadSecretsFromDisk } from "@/lib/control/store.server";
 import { hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey } from "@/lib/control/pins.server";
 import { isHashedPin } from "@/lib/control/pins";
 
@@ -34,10 +34,13 @@ export const Route = createFileRoute("/api/panel-unlock")({
         const id = randomHex(8);
         const secret = `panel-${randomHex(18)}`;
         const row = { id, secret, kind: "panel" as const, exp: Date.now() + 30 * 24 * 60 * 60 * 1000, created: Date.now(), lastSeen: Date.now(), label: "panel" };
+        const g = globalThis as typeof globalThis & { __relayTokens__?: Map<string, typeof row> };
+        g.__relayTokens__ ??= new Map();
+        g.__relayTokens__.set(secret, row);
         memory().sessions = memory().sessions ?? {};
         memory().sessions[id] = row;
         host.locked = false;
-        persist();
+        await persistNow();
         return Response.json({ ok: true, token: secret });
       },
     },

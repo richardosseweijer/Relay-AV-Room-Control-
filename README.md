@@ -1,6 +1,6 @@
 # Relay
 
-Relay **0.7.2** (beta). Room controller for local AV devices. Private LAN only.
+Relay **0.7.3** (beta). Room controller for local AV devices. Private LAN only.
 
 Clone is unused until you start it. First boot writes `data/relay-room.json` and `data/relay-secrets.json` on the host. Those files are not in git.
 

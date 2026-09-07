@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.7.2**. Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.7.3**. Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -176,7 +176,7 @@ Room actions: export, import, clear configuration, restart Vite, update from Git
 
 Save all calls `persistNow()`. If either JSON file cannot be written, the save returns failure and the dirty flag stays set (issue #18: the two files are still separate renames).
 
-`system.update` (Room tab) requires a Git checkout. It runs `git pull --ff-only` and `npm install`, then relaunches Vite or, under systemd (`INVOCATION_ID` set), `systemctl restart relay`.
+`system.update` (Room tab) requires a Git checkout. It runs `git pull --ff-only`, `npm ci`, and `vite build --outDir dist.next`. A failed build leaves `dist/` alone. Under systemd the process is signalled and `Restart=always` starts the new tree.
 
 ---
 

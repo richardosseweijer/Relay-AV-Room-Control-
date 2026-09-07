@@ -13,12 +13,16 @@ function redact(auth?: Record<string, string>) {
 
 const hits = new Map<string, number[]>();
 
-function limited(ip: string) {
+function limited(key: string) {
   const now = Date.now();
-  const recent = (hits.get(ip) ?? []).filter((at) => now - at < 10_000);
+  const recent = (hits.get(key) ?? []).filter((at) => now - at < 10_000);
   recent.push(now);
-  hits.set(ip, recent);
-  return recent.length > 40;
+  hits.set(key, recent);
+  return recent.length > 120;
+}
+
+function isLoopback(ip: string) {
+  return !ip || ip === "local" || ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
 }
 
 function clientIp(request: Request) {
@@ -44,13 +48,13 @@ export const Route = createFileRoute("/api/room")({
     handlers: {
       GET: async ({ request }) => {
         try {
+          const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
           const ip = clientIp(request);
-          if (limited(ip)) return Response.json({ error: "rate limited" }, { status: 429 });
+          if (!isLoopback(ip) && limited(token || ip)) return Response.json({ error: "rate limited" }, { status: 429 });
           await ensureLoaded();
           const snap = snapshot();
           const room = snap.config?.room;
           if (!room) return Response.json({ ...snap, traces: {}, drivers: {}, library: {} });
-          const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
           const authed = hasSession(token);
           const devices = (snap.config.devices ?? []).map((device) => ({
             ...device,

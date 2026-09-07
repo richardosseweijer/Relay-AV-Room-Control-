@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * git pull + npm install, then start Relay again.
- * Spawned detached from the running server so the old process can exit.
+ * git pull --ff-only && npm ci && npm run build, then bounce Relay.
+ * Build writes dist.next. On failure the running dist/ is left alone.
  */
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -9,8 +9,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const port = process.env.PORT || "8081";
 const logFile = path.join(root, "data", "relay-update.log");
+const dist = path.join(root, "dist");
+const next = path.join(root, "dist.next");
+const prev = path.join(root, "dist.prev");
 
 function log(line) {
   try {
@@ -30,7 +32,7 @@ function run(cmd, args) {
   if (r.stdout) log(r.stdout.trimEnd());
   if (r.stderr) log(r.stderr.trimEnd());
   if (r.status !== 0) {
-    log(`exit ${r.status}`);
+    log(`exit ${r.status} — leaving dist/ in place`);
     process.exit(r.status || 1);
   }
 }
@@ -44,27 +46,39 @@ const tag = process.env.RELAY_RELEASE || "";
 if (tag) run("git", ["fetch", "--tags"]);
 if (tag) run("git", ["checkout", "--force", `tags/${tag}`]);
 else run("git", ["pull", "--ff-only"]);
+
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-const ci = spawnSync(npm, ["ci"], { cwd: root, encoding: "utf8", shell: process.platform === "win32", env: process.env });
-if (ci.stdout) log(ci.stdout.trimEnd());
-if (ci.stderr) log(ci.stderr.trimEnd());
-if (ci.status !== 0) {
-  log("npm ci failed, falling back to npm install");
-  run(npm, ["install"]);
+run(npm, ["ci"]);
+run(process.execPath, ["scripts/with-app-env.mjs", "vite", "build", "--outDir", "dist.next"]);
+run(npm, ["run", "db:migrate"]);
+
+try {
+  fs.rmSync(prev, { recursive: true, force: true });
+  if (fs.existsSync(dist)) fs.renameSync(dist, prev);
+  fs.renameSync(next, dist);
+  fs.rmSync(prev, { recursive: true, force: true });
+  log("dist/ replaced from dist.next");
+} catch (err) {
+  log(`dist swap failed: ${err instanceof Error ? err.message : err}`);
+  if (!fs.existsSync(dist) && fs.existsSync(prev)) fs.renameSync(prev, dist);
+  process.exit(1);
 }
 
 if (process.env.INVOCATION_ID && process.platform !== "win32") {
-  log("restarting systemd unit relay");
-  spawn("systemctl", ["restart", "relay"], { detached: true, stdio: "ignore" }).unref();
+  const main = Number(process.env.MAINPID || process.env.RELAY_PID || "");
+  log(main ? `signal ${main} for systemd Restart=always` : "no MAINPID — exit 1 so systemd restarts if this is the unit");
+  if (main) {
+    try { process.kill(main, "SIGTERM"); } catch (err) { log(String(err)); }
+  }
   process.exit(0);
 }
 
-const preview = process.env.npm_lifecycle_event === "start" || process.argv.includes("preview") || process.env.NODE_ENV === "production";
+const port = process.env.PORT || "8081";
 const viteJs = path.join(root, "node_modules", "vite", "bin", "vite.js");
 const cmd = fs.existsSync(viteJs) ? process.execPath : process.platform === "win32" ? "npx.cmd" : "npx";
 const args = fs.existsSync(viteJs)
-  ? [viteJs, preview ? "preview" : "dev", "--host", "0.0.0.0", "--port", String(port)]
-  : ["vite", preview ? "preview" : "dev", "--host", "0.0.0.0", "--port", String(port)];
+  ? [viteJs, "preview", "--host", "0.0.0.0", "--port", String(port)]
+  : ["vite", "preview", "--host", "0.0.0.0", "--port", String(port)];
 log(`spawn ${cmd} ${args.join(" ")}`);
 spawn(cmd, args, {
   cwd: root,

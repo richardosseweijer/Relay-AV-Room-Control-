@@ -279,7 +279,7 @@ export function ControlPanel() {
       if (Object.keys(dragRef.current).length) return;
       refresh().catch(() => undefined);
     };
-    const t = setInterval(tick, 1500);
+    const t = setInterval(tick, 4000);
     const onVis = () => { if (document.visibilityState === "visible") tick(); };
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("focus", onVis);

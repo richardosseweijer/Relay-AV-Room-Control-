@@ -17,7 +17,7 @@
 - Room unlock accepts the configurator PIN as well as the panel PIN. Split them on Security if that is unwanted.
 - PIN lockout (5 tries / 5 min) is process memory. A restart clears the counter.
 - First start PIN is `1234`. The configurator blocks until you set a stronger one.
-- `system.reboot` reboots the machine. `system.restart` respawns Vite only.
+- `system.reboot` reboots the machine. `system.restart` exits the process; systemd (`Restart=always`) starts it again. Without systemd it respawns Vite preview.
 - Vite on Windows: copying files over a running `npx vite` yields `Invalid server function ID` or missing `@/` imports. Restart Vite after a replace.
 
 ## Devices / transports

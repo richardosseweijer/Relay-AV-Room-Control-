@@ -2,6 +2,16 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.7.3 — 2026-09-07
+
+- Configurator PIN is asked once. Sessions stay in memory across secret reload.
+- Update: `git pull --ff-only && npm ci && vite build --outDir dist.next`. Failed builds leave `dist/` alone.
+- Under systemd, restart is `process.exit(1)` (`Restart=always`). Unit: `StartLimitBurst=5`, `TimeoutStartSec=120`, `ExecStartPre` checks `dist/`.
+- `/api/room` rate-limit keyed by session token (loopback not limited). Panel poll 4s.
+- Persist: secrets first, `fsync`, corrupt room file renamed `.bad`, last-good `.good`.
+- Schedules: busy lock, stamp after success, persist immediately, log `skipped empty days`.
+- PGLite not started on `vite preview` / production / systemd.
+
 ## 0.7.2 — 2026-09-06
 
 - Panel/config PIN pages use `/api/panel-unlock` and `/api/config-unlock` so client bundles do not import `node:crypto`.
