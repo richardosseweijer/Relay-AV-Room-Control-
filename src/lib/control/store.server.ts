@@ -2,7 +2,8 @@ import { bundledDrivers, defaultDeviceState, emptyRoomConfig } from "./defaults"
 import { readMonitorValue, runMacro, traces, scrubSecret } from "./engine";
 import type { DeviceHealth, DeviceStateMap, DriverSpec, LogEntry, Macro, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
 import { applyMonitors, clampVar, resolveTemplate, seedVars, type VarMap } from "./vars";
-import { mkdir, readFile, writeFile, readdir, unlink, access, rename, open } from "node:fs/promises";
+import { persistPair } from "../../../scripts/write-atomic.mjs";
+import { mkdir, readFile, writeFile, readdir, unlink, access, rename } from "node:fs/promises";
 import path from "node:path";
 
 const FILE_STORE = path.join(process.cwd(), "data", "relay-room.json");
@@ -264,23 +265,10 @@ export async function loadPersisted(): Promise<Memory> {
   return mem;
 }
 
-async function writeAtomic(file: string, body: string) {
-  const tmp = `${file}.tmp`;
-  const fh = await open(tmp, "w");
-  try {
-    await fh.writeFile(body, "utf8");
-    await fh.sync();
-  } finally {
-    await fh.close();
-  }
-  await rename(tmp, file);
-}
-
 async function writeFileStore(mem: Memory) {
   await mkdir(path.dirname(FILE_STORE), { recursive: true });
   const secrets = pickSecrets(mem.config);
   secrets.sessions = mem.sessions ?? {};
-  await writeAtomic(SECRET_STORE, JSON.stringify(secrets));
   const body = JSON.stringify({
     config: publicConfig(normalize(mem.config)),
     drivers: mem.drivers,
@@ -289,8 +277,7 @@ async function writeFileStore(mem: Memory) {
     latches: mem.latches ?? {},
     stamps: Object.fromEntries(lastScheduleRun),
   });
-  await writeAtomic(FILE_STORE, body);
-  await writeAtomic(`${FILE_STORE}.good`, body).catch(() => undefined);
+  persistPair(SECRET_STORE, FILE_STORE, JSON.stringify(secrets), body);
 }
 
 let persistChain = Promise.resolve();

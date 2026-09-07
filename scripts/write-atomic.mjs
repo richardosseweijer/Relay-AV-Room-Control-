@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-nocheck
 /**
  * Hand a staged file over to a path another agent reads, in one step.
  *
@@ -12,7 +13,7 @@
  * copying would have to land its temp in the target's directory, which is the
  * one thing a staged path is not allowed to do.
  */
-import { existsSync, mkdirSync, renameSync } from "node:fs";
+import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -63,6 +64,39 @@ export function handOver(staged, target, { rename = renameSync } = {}) {
         `${staged} is on another filesystem than ${target}, so the hand-over cannot be a `
           + "rename — stage under /workspace/.grok/ instead",
       );
+    }
+    throw err;
+  }
+}
+
+/** Write UTF-8 to path.tmp, fsync, then rename onto path. */
+export function writeAtomicFile(target, body, { rename = renameSync } = {}) {
+  const staged = `${target}.tmp`;
+  mkdirSync(dirname(target), { recursive: true });
+  const fd = openSync(staged, "w");
+  try {
+    writeFileSync(fd, body, "utf8");
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+  handOver(staged, target, { rename });
+}
+
+/**
+ * Commit secrets then room. If the room write fails, restore the previous
+ * secrets file so the pair stays the last good pair.
+ */
+export function persistPair(secretPath, roomPath, secretBody, roomBody, { rename = renameSync } = {}) {
+  const previousSecrets = existsSync(secretPath) ? readFileSync(secretPath) : null;
+  writeAtomicFile(secretPath, secretBody, { rename });
+  try {
+    writeAtomicFile(roomPath, roomBody, { rename });
+  } catch (err) {
+    if (previousSecrets !== null) {
+      writeAtomicFile(secretPath, previousSecrets, { rename: renameSync });
+    } else if (existsSync(secretPath)) {
+      unlinkSync(secretPath);
     }
     throw err;
   }
