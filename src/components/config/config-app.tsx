@@ -61,7 +61,8 @@ function InputNum({
   }, [value]);
   return (
     <input
-      type="number"
+      type="text"
+      inputMode="decimal"
       className={className ?? fieldClass()}
       value={text}
       onFocus={() => { focused.current = true; }}
@@ -1779,10 +1780,10 @@ function PagesEditor({
               </select>
               </label>
               <label className="grid gap-1 text-xs text-muted">Min
-                <input className={fieldClass()} placeholder="min" value={String(selected.min ?? 0)} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.min = e.target.value; })} />
+                <input className={fieldClass()} inputMode="decimal" placeholder="min" value={selected.min == null ? "" : String(selected.min)} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.min = e.target.value; })} />
               </label>
               <label className="grid gap-1 text-xs text-muted">Max
-                <input className={fieldClass()} placeholder="max" value={String(selected.max ?? 100)} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.max = e.target.value; })} />
+                <input className={fieldClass()} inputMode="decimal" placeholder="max" value={selected.max == null ? "" : String(selected.max)} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.max = e.target.value; })} />
               </label>
               <label className="grid gap-1 text-sm text-muted">Follow highlight group
                 <input className={fieldClass()} placeholder="scene" value={selected.latchGroup ?? ""} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.latchGroup = e.target.value || null; })} />
