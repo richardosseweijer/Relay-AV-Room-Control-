@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type InputHTMLAttributes } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { ICON_NAMES, NamedIcon } from "@/components/icons";
@@ -42,6 +42,45 @@ const COLOR_FILL: Record<WidgetColor, string> = {
 
 function fieldClass() {
   return "h-11 w-full rounded-md border border-border bg-bg px-3 text-sm text-fg";
+}
+
+function InputNum({
+  value,
+  onNumber,
+  className,
+  ...rest
+}: {
+  value: number | undefined | null;
+  onNumber: (n: number | undefined) => void;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type">) {
+  const focused = useRef(false);
+  const [text, setText] = useState(() => (value == null || Number.isNaN(Number(value)) ? "" : String(value)));
+  useEffect(() => {
+    if (focused.current) return;
+    setText(value == null || Number.isNaN(Number(value)) ? "" : String(value));
+  }, [value]);
+  return (
+    <input
+      type="number"
+      className={className ?? fieldClass()}
+      value={text}
+      onFocus={() => { focused.current = true; }}
+      onBlur={() => {
+        focused.current = false;
+        setText(value == null || Number.isNaN(Number(value)) ? "" : String(value));
+      }}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setText(raw);
+        if (raw.trim() === "") onNumber(undefined);
+        else {
+          const n = Number(raw);
+          if (Number.isFinite(n)) onNumber(n);
+        }
+      }}
+      {...rest}
+    />
+  );
 }
 
 async function pingHost(host: string, port?: number, path?: string) {
@@ -408,7 +447,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
               </select>
             </label>
             <label className="grid gap-1 text-sm text-muted">Idle dim (s)
-              <input type="number" min={0} className={fieldClass()} value={draft.room.idleDimSeconds} onChange={(e) => update((c) => { c.room.idleDimSeconds = Math.max(0, Number(e.target.value) || 0); })} />
+              <InputNum min={0} value={draft.room.idleDimSeconds} onNumber={(n) => update((c) => { if (n == null) return; c.room.idleDimSeconds = Math.max(0, n); })} />
               <span className="text-xs">0 = never</span>
             </label>
             <label className="grid gap-1 text-sm text-muted">Clock
@@ -650,19 +689,19 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                                 <input className={fieldClass()} value={device.host} placeholder="10.0.0.10 or localhost" onChange={(e) => update((c) => { c.devices[index]!.host = e.target.value; })} />
                               </label>
                               <label className="grid gap-1 text-sm text-muted">Port
-                                <input className={fieldClass()} type="number" value={device.port ?? driver?.transports.lan?.port ?? 80} onChange={(e) => update((c) => { c.devices[index]!.port = Number(e.target.value); })} />
+                                <InputNum placeholder={String(driver?.transports.lan?.port ?? 80)} value={device.port} onNumber={(n) => update((c) => { c.devices[index]!.port = n; })} />
                               </label>
                             </>
                           ) : null}
                           {kind === "serial" || comSlot ? (
                             <label className="grid gap-1 text-sm text-muted">Baud
-                              <input className={fieldClass()} type="number" value={device.baud ?? driver?.transports.local?.baud ?? driver?.transports.rs232?.baud ?? 9600} onChange={(e) => update((c) => { c.devices[index]!.baud = Number(e.target.value); })} />
+                              <InputNum placeholder="9600" value={device.baud} onNumber={(n) => update((c) => { c.devices[index]!.baud = n; })} />
                             </label>
                           ) : null}
                           {kind === "i2c" ? (
                             <>
                               <label className="grid gap-1 text-sm text-muted">I2C bus
-                                <input className={fieldClass()} type="number" value={device.bus ?? driver?.transports.local?.bus ?? 1} onChange={(e) => update((c) => { c.devices[index]!.bus = Number(e.target.value); })} />
+                                <InputNum placeholder="1" value={device.bus} onNumber={(n) => update((c) => { c.devices[index]!.bus = n; })} />
                               </label>
                               <label className="grid gap-1 text-sm text-muted">I2C address
                                 <input className={fieldClass()} value={device.address ?? driver?.transports.local?.address ?? ""} placeholder="0x3c" onChange={(e) => update((c) => { c.devices[index]!.address = e.target.value; })} />
@@ -671,7 +710,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                           ) : null}
                           {kind === "spi" ? (
                             <label className="grid gap-1 text-sm text-muted">SPI speed
-                              <input className={fieldClass()} type="number" value={device.speed ?? driver?.transports.local?.speed ?? 500000} onChange={(e) => update((c) => { c.devices[index]!.speed = Number(e.target.value); })} />
+                              <InputNum placeholder="500000" value={device.speed} onNumber={(n) => update((c) => { c.devices[index]!.speed = n; })} />
                             </label>
                           ) : null}
                           {needsToken ? (
@@ -878,11 +917,11 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                       <input className={fieldClass()} placeholder="10.0.0.10" value={iface.host ?? ""} onChange={(e) => update((c) => { c.interfaces![ii]!.host = e.target.value; })} />
                     </label>
                     <label className="grid gap-1 text-sm text-muted">Control port
-                      <input className={fieldClass()} type="number" value={iface.controlPort ?? gatewayProfile(iface.vendor)?.controlPort ?? 23} onChange={(e) => update((c) => { c.interfaces![ii]!.controlPort = Number(e.target.value); })} />
+                      <InputNum placeholder="23" value={iface.controlPort} onNumber={(n) => update((c) => { c.interfaces![ii]!.controlPort = n; })} />
                     </label>
                     {gatewaySlot(iface.vendor, iface.slot)?.mapPort != null ? (
                       <label className="grid gap-1 text-sm text-muted">Baud
-                        <input className={fieldClass()} type="number" value={iface.baud ?? gatewaySlot(iface.vendor, iface.slot)?.baudDefault ?? 9600} onChange={(e) => update((c) => { c.interfaces![ii]!.baud = Number(e.target.value); })} />
+                        <InputNum placeholder="9600" value={iface.baud} onNumber={(n) => update((c) => { c.interfaces![ii]!.baud = n; })} />
                       </label>
                     ) : null}
                     <div className="sm:col-span-2 flex flex-wrap gap-2">
@@ -932,14 +971,14 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                       <input className={fieldClass()} placeholder="gpiochip0" value={iface.chip ?? "gpiochip0"} onChange={(e) => update((c) => { c.interfaces![ii]!.chip = e.target.value; })} />
                     </label>
                     <label className="grid gap-1 text-sm text-muted">GPIO pin
-                      <input className={fieldClass()} type="number" placeholder="17" value={iface.line ?? 0} onChange={(e) => update((c) => { c.interfaces![ii]!.line = Number(e.target.value); })} />
+                      <InputNum placeholder="17" value={iface.line} onNumber={(n) => update((c) => { c.interfaces![ii]!.line = n; })} />
                     </label>
                   </>
                 ) : null}
                 {iface.kind === "i2c" ? (
                   <>
                     <label className="grid gap-1 text-sm text-muted">I2C bus
-                      <input className={fieldClass()} type="number" placeholder="1" value={iface.bus ?? 1} onChange={(e) => update((c) => { c.interfaces![ii]!.bus = Number(e.target.value); })} />
+                      <InputNum placeholder="1" value={iface.bus} onNumber={(n) => update((c) => { c.interfaces![ii]!.bus = n; })} />
                     </label>
                     <label className="grid gap-1 text-sm text-muted">I2C address
                       <input className={fieldClass()} placeholder="0x3c" value={iface.address ?? ""} onChange={(e) => update((c) => { c.interfaces![ii]!.address = e.target.value; })} />
@@ -1089,7 +1128,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                             );
                           })()}
                           <label className="grid gap-1 text-xs text-muted sm:col-span-2">Wait ms
-                            <input className={fieldClass()} type="number" min={0} step={100} value={step.delayMsAfter ?? 0} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.delayMsAfter = Number(e.target.value) || 0; })} />
+                            <InputNum min={0} step={100} value={step.delayMsAfter} onNumber={(n) => update((c) => { c.macros[mi]!.steps[si]!.delayMsAfter = n; })} />
                           </label>
                           <label className="flex items-center gap-1 text-xs text-muted sm:col-span-2">
                             <input type="checkbox" checked={step.raw === true} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.raw = e.target.checked; })} />
@@ -1143,15 +1182,20 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                       <option value="text">Text</option>
                     </select>
                     <label className="grid gap-1 text-sm text-muted">Default
-                      <input className={fieldClass()} value={String(variable.default ?? "")} onChange={(e) => update((c) => { c.variables[vi]!.default = variable.kind === "number" ? Number(e.target.value) : e.target.value; })} />
+                      <input className={fieldClass()} value={String(variable.default ?? "")} onChange={(e) => update((c) => {
+                        const raw = e.target.value;
+                        c.variables[vi]!.default = variable.kind === "number"
+                          ? (raw.trim() === "" ? "" : Number(raw))
+                          : raw;
+                      })} />
                     </label>
                     {variable.kind === "number" ? (
                       <>
                         <label className="grid gap-1 text-sm text-muted">Min
-                          <input className={fieldClass()} type="number" value={variable.min ?? 0} onChange={(e) => update((c) => { c.variables[vi]!.min = Number(e.target.value); })} />
+                          <InputNum value={variable.min} onNumber={(n) => update((c) => { c.variables[vi]!.min = n; })} />
                         </label>
                         <label className="grid gap-1 text-sm text-muted">Max
-                          <input className={fieldClass()} type="number" value={variable.max ?? 100} onChange={(e) => update((c) => { c.variables[vi]!.max = Number(e.target.value); })} />
+                          <InputNum value={variable.max} onNumber={(n) => update((c) => { c.variables[vi]!.max = n; })} />
                         </label>
                       </>
                     ) : null}
@@ -1234,7 +1278,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                       </select>
                     </label>
                     )}
-                    <label className="grid gap-1 text-sm text-muted">Poll ms<input className={fieldClass()} type="number" value={rule.pollMs} onChange={(e) => update((c) => { c.monitors[ri]!.pollMs = Number(e.target.value); })} /></label>
+                    <label className="grid gap-1 text-sm text-muted">Poll ms<InputNum value={rule.pollMs} onNumber={(n) => update((c) => { if (n == null) return; c.monitors[ri]!.pollMs = n; })} /></label>
                     <label className="grid gap-1 text-sm text-muted">Write to variable
                       <select className={fieldClass()} value={rule.writeVar ?? ""} onChange={(e) => update((c) => { c.monitors[ri]!.writeVar = e.target.value || null; })}>
                         <option value="">Don’t write</option>
@@ -1364,15 +1408,15 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                           </label>
                           {rule.mode === "interval" ? (
                             <label className="grid gap-1 text-sm text-muted">Every (s)
-                              <input className={fieldClass()} type="number" min={1} value={rule.intervalSec ?? 5} onChange={(e) => update((c) => { c.triggers![ti]!.intervalSec = Math.max(1, Number(e.target.value) || 1); })} />
+                              <InputNum min={1} value={rule.intervalSec} onNumber={(n) => update((c) => { if (n == null) return; c.triggers![ti]!.intervalSec = Math.max(1, n); })} />
                             </label>
                           ) : null}
                           <label className="grid gap-1 text-sm text-muted">Must stay true (s)
-                            <input className={fieldClass()} type="number" min={0} value={rule.holdSec ?? 0} onChange={(e) => update((c) => { c.triggers![ti]!.holdSec = Math.max(0, Number(e.target.value) || 0); })} />
+                            <InputNum min={0} value={rule.holdSec} onNumber={(n) => update((c) => { if (n == null) return; c.triggers![ti]!.holdSec = Math.max(0, n); })} />
                             <span className="text-xs">0 = fire as soon as it matches. Vacancy: 600 = 10 min.</span>
                           </label>
                           <label className="grid gap-1 text-sm text-muted">Wait after that (s)
-                            <input className={fieldClass()} type="number" min={0} value={rule.delaySec ?? 0} onChange={(e) => update((c) => { c.triggers![ti]!.delaySec = Math.max(0, Number(e.target.value) || 0); })} />
+                            <InputNum min={0} value={rule.delaySec} onNumber={(n) => update((c) => { if (n == null) return; c.triggers![ti]!.delaySec = Math.max(0, n); })} />
                           </label>
                           <label className="grid gap-1 text-sm text-muted">Macro
                             <select className={fieldClass()} value={rule.macroId} onChange={(e) => update((c) => { c.triggers![ti]!.macroId = e.target.value; })}>
@@ -1541,18 +1585,20 @@ function PagesEditor({
             <input className={fieldClass()} value={page.label} onChange={(e) => update((c) => { const p = c.pages.find((item) => item.id === page.id); if (p) p.label = e.target.value; })} />
           </label>
           <label className="grid gap-1 text-xs text-muted">Columns
-            <input className={fieldClass()} type="number" min={2} max={12} value={page.grid.cols} onChange={(e) => update((c) => {
+            <InputNum min={2} max={12} value={page.grid.cols} onNumber={(n) => update((c) => {
+              if (n == null) return;
               const p = c.pages.find((item) => item.id === page.id);
               if (!p) return;
-              p.grid.cols = Math.max(2, Math.min(12, Number(e.target.value) || 2));
+              p.grid.cols = Math.max(2, Math.min(12, n));
               c.room.grid.cols = p.grid.cols;
             })} />
           </label>
           <label className="grid gap-1 text-xs text-muted">Rows
-            <input className={fieldClass()} type="number" min={2} max={16} value={page.grid.rows} onChange={(e) => update((c) => {
+            <InputNum min={2} max={16} value={page.grid.rows} onNumber={(n) => update((c) => {
+              if (n == null) return;
               const p = c.pages.find((item) => item.id === page.id);
               if (!p) return;
-              p.grid.rows = Math.max(2, Math.min(16, Number(e.target.value) || 2));
+              p.grid.rows = Math.max(2, Math.min(16, n));
               c.room.grid.rows = p.grid.rows;
             })} />
           </label>
@@ -1624,15 +1670,14 @@ function PagesEditor({
             {(["w", "h", "x", "y"] as const).map((key) => (
               <label key={key} className="grid gap-1 text-[11px] text-muted">
                 {key === "w" ? "Width" : key === "h" ? "Height" : key === "x" ? "Column" : "Row"}
-                <input
-                  className={fieldClass()}
-                  type="number"
+                <InputNum
                   min={0}
                   value={selected[key]}
-                  onChange={(e) => update((c) => {
+                  onNumber={(n) => update((c) => {
+                    if (n == null) return;
                     const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
                     if (!w) return;
-                    w[key] = Math.max(key === "w" || key === "h" ? 1 : 0, Number(e.target.value));
+                    w[key] = Math.max(key === "w" || key === "h" ? 1 : 0, n);
                   })}
                 />
               </label>
