@@ -57,7 +57,9 @@ export function applyMonitors(
 ) {
   for (const rule of config.monitors ?? []) {
     if (!rule.enabled || !rule.writeVar) continue;
-    const raw = state[rule.device]?.[rule.feedback];
+    const raw = rule.interfaceId
+      ? state[`iface:${rule.interfaceId}`]?.raw
+      : state[rule.device]?.[rule.feedback];
     if (raw === undefined || raw === null) continue;
     let value = String(raw);
     if (rule.mapMode === "map") {

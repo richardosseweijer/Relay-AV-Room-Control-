@@ -532,6 +532,9 @@ async function runDueMonitors() {
       state: mem.state,
       deviceId: rule.device,
       feedbackId: rule.feedback,
+      interfaceId: rule.interfaceId,
+      query: rule.query,
+      parsePattern: rule.parsePattern,
       host: mem.host,
     });
     mem.monitorStatus = mem.monitorStatus ?? {};

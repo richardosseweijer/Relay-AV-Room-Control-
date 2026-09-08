@@ -933,6 +933,40 @@ export async function scanDevicePorts(host: string, ports?: number[]) {
   return { ok: open.length > 0, message: open.join(", ") || "none open", open };
 }
 
+export async function sendGatewayRaw(opts: { config: RoomConfig; interfaceId: string; payload: string }): Promise<CommandResult> {
+  const iface = opts.config.interfaces?.find((item) => item.id === opts.interfaceId);
+  if (!iface) return { ok: false, message: "Unknown interface" };
+  if (!isGatewayKind(iface.kind)) return { ok: false, message: "Not a gateway" };
+  if (!iface.host) return { ok: false, message: "No gateway IP" };
+  const stub: DeviceInstance = {
+    id: iface.id,
+    name: iface.label,
+    driver: "",
+    transport: "lan",
+    host: iface.host,
+    port: gatewaySlot(iface.vendor, iface.slot)?.mapPort ?? iface.controlPort ?? gatewayProfile(iface.vendor)?.controlPort ?? 23,
+    auth: {},
+    enabledFeatures: [],
+    simulate: false,
+  };
+  const wired = wireThroughInterface(stub, iface);
+  if (!allowedLanHost(wired.host)) return { ok: false, message: "Host not on room LAN" };
+  const port = wired.port ?? 23;
+  const text = String(opts.payload ?? "").replace(/\\r/g, "\r").replace(/\\n/g, "\n");
+  let buf: Buffer;
+  if (/^hex:/i.test(text.trim())) {
+    const hex = text.trim().slice(4).replace(/\s+/g, "");
+    if (!hex || hex.length % 2 || !/^[0-9a-f]+$/i.test(hex)) return { ok: false, message: "Bad hex payload" };
+    buf = Buffer.from(hex, "hex");
+  } else {
+    buf = Buffer.from(text, "utf8");
+  }
+  pushTrace(iface.id, "tx", `gateway ${wired.host}:${port} ${text.slice(0, 120)}`);
+  const result = await tcpWrite(wired.host, port, buf, 3000, "ascii");
+  pushTrace(iface.id, result.ok ? "rx" : "note", result.message);
+  return result;
+}
+
 export async function sendRaw(opts: { config: RoomConfig; drivers: Record<string, DriverSpec>; deviceId: string; payload: string }): Promise<CommandResult> {
   const device = opts.config.devices.find((d) => d.id === opts.deviceId);
   if (!device) return { ok: false, message: "Unknown device" };
@@ -1084,8 +1118,27 @@ export async function readMonitorValue(opts: {
   state: DeviceStateMap;
   deviceId: string;
   feedbackId: string;
+  interfaceId?: string | null;
+  query?: string;
+  parsePattern?: string;
   host?: { dim: boolean; locked: boolean; toast: string | null; toastAt?: number; block?: string | null; pageId: string | null };
 }): Promise<{ ok: boolean; value: string; message: string }> {
+  if (opts.interfaceId) {
+    const result = await sendGatewayRaw({ config: opts.config, interfaceId: opts.interfaceId, payload: opts.query || "" });
+    if (!result.ok) return { ok: false, value: "", message: result.message };
+    let value = result.message.trim();
+    if (opts.parsePattern) {
+      try {
+        const hit = value.match(new RegExp(opts.parsePattern));
+        value = hit?.[1] ?? hit?.[0] ?? value;
+      } catch {
+        return { ok: false, value: "", message: "Bad parse regex" };
+      }
+    }
+    const key = `iface:${opts.interfaceId}`;
+    opts.state[key] = { ...(opts.state[key] ?? {}), raw: value };
+    return { ok: true, value, message: value };
+  }
   const device = opts.config.devices.find((d) => d.id === opts.deviceId);
   if (!device) return { ok: false, value: "", message: "Unknown device" };
   const slot = opts.state[device.id] ?? {};
@@ -1415,6 +1468,13 @@ async function runMacroOnce(opts: {
       if (def?.pushDevice && def.pushCommand) {
         await executeCommand({ ...opts, deviceId: def.pushDevice, commandId: def.pushCommand, value: opts.vars[step.setVar] });
       }
+      if (step.delayMsAfter) await sleep(step.delayMsAfter);
+      continue;
+    }
+    if (step.interfaceId) {
+      const payload = String(resolveTemplate(step.value, opts.vars, opts.config.variables) ?? "");
+      const result = await sendGatewayRaw({ config: opts.config, interfaceId: step.interfaceId, payload });
+      if (!result.ok) return result;
       if (step.delayMsAfter) await sleep(step.delayMsAfter);
       continue;
     }

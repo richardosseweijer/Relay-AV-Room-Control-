@@ -885,6 +885,32 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                         <input className={fieldClass()} type="number" value={iface.baud ?? gatewaySlot(iface.vendor, iface.slot)?.baudDefault ?? 9600} onChange={(e) => update((c) => { c.interfaces![ii]!.baud = Number(e.target.value); })} />
                       </label>
                     ) : null}
+                    <div className="sm:col-span-2 flex flex-wrap gap-2">
+                      <Button size="sm" variant="secondary" onClick={async () => {
+                        if (!iface.host) { flash("No IP", "Set the box IP first."); return; }
+                        const control = iface.controlPort ?? gatewayProfile(iface.vendor)?.controlPort ?? 23;
+                        const res = await pingHost(iface.host, control);
+                        flash(res.ok ? "SIS open" : "SIS closed", `${iface.host}:${control} · ${res.message}`);
+                      }}>Probe SIS</Button>
+                      {gatewaySlot(iface.vendor, iface.slot)?.mapPort != null ? (
+                        <Button size="sm" variant="secondary" onClick={async () => {
+                          if (!iface.host) { flash("No IP", "Set the box IP first."); return; }
+                          const map = gatewaySlot(iface.vendor, iface.slot)!.mapPort!;
+                          const res = await pingHost(iface.host, map);
+                          flash(res.ok ? "Slot open" : "Slot closed", `${iface.host}:${map} · ${res.message}`);
+                        }}>Probe slot</Button>
+                      ) : null}
+                      <Button size="sm" variant="secondary" onClick={async () => {
+                        if (!iface.host) { flash("No IP", "Set the box IP first."); return; }
+                        const profile = gatewayProfile(iface.vendor);
+                        const ports = [...new Set([
+                          iface.controlPort ?? profile?.controlPort ?? 23,
+                          ...(profile?.slots.map((s) => s.mapPort).filter((n): n is number => typeof n === "number") ?? []),
+                        ])];
+                        const res = await debugScan({ data: { token: token || "", host: iface.host, ports } });
+                        flash(res.ok ? "Open ports" : "No open ports", res.message);
+                      }}>Scan</Button>
+                    </div>
                   </>
                 ) : null}
                 {iface.kind === "serial" || iface.kind === "spi" || iface.kind === "ir" ? (
@@ -1012,13 +1038,17 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                             });
                           }}
                         >
-                          <select className={cn(fieldClass(), "sm:col-span-3")} value={step.macroId ? "__macro" : step.setVar ? "__var" : (step.device ?? "")} onChange={(e) => update((c) => {
+                          <select className={cn(fieldClass(), "sm:col-span-3")} value={step.macroId ? "__macro" : step.setVar ? "__var" : step.interfaceId ? `iface:${step.interfaceId}` : (step.device ?? "")} onChange={(e) => update((c) => {
                             const s = c.macros[mi]!.steps[si]!;
-                            if (e.target.value === "__var") { s.setVar = draft.variables[0]?.id ?? ""; s.device = undefined; s.macroId = null; }
-                            else if (e.target.value === "__macro") { s.macroId = draft.macros.find((m) => m.id !== macro.id)?.id ?? ""; s.device = undefined; s.setVar = null; s.command = undefined; }
-                            else { s.setVar = null; s.macroId = null; s.device = e.target.value; s.command = deviceCommands(snap, draft, e.target.value)[0]?.id; }
+                            if (e.target.value === "__var") { s.setVar = draft.variables[0]?.id ?? ""; s.device = undefined; s.macroId = null; s.interfaceId = null; }
+                            else if (e.target.value === "__macro") { s.macroId = draft.macros.find((m) => m.id !== macro.id)?.id ?? ""; s.device = undefined; s.setVar = null; s.command = undefined; s.interfaceId = null; }
+                            else if (e.target.value.startsWith("iface:")) { s.interfaceId = e.target.value.slice(6); s.device = undefined; s.setVar = null; s.macroId = null; s.command = "raw"; }
+                            else { s.setVar = null; s.macroId = null; s.interfaceId = null; s.device = e.target.value; s.command = deviceCommands(snap, draft, e.target.value)[0]?.id; }
                           })}>
                             {draft.devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                            {(draft.interfaces ?? []).filter((item) => isGatewayKind(item.kind)).map((item) => (
+                              <option key={item.id} value={`iface:${item.id}`}>{item.label} / {gatewaySlot(item.vendor, item.slot)?.label || item.slot || "slot"} (raw)</option>
+                            ))}
                             <option value="__macro">Run macro</option>
                             <option value="__var">Set variable</option>
                           </select>
@@ -1030,6 +1060,8 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                             <select className={cn(fieldClass(), "sm:col-span-3")} value={step.setVar} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.setVar = e.target.value; c.macros[mi]!.steps[si]!.command = undefined; })}>
                               {draft.variables.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
                             </select>
+                          ) : step.interfaceId ? (
+                            <span className="self-center text-xs text-muted sm:col-span-3">Raw to mapped port</span>
                           ) : (
                           <select className={cn(fieldClass(), "sm:col-span-3")} value={step.command ?? ""} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.command = e.target.value; })}>
                             {deviceCommands(snap, draft, step.device).map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
@@ -1040,7 +1072,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                             const drv = device ? snap.drivers[device.driver] : undefined;
                             const inventoryCmds = new Set((drv?.inventory?.resources ?? []).map((r) => r.useCommand).filter(Boolean));
                             const usesInventory = !!step.command && (inventoryCmds.has(step.command) || step.command.startsWith("var."));
-                            const needsValue = stepNeedsValue(snap, draft, step) || step.command === "ui.toast" || step.command === "ui.page" || step.command === "ui.block" || step.command === "macro.run";
+                            const needsValue = !!step.interfaceId || stepNeedsValue(snap, draft, step) || step.command === "ui.toast" || step.command === "ui.page" || step.command === "ui.block" || step.command === "macro.run";
                             return (
                               <>
                                 {usesInventory && device?.inventory && drv?.inventory?.resources?.length ? (
@@ -1050,7 +1082,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                                 ) : null}
                                 {needsValue || usesInventory ? (
                                   <label className="grid gap-1 text-xs text-muted sm:col-span-12">Value / message
-                                    <input className={fieldClass()} value={String(step.value ?? "")} placeholder="Hello room  or  tvPower=on  or  {var}" onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.value = e.target.value; })} />
+                                    <input className={fieldClass()} value={String(step.value ?? "")} placeholder={step.interfaceId ? "1*1]   or   power \"on\"\\r   or   hex:B06300" : "Hello room  or  tvPower=on  or  {var}"} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.value = e.target.value; })} />
                                   </label>
                                 ) : null}
                               </>
@@ -1170,15 +1202,38 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                       Enabled
                     </label>
                     <label className="grid gap-1 text-sm text-muted">Device
-                      <select className={fieldClass()} value={rule.device} onChange={(e) => update((c) => { c.monitors[ri]!.device = e.target.value; })}>
+                      <select className={fieldClass()} value={rule.interfaceId ? `iface:${rule.interfaceId}` : rule.device} onChange={(e) => update((c) => {
+                        if (e.target.value.startsWith("iface:")) {
+                          c.monitors[ri]!.interfaceId = e.target.value.slice(6);
+                          c.monitors[ri]!.device = "";
+                          c.monitors[ri]!.feedback = "raw";
+                        } else {
+                          c.monitors[ri]!.interfaceId = null;
+                          c.monitors[ri]!.device = e.target.value;
+                        }
+                      })}>
                         {draft.devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        {(draft.interfaces ?? []).filter((item) => isGatewayKind(item.kind)).map((item) => (
+                          <option key={item.id} value={`iface:${item.id}`}>{item.label} / {gatewaySlot(item.vendor, item.slot)?.label || item.slot || "slot"}</option>
+                        ))}
                       </select>
                     </label>
+                    {rule.interfaceId ? (
+                      <>
+                        <label className="grid gap-1 text-sm text-muted">Query
+                          <input className={fieldClass()} value={rule.query ?? ""} placeholder={'power_status ?\\r   or   1]'} onChange={(e) => update((c) => { c.monitors[ri]!.query = e.target.value; })} />
+                        </label>
+                        <label className="grid gap-1 text-sm text-muted sm:col-span-2">Parse regex
+                          <input className={fieldClass()} value={rule.parsePattern ?? ""} placeholder={'optional, e.g. "([^"]+)"'} onChange={(e) => update((c) => { c.monitors[ri]!.parsePattern = e.target.value; })} />
+                        </label>
+                      </>
+                    ) : (
                     <label className="grid gap-1 text-sm text-muted">Feedback
                       <select className={fieldClass()} value={rule.feedback} onChange={(e) => update((c) => { c.monitors[ri]!.feedback = e.target.value; })}>
                         {(driver?.feedback ?? []).map((fb) => <option key={fb.id} value={fb.id}>{fb.label}</option>)}
                       </select>
                     </label>
+                    )}
                     <label className="grid gap-1 text-sm text-muted">Poll ms<input className={fieldClass()} type="number" value={rule.pollMs} onChange={(e) => update((c) => { c.monitors[ri]!.pollMs = Number(e.target.value); })} /></label>
                     <label className="grid gap-1 text-sm text-muted">Write to variable
                       <select className={fieldClass()} value={rule.writeVar ?? ""} onChange={(e) => update((c) => { c.monitors[ri]!.writeVar = e.target.value || null; })}>

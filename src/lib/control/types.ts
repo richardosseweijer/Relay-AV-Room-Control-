@@ -241,6 +241,7 @@ export type MacroStep = {
   value?: string | number;
   setVar?: string | null;
   macroId?: string | null;
+  interfaceId?: string | null;
   skipIf?: { feedback: string; equals: string };
   raw?: boolean;
   delayMsAfter?: number;
@@ -294,6 +295,9 @@ export type MonitorRule = {
   enabled: boolean;
   device: string;
   feedback: string;
+  interfaceId?: string | null;
+  query?: string;
+  parsePattern?: string;
   pollMs: number;
   writeVar: string | null;
   errorVar?: string | null;
