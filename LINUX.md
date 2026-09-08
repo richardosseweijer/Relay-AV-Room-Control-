@@ -1,8 +1,8 @@
 # Relay — Linux / Raspberry Pi from a blank install
 
-Relay **0.7.3**. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
+Install **`main`** from GitHub (that is the supported tree). `package.json` may still say `0.7.3`; ignore that number and check `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
 
-Default configurator PIN after first start: `1234`. The app then requires a stronger PIN. Every tablet must unlock with the panel PIN; each tablet gets its own session (30 days, sliding).
+Default configurator PIN after first start: `1234`. Open `/config` once and set a stronger PIN. Every tablet must unlock with the panel PIN; each tablet gets its own session (30 days, sliding).
 
 Commands below are run in a terminal as a normal user that can use `sudo`.
 
@@ -84,20 +84,27 @@ Wiring is 3.3 V TTL, not RS-232 levels. A projector or Denon on the header needs
 
 ---
 
-## 4. Clone Relay
+## 4. Clone Relay (`main`)
+
+Do **not** use a zip, a tag (`v0.7.3`), or a copy of `dist/` from another machine. The in-app update and this guide both track **`origin/main`**.
 
 ```bash
 cd ~
-git clone https://github.com/richardosseweijer/Relay-AV-Room-Control-.git
+rm -rf ~/Relay-AV-Room-Control-
+git clone --branch main --single-branch https://github.com/richardosseweijer/Relay-AV-Room-Control-.git
 cd ~/Relay-AV-Room-Control-
-npm ci
+git fetch origin
+git checkout -B main origin/main
+git log -1 --oneline
+test -f src/lib/control/gateway.ts && echo "tree: current" || echo "tree: TOO OLD — fetch failed"
+npm ci --include=dev
 ```
 
-`npm ci` installs from the lockfile. Deprecation warnings from npm are normal.
+`git log -1` must print a commit on GitHub `main` (after 2026-09-08 this includes `gateway.ts`). `--include=dev` is required: systemd sets `NODE_ENV=production`, and Vite lives in devDependencies.
 
 The clone has no room file and no secrets file. Those appear under `data/` after the first start. Do not copy `data/relay-room.json` or `data/relay-secrets.json` from another machine unless you intend to move that room.
 
-A zip download works for a first run (`unzip`, then `cd` into the folder and `npm ci`). The in-app **Update from GitHub** button only works on a `git clone`.
+A zip cannot use **Update from GitHub**.
 
 ---
 
@@ -291,21 +298,37 @@ First install still needs a build before `systemctl enable`:
 
 ```bash
 cd ~/Relay-AV-Room-Control-
-npm ci
+npm ci --include=dev
 npm run build
 sudo systemctl enable --now relay
 ```
 
-Uncommitted local edits can block the pull. A zip-only copy cannot use the button.
+Uncommitted files (especially leftover `.vercel/`) block `git pull --ff-only`. A zip-only copy cannot use the button.
 
-Manual equivalent:
+Manual equivalent (use this if the button failed):
 
 ```bash
 cd ~/Relay-AV-Room-Control-
-git pull --ff-only
+sudo systemctl stop relay
+rm -rf .vercel
+git fetch origin
+git checkout -B main origin/main
+git log -1 --oneline
+test -f src/lib/control/gateway.ts && echo "tree: current" || echo "tree: TOO OLD"
 npm ci --include=dev
 npm run build
-sudo systemctl restart relay
+sudo systemctl start relay
+```
+
+`git checkout -B main origin/main` matches the published branch. It discards uncommitted edits in the clone (not `data/relay-*.json`).
+
+Check the running tree:
+
+```bash
+cd ~/Relay-AV-Room-Control-
+git rev-parse --short HEAD
+git log -1 --oneline
+git merge-base --is-ancestor origin/main HEAD && echo "matches origin/main" || echo "behind GitHub"
 ```
 
 Optional (only if you want the Node process itself to call `systemctl restart relay`):
