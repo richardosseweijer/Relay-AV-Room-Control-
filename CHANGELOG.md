@@ -7,7 +7,7 @@ Format: date, then bullets. Older work lives in `git log`.
 - Interfaces: `kind: gateway` (first profile: Extron IPL T SFI244). Device bind fills LAN host/port from the slot map (COM1→2001, COM2→2002, IR/I/O on SIS 23).
 - Driver `extron-ipl-t-sfi244.json` (SIS I/O, IR play, COM send).
 - Sony VPL-FHZ120L waits for ADCP `NOKEY` before commands.
-- In-app update: `npm ci --include=dev` so systemd `NODE_ENV=production` still installs Vite.
+- In-app update: `npm ci --include=dev` so systemd `NODE_ENV=production` still installs Vite. Clears leftover `.vercel/` before `git pull --ff-only origin main`; `npm run build` (Nitro `.vercel/output`, no `dist.next` swap).
 
 ## 2026-09-07 — control-plane hardening
 

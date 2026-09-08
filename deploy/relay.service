@@ -12,7 +12,6 @@ WorkingDirectory=/home/pi/Relay-AV-Room-Control-
 Environment=PATH=/usr/bin:/usr/local/bin
 Environment=PORT=8081
 Environment=NODE_ENV=production
-ExecStartPre=/usr/bin/test -d /home/pi/Relay-AV-Room-Control-/dist
 ExecStart=/usr/bin/npm run start
 Restart=always
 RestartSec=5

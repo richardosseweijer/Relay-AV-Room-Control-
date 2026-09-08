@@ -176,7 +176,7 @@ Room actions: export, import, clear configuration, restart Vite, update from Git
 
 Save all calls `persistNow()`. If either JSON file cannot be written, the save returns failure and the dirty flag stays set (issue #18: the two files are still separate renames).
 
-`system.update` (Room tab) requires a Git checkout. It runs `git pull --ff-only`, `npm ci --include=dev`, and `vite build --outDir dist.next`. A failed build leaves `dist/` alone. Under systemd the process is signalled and `Restart=always` starts the new tree. `--include=dev` is required because `vite preview` loads `vite.config.ts` plugins from devDependencies.
+`system.update` (Room tab) requires a Git checkout. It deletes leftover `.vercel/`, then `git fetch` + `git pull --ff-only origin main`, `npm ci --include=dev`, and `npm run build`. A failed pull or build leaves the running tree alone. Under systemd the process exits and `Restart=always` starts the new tree. Nitro writes `.vercel/output`, not `dist/`.
 
 ---
 

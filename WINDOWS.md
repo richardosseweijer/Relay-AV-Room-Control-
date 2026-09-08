@@ -93,7 +93,7 @@ Requires a git clone of [Relay-AV-Room-Control-](https://github.com/richardossew
 
 Configurator → Room → **Save all** → **Update from GitHub**.
 
-Runs `git pull --ff-only`, `npm ci --include=dev`, `vite build` into `dist.next`. A failed build leaves `dist/` alone. Then preview restarts. Log: `data\relay-update.log`. Uncommitted local edits can block the pull.
+Runs `git fetch`, `git pull --ff-only origin main`, `npm ci --include=dev`, `npm run build`. Leftover `.vercel/` is removed first. A failed pull or build leaves the running tree alone. Then preview restarts. Log: `data\relay-update.log`. Other uncommitted edits can still block the pull.
 
 ```bat
 cd C:\relay

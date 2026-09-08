@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * git pull --ff-only && npm ci && npm run build, then bounce Relay.
- * Build writes dist.next. On failure the running dist/ is left alone.
+ * git fetch + ff-only onto origin/main, npm ci --include=dev, npm run build.
+ * Nitro writes .vercel/output (not dist/). Leave a running tree in place if
+ * pull or build fails. systemd Restart=always bounces the process on exit.
  */
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -10,9 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const logFile = path.join(root, "data", "relay-update.log");
-const dist = path.join(root, "dist");
-const next = path.join(root, "dist.next");
-const prev = path.join(root, "dist.prev");
+const vercel = path.join(root, ".vercel");
 
 function log(line) {
   try {
@@ -32,7 +31,7 @@ function run(cmd, args) {
   if (r.stdout) log(r.stdout.trimEnd());
   if (r.stderr) log(r.stderr.trimEnd());
   if (r.status !== 0) {
-    log(`exit ${r.status} — leaving dist/ in place`);
+    log(`exit ${r.status} — leaving the running tree in place`);
     process.exit(r.status || 1);
   }
 }
@@ -42,30 +41,30 @@ if (!fs.existsSync(path.join(root, ".git"))) {
   process.exit(2);
 }
 
+try { fs.rmSync(vercel, { recursive: true, force: true }); } catch { /* ignore */ }
+
 const tag = process.env.RELAY_RELEASE || "";
-if (tag) run("git", ["fetch", "--tags"]);
-if (tag) run("git", ["checkout", "--force", `tags/${tag}`]);
-else run("git", ["pull", "--ff-only"]);
+if (tag) {
+  run("git", ["fetch", "--tags", "origin"]);
+  run("git", ["checkout", "--force", `tags/${tag}`]);
+} else {
+  run("git", ["fetch", "origin"]);
+  run("git", ["pull", "--ff-only", "origin", "main"]);
+}
 
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 run(npm, ["ci", "--include=dev"]);
-run(process.execPath, ["scripts/with-app-env.mjs", "vite", "build", "--outDir", "dist.next"]);
+run(npm, ["run", "build"]);
 
-try {
-  fs.rmSync(prev, { recursive: true, force: true });
-  if (fs.existsSync(dist)) fs.renameSync(dist, prev);
-  fs.renameSync(next, dist);
-  fs.rmSync(prev, { recursive: true, force: true });
-  log("dist/ replaced from dist.next");
-} catch (err) {
-  log(`dist swap failed: ${err instanceof Error ? err.message : err}`);
-  if (!fs.existsSync(dist) && fs.existsSync(prev)) fs.renameSync(prev, dist);
+if (!fs.existsSync(path.join(vercel, "output")) && !fs.existsSync(path.join(root, "dist"))) {
+  log("build produced neither .vercel/output nor dist/");
   process.exit(1);
 }
+log("build ok");
 
 if (process.env.INVOCATION_ID && process.platform !== "win32") {
   const main = Number(process.env.MAINPID || process.env.RELAY_PID || "");
-  log(main ? `signal ${main} for systemd Restart=always` : "no MAINPID — exit 1 so systemd restarts if this is the unit");
+  log(main ? `signal ${main} for systemd Restart=always` : "exit so systemd restarts");
   if (main) {
     try { process.kill(main, "SIGTERM"); } catch (err) { log(String(err)); }
   }

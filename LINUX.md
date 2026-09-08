@@ -180,7 +180,6 @@ WorkingDirectory=${HOME_DIR}/Relay-AV-Room-Control-
 Environment=PATH=/usr/bin:/usr/local/bin
 Environment=PORT=8081
 Environment=NODE_ENV=production
-ExecStartPre=/usr/bin/test -d ${HOME_DIR}/Relay-AV-Room-Control-/dist
 ExecStart=/usr/bin/npm run start
 Restart=always
 RestartSec=5
@@ -224,7 +223,6 @@ WorkingDirectory=/home/pi/Relay-AV-Room-Control-
 Environment=PATH=/usr/bin:/usr/local/bin
 Environment=PORT=8081
 Environment=NODE_ENV=production
-ExecStartPre=/usr/bin/test -d /home/pi/Relay-AV-Room-Control-/dist
 ExecStart=/usr/bin/npm run start
 Restart=always
 RestartSec=5
@@ -290,7 +288,7 @@ The application directory must be a clone of [Relay-AV-Room-Control-](https://gi
 
 Configurator → Room → **Save all**, then **Update from GitHub**. Confirm the warning.
 
-That runs `git pull --ff-only`, `npm ci --include=dev`, and `npm run build` into `dist.next`. If the build fails, the running `dist/` is left alone and Relay is not restarted. On success `dist/` is swapped and the process exits so systemd (`Restart=always`) starts the new build. Log: `data/relay-update.log`.
+That runs `git fetch`, `git pull --ff-only origin main`, `npm ci --include=dev`, and `npm run build`. Leftover `.vercel/` from the last Nitro build is deleted first so it cannot block the pull. If pull or build fails, the running tree is left alone and Relay is not restarted. On success the process exits so systemd (`Restart=always`) starts the new build. Log: `data/relay-update.log`.
 
 `NODE_ENV=production` (systemd) would otherwise skip Vite. `--include=dev` keeps it.
 
