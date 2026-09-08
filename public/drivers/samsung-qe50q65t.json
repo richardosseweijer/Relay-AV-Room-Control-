@@ -8,8 +8,8 @@
   },
   "transports": {
     "lan": {
-      "protocol": "websocket",
-      "port": 8001,
+      "protocol": "tls-websocket",
+      "port": 8002,
       "timeoutMs": 8000,
       "http": { "path": "/api/v2/channels/samsung.remote.control" }
     },

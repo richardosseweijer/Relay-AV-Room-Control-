@@ -745,7 +745,10 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                       <Button size="sm" variant="secondary" onClick={async () => {
                         const res = await authenticate({ data: { token: token || "", deviceId: device.id, host: device.host, port: device.port, driver: device.driver, auth: device.auth } });
                         const grabbed = res.pairedToken || res.message.match(/Token stored:\s*(\S+)/)?.[1];
-                        if (grabbed) update((c) => { c.devices[index]!.auth = { ...c.devices[index]!.auth, token: grabbed, paired: "yes" }; });
+                        if (grabbed) update((c) => {
+                          c.devices[index]!.auth = { ...c.devices[index]!.auth, token: grabbed, paired: "yes" };
+                          if (res.pairedPort) c.devices[index]!.port = res.pairedPort;
+                        });
                         flash(res.ok ? "Authenticated" : "Auth failed", res.message);
                       }}>Authenticate</Button>
                     ) : null}

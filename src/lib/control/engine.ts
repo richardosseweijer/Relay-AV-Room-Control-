@@ -478,7 +478,18 @@ async function tcpSessionWrite(
           await waitFor(session.passwordPrompt);
           const pass = auth[session.passwordFrom || "password"] || auth.password || "";
           if (pass) sock.write(`${pass}\r`);
-          await waitFor(session.readyContains);
+          if (session.readyContains) {
+            try {
+              await waitFor(session.readyContains);
+            } catch {
+              sock.write("NOKEY\r\n");
+              try {
+                await waitFor(session.readyContains);
+              } catch {
+                if (/password/i.test(buf)) throw new Error("Turn authentication off (got PASSWORD banner)");
+              }
+            }
+          }
           clearTimeout(timer);
           resolve();
         } catch (err) {
@@ -496,7 +507,7 @@ async function tcpSessionWrite(
     const onData = (d: Buffer | string) => { reply += d.toString(); };
     row.sock.on("data", onData);
     row.sock.write(payload);
-    await sleep(120);
+    await sleep(Math.min(800, Math.max(200, timeout / 8)));
     row.sock.off("data", onData);
     if (row.timer) clearTimeout(row.timer);
     row.timer = setTimeout(() => {
@@ -623,8 +634,9 @@ async function sendSamsungKey(host: string, port: number, payload: string, token
   const name = Buffer.from("Relay").toString("base64");
   const q = token ? `name=${name}&token=${encodeURIComponent(token)}` : `name=${name}`;
   const path = `/api/v2/channels/samsung.remote.control?${q}`;
-  const tls = port === 8002;
-  return sendControlSocket({ host, port, path, payload, timeout, tls });
+  const tls = port === 8002 || Boolean(token);
+  const usePort = tls ? 8002 : (port || 8001);
+  return sendControlSocket({ host, port: usePort, path, payload, timeout, tls });
 }
 
 function statusPlane(driver: DriverSpec, device: DeviceInstance, feedback?: { httpPath?: string }) {
@@ -912,7 +924,7 @@ export async function probeDevice(opts: { config: RoomConfig; drivers: Record<st
 }
 
 export async function scanDevicePorts(host: string, ports?: number[]) {
-  const list = ports ?? [80, 23, 2001, 2002, 8001, 8002, 8008, 8009, 4352, 51325, 51326, 51327];
+  const list = ports ?? [80, 23, 2001, 2002, 4352, 8001, 8002, 8008, 8009, 53484, 53595, 51325, 51326, 51327];
   const open: number[] = [];
   for (const port of list) {
     const res = await pingReachable({ host, port, timeoutMs: 400 });

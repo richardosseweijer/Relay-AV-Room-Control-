@@ -124,8 +124,8 @@ export const samsungQ65tDriver: DriverSpec = {
   },
   transports: {
     lan: {
-      protocol: "websocket",
-      port: 8001,
+      protocol: "tls-websocket",
+      port: 8002,
       timeoutMs: 8000,
       http: { path: "/api/v2/channels/samsung.remote.control" },
     },
@@ -271,14 +271,14 @@ export const sonyFhz120lDriver: DriverSpec = {
     manufacturer: "Sony",
     model: "VPL-FHZ120L",
     type: "projector",
-    notes: "ADCP TCP 53595. Enable ADCP in the web UI. Turn Requires Authentication OFF (banner must be NOKEY). Warm-up can take a minute after power on. PJLink 4352 is a separate driver.",
+    notes: "ADCP TCP 53595. Enable ADCP in the web UI. Requires Authentication OFF (banner NOKEY). Only one TCP client — close the projector web Control page. Commands use CR+LF. Warm-up can take a minute after power on. PJLink 4352 is a separate driver.",
   },
   transports: {
     lan: {
       protocol: "tcp",
       port: 53595,
-      timeoutMs: 4000,
-      lineEnding: "\r",
+      timeoutMs: 8000,
+      lineEnding: "\r\n",
       session: { readyContains: "nokey", keepMs: 20000 },
     },
   },
