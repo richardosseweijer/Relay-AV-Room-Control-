@@ -6,12 +6,14 @@ import type {
   DeviceStateMap,
   DriverCommand,
   DriverSpec,
+  HostInterface,
   InventoryItem,
   Macro,
   RoomConfig,
   TraceLine,
 } from "./types";
 import { inferPairingSteps } from "./schema";
+import { gatewayProfile, gatewaySlot, isGatewayKind } from "./gateway";
 import { applyMonitors, clampVar, resolveTemplate, type VarMap } from "./vars";
 
 const g = globalThis as typeof globalThis & { __relayTraces__?: Record<string, TraceLine[]> };
@@ -227,6 +229,33 @@ export async function listHostInterfaces(): Promise<{ ok: boolean; message: stri
     return { ok: false, message: err instanceof Error ? err.message : "scan failed", ports };
   }
   return { ok: true, message: ports.length ? `${ports.length} found` : "None found", ports };
+}
+
+export function wireThroughInterface(device: DeviceInstance, iface?: HostInterface): DeviceInstance {
+  if (!iface) return device;
+  if (isGatewayKind(iface.kind)) {
+    const profile = gatewayProfile(iface.vendor);
+    const slot = gatewaySlot(iface.vendor, iface.slot);
+    return {
+      ...device,
+      host: iface.host || device.host,
+      port: slot?.mapPort ?? iface.controlPort ?? profile?.controlPort ?? device.port,
+      transport: "lan",
+      baud: device.baud ?? iface.baud ?? slot?.baudDefault,
+      auth: { ...device.auth, ifaceKind: "gateway", gatewaySlot: iface.slot || "" },
+    };
+  }
+  return {
+    ...device,
+    interface: iface.path || device.interface,
+    port: iface.line ?? device.port,
+    baud: device.baud ?? iface.baud,
+    auth: { ...device.auth, ifaceKind: iface.kind || "", chip: iface.chip || "", pin: iface.line != null ? String(iface.line) : "" },
+  };
+}
+
+function usesLocalPort(iface?: HostInterface) {
+  return Boolean(iface && !isGatewayKind(iface.kind));
 }
 
 function localArg(value: string | number | undefined, re: RegExp) {
@@ -864,10 +893,12 @@ export async function probeDevice(opts: { config: RoomConfig; drivers: Record<st
   const driver = opts.drivers[device.driver];
   if (!driver) return { ok: false, message: "No driver" };
   if (opts.simulate ?? device.simulate) return { ok: true, message: "simulated" };
-  const host = opts.host ?? device.host;
+  const iface = opts.config.interfaces?.find((item) => item.id === device.interfaceId);
+  const wired = wireThroughInterface(device, iface);
+  const host = opts.host ?? wired.host;
   const probe = driver.probe;
   if (probe?.payload) {
-    const result = await sendLan(driver, { ...device, host }, probe.payload);
+    const result = await sendLan(driver, { ...wired, host }, probe.payload);
     if (!probe.success) return result;
     const hit = parseFeedback(probe.success, result.message);
     const matched = probe.success.type === "contains" || probe.success.type === "exact" ? Boolean(hit) : hit.length > 0;
@@ -875,13 +906,13 @@ export async function probeDevice(opts: { config: RoomConfig; drivers: Record<st
   }
   const status = driver.status;
   if (status?.path || driver.auth?.pairing?.discoverPath) {
-    return pingReachable({ host, port: status?.port ?? driver.auth?.pairing?.ports?.[0] ?? device.port ?? 80, path: status?.path ?? driver.auth?.pairing?.discoverPath ?? "/" });
+    return pingReachable({ host, port: status?.port ?? driver.auth?.pairing?.ports?.[0] ?? wired.port ?? 80, path: status?.path ?? driver.auth?.pairing?.discoverPath ?? "/" });
   }
-  return pingReachable({ host, port: device.port ?? driver.transports.lan?.port });
+  return pingReachable({ host, port: wired.port ?? driver.transports.lan?.port });
 }
 
 export async function scanDevicePorts(host: string, ports?: number[]) {
-  const list = ports ?? [80, 8001, 8002, 8008, 8009, 4352, 51325, 51326, 51327];
+  const list = ports ?? [80, 23, 2001, 2002, 8001, 8002, 8008, 8009, 4352, 51325, 51326, 51327];
   const open: number[] = [];
   for (const port of list) {
     const res = await pingReachable({ host, port, timeoutMs: 400 });
@@ -896,8 +927,8 @@ export async function sendRaw(opts: { config: RoomConfig; drivers: Record<string
   const driver = opts.drivers[device.driver];
   if (!driver) return { ok: false, message: "No driver" };
   const iface = opts.config.interfaces?.find((item) => item.id === device.interfaceId);
-  const wired = { ...device, interface: iface?.path || device.interface, auth: { ...device.auth, ifaceKind: iface?.kind || "" } };
-  return iface ? sendLocal(driver, wired, opts.payload) : sendLan(driver, wired, opts.payload);
+  const wired = wireThroughInterface(device, iface);
+  return usesLocalPort(iface) ? sendLocal(driver, wired, opts.payload) : sendLan(driver, wired, opts.payload);
 }
 
 export async function syncInventory(opts: { config: RoomConfig; drivers: Record<string, DriverSpec>; deviceId: string; vars?: Record<string, string | number> }): Promise<{ ok: boolean; message: string; inventory?: DeviceInventory }> {
@@ -1296,28 +1327,22 @@ export async function executeCommand(opts: {
     applySim(command, uiValue, slot);
     return { ok: true, message: "simulated" };
   }
-  const ctx = { host: device.host, port: device.port ?? driver.transports.lan?.port, id: device.id, vars: opts.vars };
-  const payload = renderPayload(command.payload, value, device.auth, ctx);
-  const path = command.httpPath ? renderPayload(command.httpPath, value, device.auth, ctx) : command.httpPath;
-  const wiredCommand = path ? { ...command, httpPath: path } : command;
   const iface = opts.config.interfaces?.find((item) => item.id === device.interfaceId);
-  const wired = {
-    ...device,
-    interface: iface?.path || device.interface,
-    port: iface?.line ?? device.port,
-    baud: device.baud ?? iface?.baud,
-    auth: { ...device.auth, ifaceKind: iface?.kind || "", chip: iface?.chip || "", pin: iface?.line != null ? String(iface.line) : "" },
-  };
+  const wired = wireThroughInterface(device, iface);
+  const ctx = { host: wired.host, port: wired.port ?? driver.transports.lan?.port, id: device.id, vars: opts.vars };
+  const payload = renderPayload(command.payload, value, wired.auth, ctx);
+  const path = command.httpPath ? renderPayload(command.httpPath, value, wired.auth, ctx) : command.httpPath;
+  const wiredCommand = path ? { ...command, httpPath: path } : command;
   if (command.wake?.protocol === "wol") {
-    const wol = await sendWol(device.auth?.mac || "", device.host);
+    const wol = await sendWol(device.auth?.mac || "", wired.host);
     pushTrace(device.id, "note", wol.message);
     if (!wol.ok && !payload) return wol;
     await sleep(driver.pacing?.powerOnDelayMs ?? 2500);
   }
-  let result = iface ? await sendLocal(driver, wired, payload) : await sendLan(driver, wired, payload, wiredCommand);
+  let result = usesLocalPort(iface) ? await sendLocal(driver, wired, payload) : await sendLan(driver, wired, payload, wiredCommand);
   if (!result.ok && command.wake?.protocol === "wol") {
     await sleep(2000);
-    result = iface ? await sendLocal(driver, wired, payload) : await sendLan(driver, wired, payload, wiredCommand);
+    result = usesLocalPort(iface) ? await sendLocal(driver, wired, payload) : await sendLan(driver, wired, payload, wiredCommand);
   }
   if (result.ok) applySim(command, uiValue, slot);
   return result;

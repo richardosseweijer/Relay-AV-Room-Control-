@@ -28,6 +28,7 @@ import {
   verifyConfigPin,
 } from "@/lib/control/actions";
 import type { DriverSpec, InventoryItem, RoomConfig, RoomSnapshot, Widget, WidgetColor } from "@/lib/control/types";
+import { GATEWAY_PROFILES, gatewayProfile, gatewaySlot, isGatewayKind } from "@/lib/control/gateway";
 import { deviceInUse, driverInUse, variableInUse } from "@/lib/control/vars";
 import { orphanBindings } from "@/lib/control/schema";
 import { Button } from "@/components/ui/button";
@@ -609,21 +610,41 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                       {Object.keys(snap.drivers).map((name) => <option key={name} value={name}>{name}</option>)}
                     </select>
                     <label className="grid gap-1 text-sm text-muted">Interface
-                      <select className={fieldClass()} value={device.interfaceId ?? ""} onChange={(e) => update((c) => { c.devices[index]!.interfaceId = e.target.value || null; c.devices[index]!.transport = e.target.value ? "local" : "lan"; })}>
+                      <select className={fieldClass()} value={device.interfaceId ?? ""} onChange={(e) => update((c) => {
+                        const id = e.target.value || null;
+                        const iface = (c.interfaces ?? []).find((item) => item.id === id);
+                        c.devices[index]!.interfaceId = id;
+                        if (!id) {
+                          c.devices[index]!.transport = "lan";
+                          return;
+                        }
+                        if (isGatewayKind(iface?.kind)) {
+                          const slot = gatewaySlot(iface?.vendor, iface?.slot);
+                          c.devices[index]!.transport = "lan";
+                          c.devices[index]!.host = iface?.host || c.devices[index]!.host;
+                          c.devices[index]!.port = slot?.mapPort ?? iface?.controlPort ?? gatewayProfile(iface?.vendor)?.controlPort;
+                          if (slot?.baudDefault && !c.devices[index]!.baud) c.devices[index]!.baud = slot.baudDefault;
+                        } else {
+                          c.devices[index]!.transport = "local";
+                        }
+                      })}>
                         <option value="">LAN</option>
                         {(draft.interfaces ?? []).map((iface) => (
-                          <option key={iface.id} value={iface.id}>{iface.label} ({iface.kind} {iface.path || iface.line || ""})</option>
+                          <option key={iface.id} value={iface.id}>{iface.label}{iface.slot ? ` / ${gatewaySlot(iface.vendor, iface.slot)?.label || iface.slot}` : iface.kind !== "gateway" ? ` (${iface.kind} ${iface.path || iface.line || ""})` : ""}</option>
                         ))}
                       </select>
                     </label>
                     {(() => {
                       const kind = (draft.interfaces ?? []).find((item) => item.id === device.interfaceId)?.kind;
+                      const bound = (draft.interfaces ?? []).find((item) => item.id === device.interfaceId);
+                      const gateway = isGatewayKind(kind);
+                      const comSlot = gatewaySlot(bound?.vendor, bound?.slot)?.mapPort != null;
                       const fields = driver?.auth?.instanceFields ?? [];
                       const needsToken = fields.includes("token") || (!fields.length && (!!driver?.auth?.pairing || driver?.auth?.type === "token"));
                       const needsSecret = driver?.auth?.type === "password" || fields.includes("password") || fields.includes("mac") || driver?.transports.lan?.protocol === "wol";
                       return (
                         <>
-                          {!kind ? (
+                          {!kind || gateway ? (
                             <>
                               <label className="grid gap-1 text-sm text-muted">IP
                                 <input className={fieldClass()} value={device.host} placeholder="10.0.0.10 or localhost" onChange={(e) => update((c) => { c.devices[index]!.host = e.target.value; })} />
@@ -633,7 +654,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                               </label>
                             </>
                           ) : null}
-                          {kind === "serial" ? (
+                          {kind === "serial" || comSlot ? (
                             <label className="grid gap-1 text-sm text-muted">Baud
                               <input className={fieldClass()} type="number" value={device.baud ?? driver?.transports.local?.baud ?? driver?.transports.rs232?.baud ?? 9600} onChange={(e) => update((c) => { c.devices[index]!.baud = Number(e.target.value); })} />
                             </label>
@@ -711,7 +732,10 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button size="sm" variant="secondary" onClick={async () => {
-                      if (device.interfaceId) { flash("Local port", "Probe is LAN only."); return; }
+                      if (device.interfaceId && !isGatewayKind((draft.interfaces ?? []).find((item) => item.id === device.interfaceId)?.kind)) {
+                        flash("Local port", "Probe is LAN only.");
+                        return;
+                      }
                       const probePort = driver?.auth?.pairing?.ports?.[0] ?? device.port ?? driver?.transports.lan?.port;
                       const probePath = driver?.auth?.pairing?.discoverPath || "/";
                       const res = await pingHost(device.host, probePort, probePath);
@@ -795,7 +819,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
         {tab === "interfaces" ? (
           <section className="grid gap-4">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm text-muted">Ports on this machine. Scan, then pick a path.</p>
+              <p className="text-sm text-muted">Ports on this machine, or a LAN I/O box (gateway).</p>
               <Button size="sm" variant="secondary" onClick={() => scanPorts()}>Scan</Button>
             </div>
             {(draft.interfaces ?? []).map((iface, ii) => {
@@ -806,15 +830,60 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                   <input className={fieldClass()} value={iface.label} onChange={(e) => update((c) => { c.interfaces = c.interfaces ?? []; c.interfaces[ii]!.label = e.target.value; })} />
                 </label>
                 <label className="grid gap-1 text-sm text-muted">Kind
-                <select className={fieldClass()} value={iface.kind} onChange={(e) => update((c) => { c.interfaces![ii]!.kind = e.target.value as typeof iface.kind; })}>
+                <select className={fieldClass()} value={iface.kind} onChange={(e) => update((c) => {
+                  const kind = e.target.value as typeof iface.kind;
+                  c.interfaces![ii]!.kind = kind;
+                  if (kind === "gateway") {
+                    c.interfaces![ii]!.vendor = c.interfaces![ii]!.vendor || "extron-ipl-t-sfi244";
+                    c.interfaces![ii]!.slot = c.interfaces![ii]!.slot || "com1";
+                    c.interfaces![ii]!.controlPort = c.interfaces![ii]!.controlPort || 23;
+                  }
+                })}>
                   <option value="serial">Serial / COM</option>
                   <option value="gpio">GPIO</option>
                   <option value="i2c">I2C</option>
                   <option value="spi">SPI</option>
                   <option value="ir">IR blaster</option>
                   <option value="cec">HDMI CEC</option>
+                  <option value="gateway">Gateway (IPL / I/O box)</option>
                 </select>
                 </label>
+                {iface.kind === "gateway" ? (
+                  <>
+                    <label className="grid gap-1 text-sm text-muted">Box
+                      <select className={fieldClass()} value={iface.vendor ?? "extron-ipl-t-sfi244"} onChange={(e) => update((c) => {
+                        const vendor = e.target.value;
+                        const profile = gatewayProfile(vendor);
+                        c.interfaces![ii]!.vendor = vendor;
+                        c.interfaces![ii]!.controlPort = profile?.controlPort;
+                        const slots = profile?.slots ?? [];
+                        if (!slots.some((s) => s.id === c.interfaces![ii]!.slot)) c.interfaces![ii]!.slot = slots[0]?.id;
+                      })}>
+                        {Object.values(GATEWAY_PROFILES).map((profile) => (
+                          <option key={profile.id} value={profile.id}>{profile.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="grid gap-1 text-sm text-muted">Slot
+                      <select className={fieldClass()} value={iface.slot ?? "com1"} onChange={(e) => update((c) => { c.interfaces![ii]!.slot = e.target.value; })}>
+                        {(gatewayProfile(iface.vendor)?.slots ?? []).map((slot) => (
+                          <option key={slot.id} value={slot.id}>{slot.label}{slot.mapPort ? ` → ${slot.mapPort}` : ""}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="grid gap-1 text-sm text-muted">IP
+                      <input className={fieldClass()} placeholder="10.0.0.10" value={iface.host ?? ""} onChange={(e) => update((c) => { c.interfaces![ii]!.host = e.target.value; })} />
+                    </label>
+                    <label className="grid gap-1 text-sm text-muted">Control port
+                      <input className={fieldClass()} type="number" value={iface.controlPort ?? gatewayProfile(iface.vendor)?.controlPort ?? 23} onChange={(e) => update((c) => { c.interfaces![ii]!.controlPort = Number(e.target.value); })} />
+                    </label>
+                    {gatewaySlot(iface.vendor, iface.slot)?.mapPort != null ? (
+                      <label className="grid gap-1 text-sm text-muted">Baud
+                        <input className={fieldClass()} type="number" value={iface.baud ?? gatewaySlot(iface.vendor, iface.slot)?.baudDefault ?? 9600} onChange={(e) => update((c) => { c.interfaces![ii]!.baud = Number(e.target.value); })} />
+                      </label>
+                    ) : null}
+                  </>
+                ) : null}
                 {iface.kind === "serial" || iface.kind === "spi" || iface.kind === "ir" ? (
                   <>
                   <label className="grid gap-1 text-sm text-muted">{iface.kind === "serial" ? "Port" : iface.kind === "spi" ? "SPI device" : "IR device"}
@@ -857,6 +926,19 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
               const first = hostPorts.find((p) => p.kind === "serial") ?? hostPorts[0];
               c.interfaces.push({ id: `if-${Date.now().toString(36)}`, label: first?.label || "Serial", kind: (first?.kind as "serial") || "serial", path: first?.path || "", baud: 9600 });
             })}>Add interface</Button>
+            <Button variant="secondary" onClick={() => update((c) => {
+              c.interfaces = c.interfaces ?? [];
+              c.interfaces.push({
+                id: `if-${Date.now().toString(36)}`,
+                label: "IPL T SFI244",
+                kind: "gateway",
+                vendor: "extron-ipl-t-sfi244",
+                host: "",
+                controlPort: 23,
+                slot: "com1",
+                baud: 9600,
+              });
+            })}>Add gateway</Button>
           </section>
         ) : null}
 

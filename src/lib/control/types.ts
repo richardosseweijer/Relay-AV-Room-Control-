@@ -1,5 +1,6 @@
 export type TransportName = "lan" | "rs232" | "local";
 export type LocalKind = "gpio" | "serial" | "i2c" | "spi" | "ir" | "cec";
+export type InterfaceKind = LocalKind | "gateway";
 export type CommandKind = "action" | "toggle" | "range" | "enum";
 export type ParseType = "regex" | "jsonpath" | "contains" | "exact" | "map";
 export type FeedbackKind = "enum" | "range" | "toggle" | "string" | "text";
@@ -311,7 +312,7 @@ export type Page = {
 export type HostInterface = {
   id: string;
   label: string;
-  kind: LocalKind;
+  kind: InterfaceKind;
   path?: string;
   chip?: string;
   line?: number;
@@ -319,6 +320,10 @@ export type HostInterface = {
   bus?: number;
   address?: string;
   speed?: number;
+  vendor?: string;
+  host?: string;
+  controlPort?: number;
+  slot?: string;
 };
 
 export type DeviceInstance = {

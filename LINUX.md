@@ -283,7 +283,9 @@ The application directory must be a clone of [Relay-AV-Room-Control-](https://gi
 
 Configurator → Room → **Save all**, then **Update from GitHub**. Confirm the warning.
 
-That runs `git pull --ff-only`, `npm ci`, and `npm run build` into `dist.next`. If the build fails, the running `dist/` is left alone and Relay is not restarted. On success `dist/` is swapped and the process exits so systemd (`Restart=always`) starts the new build. Log: `data/relay-update.log`.
+That runs `git pull --ff-only`, `npm ci --include=dev`, and `npm run build` into `dist.next`. If the build fails, the running `dist/` is left alone and Relay is not restarted. On success `dist/` is swapped and the process exits so systemd (`Restart=always`) starts the new build. Log: `data/relay-update.log`.
+
+`NODE_ENV=production` (systemd) would otherwise skip Vite. `--include=dev` keeps it.
 
 First install still needs a build before `systemctl enable`:
 
@@ -301,7 +303,7 @@ Manual equivalent:
 ```bash
 cd ~/Relay-AV-Room-Control-
 git pull --ff-only
-npm ci
+npm ci --include=dev
 npm run build
 sudo systemctl restart relay
 ```

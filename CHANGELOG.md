@@ -2,6 +2,13 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 2026-09-08 — gateway interfaces and Pi update
+
+- Interfaces: `kind: gateway` (first profile: Extron IPL T SFI244). Device bind fills LAN host/port from the slot map (COM1→2001, COM2→2002, IR/I/O on SIS 23).
+- Driver `extron-ipl-t-sfi244.json` (SIS I/O, IR play, COM send).
+- Sony VPL-FHZ120L waits for ADCP `NOKEY` before commands.
+- In-app update: `npm ci --include=dev` so systemd `NODE_ENV=production` still installs Vite.
+
 ## 2026-09-07 — control-plane hardening
 
 - Atomic persist: secrets then room, fsync + rename. Failed second write restores the previous secrets file.

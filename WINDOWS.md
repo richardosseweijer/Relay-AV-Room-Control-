@@ -93,12 +93,12 @@ Requires a git clone of [Relay-AV-Room-Control-](https://github.com/richardossew
 
 Configurator → Room → **Save all** → **Update from GitHub**.
 
-Runs `git pull --ff-only`, `npm ci`, `vite build` into `dist.next`. A failed build leaves `dist/` alone. Then preview restarts. Log: `data\relay-update.log`. Uncommitted local edits can block the pull.
+Runs `git pull --ff-only`, `npm ci --include=dev`, `vite build` into `dist.next`. A failed build leaves `dist/` alone. Then preview restarts. Log: `data\relay-update.log`. Uncommitted local edits can block the pull.
 
 ```bat
 cd C:\relay
 git pull --ff-only
-npm ci
+npm ci --include=dev
 npm run build
 npm start
 ```
@@ -106,7 +106,7 @@ npm start
 ```bat
 cd C:\relay
 git pull --ff-only
-npm ci
+npm ci --include=dev
 npm run dev
 ```
 

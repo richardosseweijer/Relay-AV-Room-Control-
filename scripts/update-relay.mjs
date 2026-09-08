@@ -48,7 +48,7 @@ if (tag) run("git", ["checkout", "--force", `tags/${tag}`]);
 else run("git", ["pull", "--ff-only"]);
 
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-run(npm, ["ci"]);
+run(npm, ["ci", "--include=dev"]);
 run(process.execPath, ["scripts/with-app-env.mjs", "vite", "build", "--outDir", "dist.next"]);
 
 try {
