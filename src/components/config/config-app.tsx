@@ -252,9 +252,9 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
   }, [token]);
 
   useEffect(() => {
-    const id = window.setInterval(() => { loadRoom().then(setSnap).catch(() => undefined); }, 8000);
+    const id = window.setInterval(() => { refresh().catch(() => undefined); }, 8000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     let misses = 0;
@@ -759,6 +759,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                             if (isCommand) {
                               const res = await fireCommand({ data: { deviceId: device.id, commandId: id, raw: true, token: token || "" } });
                               flash(res.ok ? id : `${id} failed`, res.message);
+                              await refresh();
                               return;
                             }
                             update((c) => {
@@ -780,6 +781,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                       const probePath = driver?.auth?.pairing?.discoverPath || "/";
                       const res = await pingHost(device.host, probePort, probePath);
                       flash(res.ok ? "Reachable" : "No answer", res.message);
+                      await refresh();
                     }}>Probe</Button>
                     {driver?.auth?.pairing ? (
                       <Button size="sm" variant="secondary" onClick={async () => {
@@ -790,6 +792,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                           if (res.pairedPort) c.devices[index]!.port = res.pairedPort;
                         });
                         flash(res.ok ? "Authenticated" : "Auth failed", res.message);
+                        await refresh();
                       }}>Authenticate</Button>
                     ) : null}
                     {driver?.inventory?.resources?.length ? (
@@ -797,12 +800,14 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                         const res = await pullInventory({ data: { token: token || "", deviceId: device.id, host: device.host, port: device.port, driver: device.driver, auth: device.auth, simulate: device.simulate } });
                         if (res.inventory) update((c) => { c.devices[index]!.inventory = res.inventory; });
                         flash(res.ok ? "Inventory" : "Sync failed", res.message);
+                        await refresh();
                       }}>Sync inventory</Button>
                     ) : null}
                     <Button size="sm" variant="secondary" onClick={async () => {
                       const ports = [...new Set([device.port, driver?.transports.lan?.port, ...(driver?.auth?.pairing?.ports ?? [])].filter((n): n is number => typeof n === "number"))];
                       const res = await debugScan({ data: { token: token || "", host: device.host, ports } });
                       flash(res.ok ? "Open ports" : "No open ports", res.message);
+                      await refresh();
                     }}>Scan ports</Button>
                     <Button size="sm" variant="danger" onClick={() => {
                       const used = deviceInUse(draft, device.id);
@@ -822,17 +827,19 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                         const res = await pullInventory({ data: { token: token || "", deviceId: device.id, host: device.host, port: device.port, driver: device.driver, auth: device.auth, simulate: device.simulate } });
                         if (res.inventory) update((c) => { c.devices[index]!.inventory = res.inventory; });
                         flash(res.ok ? "Inventory" : "Sync failed", res.message);
+                        await refresh();
                       }}
                       onUse={async (command, id) => {
                         const res = await fireCommand({ data: { deviceId: device.id, commandId: command, value: command === "var.set" ? `${id}=` : id, raw: true, token: token || "" } });
                         flash(res.ok ? command : `${command} failed`, res.message);
+                        await refresh();
                       }}
                     />
                   ) : null}
                   {snap.health?.[device.id] && !snap.health[device.id]!.ok ? (
                     <div className="mt-2 flex items-center gap-2 text-sm text-clay">
                       {snap.health[device.id]!.message}
-                      <Button size="sm" variant="secondary" onClick={async () => { await clearDeviceError({ data: { deviceId: device.id, token: token || "" } }); }}>Retry</Button>
+                      <Button size="sm" variant="secondary" onClick={async () => { await clearDeviceError({ data: { deviceId: device.id, token: token || "" } }); await refresh(); }}>Retry</Button>
                     </div>
                   ) : null}
                   <textarea className={`${fieldClass()} mt-3 min-h-16 font-mono text-xs`} placeholder="Raw payload" id={`raw-${device.id}`} />
@@ -840,10 +847,14 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                     const el = document.getElementById(`raw-${device.id}`) as HTMLTextAreaElement | null;
                     const res = await debugSend({ data: { token: token || "", deviceId: device.id, payload: el?.value ?? "", host: device.host, port: device.port, driver: device.driver, auth: device.auth } });
                     flash(res.ok ? "Raw reply" : "Raw failed", res.message);
+                    await refresh();
                   }}>Send raw</Button>
                   <ol className="mt-2 max-h-32 overflow-auto font-mono text-[11px] text-muted">
-                    {(snap.traces?.[device.id] ?? []).map((line) => (
-                      <li key={`${line.at}-${line.dir}`}>{line.dir} {line.text}</li>
+                    {[
+                      ...(snap.traces?.[device.id] ?? []),
+                      ...(device.interfaceId && device.interfaceId !== device.id ? (snap.traces?.[device.interfaceId] ?? []) : []),
+                    ].sort((a, b) => b.at - a.at).map((line, i) => (
+                      <li key={`${line.at}-${line.dir}-${i}`}>{line.dir} {line.text}</li>
                     ))}
                   </ol>
                   </>
