@@ -18,6 +18,7 @@ Format: date, then bullets. Older work lives in `git log`.
 - Delayed trigger edges reserve their execution before waiting, preventing duplicate macro runs.
 - Server startup loads persisted state and starts automation before the first API request.
 - In-app updates build and probe an isolated worktree; failed activation restores and restarts the previous release.
+- Added a Sonos S1/S2 LAN driver for transport, mute, volume, and playback-state control over the player HTTP endpoint.
 - Docs (SECURITY, KNOWN_ISSUES, README, LINUX): panelAccess vs externalControl; firewall as an install step; closed stale tracker issues #17 #19 #20 #21.
 
 ## 2026-09-08 — gateway interfaces and Pi update

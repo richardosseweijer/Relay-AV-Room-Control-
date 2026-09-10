@@ -160,6 +160,7 @@ export type DriverCommand = {
   namespace?: string;
   httpPath?: string;
   httpMethod?: string;
+  httpHeaders?: Record<string, string>;
   min?: number;
   max?: number;
   step?: number;
