@@ -7,15 +7,16 @@ Format: date, then bullets. Older work lives in `git log`.
 - Tag `v0.8.0`. Still beta; not production-certified.
 - Gateway interfaces (IPL T SFI244), MPS 602 SIS (`input.source`), generic PC WOL + RPC/HTTP shutdown.
 - Triggers with extra true/false checks; monitor auto-vars `MON_*`; 500 ms gateway polls.
-- Open on LAN does not require a panel PIN. New buttons are 1×1 bound to hidden None.
+- Panel access default remains **pin**. **Open on LAN** skips the panel PIN and mints a shared panel session; that is not `externalControl`. New buttons are 1×1 bound to hidden None.
 - Chromecast Play/Pause use the live media session and app transport. Button icons pin to the right.
 - Room tab shows package version + git SHA. In-app updates are staged and readiness-checked before activation.
 - PIN validation/redaction (PR #22). Empty number fields no longer force 0.
-- Room and secrets persistence uses a durable paired transaction and maintains matching `.good` files for crash recovery.
+- Room and secrets persistence uses a durable paired transaction and matching `.good` files. A corrupt journal is moved aside; the last-good pair is kept.
 - HTTP command, monitor, and peer response bodies stay under their timeout and size limit.
 - Delayed trigger edges reserve their execution before waiting, preventing duplicate macro runs.
 - Server startup loads persisted state and starts automation before the first API request.
 - In-app updates build and probe an isolated worktree; failed activation restores and restarts the previous release.
+- Docs (SECURITY, KNOWN_ISSUES, README, LINUX): panelAccess vs externalControl; firewall as an install step; closed stale tracker issues #17 #19 #20 #21.
 
 ## 2026-09-08 — gateway interfaces and Pi update
 
