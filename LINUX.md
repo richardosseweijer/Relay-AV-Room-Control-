@@ -2,7 +2,9 @@
 
 Install **`main`** from GitHub (that is the supported tree). Current package version is **0.8.0** (beta). Confirm with the Room tab version field or `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
 
-Default configurator PIN after first start: `1234`. Open `/config` once and set a stronger PIN. Every tablet must unlock with the panel PIN; each tablet gets its own session (30 days, sliding).
+Default configurator PIN after first start: `1234`. Open `/config` once and set a stronger PIN. New rooms default to **Panel PIN**: every tablet unlocks with that PIN and gets its own session (30 days, sliding). **Open on LAN** is a separate Security setting that skips the panel PIN for anyone who can reach port 8081 — use it only on the room VLAN. Do not confuse it with **open LAN control** (unauthenticated `fireCommand`). See `SECURITY.md`.
+
+This host speaks HTTP on `0.0.0.0:8081`. Before you call the install finished, restrict that port to the room VLAN (ufw, nftables, or the router). Do not port-forward 8081.
 
 Commands below are run in a terminal as a normal user that can use `sudo`.
 
@@ -124,7 +126,6 @@ npm start
 
 Leave that terminal open. You should see `Local: http://localhost:8081/`.
 
-
 Optional: store secrets off the card you back up.
 
 ```bash
@@ -140,7 +141,24 @@ export RELAY_SECRETS_FILE=/var/lib/relay/secrets.json
 
 Stop the test process with Ctrl+C.
 
-If the page never loads, check that nothing else is bound to 8081 (`ss -lptn | grep 8081`) and that a host firewall is not blocking the port (`sudo ufw allow 8081/tcp` when ufw is active). Do not forward 8081 to the public internet.
+If the page never loads, check that nothing else is bound to 8081 (`ss -lptn | grep 8081`).
+
+### 5b. Firewall (required before tablets live on the LAN)
+
+The process listens on all interfaces. Limit who may connect:
+
+```bash
+sudo apt-get install -y ufw
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow from 192.168.0.0/16 to any port 8081 proto tcp
+# add 10.0.0.0/8 and 172.16.0.0/12 if those are your room nets
+sudo ufw allow OpenSSH
+sudo ufw enable
+sudo ufw status
+```
+
+Adjust the CIDR to the actual room VLAN. Do not `ufw allow 8081/tcp` from anywhere, and do not forward 8081 to the public internet.
 
 ---
 
@@ -348,7 +366,7 @@ Room configuration is stored in `data/relay-room.json` (layout, IPs) and `data/r
 
 ## Notes
 
-- Keep Relay on a private LAN. Do not port-forward 8081.
+- Keep Relay on a private LAN. Do not port-forward 8081. Finish §5b before tablets live on the network.
 - Serial, GPIO, and CEC only work on the machine that has the hardware.
 - Supported run: `npm start` on 8081 after `npm run build`. Dev is `npm run dev` on 8080.
 - Check a driver file: `npm run driver:check -- data/drivers/samsung-qe50q65t.json`
