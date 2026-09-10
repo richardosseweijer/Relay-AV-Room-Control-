@@ -16,6 +16,7 @@ import { NONE_MACRO_ID } from "./types";
 import { inferPairingSteps } from "./schema";
 import { gatewayProfile, gatewaySlot, isGatewayKind } from "./gateway";
 import { applyMonitors, clampVar, resolveTemplate, type VarMap } from "./vars";
+import { fetchTextBounded } from "./http-client";
 
 const g = globalThis as typeof globalThis & { __relayTraces__?: Record<string, TraceLine[]> };
 
@@ -523,23 +524,25 @@ async function tcpSessionWrite(
   }
 }
 
-async function sendHttp(url: string, method: string, body: string, timeout: number): Promise<CommandResult> {
+export async function sendHttp(
+  url: string,
+  method: string,
+  body: string,
+  timeout: number,
+  limits: { maxBytes?: number; maxMessageChars?: number } = {},
+): Promise<CommandResult> {
   try {
     const verb = method.toUpperCase();
     let target = url;
     if ((verb === "GET" || verb === "HEAD") && body) {
       target += (url.includes("?") ? "&" : "?") + body.replace(/^\?/, "");
     }
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), timeout);
-    const res = await fetch(target, {
+    const res = await fetchTextBounded(target, {
       method: verb,
       body: verb === "GET" || verb === "HEAD" ? undefined : body,
       headers: { "content-type": "application/json" },
-      signal: ctrl.signal,
-    });
-    clearTimeout(t);
-    return { ok: res.ok, message: (await res.text()).slice(0, 400) || String(res.status) };
+    }, timeout, limits.maxBytes);
+    return { ok: res.ok, message: res.text.slice(0, limits.maxMessageChars ?? 400) || String(res.status) };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "http failed" };
   }
@@ -1082,7 +1085,7 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
     if (!isLocalRelayHost(device.host)) {
       try {
         const res = await signedPeerFetch(device, "GET", "/api/peer");
-        const parsed = await res.json() as {
+        const parsed = JSON.parse(res.text) as {
           ok?: boolean;
           message?: string;
           vars?: Record<string, { name?: string; value?: string | number }>;
@@ -1119,7 +1122,12 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
   for (const resource of resources) {
     const path = renderPayload(resource.httpPath, undefined, device.auth, { host: device.host, port: device.port, id: device.id });
     const url = `http://${device.host}:${device.port ?? driver.transports.lan?.port ?? 80}${path}`;
-    const res = await sendHttp(url, resource.httpMethod || "GET", "", 3000);
+    const inventoryLimit = 2 * 1024 * 1024;
+    const res = await sendHttp(url, resource.httpMethod || "GET", "", 8000, {
+      maxBytes: inventoryLimit,
+      maxMessageChars: inventoryLimit,
+    });
+    if (!res.ok) return { ok: false, message: res.message };
     const items: InventoryItem[] = [];
     try {
       const parsed = JSON.parse(res.message) as Record<string, { name?: string; value?: string | number; group?: string; type?: string; class?: string }>;
@@ -1253,7 +1261,7 @@ export async function readMonitorValue(opts: {
     if (!isLocalRelayHost(device.host)) {
       try {
         const res = await signedPeerFetch(device, "GET", "/api/peer");
-        const parsed = await res.json() as { host?: { dim?: boolean; locked?: boolean }; vars?: Record<string, { value?: string | number }> };
+        const parsed = JSON.parse(res.text) as { host?: { dim?: boolean; locked?: boolean }; vars?: Record<string, { value?: string | number }> };
         let value = "";
         if (opts.feedbackId === "panel.locked") value = parsed.host?.locked ? "1" : "0";
         else if (opts.feedbackId === "display.dimmed") value = parsed.host?.dim ? "1" : "0";
@@ -1283,10 +1291,9 @@ export async function readMonitorValue(opts: {
   if (statusUrl) {
     const url = statusUrl;
     try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 2000);
-      const text = await (await fetch(url, { signal: ctrl.signal })).text();
-      clearTimeout(t);
+      const response = await fetchTextBounded(url, {}, 2000);
+      if (!response.ok) return { ok: false, value: "", message: response.text || String(response.status) };
+      const text = response.text;
       const power = pickJsonField(text, "device.PowerState");
       const parsed = opts.feedbackId.includes("power") && power ? power : parseFeedback(fb.parse, text);
       const value = parsed.toLowerCase() === "standby" ? "off" : parsed.toLowerCase();
@@ -1424,11 +1431,11 @@ async function signedPeerFetch(device: { host: string; port?: number; auth?: Rec
   const { signPeer } = await import("./peer-auth");
   const headers: Record<string, string> = { "x-relay-ts": ts, "x-relay-auth": key ? signPeer(key, method, path, ts, payload) : "" };
   if (method !== "GET") headers["content-type"] = "application/json";
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 8000);
-  const res = await fetch(relayPeerUrl(device, path), { method, headers, body: method === "GET" ? undefined : payload, signal: ctrl.signal });
-  clearTimeout(t);
-  return res;
+  return fetchTextBounded(relayPeerUrl(device, path), {
+    method,
+    headers,
+    body: method === "GET" ? undefined : payload,
+  }, 8000, 2 * 1024 * 1024);
 }
 
 async function callRelayPeer(
@@ -1440,7 +1447,7 @@ async function callRelayPeer(
   const payload = method === "GET" ? "" : JSON.stringify(body ?? {});
   try {
     const res = await signedPeerFetch(device, method, path, payload);
-    const text = await res.text();
+    const text = res.text;
     try {
       const parsed = JSON.parse(text) as { ok?: boolean; message?: string };
       return { ok: parsed.ok !== false && res.ok, message: parsed.message || text.slice(0, 200) };

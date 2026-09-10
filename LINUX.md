@@ -289,7 +289,7 @@ The application directory must be a clone of [Relay-AV-Room-Control-](https://gi
 
 Configurator → Room → **Save all**, then **Update from GitHub**. Confirm the warning.
 
-That runs `git fetch`, `git pull --ff-only origin main`, copies `.vercel` → `.vercel.prev`, then `npm ci --include=dev` and `npm run build`. If ci/build fail, the previous `.vercel` is put back and Relay is not restarted. On success the process exits so systemd (`Restart=always`) starts the new build. Log: `data/relay-update.log`. After a successful update, Room tab version should match `git log -1` (for example `0.8.0 (669fae5)`).
+That fetches the release into a separate git worktree, runs `npm ci --include=dev`, builds it, and checks its `/api/room` response before changing the live checkout. A failed stage leaves the running release untouched. After the verified files are switched, systemd restarts Relay; without systemd the updater starts the release and restores and restarts the previous one if readiness fails. Log: `data/relay-update.log`. After a successful update, Room tab version should match `git log -1` (for example `0.8.0 (669fae5)`).
 
 `NODE_ENV=production` (systemd) would otherwise skip Vite. `--include=dev` keeps it.
 

@@ -3,8 +3,8 @@ import { readMonitorValue, runMacro, traces, scrubSecret } from "./engine";
 import type { DeviceHealth, DeviceStateMap, DriverSpec, LogEntry, Macro, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
 import { NONE_MACRO_ID, noneMacro } from "./types";
 import { applyMonitors, clampVar, resolveTemplate, seedVars, withMonitorVars, monitorVarId, type VarMap } from "./vars";
-import { scheduleShouldRun, triggerPathHit, triggerStep } from "./logic-policy";
-import { persistPair } from "../../../scripts/write-atomic.mjs";
+import { scheduleShouldRun, TriggerReservations, triggerPathHit, triggerStep } from "./logic-policy";
+import { persistPair, recoverPersistPair } from "../../../scripts/write-atomic.mjs";
 import { mkdir, readFile, writeFile, readdir, unlink, access, rename } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -91,6 +91,7 @@ const lastTriggerFire = new Map<string, number>();
 const lastTriggerHeld = new Map<string, number>();
 const goodPolls = new Map<string, number>();
 const triggerQueue: { id: string; macroId: string; label: string; path: "t" | "f" }[] = [];
+const pendingTriggers = new TriggerReservations();
 
 type SecretFile = {
   configPin?: string;
@@ -231,15 +232,28 @@ export function memory(): Memory {
   return g.__relayMemory__;
 }
 
+async function readSecretCandidate(file: string): Promise<SecretFile> {
+  try {
+    await access(file);
+  } catch {
+    return {};
+  }
+  return JSON.parse(await readFile(file, "utf8")) as SecretFile;
+}
+
 export async function loadPersisted(): Promise<Memory> {
   const mem = memory();
+  recoverPersistPair(SECRET_STORE, FILE_STORE);
   const files = [FILE_STORE, `${FILE_STORE}.good`];
   for (const file of files) {
   try {
     const raw = await readFile(file, "utf8");
     const saved = JSON.parse(raw) as { config?: RoomConfig; drivers?: Record<string, DriverSpec>; state?: DeviceStateMap; vars?: VarMap; latches?: Record<string, string>; stamps?: Record<string, string> };
     if (saved.config) {
-      const fromDisk = await readSecretFile();
+      const secretFile = file === FILE_STORE ? SECRET_STORE : `${SECRET_STORE}.good`;
+      // A missing secrets file is valid for a legacy room. A corrupt one is
+      // not: reject this candidate so its matching last-good pair is tried.
+      const fromDisk = await readSecretCandidate(secretFile);
       const fromRoom = pickSecrets(saved.config);
       mem.config = applySecrets(normalize(saved.config), {
         configPin: fromDisk.configPin || fromRoom.configPin,
@@ -461,7 +475,7 @@ async function runDueSchedules() {
 }
 
 
-async function runDueTriggers() {
+export async function runDueTriggers() {
   const mem = memory();
   const now = Date.now();
   const value = (raw: string) => String(resolveTemplate(raw, mem.vars, mem.config.variables) ?? raw);
@@ -501,17 +515,28 @@ async function runDueTriggers() {
       if (rule.mode === "change" && now - (lastTriggerFire.get(key) ?? 0) < 400) continue;
       const macro = mem.config.macros.find((m) => m.id === macroId);
       if (!macro) continue;
-      if (triggerQueue.some((item) => item.id === rule.id && item.path === path)) continue;
+      if (pendingTriggers.has(key) || triggerQueue.some((item) => item.id === rule.id && item.path === path)) continue;
       const job = { id: rule.id, macroId, label: rule.label, path };
       if (mem.runningMacro) {
         triggerQueue.push(job);
+        pendingTriggers.reserve(key);
         lastTriggerValue.set(key, "true:");
         continue;
       }
       const waitMs = Math.min((rule.delaySec || 0) * 1000, 120_000);
+      if (!pendingTriggers.reserve(key)) continue;
+      lastTriggerValue.set(key, "true:");
       void (async () => {
-        if (waitMs) await new Promise((r) => setTimeout(r, waitMs));
-        await runQueuedTrigger(job, macro);
+        try {
+          if (waitMs) await new Promise((r) => setTimeout(r, waitMs));
+          const live = memory();
+          const current = live.config.macros.find((item) => item.id === macro.id);
+          if (current) await runQueuedTrigger(job, current);
+        } catch (err) {
+          pushLog({ kind: "macro", ok: false, title: `Trigger ${job.label}`, detail: err instanceof Error ? err.message : "trigger failed" });
+        } finally {
+          if (!triggerQueue.some((item) => item.id === job.id && item.path === job.path)) pendingTriggers.release(key);
+        }
       })();
     }
   }
@@ -521,32 +546,47 @@ async function runQueuedTrigger(job: { id: string; macroId: string; label: strin
   const live = memory();
   const rule = (live.config.triggers ?? []).find((item) => item.id === job.id);
   const key = `${job.id}:${job.path}`;
-  if (rule?.variable) {
+  if (!rule?.enabled || !rule.variable || (rule.macroId !== job.macroId && rule.falseMacroId !== job.macroId)) {
+    pendingTriggers.release(key);
+    return;
+  }
+  if (rule.variable) {
     const value = (raw: string) => String(resolveTemplate(raw, live.vars, live.config.variables) ?? raw);
     if (!triggerPathHit(rule, live.vars, job.path, value)) {
       lastTriggerValue.set(key, "false:");
       lastTriggerHeld.delete(key);
+      pendingTriggers.release(key);
       return;
     }
   }
   if (live.runningMacro) {
-    if (!triggerQueue.some((item) => item.id === job.id && item.path === job.path)) triggerQueue.push(job);
+    if (!triggerQueue.some((item) => item.id === job.id && item.path === job.path)) {
+      triggerQueue.push(job);
+      pendingTriggers.reserve(key);
+    }
     return;
   }
   live.runningMacro = macro.id;
-  const result = await runMacro({ config: live.config, drivers: live.drivers, state: live.state, vars: live.vars, health: live.health ?? (live.health = {}), macro, host: live.host });
-  live.runningMacro = null;
-  if (result.ok) {
-    lastTriggerValue.set(key, "true:");
-    lastTriggerFire.set(key, Date.now());
-    live.activeScene = macro.id;
+  try {
+    const result = await runMacro({ config: live.config, drivers: live.drivers, state: live.state, vars: live.vars, health: live.health ?? (live.health = {}), macro, host: live.host });
+    if (result.ok) {
+      lastTriggerValue.set(key, "true:");
+      lastTriggerFire.set(key, Date.now());
+      live.activeScene = macro.id;
+    }
+    if (!result.ok && live.host?.block) live.host.block = null;
+    pushLog({ kind: "macro", ok: result.ok, title: `Trigger ${job.label}`, detail: result.message });
+  } catch (err) {
+    pushLog({ kind: "macro", ok: false, title: `Trigger ${job.label}`, detail: err instanceof Error ? err.message : "trigger failed" });
+  } finally {
+    live.runningMacro = null;
+    pendingTriggers.release(key);
   }
-  if (!result.ok && live.host?.block) live.host.block = null;
-  pushLog({ kind: "macro", ok: result.ok, title: `Trigger ${job.label}`, detail: result.message });
   const next = triggerQueue.shift();
   if (!next) return;
   const nested = live.config.macros.find((m) => m.id === next.macroId);
   if (nested) await runQueuedTrigger(next, nested);
+  else pendingTriggers.release(`${next.id}:${next.path}`);
 }
 
 let monitorsBusy = false;

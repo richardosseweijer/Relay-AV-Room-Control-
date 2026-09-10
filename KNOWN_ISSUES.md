@@ -31,8 +31,7 @@
 
 ## Config / engine
 
-- Corrupt `data/relay-room.json`: boot falls back to an empty room. The bad file is renamed `.bad`. Last-good copy is `.good`.
+- Corrupt primary room or secrets data makes boot try the matching `.good` pair, then an empty room if no valid pair remains. The bad room file is renamed `.bad`.
 - Empty schedule `days` skips the job (never runs; pick at least one day).
 - PINs are scrypt hashes. Peer secret, session secrets, and device tokens stay in `data/relay-secrets.json`. See issue #14.
-- Persist writes secrets then room (fsync + rename). A kill-9 after the secrets rename and before the room rename can leave new secrets next to an old room file. See issue #18.
 - Config nav labels are raw ids. See issue #16.
