@@ -15,6 +15,38 @@ export function matchesTrigger(left: string, compare: string, right: string) {
   return compare === "neq" ? !same : same;
 }
 
+export type TriggerLike = {
+  variable?: string;
+  compare?: string;
+  equals?: string;
+  whenTrue?: { variable: string; compare?: string; equals: string }[];
+  whenFalse?: { variable: string; compare?: string; equals: string }[];
+};
+
+function clausesPass(
+  clauses: { variable: string; compare?: string; equals: string }[] | undefined,
+  vars: Record<string, string | number>,
+  value: (raw: string) => string,
+) {
+  return (clauses ?? []).every((row) => {
+    if (!row.variable) return false;
+    return matchesTrigger(String(vars[row.variable] ?? ""), row.compare || "eq", value(row.equals));
+  });
+}
+
+/** Primary edge, then extra AND clauses on the true or false side. Empty extras always pass. */
+export function triggerPathHit(
+  rule: TriggerLike,
+  vars: Record<string, string | number>,
+  path: "t" | "f",
+  value: (raw: string) => string = (raw) => raw,
+) {
+  if (!rule.variable) return false;
+  const primary = matchesTrigger(String(vars[rule.variable] ?? ""), rule.compare || "eq", value(rule.equals ?? ""));
+  if (path === "t") return primary && clausesPass(rule.whenTrue, vars, value);
+  return !primary && clausesPass(rule.whenFalse, vars, value);
+}
+
 /** change: fire only on false→true. interval: ready whenever hit. */
 export function triggerStep(mode: string | undefined, prev: string | undefined, hit: boolean) {
   if (!hit) return "reset" as const;

@@ -8,7 +8,6 @@ import {
   clearDeviceError,
   addDriverFromLibrary,
   deleteDriver,
-  exportBundle,
   importBundle,
   fireCommand,
   fireMacro,
@@ -29,7 +28,7 @@ import {
 } from "@/lib/control/actions";
 import type { DriverSpec, InventoryItem, RoomConfig, RoomSnapshot, Widget, WidgetColor } from "@/lib/control/types";
 import { GATEWAY_PROFILES, gatewayProfile, gatewaySlot, isGatewayKind } from "@/lib/control/gateway";
-import { deviceInUse, driverInUse, variableInUse } from "@/lib/control/vars";
+import { deviceInUse, driverInUse, variableInUse, monitorVarId, withMonitorVars } from "@/lib/control/vars";
 import { orphanBindings } from "@/lib/control/schema";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -43,6 +42,42 @@ const COLOR_FILL: Record<WidgetColor, string> = {
 function fieldClass() {
   return "h-11 w-full rounded-md border border-border bg-bg px-3 text-sm text-fg";
 }
+
+
+function downloadRoomFile(draft: RoomConfig, drivers: RoomSnapshot["drivers"]) {
+  const config = structuredClone(draft);
+  config.room.configPin = "";
+  config.room.peerSecret = "";
+  config.room.panelPin = config.room.panelAccess === "pin" ? "" : null;
+  config.devices = config.devices.map((device) => {
+    const auth = { ...(device.auth ?? {}) };
+    for (const key of Object.keys(auth)) {
+      if (/token|password|secret|key|username|pin/i.test(key)) auth[key] = "";
+    }
+    return { ...device, auth };
+  });
+  config.exportedAt = new Date().toISOString();
+  config.sourceRoomId = config.room.id;
+  const body = JSON.stringify({
+    ok: true,
+    configVersion: config.configVersion,
+    exportedAt: config.exportedAt,
+    sourceRoomId: config.room.id,
+    config,
+    drivers,
+  }, null, 2);
+  const blob = new Blob([body], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${String(config.room.name || config.room.id || "room").replace(/[^\w.-]+/g, "-")}-relay.json`;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
 
 function InputNum({
   value,
@@ -428,6 +463,10 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
               </Button>
             )}
             <Button variant="secondary" onClick={() => void persist()}>Save all</Button>
+            <Button variant="secondary" onClick={() => {
+              downloadRoomFile(draft, snap.drivers);
+              flash("Download started", "PINs and tokens are blank in the file. This does not save the room.");
+            }}>Export</Button>
           </div>
         </div>
         <nav className="mx-auto mt-3 flex max-w-5xl gap-1 overflow-x-auto">
@@ -458,20 +497,9 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
               <span className="text-xs">Schedules use this host’s clock. Set the OS time if it is wrong.</span>
             </label>
             <div className="sm:col-span-2 flex flex-wrap gap-2">
-              <Button variant="secondary" onClick={async () => {
-                const bundle = await exportBundle({ data: { token: token || "" } });
-                if (!bundle || !("config" in bundle) || !bundle.config) {
-                  flash("Export failed", "ok" in bundle ? String((bundle as { message?: string }).message ?? "Lock required") : "Lock required");
-                  return;
-                }
-                const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `${draft.room.id}-relay.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-                flash("Exported", "PINs and tokens are blank in the file.");
+              <Button variant="secondary" onClick={() => {
+                downloadRoomFile(draft, snap.drivers);
+                flash("Download started", "PINs and tokens are blank in the file. This does not save the room.");
               }}>Export</Button>
               <input
                 ref={importRef}
@@ -1227,7 +1255,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                         </select>
                       </label>
                     ) : null}
-                    <Button size="sm" variant="danger" onClick={() => { if (variableInUse(draft, variable.id).length) { flash("In use", ""); return; } update((c) => { c.variables = c.variables.filter((v) => v.id !== variable.id); }); }}>Delete</Button>
+                    <Button size="sm" variant="danger" onClick={() => { if (variable.id.startsWith("MON_")) { flash("Monitor variable", "Rename or delete the monitor instead."); return; } if (variableInUse(draft, variable.id).length) { flash("In use", ""); return; } update((c) => { c.variables = c.variables.filter((v) => v.id !== variable.id); }); }}>Delete</Button>
                     </div>
                     ) : null}
                   </article>
@@ -1252,7 +1280,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                     </button>
                     {open ? (
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <label className="grid gap-1 text-sm text-muted">Label<input className={fieldClass()} value={rule.label} onChange={(e) => update((c) => { c.monitors[ri]!.label = e.target.value; })} /></label>
+                    <label className="grid gap-1 text-sm text-muted">Label<input className={fieldClass()} value={rule.label} onChange={(e) => update((c) => { c.monitors[ri]!.label = e.target.value; c.variables = withMonitorVars(c).variables; })} /></label>
                     <label className="flex items-center gap-2 text-sm text-muted pt-6">
                       <input type="checkbox" checked={rule.enabled} onChange={(e) => update((c) => { c.monitors[ri]!.enabled = e.target.checked; })} />
                       Enabled
@@ -1291,10 +1319,11 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                     </label>
                     )}
                     <label className="grid gap-1 text-sm text-muted">Poll ms<InputNum value={rule.pollMs} onNumber={(n) => update((c) => { if (n == null) return; c.monitors[ri]!.pollMs = n; })} /></label>
-                    <label className="grid gap-1 text-sm text-muted">Write to variable
+                    <p className="text-sm text-muted sm:col-span-2">Auto variable <span className="font-mono text-fg">{`{${monitorVarId(rule)}}`}</span> · {String(snap.vars[monitorVarId(rule)] ?? "")}</p>
+                    <label className="grid gap-1 text-sm text-muted">Also write to
                       <select className={fieldClass()} value={rule.writeVar ?? ""} onChange={(e) => update((c) => { c.monitors[ri]!.writeVar = e.target.value || null; })}>
-                        <option value="">Don’t write</option>
-                        {draft.variables.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+                        <option value="">Only auto</option>
+                        {draft.variables.filter((v) => !v.id.startsWith("MON_")).map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
                       </select>
                     </label>
                     <label className="flex items-center gap-2 text-sm text-muted sm:col-span-2">
@@ -1322,13 +1351,13 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                       </>
                     ) : null}
                     <p className="sm:col-span-2 text-xs text-muted">{pollLine}</p>
-                    <Button size="sm" variant="danger" onClick={() => update((c) => { c.monitors = c.monitors.filter((m) => m.id !== rule.id); })}>Delete</Button>
+                    <Button size="sm" variant="danger" onClick={() => update((c) => { c.monitors = c.monitors.filter((m) => m.id !== rule.id); c.variables = withMonitorVars(c).variables; })}>Delete</Button>
                     </div>
                     ) : null}
                   </article>
                   );
                 })}
-                <Button variant="secondary" onClick={() => update((c) => { c.monitors.push({ id: `mon-${Date.now().toString(36)}`, label: "New monitor", enabled: true, device: c.devices[0]?.id ?? "", feedback: "power.state", pollMs: 4000, writeVar: null, mapMode: "raw", map: [] }); })}>Add monitor</Button>
+                <Button variant="secondary" onClick={() => update((c) => { c.monitors.push({ id: `mon-${Date.now().toString(36)}`, label: "New monitor", enabled: true, device: c.devices[0]?.id ?? "", feedback: "power.state", pollMs: 4000, writeVar: null, mapMode: "raw", map: [] }); c.variables = withMonitorVars(c).variables; })}>Add monitor</Button>
               </section>
             ) : null}
             {logicTab === "schedule" ? (
@@ -1389,14 +1418,14 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                     <article key={rule.id} className="rounded-xl border border-border bg-surface p-4">
                       <button type="button" className="flex w-full items-center justify-between text-left" onClick={() => setOpenLogic((cur) => ({ ...cur, [rule.id]: !open }))}>
                         <span className="font-medium">{rule.label}</span>
-                        <span className="text-xs text-muted">{rule.mode} · {rule.compare}</span>
+                        <span className="text-xs text-muted">{rule.mode} · {rule.compare}{(rule.whenTrue?.length || rule.whenFalse?.length) ? ` · +${(rule.whenTrue?.length ?? 0) + (rule.whenFalse?.length ?? 0)}` : ""}</span>
                       </button>
                       {open ? (
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
                           <label className="grid gap-1 text-sm text-muted">Label
                             <input className={fieldClass()} value={rule.label} onChange={(e) => update((c) => { c.triggers![ti]!.label = e.target.value; })} />
                           </label>
-                          <label className="grid gap-1 text-sm text-muted">Variable
+                          <label className="grid gap-1 text-sm text-muted">Trigger variable
                             <select className={fieldClass()} value={rule.variable} onChange={(e) => update((c) => { c.triggers![ti]!.variable = e.target.value; })}>
                               {draft.variables.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
                             </select>
@@ -1412,6 +1441,47 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                           <label className="grid gap-1 text-sm text-muted">Value
                             <input className={fieldClass()} placeholder="on or {otherVar}" value={rule.equals} onChange={(e) => update((c) => { c.triggers![ti]!.equals = e.target.value; })} />
                           </label>
+                          {(["whenTrue", "whenFalse"] as const).map((side) => (
+                            <div key={side} className="sm:col-span-2 grid gap-1">
+                              <p className="text-sm text-muted">{side === "whenTrue" ? "If that's true, also" : "If that's false, also"}</p>
+                              {(rule[side] ?? []).map((row, ri) => (
+                                <div key={ri} className="grid grid-cols-[1fr_5.5rem_1fr_auto] gap-1">
+                                  <select className={fieldClass()} value={row.variable} onChange={(e) => update((c) => {
+                                    const next = [...(c.triggers![ti]![side] ?? [])];
+                                    next[ri] = { ...next[ri]!, variable: e.target.value };
+                                    c.triggers![ti]![side] = next;
+                                  })}>
+                                    {draft.variables.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+                                  </select>
+                                  <select className={fieldClass()} value={row.compare} onChange={(e) => update((c) => {
+                                    const next = [...(c.triggers![ti]![side] ?? [])];
+                                    next[ri] = { ...next[ri]!, compare: e.target.value as typeof row.compare };
+                                    c.triggers![ti]![side] = next;
+                                  })}>
+                                    <option value="eq">=</option>
+                                    <option value="neq">≠</option>
+                                    <option value="gt">{">"}</option>
+                                    <option value="lt">{"<"}</option>
+                                  </select>
+                                  <input className={fieldClass()} placeholder="on or {var}" value={row.equals} onChange={(e) => update((c) => {
+                                    const next = [...(c.triggers![ti]![side] ?? [])];
+                                    next[ri] = { ...next[ri]!, equals: e.target.value };
+                                    c.triggers![ti]![side] = next;
+                                  })} />
+                                  <Button size="sm" variant="ghost" onClick={() => update((c) => {
+                                    c.triggers![ti]![side] = (c.triggers![ti]![side] ?? []).filter((_, i) => i !== ri);
+                                  })}>×</Button>
+                                </div>
+                              ))}
+                              <Button size="sm" variant="secondary" onClick={() => update((c) => {
+                                const list = [...(c.triggers![ti]![side] ?? [])];
+                                if (list.length >= 8) return;
+                                list.push({ variable: c.variables[0]?.id ?? "", compare: "eq", equals: "" });
+                                c.triggers![ti]![side] = list;
+                              })}>Add check</Button>
+                            </div>
+                          ))}
+
                           <label className="grid gap-1 text-sm text-muted">Fire
                             <select className={fieldClass()} value={rule.mode} onChange={(e) => update((c) => { c.triggers![ti]!.mode = e.target.value as typeof rule.mode; })}>
                               <option value="change">Only on change</option>
@@ -1430,8 +1500,14 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                           <label className="grid gap-1 text-sm text-muted">Wait after that (s)
                             <InputNum min={0} value={rule.delaySec} onNumber={(n) => update((c) => { if (n == null) return; c.triggers![ti]!.delaySec = Math.max(0, n); })} />
                           </label>
-                          <label className="grid gap-1 text-sm text-muted">Macro
+                          <label className="grid gap-1 text-sm text-muted">Macro if true
                             <select className={fieldClass()} value={rule.macroId} onChange={(e) => update((c) => { c.triggers![ti]!.macroId = e.target.value; })}>
+                              {draft.macros.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                            </select>
+                          </label>
+                          <label className="grid gap-1 text-sm text-muted">Macro if false
+                            <select className={fieldClass()} value={rule.falseMacroId ?? ""} onChange={(e) => update((c) => { c.triggers![ti]!.falseMacroId = e.target.value; })}>
+                              <option value="">None</option>
                               {draft.macros.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                             </select>
                           </label>
@@ -1447,7 +1523,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                 })}
                 <Button variant="secondary" onClick={() => update((c) => {
                   c.triggers = c.triggers ?? [];
-                  c.triggers.push({ id: `trg-${Date.now().toString(36)}`, label: "New trigger", enabled: false, variable: c.variables[0]?.id ?? "", compare: "eq", equals: "on", mode: "change", intervalSec: 5, delaySec: 0, holdSec: 0, macroId: c.macros[0]?.id ?? "" });
+                  c.triggers.push({ id: `trg-${Date.now().toString(36)}`, label: "New trigger", enabled: false, variable: c.variables[0]?.id ?? "", compare: "eq", equals: "on", whenTrue: [], whenFalse: [], mode: "change", intervalSec: 5, delaySec: 0, holdSec: 0, macroId: c.macros[0]?.id ?? "", falseMacroId: "" });
                 })}>Add trigger</Button>
               </section>
             ) : null}

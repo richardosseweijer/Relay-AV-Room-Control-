@@ -272,6 +272,12 @@ export type Schedule = {
 export type TriggerCompare = "eq" | "neq" | "gt" | "lt";
 export type TriggerMode = "change" | "interval";
 
+export type TriggerClause = {
+  variable: string;
+  compare: TriggerCompare;
+  equals: string;
+};
+
 export type VariableTrigger = {
   id: string;
   label: string;
@@ -279,6 +285,8 @@ export type VariableTrigger = {
   variable: string;
   compare: TriggerCompare;
   equals: string;
+  whenTrue?: TriggerClause[];
+  whenFalse?: TriggerClause[];
   mode: TriggerMode;
   intervalSec?: number;
   delaySec?: number;
@@ -287,6 +295,7 @@ export type VariableTrigger = {
   delayMs?: number;
   holdMs?: number;
   macroId: string;
+  falseMacroId?: string;
 };
 
 export type MonitorRule = {

@@ -2,6 +2,27 @@ import type { RoomConfig, RoomVariable } from "./types";
 
 export type VarMap = Record<string, string | number>;
 
+export function monitorVarId(rule: { id: string; label?: string }) {
+  const words = String(rule.label || "").trim().split(/[^A-Za-z0-9]+/).filter(Boolean);
+  let slug = words
+    .map((word, i) => (i === 0 ? word.charAt(0).toLowerCase() + word.slice(1) : word.charAt(0).toUpperCase() + word.slice(1)))
+    .join("")
+    .replace(/[^A-Za-z0-9]/g, "");
+  if (!slug) slug = String(rule.id || "monitor").replace(/[^A-Za-z0-9]/g, "") || "monitor";
+  if (/^[0-9]/.test(slug)) slug = `m${slug}`;
+  return `MON_${slug}`;
+}
+
+export function withMonitorVars(config: RoomConfig): RoomConfig {
+  const autos = (config.monitors ?? []).map((rule) => {
+    const id = monitorVarId(rule);
+    return { id, label: id, kind: "text" as const, default: "" };
+  });
+  const keep = (config.variables ?? []).filter((row) => !row.id.startsWith("MON_") || autos.some((item) => item.id === row.id));
+  const extra = autos.filter((row) => !keep.some((item) => item.id === row.id));
+  return { ...config, variables: [...keep, ...extra] };
+}
+
 export function seedVars(config: RoomConfig, current?: VarMap): VarMap {
   const next: VarMap = { ...(current ?? {}) };
   for (const v of config.variables ?? []) {

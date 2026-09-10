@@ -1,8 +1,8 @@
 import { bundledDrivers, defaultDeviceState, emptyRoomConfig } from "./defaults";
 import { readMonitorValue, runMacro, traces, scrubSecret } from "./engine";
 import type { DeviceHealth, DeviceStateMap, DriverSpec, LogEntry, Macro, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
-import { applyMonitors, clampVar, resolveTemplate, seedVars, type VarMap } from "./vars";
-import { matchesTrigger, scheduleShouldRun, triggerStep } from "./logic-policy";
+import { applyMonitors, clampVar, resolveTemplate, seedVars, withMonitorVars, monitorVarId, type VarMap } from "./vars";
+import { scheduleShouldRun, triggerPathHit, triggerStep } from "./logic-policy";
 import { persistPair } from "../../../scripts/write-atomic.mjs";
 import { mkdir, readFile, writeFile, readdir, unlink, access, rename } from "node:fs/promises";
 import path from "node:path";
@@ -86,7 +86,7 @@ const lastTriggerValue = new Map<string, string>();
 const lastTriggerFire = new Map<string, number>();
 const lastTriggerHeld = new Map<string, number>();
 const goodPolls = new Map<string, number>();
-const triggerQueue: { id: string; macroId: string; label: string }[] = [];
+const triggerQueue: { id: string; macroId: string; label: string; path: "t" | "f" }[] = [];
 
 type SecretFile = {
   configPin?: string;
@@ -163,7 +163,7 @@ export async function reloadSecretsFromDisk() {
 export function normalize(config?: RoomConfig | null): RoomConfig {
   const demo = emptyRoomConfig();
   if (!config) return demo;
-  return {
+  return withMonitorVars({
     ...demo,
     ...config,
     room: {
@@ -182,10 +182,26 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
       const holdSec = rule.holdSec ?? Math.round((rule.holdMs || 0) / 1000);
       const delaySec = rule.delaySec ?? Math.round((rule.delayMs || 0) / 1000);
       const intervalSec = rule.intervalSec ?? Math.max(1, Math.round((rule.intervalMs || 5000) / 1000));
-      return { ...rule, holdSec, delaySec, intervalSec, holdMs: undefined, delayMs: undefined, intervalMs: undefined };
+      const clip = (rows: typeof rule.whenTrue) => (rows ?? []).slice(0, 8).map((row) => ({
+        variable: row.variable || "",
+        compare: row.compare || "eq",
+        equals: row.equals ?? "",
+      }));
+      return {
+        ...rule,
+        holdSec,
+        delaySec,
+        intervalSec,
+        holdMs: undefined,
+        delayMs: undefined,
+        intervalMs: undefined,
+        whenTrue: clip(rule.whenTrue),
+        whenFalse: clip(rule.whenFalse),
+        falseMacroId: rule.falseMacroId || "",
+      };
     }),
     interfaces: config.interfaces ?? [],
-  };
+  });
 }
 
 function emptyMemory(): Memory {
@@ -427,80 +443,81 @@ async function runDueSchedules() {
 async function runDueTriggers() {
   const mem = memory();
   const now = Date.now();
+  const value = (raw: string) => String(resolveTemplate(raw, mem.vars, mem.config.variables) ?? raw);
   for (const rule of mem.config.triggers ?? []) {
-    if (!rule.enabled || !rule.variable || !rule.macroId) continue;
-    const raw = mem.vars[rule.variable];
-    if (raw === undefined) continue;
-    const left = String(raw);
-    const right = String(resolveTemplate(rule.equals, mem.vars, mem.config.variables) ?? rule.equals);
-    const hit = matchesTrigger(left, rule.compare || "eq", right);
-    const prev = lastTriggerValue.get(rule.id);
-    const step = triggerStep(rule.mode, prev, hit);
-    if (step === "reset") {
-      lastTriggerValue.set(rule.id, `false:${left}`);
-      lastTriggerHeld.delete(rule.id);
-      continue;
-    }
-    const holdMs = Math.min(Math.max((rule.holdSec ?? 0) * 1000, 0), 7_200_000);
-    if (holdMs) {
-      const since = lastTriggerHeld.get(rule.id);
-      if (since === undefined) {
-        lastTriggerHeld.set(rule.id, now);
+    if (!rule.enabled || !rule.variable) continue;
+    const paths: { path: "t" | "f"; macroId: string }[] = [];
+    if (rule.macroId) paths.push({ path: "t", macroId: rule.macroId });
+    if (rule.falseMacroId) paths.push({ path: "f", macroId: rule.falseMacroId });
+    for (const { path, macroId } of paths) {
+      const key = `${rule.id}:${path}`;
+      const hit = triggerPathHit(rule, mem.vars, path, value);
+      const prev = lastTriggerValue.get(key);
+      const step = triggerStep(rule.mode, prev, hit);
+      if (step === "reset") {
+        lastTriggerValue.set(key, "false:");
+        lastTriggerHeld.delete(key);
         continue;
       }
-      if (now - since < holdMs) continue;
-    } else {
-      lastTriggerHeld.set(rule.id, now);
+      const holdMs = Math.min(Math.max((rule.holdSec ?? 0) * 1000, 0), 7_200_000);
+      if (holdMs) {
+        const since = lastTriggerHeld.get(key);
+        if (since === undefined) {
+          lastTriggerHeld.set(key, now);
+          continue;
+        }
+        if (now - since < holdMs) continue;
+      } else {
+        lastTriggerHeld.set(key, now);
+      }
+      if (step === "arm") {
+        lastTriggerValue.set(key, "true:");
+        continue;
+      }
+      if (step === "hold") continue;
+      const wait = Math.max(500, (rule.intervalSec || 1) * 1000);
+      if (rule.mode === "interval" && now - (lastTriggerFire.get(key) ?? 0) < wait) continue;
+      if (rule.mode === "change" && now - (lastTriggerFire.get(key) ?? 0) < 400) continue;
+      const macro = mem.config.macros.find((m) => m.id === macroId);
+      if (!macro) continue;
+      if (triggerQueue.some((item) => item.id === rule.id && item.path === path)) continue;
+      const job = { id: rule.id, macroId, label: rule.label, path };
+      if (mem.runningMacro) {
+        triggerQueue.push(job);
+        lastTriggerValue.set(key, "true:");
+        continue;
+      }
+      const waitMs = Math.min((rule.delaySec || 0) * 1000, 120_000);
+      void (async () => {
+        if (waitMs) await new Promise((r) => setTimeout(r, waitMs));
+        await runQueuedTrigger(job, macro);
+      })();
     }
-    if (step === "arm") {
-      lastTriggerValue.set(rule.id, `true:${left}`);
-      continue;
-    }
-    if (step === "hold") continue;
-    const wait = Math.max(500, (rule.intervalSec || 1) * 1000);
-    if (rule.mode === "interval" && now - (lastTriggerFire.get(rule.id) ?? 0) < wait) continue;
-    if (rule.mode === "change" && now - (lastTriggerFire.get(rule.id) ?? 0) < 400) continue;
-    const macro = mem.config.macros.find((m) => m.id === rule.macroId);
-    if (!macro) continue;
-    if (triggerQueue.some((item) => item.id === rule.id)) continue;
-    if (mem.runningMacro) {
-      triggerQueue.push({ id: rule.id, macroId: rule.macroId, label: rule.label });
-      lastTriggerValue.set(rule.id, `true:${left}`);
-      continue;
-    }
-    const waitMs = Math.min((rule.delaySec || 0) * 1000, 120_000);
-    const job = { id: rule.id, macroId: rule.macroId, label: rule.label };
-    const macroRef = macro;
-    void (async () => {
-      if (waitMs) await new Promise((r) => setTimeout(r, waitMs));
-      await runQueuedTrigger(job, macroRef);
-    })();
   }
 }
 
-async function runQueuedTrigger(job: { id: string; macroId: string; label: string }, macro: Macro) {
+async function runQueuedTrigger(job: { id: string; macroId: string; label: string; path: "t" | "f" }, macro: Macro) {
   const live = memory();
   const rule = (live.config.triggers ?? []).find((item) => item.id === job.id);
+  const key = `${job.id}:${job.path}`;
   if (rule?.variable) {
-    const left = String(live.vars[rule.variable] ?? "");
-    const right = String(resolveTemplate(rule.equals, live.vars, live.config.variables) ?? rule.equals);
-    if (!matchesTrigger(left, rule.compare || "eq", right)) {
-      lastTriggerValue.set(job.id, `false:${left}`);
-      lastTriggerHeld.delete(job.id);
+    const value = (raw: string) => String(resolveTemplate(raw, live.vars, live.config.variables) ?? raw);
+    if (!triggerPathHit(rule, live.vars, job.path, value)) {
+      lastTriggerValue.set(key, "false:");
+      lastTriggerHeld.delete(key);
       return;
     }
   }
   if (live.runningMacro) {
-    if (!triggerQueue.some((item) => item.id === job.id)) triggerQueue.push(job);
+    if (!triggerQueue.some((item) => item.id === job.id && item.path === job.path)) triggerQueue.push(job);
     return;
   }
   live.runningMacro = macro.id;
   const result = await runMacro({ config: live.config, drivers: live.drivers, state: live.state, vars: live.vars, health: live.health ?? (live.health = {}), macro, host: live.host });
   live.runningMacro = null;
   if (result.ok) {
-    const left = rule?.variable ? String(live.vars[rule.variable] ?? "") : "";
-    lastTriggerValue.set(job.id, `true:${left}`);
-    lastTriggerFire.set(job.id, Date.now());
+    lastTriggerValue.set(key, "true:");
+    lastTriggerFire.set(key, Date.now());
     live.activeScene = macro.id;
   }
   if (!result.ok && live.host?.block) live.host.block = null;
@@ -565,10 +582,15 @@ async function runDueMonitors() {
       const hit = (rule.map ?? []).find((row) => row.from === value);
       if (hit) value = hit.to;
     }
-    const def = mem.config.variables.find((v) => v.id === rule.writeVar);
+    const autoId = monitorVarId(rule);
+    const def = mem.config.variables.find((v) => v.id === rule.writeVar) || mem.config.variables.find((v) => v.id === autoId);
     const next = def ? clampVar(def, value) : value;
     mem.monitorStatus[rule.id] = { at: now, ok: true, value: String(next), message: result.message };
-    if (rule.writeVar && String(mem.vars[rule.writeVar]) !== String(next)) {
+    if (String(mem.vars[autoId] ?? "") !== String(next)) {
+      mem.vars[autoId] = next;
+      dirty = true;
+    }
+    if (rule.writeVar && rule.writeVar !== autoId && String(mem.vars[rule.writeVar]) !== String(next)) {
       mem.vars[rule.writeVar] = next;
       dirty = true;
       pushLog({ kind: "monitor", ok: true, title: rule.label, detail: String(next) });

@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { signPeer, verifyPeerRequest } from "../src/lib/control/peer-auth.ts";
 import { actionPermitted } from "../src/lib/control/control-policy.ts";
-import { matchesTrigger, scheduleShouldRun, triggerStep } from "../src/lib/control/logic-policy.ts";
+import { matchesTrigger, scheduleShouldRun, triggerPathHit, triggerStep } from "../src/lib/control/logic-policy.ts";
+import { monitorVarId } from "../src/lib/control/vars.ts";
 
 test("hmac good signature", () => {
   const key = "peer-secret-key-aaaaaaaaaaaa";
@@ -81,6 +82,28 @@ test("trigger change fires once per edge; interval may re-fire", () => {
   assert.equal(triggerStep("interval", "true:on", true), "ready");
   assert.equal(triggerStep("interval", "false:off", true), "ready");
   assert.equal(matchesTrigger("on", "eq", "on"), true);
+});
+
+test("trigger extras AND after the primary true/false", () => {
+  const rule = {
+    variable: "occ",
+    compare: "eq",
+    equals: "on",
+    whenTrue: [{ variable: "tv", compare: "eq", equals: "on" }],
+    whenFalse: [{ variable: "scene", compare: "eq", equals: "idle" }],
+  };
+  const vars = { occ: "on", tv: "on", scene: "present" };
+  assert.equal(triggerPathHit(rule, vars, "t"), true);
+  assert.equal(triggerPathHit(rule, { ...vars, tv: "off" }, "t"), false);
+  assert.equal(triggerPathHit(rule, vars, "f"), false);
+  assert.equal(triggerPathHit(rule, { occ: "off", tv: "on", scene: "idle" }, "f"), true);
+  assert.equal(triggerPathHit({ variable: "occ", compare: "eq", equals: "on" }, { occ: "on" }, "t"), true);
+});
+
+test("monitor auto var id from label", () => {
+  assert.equal(monitorVarId({ id: "mon-1", label: "projectorOn" }), "MON_projectorOn");
+  assert.equal(monitorVarId({ id: "mon-2", label: "var Watcher" }), "MON_varWatcher");
+  assert.equal(monitorVarId({ id: "mon-3", label: "Display power" }), "MON_displayPower");
 });
 
 test("empty schedule days never run", () => {
