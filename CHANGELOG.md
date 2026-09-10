@@ -9,8 +9,13 @@ Format: date, then bullets. Older work lives in `git log`.
 - Triggers with extra true/false checks; monitor auto-vars `MON_*`; 500 ms gateway polls.
 - Open on LAN does not require a panel PIN. New buttons are 1×1 bound to hidden None.
 - Chromecast Play/Pause use the live media session and app transport. Button icons pin to the right.
-- Room tab shows package version + git SHA. In-app update snapshots `.vercel.prev` and restores it if ci/build fail.
+- Room tab shows package version + git SHA. In-app updates are staged and readiness-checked before activation.
 - PIN validation/redaction (PR #22). Empty number fields no longer force 0.
+- Room and secrets persistence uses a durable paired transaction and maintains matching `.good` files for crash recovery.
+- HTTP command, monitor, and peer response bodies stay under their timeout and size limit.
+- Delayed trigger edges reserve their execution before waiting, preventing duplicate macro runs.
+- Server startup loads persisted state and starts automation before the first API request.
+- In-app updates build and probe an isolated worktree; failed activation restores and restarts the previous release.
 
 ## 2026-09-08 — gateway interfaces and Pi update
 

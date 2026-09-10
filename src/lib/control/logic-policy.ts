@@ -56,3 +56,21 @@ export function triggerStep(mode: string | undefined, prev: string | undefined, 
   }
   return "ready" as const;
 }
+
+export class TriggerReservations {
+  private readonly pending = new Set<string>();
+
+  reserve(key: string) {
+    if (this.pending.has(key)) return false;
+    this.pending.add(key);
+    return true;
+  }
+
+  has(key: string) {
+    return this.pending.has(key);
+  }
+
+  release(key: string) {
+    this.pending.delete(key);
+  }
+}

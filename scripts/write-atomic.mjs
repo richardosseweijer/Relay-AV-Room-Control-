@@ -81,6 +81,36 @@ export function writeAtomicFile(target, body, { rename = renameSync } = {}) {
     closeSync(fd);
   }
   handOver(staged, target, { rename });
+  // Persist the directory entry as well as the file contents. Some filesystems
+  // can otherwise lose a completed rename after sudden power loss.
+  let dirFd;
+  try {
+    dirFd = openSync(dirname(target), "r");
+    fsyncSync(dirFd);
+  } catch { /* directory fsync is unavailable on some platforms */ }
+  finally {
+    if (dirFd !== undefined) closeSync(dirFd);
+  }
+}
+
+function removeIfPresent(file) {
+  if (existsSync(file)) unlinkSync(file);
+}
+
+/** Finish a paired save left behind by process termination. */
+export function recoverPersistPair(secretPath, roomPath) {
+  const transaction = `${roomPath}.transaction`;
+  if (!existsSync(transaction)) return false;
+  const pending = JSON.parse(readFileSync(transaction, "utf8"));
+  if (typeof pending?.secretBody !== "string" || typeof pending?.roomBody !== "string") {
+    throw new Error("invalid persistence transaction");
+  }
+  writeAtomicFile(secretPath, pending.secretBody);
+  writeAtomicFile(roomPath, pending.roomBody);
+  writeAtomicFile(`${secretPath}.good`, pending.secretBody);
+  writeAtomicFile(`${roomPath}.good`, pending.roomBody);
+  removeIfPresent(transaction);
+  return true;
 }
 
 /**
@@ -88,9 +118,11 @@ export function writeAtomicFile(target, body, { rename = renameSync } = {}) {
  * secrets file so the pair stays the last good pair.
  */
 export function persistPair(secretPath, roomPath, secretBody, roomBody, { rename = renameSync } = {}) {
+  const transaction = `${roomPath}.transaction`;
   const previousSecrets = existsSync(secretPath) ? readFileSync(secretPath) : null;
-  writeAtomicFile(secretPath, secretBody, { rename });
+  writeAtomicFile(transaction, JSON.stringify({ secretBody, roomBody }));
   try {
+    writeAtomicFile(secretPath, secretBody, { rename });
     writeAtomicFile(roomPath, roomBody, { rename });
   } catch (err) {
     if (previousSecrets !== null) {
@@ -98,8 +130,14 @@ export function persistPair(secretPath, roomPath, secretBody, roomBody, { rename
     } else if (existsSync(secretPath)) {
       unlinkSync(secretPath);
     }
+    removeIfPresent(transaction);
     throw err;
   }
+  // If backup maintenance is interrupted, keep the transaction so boot can
+  // finish the matching primary and last-good pairs.
+  writeAtomicFile(`${secretPath}.good`, secretBody);
+  writeAtomicFile(`${roomPath}.good`, roomBody);
+  removeIfPresent(transaction);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

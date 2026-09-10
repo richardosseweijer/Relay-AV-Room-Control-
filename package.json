@@ -19,7 +19,7 @@
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "driver:check": "node scripts/driver-check.mjs",
-    "test": "node --experimental-strip-types --test scripts/control-security.test.mjs scripts/write-atomic.test.mjs scripts/persist-pair.test.mjs scripts/session-trust.test.mjs scripts/control-plane.test.mjs scripts/pin-actions.test.mjs",
+    "test": "node --experimental-strip-types --test scripts/control-security.test.mjs scripts/write-atomic.test.mjs scripts/persist-pair.test.mjs scripts/session-trust.test.mjs scripts/control-plane.test.mjs scripts/pin-actions.test.mjs scripts/stability-regressions.test.mjs scripts/update-relay.test.mjs",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
