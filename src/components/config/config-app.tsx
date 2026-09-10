@@ -41,7 +41,7 @@ const COLOR_FILL: Record<WidgetColor, string> = {
 };
 
 function fieldClass() {
-  return "h-11 w-full rounded-md border border-border bg-bg px-3 text-sm text-fg";
+  return "h-11 min-w-0 w-full rounded-md border border-border bg-bg px-3 text-sm text-fg";
 }
 
 
@@ -429,9 +429,9 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
         </div>
       ) : null}
       <header className="sticky top-0 z-30 shrink-0 border-b border-border bg-bg px-4 py-3">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Link to="/" onClick={() => sessionStorage.removeItem("relay-config-token")} className="inline-flex size-11 items-center justify-center rounded-md border border-border bg-surface">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3 [overflow-wrap:anywhere]">
+            <Link to="/" onClick={() => sessionStorage.removeItem("relay-config-token")} className="inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-border bg-surface">
               <ArrowLeft className="size-4" />
             </Link>
             <div>
@@ -1197,7 +1197,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
 
         {tab === "logic" ? (
           <div>
-            <div className="mb-4 flex gap-1">
+            <div className="mb-4 flex flex-wrap gap-1">
               {(["variables", "monitor", "schedule", "triggers"] as const).map((id) => (
                 <button key={id} type="button" className={cn("h-10 rounded-md px-3 text-sm capitalize", logicTab === id ? "bg-raised text-fg" : "text-muted")} onClick={() => setLogicTab(id)}>{id}</button>
               ))}
@@ -1456,7 +1456,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                             <div key={side} className="sm:col-span-2 grid gap-1">
                               <p className="text-sm text-muted">{side === "whenTrue" ? "If that's true, also" : "If that's false, also"}</p>
                               {(rule[side] ?? []).map((row, ri) => (
-                                <div key={ri} className="grid grid-cols-[1fr_5.5rem_1fr_auto] gap-1">
+                                <div key={ri} className="grid grid-cols-2 sm:grid-cols-[minmax(0,1fr)_5.5rem_minmax(0,1fr)_auto] gap-1">
                                   <select className={fieldClass()} value={row.variable} onChange={(e) => update((c) => {
                                     const next = [...(c.triggers![ti]![side] ?? [])];
                                     next[ri] = { ...next[ri]!, variable: e.target.value };
@@ -1897,7 +1897,7 @@ function PagesEditor({
               <button key={color} type="button" className={cn("size-8 rounded-full border", fills[color], selected.color === color ? "border-fg" : "border-border")} onClick={() => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.color = color; })} />
             ))}
           </div>
-          <div className="grid grid-cols-8 gap-1">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(2rem,1fr))] gap-1">
             {ICON_NAMES.map((name) => (
               <button
                 key={name || "none"}
@@ -1913,7 +1913,7 @@ function PagesEditor({
           <div className="grid gap-2">
             <p className="text-sm text-muted">Enable when</p>
             {(selected.enableWhen?.all ?? (selected.enableWhen?.variable ? [{ variable: selected.enableWhen.variable, op: "eq" as const, equals: selected.enableWhen.equals }] : [])).map((row, ri) => (
-              <div key={ri} className="grid grid-cols-[1fr_4.5rem_1fr_auto] gap-1">
+              <div key={ri} className="grid grid-cols-2 sm:grid-cols-[minmax(0,1fr)_4.5rem_minmax(0,1fr)_auto] gap-1">
                 <select className={fieldClass()} value={row.variable ?? ""} onChange={(e) => update((c) => {
                   const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
                   if (!w) return;

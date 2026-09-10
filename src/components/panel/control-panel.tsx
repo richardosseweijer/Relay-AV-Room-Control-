@@ -1,3 +1,4 @@
+import "./panel-layout.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Maximize2, Settings2, Sun } from "lucide-react";
@@ -542,7 +543,7 @@ export function ControlPanel() {
   return (
     <main
       className="relative flex h-dvh max-h-dvh flex-col overflow-hidden bg-bg px-3 pt-3 sm:px-8"
-      style={{ paddingBottom: "max(3.25rem, env(safe-area-inset-bottom))" }}
+      style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       onPointerDownCapture={(e) => {
         if (!dim) return;
         e.preventDefault();
@@ -577,13 +578,13 @@ export function ControlPanel() {
       ) : null}
 
       <section
-        className="mx-auto grid min-h-0 w-full max-w-3xl flex-1 content-start gap-3 overflow-auto"
+        className="panel-grid mx-auto grid min-h-0 w-full max-w-3xl flex-1 content-start gap-3 overflow-auto"
         style={{
           gridTemplateColumns: `repeat(${page.grid.cols}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${page.grid.rows}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${page.grid.rows}, minmax(min-content, 1fr))`,
         }}
       >
-        {page.widgets.map((widget) => {
+        {[...page.widgets].sort((a, b) => a.y - b.y || a.x - b.x).map((widget) => {
           const on = enabled(snap, widget);
           const varId = sliderVariable(snap, widget);
           const value = varId
@@ -595,6 +596,7 @@ export function ControlPanel() {
             : readFeedback(snap, widget.bind.device, widget.bind.feedback);
           const lit = widgetActive(snap, widget, confirm?.id === widget.id);
           const waiting = busyId === widget.id;
+          const wide = widget.w > 1 || widget.type === "slider" || widget.type === "schedule";
           if (widget.type === "slider") {
             const num = Number(value || 0);
             const min = resolveBoundNumber(widget.min, snap.vars ?? {}, 0, snap.config.variables);
@@ -605,10 +607,11 @@ export function ControlPanel() {
             return (
               <div
                 key={widget.id}
-                className="flex flex-col justify-between rounded-2xl border border-border/70 bg-surface/80 px-4 py-3"
+                data-wide={wide}
+                className="flex min-w-0 flex-col justify-between gap-3 rounded-2xl border border-border/70 bg-surface/80 px-4 py-3"
                 style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 [overflow-wrap:anywhere]">
                   <span className="text-[11px] tracking-[0.16em] uppercase text-muted">{widget.label}</span>
                   <span className="text-2xl font-medium tabular-nums tracking-tight">{clamped}</span>
                 </div>
@@ -621,7 +624,7 @@ export function ControlPanel() {
                   onChange={(e) => slide(widget, Number(e.target.value))}
                   onPointerUp={(e) => slide(widget, Number((e.target as HTMLInputElement).value), true)}
                   onPointerCancel={(e) => slide(widget, Number((e.target as HTMLInputElement).value), true)}
-                  className="panel-slider w-full"
+                  className="panel-slider w-full shrink-0"
                 />
               </div>
             );
@@ -630,7 +633,8 @@ export function ControlPanel() {
             return (
               <div
                 key={widget.id}
-                className="flex items-center rounded-lg px-3 text-sm text-muted"
+                data-wide={wide}
+                className="flex min-w-0 items-center [overflow-wrap:anywhere] rounded-lg px-3 text-sm text-muted"
                 style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
               >
                 {widget.label}
@@ -642,6 +646,8 @@ export function ControlPanel() {
             return (
               <div
                 key={widget.id}
+                data-wide={wide}
+                className="grid min-w-0"
                 style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
               >
                 <WidgetShell widget={{ ...widget, label: widget.label === "Next" || widget.label === "Button" || !widget.label ? "Next scheduled task:" : widget.label }}>
@@ -660,6 +666,8 @@ export function ControlPanel() {
           return (
             <div
               key={widget.id}
+              data-wide={wide}
+              className="grid min-w-0"
               style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
             >
               <WidgetShell
@@ -751,50 +759,52 @@ export function ControlPanel() {
         </div>
       ) : null}
 
-      <p className="pointer-events-none absolute bottom-4 right-5 text-[10px] tracking-[0.22em] uppercase text-subtle">
-        {snap.config.room.name}
-      </p>
-      <div className="absolute bottom-3 left-4 z-20 flex items-center gap-2">
-        <button
-          type="button"
-          className="size-11 rounded-full border border-border/70 bg-surface text-sm text-muted"
-          onClick={() => setLegal(true)}
-          aria-label="Licenses"
-        >
-          i
-        </button>
-        {!awake ? (
+      <footer className="flex shrink-0 flex-row-reverse items-center gap-3 pt-3">
+        <p className="pointer-events-none min-w-0 flex-1 text-right [overflow-wrap:anywhere] text-[10px] tracking-[0.22em] uppercase text-subtle">
+          {snap.config.room.name}
+        </p>
+        <div className="z-20 flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            className="size-11 rounded-full border border-border/70 bg-surface text-sm text-muted"
+            onClick={() => setLegal(true)}
+            aria-label="Licenses"
+          >
+            i
+          </button>
+          {!awake ? (
+            <button
+              type="button"
+              className="inline-flex size-11 items-center justify-center rounded-full border border-border/70 bg-surface text-subtle"
+              aria-label="Keep awake"
+              onClick={() => setAwake(true)}
+            >
+              <Sun className="size-3.5" />
+            </button>
+          ) : null}
+          {!full ? (
+            <button
+              type="button"
+              className="inline-flex size-11 items-center justify-center rounded-full border border-border/70 bg-surface text-subtle"
+              aria-label="Fullscreen"
+              onClick={() => void enterFull()}
+            >
+              <Maximize2 className="size-3.5" />
+            </button>
+          ) : null}
           <button
             type="button"
             className="inline-flex size-11 items-center justify-center rounded-full border border-border/70 bg-surface text-subtle"
-            aria-label="Keep awake"
-            onClick={() => setAwake(true)}
+            onClick={() => {
+              sessionStorage.removeItem("relay-config-token");
+              void navigate({ to: "/config" });
+            }}
+            aria-label="Setup"
           >
-            <Sun className="size-3.5" />
+            <Settings2 className="size-3.5" />
           </button>
-        ) : null}
-        {!full ? (
-          <button
-            type="button"
-            className="inline-flex size-11 items-center justify-center rounded-full border border-border/70 bg-surface text-subtle"
-            aria-label="Fullscreen"
-            onClick={() => void enterFull()}
-          >
-            <Maximize2 className="size-3.5" />
-          </button>
-        ) : null}
-        <button
-          type="button"
-          className="inline-flex size-11 items-center justify-center rounded-full border border-border/70 bg-surface text-subtle"
-          onClick={() => {
-            sessionStorage.removeItem("relay-config-token");
-            void navigate({ to: "/config" });
-          }}
-          aria-label="Setup"
-        >
-          <Settings2 className="size-3.5" />
-        </button>
-      </div>
+        </div>
+      </footer>
       {legal ? (
         <button type="button" className="fixed inset-0 z-50 overflow-auto bg-bg/96 px-6 py-10 text-left" onClick={() => setLegal(false)}>
           <article className="mx-auto max-w-lg space-y-3 text-sm leading-relaxed text-muted" onClick={(e) => e.stopPropagation()}>

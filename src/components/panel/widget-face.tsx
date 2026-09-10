@@ -64,7 +64,7 @@ export function WidgetShell({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "relative flex h-full w-full flex-col items-stretch justify-between overflow-hidden rounded-2xl border px-4 py-3 text-left transition duration-200 ease-out",
+        "relative flex min-h-min min-w-0 w-full flex-col gap-3 items-stretch justify-between overflow-hidden rounded-2xl border px-4 py-3 text-left [overflow-wrap:anywhere] transition duration-200 ease-out",
         "active:scale-[0.98]",
         colorClass[widget.color],
         active && activeClass[widget.color],
@@ -85,7 +85,7 @@ export function WidgetShell({
           {widget.label}
         </span>
       </div>
-      <div className={cn("relative z-[1] min-h-6 font-medium leading-none tracking-tight", status ? "text-3xl" : "text-xl")}>
+      <div className={cn("relative z-[1] min-h-6 font-medium leading-tight tracking-tight", status ? "text-3xl" : "text-xl")}>
         {children}
       </div>
     </button>
