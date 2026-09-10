@@ -19,7 +19,7 @@ Room `http://HOST:PORT/` — configurator `http://HOST:PORT/config`
 
 Do not start with raw `npx vite`. Scripts run `scripts/with-app-env.mjs`.
 
-First PIN is `1234`. You must set a stronger one. Open LAN control is off. Each tablet pairs until Forget.
+First PIN is `1234`. You must set a stronger one. New rooms default to **Panel PIN**; each tablet pairs until Forget. **Open on LAN** is an explicit kiosk mode (no panel PIN; shared panel session). Open LAN *control* (`fireCommand` without a token) is a different switch and stays off. See [Security](SECURITY.md).
 
 - [Linux / Pi](LINUX.md)
 - [Windows](WINDOWS.md)

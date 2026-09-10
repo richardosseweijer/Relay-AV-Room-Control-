@@ -10,10 +10,10 @@
 ## Host / deploy
 
 - Grok publish / serverless hosts are unsupported. No writable `data/`. Do not use them as a room.
-- Default bind is `0.0.0.0`. Do not port-forward the panel to the public internet.
+- Default bind is `0.0.0.0`. Do not port-forward the panel to the public internet. Restrict 8081 to the room VLAN on the host firewall.
 - HTTP only. No TLS. See issue #15.
-- Open LAN control is **off** unless enabled on Security. Then `fireCommand` / `fireMacro` / `setVariable` accept unauthenticated LAN calls.
-- Panel unlock uses the panel PIN. Config PIN works on the panel only if Security → `panelAcceptsConfigPin` is on (default off).
+- Panel access default is **Panel PIN**. **Open on LAN** skips the PIN and mints a shared panel session for anyone who can reach `/`. That is not the same switch as open LAN control (`externalControl`), which is off unless enabled on Security. Then `fireCommand` / `fireMacro` / `setVariable` accept unauthenticated LAN calls.
+- Config PIN works on the panel only if Security → `panelAcceptsConfigPin` is on (default off).
 - PIN lockout (5 tries / 5 min) is process memory. A restart clears the counter.
 - First start PIN is `1234`. The configurator blocks until you set a stronger one.
 - `system.reboot` reboots the machine. `system.restart` exits the process; systemd (`Restart=always`) starts it again. Without systemd it respawns Vite preview.
@@ -27,11 +27,11 @@
 - Denon DN-500AV sources are BD / SAT/CBL / Game, not `HDMI1`. Map HDMI in the Denon menu. Volume is 00–98.
 - Pi header UART is 3.3 V TTL. Enable serial hardware, disable serial console, use `/dev/serial0`. RS-232 gear needs a level shifter or USB adapter.
 - GPIO / I2C / IR / CEC / SPI call host binaries (`gpioset`, `i2cset`, `irsend`, `cec-client`, `spidev_test`). Absent packages fail the command, not the room boot. Argv is allowlisted (chip, line, bus, address, scancode).
-- Persistent MIDI/TCP sessions are not kept open; each command connect-write-close. See issue #4.
+- Generic TCP and MIDI commands are still connect-write-close (issue #4). Gateway / IPL sockets are reused for a short session (about 20s) so 500 ms polls do not reconnect every tick.
 
 ## Config / engine
 
-- Corrupt primary room or secrets data makes boot try the matching `.good` pair, then an empty room if no valid pair remains. The bad room file is renamed `.bad`.
+- Corrupt primary room or secrets data makes boot recover the `.transaction` journal if it is valid, else the matching `.good` pair, else an empty room. A bad room file is renamed `.bad`. A bad journal is renamed `.transaction.bad` and does not wipe a healthy pair.
 - Empty schedule `days` skips the job (never runs; pick at least one day).
 - PINs are scrypt hashes. Peer secret, session secrets, and device tokens stay in `data/relay-secrets.json`. See issue #14.
 - Config nav labels are raw ids. See issue #16.
