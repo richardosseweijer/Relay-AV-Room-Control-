@@ -1,6 +1,6 @@
 # Relay — Windows
 
-Relay **0.7.3**. Windows 10/11. Command Prompt or PowerShell.
+Relay **0.8.0** (beta). Windows 10/11. Command Prompt or PowerShell.
 
 Default configurator PIN: `1234`. The app then requires a stronger PIN. Tablets stay paired until Forget on Security.
 

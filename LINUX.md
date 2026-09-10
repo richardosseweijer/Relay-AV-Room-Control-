@@ -1,6 +1,6 @@
 # Relay — Linux / Raspberry Pi from a blank install
 
-Install **`main`** from GitHub (that is the supported tree). `package.json` may still say `0.7.3`; ignore that number and check `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
+Install **`main`** from GitHub (that is the supported tree). Current package version is **0.8.0** (beta). Confirm with the Room tab version field or `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
 
 Default configurator PIN after first start: `1234`. Open `/config` once and set a stronger PIN. Every tablet must unlock with the panel PIN; each tablet gets its own session (30 days, sliding).
 
@@ -86,7 +86,7 @@ Wiring is 3.3 V TTL, not RS-232 levels. A projector or Denon on the header needs
 
 ## 4. Clone Relay (`main`)
 
-Do **not** use a zip, a tag (`v0.7.3`), or a copy of `dist/` from another machine. The in-app update and this guide both track **`origin/main`**.
+Do **not** use a zip, an old tag (`v0.7.3`), or a copy of `dist/` from another machine. The in-app update and this guide both track **`origin/main`**. `v0.8.0` is a snapshot of this beta.
 
 ```bash
 cd ~
