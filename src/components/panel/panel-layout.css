@@ -1,0 +1,21 @@
+/* Keep the authored grid in landscape; read top-to-bottom in portrait. */
+@media (orientation: portrait) {
+  .panel-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: none !important;
+    /* Hidden decorative overflow must not let tracks shrink below their text. */
+    grid-auto-rows: minmax(min-content, auto);
+    align-content: start;
+  }
+
+  .panel-grid > * {
+    min-width: 0;
+    min-height: 7rem;
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+
+  .panel-grid > [data-wide="true"] {
+    grid-column: 1 / -1 !important;
+  }
+}
