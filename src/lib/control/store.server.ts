@@ -539,7 +539,7 @@ async function runDueMonitors() {
   let dirty = false;
   for (const rule of mem.config.monitors ?? []) {
     if (!rule.enabled) continue;
-    const wait = Math.max(1000, rule.pollMs || 8000);
+    const wait = Math.max(500, rule.pollMs || 8000);
     const last = lastMonitorRun.get(rule.id) ?? 0;
     if (now - last < wait) continue;
     lastMonitorRun.set(rule.id, now);
@@ -612,7 +612,7 @@ function startScheduler() {
     g.__relayMon__ = setInterval(() => {
       runDueMonitors().catch(() => undefined);
       runDueTriggers().catch(() => undefined);
-    }, 2000);
+    }, 500);
   }
 }
 

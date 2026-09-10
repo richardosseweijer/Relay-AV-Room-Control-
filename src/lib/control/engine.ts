@@ -962,7 +962,16 @@ export async function sendGatewayRaw(opts: { config: RoomConfig; interfaceId: st
     buf = Buffer.from(text, "utf8");
   }
   pushTrace(iface.id, "tx", `gateway ${wired.host}:${port} ${text.slice(0, 120)}`);
-  const result = await tcpWrite(wired.host, port, buf, 3000, "ascii");
+  await paceDevice(`gw:${iface.id}`, 40);
+  const result = await tcpSessionWrite(
+    `gw:${wired.host}:${port}`,
+    wired.host,
+    port,
+    buf,
+    { keepMs: 20000 },
+    {},
+    1200,
+  );
   pushTrace(iface.id, result.ok ? "rx" : "note", result.message);
   return result;
 }

@@ -1314,7 +1314,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                       </select>
                     </label>
                     )}
-                    <label className="grid gap-1 text-sm text-muted">Poll ms<InputNum value={rule.pollMs} onNumber={(n) => update((c) => { if (n == null) return; c.monitors[ri]!.pollMs = n; })} /></label>
+                    <label className="grid gap-1 text-sm text-muted">Poll ms<InputNum min={500} value={rule.pollMs} onNumber={(n) => update((c) => { if (n == null) return; c.monitors[ri]!.pollMs = Math.max(500, n); })} /></label>
                     <p className="text-sm text-muted sm:col-span-2">Auto variable <span className="font-mono text-fg">{`{${monitorVarId(rule)}}`}</span> · {String(snap.vars[monitorVarId(rule)] ?? "")}</p>
                     <label className="grid gap-1 text-sm text-muted">Also write to
                       <select className={fieldClass()} value={rule.writeVar ?? ""} onChange={(e) => update((c) => { c.monitors[ri]!.writeVar = e.target.value || null; })}>
