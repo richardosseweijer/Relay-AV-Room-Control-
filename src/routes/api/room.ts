@@ -3,14 +3,7 @@ import { ensureLoaded, memory, snapshot } from "@/lib/control/store.server";
 import { pruneExpiredSessions } from "@/lib/control/session.server";
 import { scrubSecret } from "@/lib/control/engine";
 
-function redact(auth?: Record<string, string>) {
-  if (!auth) return {};
-  const next = { ...auth };
-  for (const key of Object.keys(next)) {
-    if (/token|password|secret|key|username/i.test(key)) next[key] = "";
-  }
-  return next;
-}
+import { redactAuth } from "@/lib/control/secrets";
 
 const hits = new Map<string, number[]>();
 
@@ -65,7 +58,7 @@ export const Route = createFileRoute("/api/room")({
             ...device,
             host: authed ? device.host : "",
             port: authed ? device.port : undefined,
-            auth: redact(device.auth),
+            auth: redactAuth(device.auth),
           }));
           return Response.json({
             ...snap,

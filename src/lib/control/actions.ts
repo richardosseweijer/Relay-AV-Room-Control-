@@ -153,7 +153,7 @@ export const verifyPanelPin = createServerFn({ method: "POST" })
     }
     clearPinFail(lockoutKey("panel"));
     if (cfg.room.panelPin && !isHashedPin(cfg.room.panelPin)) {
-      cfg.room.panelPin = hashPin(data.pin);
+      cfg.room.panelPin = hashPin(cfg.room.panelPin);
       persist();
     }
     host.locked = false;
@@ -173,8 +173,9 @@ export const saveConfig = createServerFn({ method: "POST" })
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     if (data.pin && !verifyStoredPin(data.pin, memory().config.room.configPin)) return { ok: false, message: "PIN did not match" };
     const incomingPin = data.config.room.configPin?.trim();
-    const pin = !incomingPin || isHashedPin(incomingPin) ? (incomingPin || memory().config.room.configPin) : hashPin(incomingPin);
-    if (!isHashedPin(pin) && isWeakPin(incomingPin || pin)) return { ok: false, message: "Choose a PIN that is not 1234, 0000, or a repeat/sequence" };
+    const nextPin = incomingPin || memory().config.room.configPin;
+    if (!isHashedPin(nextPin) && isWeakPin(nextPin)) return { ok: false, message: "Choose a PIN that is not 1234, 0000, or a repeat/sequence" };
+    const pin = isHashedPin(nextPin) ? nextPin : hashPin(nextPin);
     const incomingPanel = data.config.room.panelAccess === "pin" ? data.config.room.panelPin?.trim() : null;
     let panelPin = data.config.room.panelAccess === "pin"
       ? (!incomingPanel || isHashedPin(incomingPanel) ? (incomingPanel || memory().config.room.panelPin) : hashPin(incomingPanel))
@@ -718,7 +719,7 @@ export const clearConfig = createServerFn({ method: "POST" })
   } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
-    if (data.pin !== memory().config.room.configPin) return { ok: false, message: "PIN did not match" };
+    if (!verifyStoredPin(data.pin, memory().config.room.configPin)) return { ok: false, message: "PIN did not match" };
     const { emptyRoomConfig, defaultDeviceState } = await import("./defaults");
     const pin = memory().config.room.configPin;
     memory().config = emptyRoomConfig(pin);

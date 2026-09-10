@@ -31,7 +31,7 @@ export const Route = createFileRoute("/api/panel-unlock")({
         }
         clearPinFail(lockoutKey("panel"));
         if (!openLan && cfg.room.panelPin && !isHashedPin(cfg.room.panelPin)) {
-          cfg.room.panelPin = hashPin(pin);
+          cfg.room.panelPin = hashPin(cfg.room.panelPin);
         }
         if (openLan) {
           const existing = Object.values(memory().sessions ?? {}).find((row) => row.kind === "panel" && row.label === "open-lan" && (!row.exp || row.exp > Date.now()));
