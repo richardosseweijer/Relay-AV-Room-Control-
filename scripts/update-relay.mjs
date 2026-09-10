@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * git fetch + ff-only onto origin/main, npm ci --include=dev, npm run build.
- * Nitro writes .vercel/output (not dist/). Leave a running tree in place if
- * pull or build fails. systemd Restart=always bounces the process on exit.
+ * Do not delete .vercel while preview is still serving it — that takes the
+ * room down mid-update. Leave the running tree if pull or build fails.
+ * systemd Restart=always bounces the process on exit.
  */
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -40,8 +41,6 @@ if (!fs.existsSync(path.join(root, ".git"))) {
   log("not a git checkout");
   process.exit(2);
 }
-
-try { fs.rmSync(vercel, { recursive: true, force: true }); } catch { /* ignore */ }
 
 const tag = process.env.RELAY_RELEASE || "";
 if (tag) {

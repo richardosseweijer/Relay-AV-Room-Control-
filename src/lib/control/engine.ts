@@ -1131,6 +1131,8 @@ function findFeedback(driver: DriverSpec | undefined, id: string) {
     || list.find((item) => item.id.toLowerCase().startsWith(`${lower}.`))
     || list.find((item) => item.id.toLowerCase().endsWith(`.${lower}`));
 }
+
+export async function readMonitorValue(opts: {
   config: RoomConfig;
   drivers: Record<string, DriverSpec>;
   state: DeviceStateMap;
@@ -1307,8 +1309,7 @@ export async function applyHost(
       cwd: root,
       env: { ...process.env, PORT: String(port), CHOKIDAR_USEPOLLING: "1", RELAY_PID: String(process.pid), MAINPID: process.env.MAINPID || String(process.pid) },
     }).unref();
-    if (!process.env.INVOCATION_ID) setTimeout(() => process.exit(0), 800);
-    return { ok: true, message: "Updating from GitHub. The page will drop for a minute." };
+    return { ok: true, message: "Updating from GitHub. The room stays up until the new build is ready." };
   }
   else if (commandId === "system.reboot") {
     if (!flags?.allowReboot) return { ok: false, message: "OS reboot only from configurator" };
