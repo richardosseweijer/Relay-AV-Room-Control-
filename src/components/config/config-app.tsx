@@ -463,10 +463,6 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
               </Button>
             )}
             <Button variant="secondary" onClick={() => void persist()}>Save all</Button>
-            <Button variant="secondary" onClick={() => {
-              downloadRoomFile(draft, snap.drivers);
-              flash("Download started", "PINs and tokens are blank in the file. This does not save the room.");
-            }}>Export</Button>
           </div>
         </div>
         <nav className="mx-auto mt-3 flex max-w-5xl gap-1 overflow-x-auto">
