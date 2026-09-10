@@ -7,6 +7,7 @@ import { scheduleShouldRun, triggerPathHit, triggerStep } from "./logic-policy";
 import { persistPair } from "../../../scripts/write-atomic.mjs";
 import { mkdir, readFile, writeFile, readdir, unlink, access, rename } from "node:fs/promises";
 import path from "node:path";
+import { isSecretKey } from "./secrets";
 
 const FILE_STORE = path.join(process.cwd(), "data", "relay-room.json");
 const SECRET_STORE = process.env.RELAY_SECRETS_FILE || path.join(process.cwd(), "data", "relay-secrets.json");
@@ -97,9 +98,6 @@ type SecretFile = {
   devices?: Record<string, Record<string, string>>;
 };
 
-function isSecretKey(key: string) {
-  return /token|password|secret|key|username|pin/i.test(key);
-}
 
 function pickSecrets(config: RoomConfig): SecretFile {
   const devices: Record<string, Record<string, string>> = {};

@@ -80,14 +80,7 @@ export function validToken(token: string | undefined, kind: "config" | "panel") 
   return true;
 }
 
-export function redactAuth(auth?: Record<string, string>) {
-  if (!auth) return {};
-  const next = { ...auth };
-  for (const key of Object.keys(next)) {
-    if (/token|password|secret|key|username/i.test(key)) next[key] = "";
-  }
-  return next;
-}
+export { redactAuth } from "./secrets.ts";
 
 export function allowLanControl(token?: string) {
   if (memory().config.room.externalControl === true) return true;
