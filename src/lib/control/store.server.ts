@@ -1,6 +1,7 @@
 import { bundledDrivers, defaultDeviceState, emptyRoomConfig } from "./defaults";
 import { readMonitorValue, runMacro, traces, scrubSecret } from "./engine";
 import type { DeviceHealth, DeviceStateMap, DriverSpec, LogEntry, Macro, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
+import { NONE_MACRO_ID, noneMacro } from "./types";
 import { applyMonitors, clampVar, resolveTemplate, seedVars, withMonitorVars, monitorVarId, type VarMap } from "./vars";
 import { scheduleShouldRun, triggerPathHit, triggerStep } from "./logic-policy";
 import { persistPair } from "../../../scripts/write-atomic.mjs";
@@ -201,6 +202,7 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
       };
     }),
     interfaces: config.interfaces ?? [],
+    macros: [noneMacro(), ...(config.macros ?? demo.macros).filter((m) => m.id !== NONE_MACRO_ID)],
   });
 }
 

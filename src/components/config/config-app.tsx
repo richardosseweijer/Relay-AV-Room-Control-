@@ -27,6 +27,7 @@ import {
   verifyConfigPin,
 } from "@/lib/control/actions";
 import type { DriverSpec, InventoryItem, RoomConfig, RoomSnapshot, Widget, WidgetColor } from "@/lib/control/types";
+import { NONE_MACRO_ID } from "@/lib/control/types";
 import { GATEWAY_PROFILES, gatewayProfile, gatewaySlot, isGatewayKind } from "@/lib/control/gateway";
 import { deviceInUse, driverInUse, variableInUse, monitorVarId, withMonitorVars } from "@/lib/control/vars";
 import { orphanBindings } from "@/lib/control/schema";
@@ -1049,6 +1050,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
         {tab === "macros" ? (
           <section className="grid gap-3">
             {draft.macros.map((macro, mi) => {
+              if (macro.id === NONE_MACRO_ID) return null;
               const open = openMacros[macro.id] === true;
               return (
                 <article
@@ -1129,7 +1131,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                           </select>
                           {step.macroId ? (
                             <select className={cn(fieldClass(), "sm:col-span-3")} value={step.macroId} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.macroId = e.target.value; })}>
-                              {draft.macros.filter((m) => m.id !== macro.id).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                              {draft.macros.filter((m) => m.id !== macro.id && m.id !== NONE_MACRO_ID).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                             </select>
                           ) : step.setVar ? (
                             <select className={cn(fieldClass(), "sm:col-span-3")} value={step.setVar} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.setVar = e.target.value; c.macros[mi]!.steps[si]!.command = undefined; })}>
@@ -1727,13 +1729,11 @@ function PagesEditor({
                 onClick={() => {
                   if (covered) return;
                   const id = `w-${Date.now().toString(36)}`;
-                  const w = Math.min(2, page.grid.cols - x);
-                  const h = Math.min(2, page.grid.rows - y);
+                  const w = 1;
+                  const h = 1;
                   if (overlaps(page.widgets, x, y, w, h)) return;
                   update((c) => {
-                    const mid = `macro-${Date.now().toString(36)}`;
-                    c.macros.push({ id: mid, label: "Button", retries: 0, onFail: { kind: "none" }, steps: [] });
-                    c.pages.find((p) => p.id === page.id)?.widgets.push({ id, type: "button", x, y, w, h, label: "Button", color: "steel", confirm: false, bind: { kind: "macro", id: mid, gotoPage: null } });
+                    c.pages.find((p) => p.id === page.id)?.widgets.push({ id, type: "button", x, y, w, h, label: "Button", color: "steel", confirm: false, bind: { kind: "macro", id: NONE_MACRO_ID, gotoPage: null } });
                   });
                   setSelectedId(id);
                 }}
@@ -1836,9 +1836,10 @@ function PagesEditor({
               w.bind.kind = "macro";
               w.bind.id = e.target.value;
               const name = c.macros.find((m) => m.id === e.target.value)?.label;
-              if (name) w.label = name;
+              if (name && e.target.value !== NONE_MACRO_ID) w.label = name;
             })}>
-              {draft.macros.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              <option value={NONE_MACRO_ID}>None</option>
+              {draft.macros.filter((m) => m.id !== NONE_MACRO_ID).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
             </select>
             </label>
             </>

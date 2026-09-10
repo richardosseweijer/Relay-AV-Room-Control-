@@ -12,6 +12,7 @@ import type {
   RoomConfig,
   TraceLine,
 } from "./types";
+import { NONE_MACRO_ID } from "./types";
 import { inferPairingSteps } from "./schema";
 import { gatewayProfile, gatewaySlot, isGatewayKind } from "./gateway";
 import { applyMonitors, clampVar, resolveTemplate, type VarMap } from "./vars";
@@ -1476,6 +1477,10 @@ async function runMacroOnce(opts: {
 }): Promise<CommandResult> {
   for (const step of opts.macro.steps) {
     if (step.macroId) {
+      if (step.macroId === NONE_MACRO_ID) {
+        if (step.delayMsAfter) await sleep(step.delayMsAfter);
+        continue;
+      }
       const nested = opts.config.macros.find((m) => m.id === step.macroId);
       if (!nested) return { ok: false, message: "Unknown macro" };
       const result = await runMacro({ ...opts, macro: nested });

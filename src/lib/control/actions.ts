@@ -3,6 +3,7 @@ import { applyHost, authenticateDevice, executeCommand, listHostInterfaces, ping
 import { validateDriver } from "./schema";
 import { bundledDrivers } from "./defaults";
 import type { DriverSpec, RoomConfig } from "./types";
+import { NONE_MACRO_ID } from "./types";
 import { clampVar, driverInUse, seedVars } from "./vars";
 import { isWeakPin, isHashedPin } from "./pins";
 import { actionPermitted } from "./control-policy";
@@ -427,6 +428,7 @@ export const fireMacro = createServerFn({ method: "POST" })
   } = await S();
     await ensureLoaded();
     if (!allowLanControl(data.token)) return { ok: false, message: "External control off" };
+    if (!data.macroId || data.macroId === NONE_MACRO_ID) return { ok: true, message: "none" };
     const mem = memory();
     const macro = mem.config.macros.find((m) => m.id === data.macroId);
     if (!macro) return { ok: false, message: "Unknown macro" };
