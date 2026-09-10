@@ -8,6 +8,7 @@ import type {
   DriverSpec,
   HostInterface,
   InventoryItem,
+  InventoryResource,
   Macro,
   RoomConfig,
   TraceLine,
@@ -530,6 +531,7 @@ export async function sendHttp(
   body: string,
   timeout: number,
   limits: { maxBytes?: number; maxMessageChars?: number } = {},
+  extraHeaders?: Record<string, string>,
 ): Promise<CommandResult> {
   try {
     const verb = method.toUpperCase();
@@ -537,10 +539,12 @@ export async function sendHttp(
     if ((verb === "GET" || verb === "HEAD") && body) {
       target += (url.includes("?") ? "&" : "?") + body.replace(/^\?/, "");
     }
+    const headers: Record<string, string> = { "content-type": "application/json", ...(extraHeaders || {}) };
+    if (!headers["content-type"]) headers["content-type"] = "application/json";
     const res = await fetchTextBounded(target, {
       method: verb,
       body: verb === "GET" || verb === "HEAD" ? undefined : body,
-      headers: { "content-type": "application/json" },
+      headers,
     }, timeout, limits.maxBytes);
     return { ok: res.ok, message: res.text.slice(0, limits.maxMessageChars ?? 400) || String(res.status) };
   } catch (err) {
@@ -898,8 +902,23 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
   else if (lan.protocol === "wol") result = await sendWol(device.auth?.mac || "", host);
   else if (lan.protocol === "cast") result = await sendCast(host, port, payload, timeout, command?.namespace);
   else if (lan.protocol === "http" || lan.protocol === "https") {
-    const path = (command?.httpPath || lan.http?.path || "/").replace("{auth.token}", device.auth?.token ?? "");
-    result = await sendHttp(`${lan.protocol}://${host}:${port}${path}`, command?.httpMethod || lan.http?.method || "GET", payload, timeout);
+    const ctx = { host, port, id: device.id };
+    const auth = (device.auth || {}) as Record<string, string>;
+    const path = renderPayload(command?.httpPath || lan.http?.path || "/", undefined, auth, ctx);
+    const headers: Record<string, string> = {};
+    if (lan.http?.contentType) headers["content-type"] = lan.http.contentType;
+    if (lan.http?.headers) Object.assign(headers, lan.http.headers);
+    if (command?.headers) Object.assign(headers, command.headers);
+    const rendered: Record<string, string> = {};
+    for (const [key, val] of Object.entries(headers)) rendered[key] = renderPayload(val, undefined, auth, ctx);
+    result = await sendHttp(
+      `${lan.protocol}://${host}:${port}${path}`,
+      command?.httpMethod || lan.http?.method || "GET",
+      payload,
+      timeout,
+      { maxMessageChars: 8000 },
+      rendered,
+    );
   } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") result = await sendSamsungKey(host, port, payload, device.auth?.token, timeout);
   else if (lan.protocol === "pjlink") result = await sendPjlink(host, port, payload, device.auth?.password || device.auth?.pin, timeout);
   else if (lan.protocol === "udp") {
@@ -1075,6 +1094,46 @@ export async function sendRaw(opts: { config: RoomConfig; drivers: Record<string
   return usesLocalPort(iface) ? sendLocal(driver, wired, opts.payload) : sendLan(driver, wired, opts.payload);
 }
 
+function fieldFromRow(row: Record<string, unknown>, path: string | undefined, fallbacks: string[]): string {
+  const blob = JSON.stringify(row);
+  if (path) {
+    const hit = pickJsonField(blob, path);
+    if (hit) return hit;
+  }
+  for (const key of fallbacks) {
+    const hit = pickJsonField(blob, key);
+    if (hit) return hit;
+  }
+  return "";
+}
+
+function parseInventoryItems(raw: string, resource: InventoryResource): InventoryItem[] {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    const rows: Record<string, unknown>[] = [];
+    if (Array.isArray(parsed)) {
+      for (const row of parsed) {
+        if (row && typeof row === "object") rows.push(row as Record<string, unknown>);
+      }
+    } else if (parsed && typeof parsed === "object") {
+      for (const [id, row] of Object.entries(parsed as Record<string, unknown>)) {
+        if (row && typeof row === "object") rows.push({ id, ...(row as Record<string, unknown>) });
+        else rows.push({ id, value: row });
+      }
+    }
+    return rows.map((row) => {
+      const id = fieldFromRow(row, resource.idField, ["entity_id", "id"]) || String(row.id || "");
+      const name = fieldFromRow(row, resource.nameField || resource.itemName, ["attributes.friendly_name", "name", "label"]) || id;
+      const value = fieldFromRow(row, resource.valueField, ["state", "value"]);
+      const domain = id.includes(".") ? id.split(".")[0] : "";
+      const group = fieldFromRow(row, undefined, ["group", "type", "class"]) || domain || resource.label;
+      return { id, name, value, group, kind: domain || resource.id };
+    }).filter((item) => item.id);
+  } catch {
+    return [];
+  }
+}
+
 export async function syncInventory(opts: { config: RoomConfig; drivers: Record<string, DriverSpec>; deviceId: string; vars?: Record<string, string | number> }): Promise<{ ok: boolean; message: string; inventory?: DeviceInventory }> {
   const device = opts.config.devices.find((d) => d.id === opts.deviceId);
   if (!device) return { ok: false, message: "Unknown device" };
@@ -1119,31 +1178,25 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
     return { ok: true, message: `${items.length} vars`, inventory: { vars: items, macros } };
   }
   const inventory: DeviceInventory = {};
+  const auth = (device.auth || {}) as Record<string, string>;
+  const lan = driver.transports.lan;
+  const headerSrc: Record<string, string> = {};
+  if (lan?.http?.contentType) headerSrc["content-type"] = lan.http.contentType;
+  if (lan?.http?.headers) Object.assign(headerSrc, lan.http.headers);
+  const headers: Record<string, string> = {};
+  for (const [key, val] of Object.entries(headerSrc)) {
+    headers[key] = renderPayload(val, undefined, auth, { host: device.host, port: device.port, id: device.id });
+  }
   for (const resource of resources) {
-    const path = renderPayload(resource.httpPath, undefined, device.auth, { host: device.host, port: device.port, id: device.id });
-    const url = `http://${device.host}:${device.port ?? driver.transports.lan?.port ?? 80}${path}`;
+    const path = renderPayload(resource.httpPath, undefined, auth, { host: device.host, port: device.port, id: device.id });
+    const url = `${lan?.protocol === "https" ? "https" : "http"}://${device.host}:${device.port ?? lan?.port ?? 80}${path}`;
     const inventoryLimit = 2 * 1024 * 1024;
     const res = await sendHttp(url, resource.httpMethod || "GET", "", 8000, {
       maxBytes: inventoryLimit,
       maxMessageChars: inventoryLimit,
-    });
+    }, headers);
     if (!res.ok) return { ok: false, message: res.message };
-    const items: InventoryItem[] = [];
-    try {
-      const parsed = JSON.parse(res.message) as Record<string, { name?: string; value?: string | number; group?: string; type?: string; class?: string }>;
-      for (const [id, row] of Object.entries(parsed)) {
-        if (typeof row === "object" && row) {
-          items.push({
-            id,
-            name: String(row.name || id),
-            value: row.value,
-            group: String(row.group || row.type || row.class || resource.label),
-            kind: String(row.type || resource.id),
-          });
-        }
-      }
-    } catch { /* ignore */ }
-    inventory[resource.id] = items;
+    inventory[resource.id] = parseInventoryItems(res.message, resource);
   }
   return { ok: true, message: "ok", inventory };
 }
@@ -1305,7 +1358,23 @@ export async function readMonitorValue(opts: {
     }
   }
   const payload = fb.query ?? driver.probe?.payload ?? '{"type":"GET_STATUS","requestId":1}';
-  const result = await sendLan(driver, device, payload);
+  const result = await sendLan(
+    driver,
+    device,
+    payload,
+    fb.httpPath || fb.httpMethod || fb.headers
+      ? {
+          id: fb.id,
+          label: fb.label,
+          kind: "action",
+          transport: fb.transport,
+          payload,
+          httpPath: fb.httpPath,
+          httpMethod: fb.httpMethod,
+          headers: fb.headers,
+        }
+      : undefined,
+  );
   if (!result.ok) return { ok: false, value: "", message: result.message };
   const app = pickJsonField(result.message, "displayName");
   const parsed = parseFeedback(fb.parse, result.message);

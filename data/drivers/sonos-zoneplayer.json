@@ -1,0 +1,157 @@
+{
+  "specVersion": "2",
+  "device": {
+    "manufacturer": "Sonos",
+    "model": "ZonePlayer",
+    "type": "amplifier",
+    "notes": "Local UPnP on TCP 1400. No cloud, no pairing. Point the device IP at the group coordinator (the speaker that shows the group name). Volume 0–100."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "http",
+      "port": 1400,
+      "timeoutMs": 4000,
+      "http": {
+        "method": "POST",
+        "path": "/MediaRenderer/AVTransport/Control",
+        "contentType": "text/xml; charset=\"utf-8\""
+      }
+    }
+  },
+  "auth": { "type": "none" },
+  "pacing": { "minIntervalMs": 120 },
+  "probe": { "transport": "lan", "payload": "" },
+  "helpers": { "checksum": "none" },
+  "commands": [
+    {
+      "id": "transport.play",
+      "label": "Play",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/MediaRenderer/AVTransport/Control",
+      "headers": { "SOAPACTION": "\"urn:schemas-upnp-org:service:AVTransport:1#Play\"" },
+      "payload": "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:Play xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID><Speed>1</Speed></u:Play></s:Body></s:Envelope>"
+    },
+    {
+      "id": "transport.pause",
+      "label": "Pause",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/MediaRenderer/AVTransport/Control",
+      "headers": { "SOAPACTION": "\"urn:schemas-upnp-org:service:AVTransport:1#Pause\"" },
+      "payload": "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:Pause xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID></u:Pause></s:Body></s:Envelope>"
+    },
+    {
+      "id": "transport.stop",
+      "label": "Stop",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/MediaRenderer/AVTransport/Control",
+      "headers": { "SOAPACTION": "\"urn:schemas-upnp-org:service:AVTransport:1#Stop\"" },
+      "payload": "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:Stop xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID></u:Stop></s:Body></s:Envelope>"
+    },
+    {
+      "id": "transport.next",
+      "label": "Next",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/MediaRenderer/AVTransport/Control",
+      "headers": { "SOAPACTION": "\"urn:schemas-upnp-org:service:AVTransport:1#Next\"" },
+      "payload": "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:Next xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID></u:Next></s:Body></s:Envelope>"
+    },
+    {
+      "id": "transport.prev",
+      "label": "Previous",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/MediaRenderer/AVTransport/Control",
+      "headers": { "SOAPACTION": "\"urn:schemas-upnp-org:service:AVTransport:1#Previous\"" },
+      "payload": "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:Previous xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID></u:Previous></s:Body></s:Envelope>"
+    },
+    {
+      "id": "volume.set",
+      "label": "Volume",
+      "kind": "range",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/MediaRenderer/RenderingControl/Control",
+      "headers": { "SOAPACTION": "\"urn:schemas-upnp-org:service:RenderingControl:1#SetVolume\"" },
+      "valueMap": { "kind": "int", "inMin": 0, "inMax": 100, "outMin": 0, "outMax": 100 },
+      "payload": "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:SetVolume xmlns:u=\"urn:schemas-upnp-org:service:RenderingControl:1\"><InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>{value}</DesiredVolume></u:SetVolume></s:Body></s:Envelope>"
+    },
+    {
+      "id": "mute.on",
+      "label": "Mute",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/MediaRenderer/RenderingControl/Control",
+      "headers": { "SOAPACTION": "\"urn:schemas-upnp-org:service:RenderingControl:1#SetMute\"" },
+      "payload": "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:SetMute xmlns:u=\"urn:schemas-upnp-org:service:RenderingControl:1\"><InstanceID>0</InstanceID><Channel>Master</Channel><DesiredMute>1</DesiredMute></u:SetMute></s:Body></s:Envelope>"
+    },
+    {
+      "id": "mute.off",
+      "label": "Unmute",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/MediaRenderer/RenderingControl/Control",
+      "headers": { "SOAPACTION": "\"urn:schemas-upnp-org:service:RenderingControl:1#SetMute\"" },
+      "payload": "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:SetMute xmlns:u=\"urn:schemas-upnp-org:service:RenderingControl:1\"><InstanceID>0</InstanceID><Channel>Master</Channel><DesiredMute>0</DesiredMute></u:SetMute></s:Body></s:Envelope>"
+    }
+  ],
+  "feedback": [
+    {
+      "id": "transport.state",
+      "label": "Transport",
+      "kind": "enum",
+      "values": ["playing", "paused", "stopped"],
+      "transport": "lan",
+      "mode": "poll",
+      "httpMethod": "POST",
+      "httpPath": "/MediaRenderer/AVTransport/Control",
+      "headers": { "SOAPACTION": "\"urn:schemas-upnp-org:service:AVTransport:1#GetTransportInfo\"" },
+      "query": "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:GetTransportInfo xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID></u:GetTransportInfo></s:Body></s:Envelope>",
+      "pollMs": 2000,
+      "parse": { "type": "regex", "pattern": "<CurrentTransportState>([^<]+)", "map": { "PLAYING": "playing", "PAUSED_PLAYBACK": "paused", "STOPPED": "stopped", "TRANSITIONING": "playing" } }
+    },
+    {
+      "id": "volume.level",
+      "label": "Volume",
+      "kind": "range",
+      "min": 0,
+      "max": 100,
+      "transport": "lan",
+      "mode": "poll",
+      "httpMethod": "POST",
+      "httpPath": "/MediaRenderer/RenderingControl/Control",
+      "headers": { "SOAPACTION": "\"urn:schemas-upnp-org:service:RenderingControl:1#GetVolume\"" },
+      "query": "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:GetVolume xmlns:u=\"urn:schemas-upnp-org:service:RenderingControl:1\"><InstanceID>0</InstanceID><Channel>Master</Channel></u:GetVolume></s:Body></s:Envelope>",
+      "pollMs": 3000,
+      "parse": { "type": "regex", "pattern": "<CurrentVolume>(\\d+)" }
+    },
+    {
+      "id": "mute.state",
+      "label": "Mute",
+      "kind": "enum",
+      "values": ["off", "on"],
+      "transport": "lan",
+      "mode": "poll",
+      "httpMethod": "POST",
+      "httpPath": "/MediaRenderer/RenderingControl/Control",
+      "headers": { "SOAPACTION": "\"urn:schemas-upnp-org:service:RenderingControl:1#GetMute\"" },
+      "query": "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:GetMute xmlns:u=\"urn:schemas-upnp-org:service:RenderingControl:1\"><InstanceID>0</InstanceID><Channel>Master</Channel></u:GetMute></s:Body></s:Envelope>",
+      "pollMs": 3000,
+      "parse": { "type": "regex", "pattern": "<CurrentMute>(\\d+)", "map": { "0": "off", "1": "on" } }
+    }
+  ]
+}

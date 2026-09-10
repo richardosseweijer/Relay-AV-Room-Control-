@@ -1,0 +1,136 @@
+{
+  "specVersion": "2",
+  "device": {
+    "manufacturer": "Home Assistant",
+    "model": "Core",
+    "type": "other",
+    "notes": "Local REST on TCP 8123. Create a long-lived access token (HA Profile → Security) and paste it in the token field. Set entity to one entity_id (sensor.office_pir) to poll that state into a monitor. Inventory lists all entities. homeassistant.turn_on/off works for lights, switches, scenes, covers."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "http",
+      "port": 8123,
+      "timeoutMs": 4000,
+      "http": {
+        "method": "GET",
+        "path": "/api/",
+        "contentType": "application/json",
+        "headers": { "Authorization": "Bearer {token}" }
+      }
+    }
+  },
+  "auth": {
+    "type": "token",
+    "instanceFields": ["token", "entity"],
+    "pairing": {
+      "kind": "none",
+      "ports": [8123],
+      "discoverPath": "/api/",
+      "userPrompt": "HA Profile → Security → Long-lived access tokens. Paste the token, save, then Probe."
+    }
+  },
+  "pacing": { "minIntervalMs": 150 },
+  "probe": { "transport": "lan", "payload": "" },
+  "helpers": { "checksum": "none" },
+  "inventory": {
+    "resources": [
+      {
+        "id": "entities",
+        "label": "Entities",
+        "httpMethod": "GET",
+        "httpPath": "/api/states",
+        "idField": "entity_id",
+        "nameField": "attributes.friendly_name",
+        "valueField": "state",
+        "useCommand": "item.on"
+      }
+    ]
+  },
+  "commands": [
+    {
+      "id": "entity.on",
+      "label": "Turn on",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/api/services/homeassistant/turn_on",
+      "payload": "{\"entity_id\":\"{auth.entity}\"}"
+    },
+    {
+      "id": "entity.off",
+      "label": "Turn off",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/api/services/homeassistant/turn_off",
+      "payload": "{\"entity_id\":\"{auth.entity}\"}"
+    },
+    {
+      "id": "entity.toggle",
+      "label": "Toggle",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/api/services/homeassistant/toggle",
+      "payload": "{\"entity_id\":\"{auth.entity}\"}"
+    },
+    {
+      "id": "item.on",
+      "label": "Item on",
+      "kind": "enum",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/api/services/homeassistant/turn_on",
+      "payload": "{\"entity_id\":\"{value}\"}"
+    },
+    {
+      "id": "item.off",
+      "label": "Item off",
+      "kind": "enum",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/api/services/homeassistant/turn_off",
+      "payload": "{\"entity_id\":\"{value}\"}"
+    }
+  ],
+  "feedback": [
+    {
+      "id": "entity.state",
+      "label": "State",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "httpMethod": "GET",
+      "httpPath": "/api/states/{auth.entity}",
+      "query": "",
+      "pollMs": 2000,
+      "parse": { "type": "jsonpath", "path": "state" }
+    },
+    {
+      "id": "entity.name",
+      "label": "Name",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "httpMethod": "GET",
+      "httpPath": "/api/states/{auth.entity}",
+      "query": "",
+      "pollMs": 10000,
+      "parse": { "type": "jsonpath", "path": "attributes.friendly_name" }
+    },
+    {
+      "id": "entity.brightness",
+      "label": "Brightness",
+      "kind": "range",
+      "min": 0,
+      "max": 255,
+      "transport": "lan",
+      "mode": "poll",
+      "httpMethod": "GET",
+      "httpPath": "/api/states/{auth.entity}",
+      "query": "",
+      "pollMs": 3000,
+      "parse": { "type": "jsonpath", "path": "attributes.brightness" }
+    }
+  ]
+}

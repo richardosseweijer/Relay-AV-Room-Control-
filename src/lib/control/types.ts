@@ -136,6 +136,9 @@ export type InventoryResource = {
   httpPath: string;
   itemId?: "key" | "field";
   itemName?: string;
+  idField?: string;
+  nameField?: string;
+  valueField?: string;
   useCommand?: string;
 };
 
@@ -168,6 +171,7 @@ export type DriverCommand = {
   valueMap?: ValueMap;
   requires?: string[];
   wake?: { protocol: "wol" };
+  headers?: Record<string, string>;
   ack?: { success?: MatchRule; nak?: MatchRule };
 };
 
@@ -179,6 +183,8 @@ export type DriverFeedback = {
   mode: FeedbackMode;
   query?: string;
   httpPath?: string;
+  httpMethod?: string;
+  headers?: Record<string, string>;
   pollMs?: number;
   values?: string[];
   min?: number;
