@@ -530,6 +530,7 @@ export function defaultRoomConfig(): RoomConfig {
       { id: "tr-loud", label: "Volume warning", enabled: false, variable: "watchVol", compare: "gt", equals: "35", mode: "change", intervalSec: 1, delaySec: 0, holdSec: 0, macroId: "announce" },
     ],
     interfaces: [],
+    tags: {},
   };
 }
 
@@ -548,6 +549,7 @@ export function emptyRoomConfig(pin = DEFAULT_CONFIG_PIN): RoomConfig {
     monitors: [],
     triggers: [],
     interfaces: [],
+    tags: {},
   };
 }
 

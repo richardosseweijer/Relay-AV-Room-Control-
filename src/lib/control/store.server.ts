@@ -162,6 +162,11 @@ export async function reloadSecretsFromDisk() {
   return secrets;
 }
 
+function liftTag<T extends { tag?: string | null }>(item: T): T {
+  const legacy = (item as T & { folder?: string | null }).folder;
+  return { ...item, tag: item.tag || legacy || null };
+}
+
 export function normalize(config?: RoomConfig | null): RoomConfig {
   const demo = emptyRoomConfig();
   if (!config) return demo;
@@ -177,9 +182,9 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
       panelAcceptsConfigPin: config.room?.panelAcceptsConfigPin === true,
       theme: config.room?.theme === "pastel" ? "pastel" : "dark",
     },
-    variables: config.variables ?? demo.variables,
-    schedules: config.schedules ?? demo.schedules,
-    monitors: config.monitors ?? demo.monitors,
+    variables: (config.variables ?? demo.variables).map(liftTag),
+    schedules: (config.schedules ?? demo.schedules).map(liftTag),
+    monitors: (config.monitors ?? demo.monitors).map(liftTag),
     triggers: (config.triggers ?? []).map((rule) => {
       const holdSec = rule.holdSec ?? Math.round((rule.holdMs || 0) / 1000);
       const delaySec = rule.delaySec ?? Math.round((rule.delayMs || 0) / 1000);
@@ -189,7 +194,7 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
         compare: row.compare || "eq",
         equals: row.equals ?? "",
       }));
-      return {
+      return liftTag({
         ...rule,
         holdSec,
         delaySec,
@@ -200,10 +205,11 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
         whenTrue: clip(rule.whenTrue),
         whenFalse: clip(rule.whenFalse),
         falseMacroId: rule.falseMacroId || "",
-      };
+      });
     }),
     interfaces: config.interfaces ?? [],
-    macros: [noneMacro(), ...(config.macros ?? demo.macros).filter((m) => m.id !== NONE_MACRO_ID)],
+    tags: config.tags ?? (config as { folders?: RoomConfig["tags"] }).folders ?? {},
+    macros: [noneMacro(), ...(config.macros ?? demo.macros).filter((m) => m.id !== NONE_MACRO_ID)].map(liftTag),
   });
 }
 

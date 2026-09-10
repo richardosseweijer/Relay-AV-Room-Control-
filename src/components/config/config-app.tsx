@@ -44,6 +44,127 @@ function fieldClass() {
   return "h-11 min-w-0 w-full rounded-md border border-border bg-bg px-3 text-sm text-fg";
 }
 
+type TagBucket = "macros" | "variables" | "monitors" | "schedules" | "triggers";
+const TAG_ALL = "*";
+type Tagged = { id: string; tag?: string | null; folder?: string | null };
+
+function tagOf(item: Tagged) {
+  return (item.tag || item.folder || "").trim();
+}
+
+function tagVisible(filter: string, item: Tagged) {
+  if (filter === TAG_ALL) return true;
+  return tagOf(item) === filter;
+}
+
+function tagNames(config: RoomConfig, bucket: TagBucket): string[] {
+  const listed = [...(config.tags?.[bucket] ?? [])];
+  const items: Tagged[] =
+    bucket === "macros" ? config.macros.filter((m) => m.id !== NONE_MACRO_ID) :
+    bucket === "variables" ? config.variables :
+    bucket === "monitors" ? config.monitors :
+    bucket === "schedules" ? config.schedules :
+    (config.triggers ?? []);
+  for (const item of items) {
+    const name = tagOf(item);
+    if (name && !listed.includes(name)) listed.push(name);
+  }
+  return listed;
+}
+
+function currentTag(filter: string) {
+  return filter === TAG_ALL ? "" : filter;
+}
+
+function setTags(c: RoomConfig, bucket: TagBucket, names: string[]) {
+  c.tags = { ...(c.tags ?? {}), [bucket]: names };
+}
+
+function fileItem(c: RoomConfig, bucket: TagBucket, id: string, tag: string) {
+  const name = tag.trim();
+  const names = tagNames(c, bucket);
+  if (name && !names.includes(name)) setTags(c, bucket, [...names, name]);
+  const apply = (item: Tagged) => {
+    if (item.id === id) {
+      item.tag = name || null;
+      item.folder = undefined;
+    }
+  };
+  if (bucket === "macros") c.macros.forEach(apply);
+  if (bucket === "variables") c.variables.forEach(apply);
+  if (bucket === "monitors") c.monitors.forEach(apply);
+  if (bucket === "schedules") c.schedules.forEach(apply);
+  if (bucket === "triggers") (c.triggers ?? []).forEach(apply);
+}
+
+function TagBar({
+  names,
+  filter,
+  onFilter,
+  onReorder,
+  onFile,
+  onCreate,
+  onRemove,
+}: {
+  names: string[];
+  filter: string;
+  onFilter: (id: string) => void;
+  onReorder: (from: string, onto: string) => void;
+  onFile: (raw: string, tag: string) => void;
+  onCreate: (name: string) => void;
+  onRemove: (name: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const chips = [{ id: TAG_ALL, label: "All" }, { id: "", label: "Untagged" }, ...names.map((n) => ({ id: n, label: n }))];
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {chips.map((chip) => (
+        <button
+          key={chip.id || "untagged"}
+          type="button"
+          draggable={Boolean(chip.id && chip.id !== TAG_ALL)}
+          className={cn("h-9 rounded-md border px-3 text-sm", filter === chip.id ? "border-accent bg-raised text-fg" : "border-border text-muted")}
+          onClick={() => onFilter(chip.id)}
+          onDragStart={(e) => {
+            if (!chip.id || chip.id === TAG_ALL) return;
+            e.dataTransfer.setData("text/plain", `tag:${chip.id}`);
+          }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const raw = e.dataTransfer.getData("text/plain");
+            if (raw.startsWith("tag:")) {
+              const from = raw.slice(4);
+              if (chip.id && chip.id !== TAG_ALL && from !== chip.id) onReorder(from, chip.id);
+              return;
+            }
+            if (chip.id === TAG_ALL) return;
+            onFile(raw, chip.id);
+          }}
+        >
+          {chip.label}
+        </button>
+      ))}
+      <input className={cn(fieldClass(), "h-9 w-36")} placeholder="New tag" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => {
+        if (e.key !== "Enter") return;
+        const next = name.trim();
+        if (!next || next === "All" || next === "Untagged") return;
+        onCreate(next);
+        setName("");
+      }} />
+      <Button size="sm" variant="secondary" onClick={() => {
+        const next = name.trim();
+        if (!next || next === "All" || next === "Untagged") return;
+        onCreate(next);
+        setName("");
+      }}>Add tag</Button>
+      {filter && filter !== TAG_ALL ? (
+        <Button size="sm" variant="ghost" onClick={() => onRemove(filter)}>Delete tag</Button>
+      ) : null}
+    </div>
+  );
+}
+
 
 function downloadRoomFile(draft: RoomConfig, drivers: RoomSnapshot["drivers"]) {
   const config = structuredClone(draft);
@@ -218,15 +339,19 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
   const [snap, setSnap] = useState<RoomSnapshot | null>(null);
   const [draft, setDraft] = useState<RoomConfig | null>(null);
   const token = props.token;
-  const [tab, setTab] = useState<"room" | "security" | "drivers" | "devices" | "interfaces" | "macros" | "pages" | "logic" | "log">("room");
+  const [tab, setTab] = useState<"room" | "security" | "drivers" | "devices" | "interfaces" | "macros" | "logic" | "pages" | "log">("room");
   const [logicTab, setLogicTab] = useState<"variables" | "monitor" | "schedule" | "triggers">("variables");
   const [logKind, setLogKind] = useState("all");
   const [toast, setToast] = useState<{ title: string; body: string; sticky?: boolean } | null>(null);
   const [lockPin, setLockPin] = useState("");
   const [needLock, setNeedLock] = useState(false);
   const [openMacros, setOpenMacros] = useState<Record<string, boolean>>({});
+  const [openIfaces, setOpenIfaces] = useState<Record<string, boolean>>({});
   const [openDevices, setOpenDevices] = useState<Record<string, boolean>>({});
   const [openLogic, setOpenLogic] = useState<Record<string, boolean>>({});
+  const [tagFilter, setTagFilter] = useState<Record<TagBucket, string>>({
+    macros: TAG_ALL, variables: TAG_ALL, monitors: TAG_ALL, schedules: TAG_ALL, triggers: TAG_ALL,
+  });
   const [pageId, setPageId] = useState("home");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [driverName, setDriverName] = useState("");
@@ -344,6 +469,49 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
     const next = structuredClone(draft);
     mut(next);
     setDraft(next);
+  }
+
+  function tagBarFor(bucket: TagBucket) {
+    const prefix = bucket === "macros" ? "macro:" : bucket === "variables" ? "var:" : bucket === "monitors" ? "mon:" : bucket === "schedules" ? "sch:" : "trg:";
+    return {
+      names: tagNames(draft!, bucket),
+      filter: tagFilter[bucket],
+      onFilter: (id: string) => setTagFilter((cur) => ({ ...cur, [bucket]: id })),
+      onReorder: (from: string, onto: string) => update((c) => {
+        const names = tagNames(c, bucket);
+        const i = names.indexOf(from);
+        const j = names.indexOf(onto);
+        if (i < 0 || j < 0 || i === j) return;
+        const [row] = names.splice(i, 1);
+        if (row) names.splice(j, 0, row);
+        setTags(c, bucket, names);
+      }),
+      onFile: (raw: string, tag: string) => {
+        if (!raw.startsWith(prefix)) return;
+        update((c) => fileItem(c, bucket, raw.slice(prefix.length), tag));
+      },
+      onCreate: (name: string) => {
+        update((c) => {
+          const names = tagNames(c, bucket);
+          if (!names.includes(name)) setTags(c, bucket, [...names, name]);
+        });
+        setTagFilter((cur) => ({ ...cur, [bucket]: name }));
+      },
+      onRemove: (name: string) => {
+        update((c) => {
+          const clear = (item: Tagged) => {
+            if (tagOf(item) === name) { item.tag = null; item.folder = undefined; }
+          };
+          if (bucket === "macros") c.macros.forEach(clear);
+          if (bucket === "variables") c.variables.forEach(clear);
+          if (bucket === "monitors") c.monitors.forEach(clear);
+          if (bucket === "schedules") c.schedules.forEach(clear);
+          if (bucket === "triggers") (c.triggers ?? []).forEach(clear);
+          setTags(c, bucket, tagNames(c, bucket).filter((n) => n !== name));
+        });
+        setTagFilter((cur) => ({ ...cur, [bucket]: TAG_ALL }));
+      },
+    };
   }
 
   async function persist(nextToken = token) {
@@ -467,7 +635,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
           </div>
         </div>
         <nav className="mx-auto mt-3 flex max-w-5xl gap-1 overflow-x-auto">
-          {(["room", "security", "drivers", "devices", "interfaces", "macros", "pages", "logic", "log"] as const).map((id) => (
+          {(["room", "security", "drivers", "devices", "interfaces", "macros", "logic", "pages", "log"] as const).map((id) => (
             <button key={id} type="button" onClick={() => setTab(id)} className={cn("h-10 rounded-md px-3 text-sm capitalize", tab === id ? "bg-accent text-accent-fg" : "text-muted")}>{id}</button>
           ))}
         </nav>
@@ -904,8 +1072,39 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
             </div>
             {(draft.interfaces ?? []).map((iface, ii) => {
               const paths = hostPorts.filter((p) => p.kind === iface.kind && !/not detected/i.test(p.label));
+              const open = openIfaces[iface.id] === true;
               return (
-              <article key={iface.id} className="grid gap-2 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2">
+              <article
+                key={iface.id}
+                className="rounded-xl border border-border bg-surface p-4"
+                draggable
+                onDragStart={(e) => e.dataTransfer.setData("text/plain", `iface:${iface.id}`)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  const raw = e.dataTransfer.getData("text/plain");
+                  if (!raw.startsWith("iface:")) return;
+                  e.preventDefault();
+                  const fromId = raw.slice(6);
+                  update((c) => {
+                    const list = c.interfaces ?? [];
+                    const from = list.findIndex((item) => item.id === fromId);
+                    if (from < 0 || from === ii) return;
+                    const [row] = list.splice(from, 1);
+                    if (row) list.splice(ii, 0, row);
+                    c.interfaces = list;
+                  });
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="cursor-grab text-subtle">::</span>
+                  <button type="button" className="flex flex-1 text-left font-medium" onClick={() => setOpenIfaces((cur) => ({ ...cur, [iface.id]: !open }))}>
+                    {iface.label || "Interface"}
+                    <span className="ml-2 font-normal text-muted">{iface.kind}{iface.kind === "gateway" && iface.host ? ` · ${iface.host}` : iface.path ? ` · ${iface.path}` : ""}</span>
+                  </button>
+                  <Button size="sm" variant="danger" onClick={() => update((c) => { c.interfaces = (c.interfaces ?? []).filter((item) => item.id !== iface.id); c.devices.forEach((d) => { if (d.interfaceId === iface.id) { d.interfaceId = null; d.transport = "lan"; } }); })}>Delete</Button>
+                </div>
+                {open ? (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <label className="grid gap-1 text-sm text-muted">Label
                   <input className={fieldClass()} value={iface.label} onChange={(e) => update((c) => { c.interfaces = c.interfaces ?? []; c.interfaces[ii]!.label = e.target.value; })} />
                 </label>
@@ -1023,7 +1222,8 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                     </label>
                   </>
                 ) : null}
-                <Button size="sm" variant="danger" onClick={() => update((c) => { c.interfaces = (c.interfaces ?? []).filter((item) => item.id !== iface.id); c.devices.forEach((d) => { if (d.interfaceId === iface.id) { d.interfaceId = null; d.transport = "lan"; } }); })}>Delete</Button>
+                </div>
+                ) : null}
               </article>
               );
             })}
@@ -1050,8 +1250,10 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
 
         {tab === "macros" ? (
           <section className="grid gap-3">
+            <TagBar {...tagBarFor("macros")} />
             {draft.macros.map((macro, mi) => {
               if (macro.id === NONE_MACRO_ID) return null;
+              if (!tagVisible(tagFilter.macros, macro)) return null;
               const open = openMacros[macro.id] === true;
               return (
                 <article
@@ -1084,6 +1286,12 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                   {open ? (
                     <div className="mt-3 grid gap-3">
                       <input className={fieldClass()} value={macro.label} onChange={(e) => update((c) => { c.macros[mi]!.label = e.target.value; })} />
+                      <label className="grid gap-1 text-sm text-muted">Tag
+                        <select className={fieldClass()} value={tagOf(macro)} onChange={(e) => update((c) => fileItem(c, "macros", macro.id, e.target.value))}>
+                          <option value="">Untagged</option>
+                          {tagNames(draft, "macros").map((n) => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                      </label>
                       <label className="grid gap-1 text-sm text-muted">On fail
                         <select className={fieldClass()} value={`${macro.onFail.kind}:${macro.onFail.id ?? ""}`} onChange={(e) => update((c) => {
                           const [kind, id] = e.target.value.split(":");
@@ -1187,7 +1395,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                 </article>
               );
             })}
-            <Button variant="secondary" onClick={() => update((c) => { c.macros.push({ id: `macro-${Date.now().toString(36)}`, label: "New macro", retries: 0, onFail: { kind: "none" }, steps: [] }); })}>Add macro</Button>
+            <Button variant="secondary" onClick={() => update((c) => { c.macros.push({ id: `macro-${Date.now().toString(36)}`, label: "New macro", retries: 0, onFail: { kind: "none" }, steps: [], tag: currentTag(tagFilter.macros) || null }); })}>Add macro</Button>
           </section>
         ) : null}
 
@@ -1204,10 +1412,30 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
             </div>
             {logicTab === "variables" ? (
               <section className="grid gap-4">
+                <TagBar {...tagBarFor("variables")} />
                 {(draft.variables ?? []).map((variable, vi) => {
+                  if (!tagVisible(tagFilter.variables, variable)) return null;
                   const open = openLogic[variable.id] === true;
                   return (
-                  <article key={variable.id} className="rounded-xl border border-border bg-surface p-4">
+                  <article
+                    key={variable.id}
+                    className="rounded-xl border border-border bg-surface p-4"
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData("text/plain", `var:${variable.id}`)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      const raw = e.dataTransfer.getData("text/plain");
+                      if (!raw.startsWith("var:")) return;
+                      e.preventDefault();
+                      const fromId = raw.slice(4);
+                      update((c) => {
+                        const from = c.variables.findIndex((v) => v.id === fromId);
+                        if (from < 0 || from === vi) return;
+                        const [row] = c.variables.splice(from, 1);
+                        if (row) c.variables.splice(vi, 0, row);
+                      });
+                    }}
+                  >
                     <button type="button" className="flex w-full items-center justify-between text-left" onClick={() => setOpenLogic((cur) => ({ ...cur, [variable.id]: !open }))}>
                       <span className="font-medium">{variable.label}</span>
                       <span className="font-mono text-xs text-muted">{String(snap.vars[variable.id] ?? variable.default)}</span>
@@ -1215,6 +1443,12 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                     {open ? (
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <input className={fieldClass()} value={variable.label} onChange={(e) => update((c) => { c.variables[vi]!.label = e.target.value; })} />
+                    <label className="grid gap-1 text-sm text-muted">Tag
+                      <select className={fieldClass()} value={tagOf(variable)} onChange={(e) => update((c) => fileItem(c, "variables", variable.id, e.target.value))}>
+                        <option value="">Untagged</option>
+                        {tagNames(draft, "variables").map((n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </label>
                     <select className={fieldClass()} value={variable.kind} onChange={(e) => update((c) => { c.variables[vi]!.kind = e.target.value as "number" | "enum" | "text"; })}>
                       <option value="number">Number</option>
                       <option value="enum">List</option>
@@ -1260,11 +1494,13 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                   </article>
                   );
                 })}
-                <Button variant="secondary" onClick={() => update((c) => { c.variables.push({ id: `var-${Date.now().toString(36)}`, label: "New variable", kind: "text", default: "" }); })}>Add variable</Button>
+                <Button variant="secondary" onClick={() => update((c) => { c.variables.push({ id: `var-${Date.now().toString(36)}`, label: "New variable", kind: "text", default: "", tag: currentTag(tagFilter.variables) || null }); })}>Add variable</Button>
               </section>
             ) : logicTab === "monitor" ? (
               <section className="grid gap-4">
+                <TagBar {...tagBarFor("monitors")} />
                 {(draft.monitors ?? []).map((rule, ri) => {
+                  if (!tagVisible(tagFilter.monitors, rule)) return null;
                   const driver = snap.drivers[draft.devices.find((d) => d.id === rule.device)?.driver ?? ""];
                   const open = openLogic[rule.id] === true;
                   const st = snap.monitorStatus?.[rule.id];
@@ -1272,7 +1508,25 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                     ? `${new Date(st.at).toLocaleTimeString()} · ${st.ok ? "ok" : "error"} · ${st.value || st.message || "—"}`
                     : "No poll yet";
                   return (
-                  <article key={rule.id} className="rounded-xl border border-border bg-surface p-4">
+                  <article
+                    key={rule.id}
+                    className="rounded-xl border border-border bg-surface p-4"
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData("text/plain", `mon:${rule.id}`)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      const raw = e.dataTransfer.getData("text/plain");
+                      if (!raw.startsWith("mon:")) return;
+                      e.preventDefault();
+                      const fromId = raw.slice(4);
+                      update((c) => {
+                        const from = c.monitors.findIndex((m) => m.id === fromId);
+                        if (from < 0 || from === ri) return;
+                        const [row] = c.monitors.splice(from, 1);
+                        if (row) c.monitors.splice(ri, 0, row);
+                      });
+                    }}
+                  >
                     <button type="button" className="flex w-full items-center justify-between gap-3 text-left" onClick={() => {
                       setOpenLogic((cur) => ({ ...cur, [rule.id]: !open }));
                       if (!rule.interfaceId && driver?.feedback?.length && !driver.feedback.some((fb) => fb.id === rule.feedback)) {
@@ -1285,6 +1539,12 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                     {open ? (
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <label className="grid gap-1 text-sm text-muted">Label<input className={fieldClass()} value={rule.label} onChange={(e) => update((c) => { c.monitors[ri]!.label = e.target.value; c.variables = withMonitorVars(c).variables; })} /></label>
+                    <label className="grid gap-1 text-sm text-muted">Tag
+                      <select className={fieldClass()} value={tagOf(rule)} onChange={(e) => update((c) => fileItem(c, "monitors", rule.id, e.target.value))}>
+                        <option value="">Untagged</option>
+                        {tagNames(draft, "monitors").map((n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </label>
                     <label className="flex items-center gap-2 text-sm text-muted pt-6">
                       <input type="checkbox" checked={rule.enabled} onChange={(e) => update((c) => { c.monitors[ri]!.enabled = e.target.checked; })} />
                       Enabled
@@ -1366,17 +1626,37 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                 <Button variant="secondary" onClick={() => update((c) => {
                   const deviceId = c.devices[0]?.id ?? "";
                   const firstFb = snap.drivers[c.devices[0]?.driver ?? ""]?.feedback?.[0]?.id ?? "power.state";
-                  c.monitors.push({ id: `mon-${Date.now().toString(36)}`, label: "New monitor", enabled: true, device: deviceId, feedback: firstFb, pollMs: 4000, writeVar: null, mapMode: "raw", map: [] });
+                  c.monitors.push({ id: `mon-${Date.now().toString(36)}`, label: "New monitor", enabled: true, device: deviceId, feedback: firstFb, pollMs: 4000, writeVar: null, mapMode: "raw", map: [], tag: currentTag(tagFilter.monitors) || null });
                   c.variables = withMonitorVars(c).variables;
                 })}>Add monitor</Button>
               </section>
             ) : null}
             {logicTab === "schedule" ? (
               <section className="grid gap-4">
+                <TagBar {...tagBarFor("schedules")} />
                 {(draft.schedules ?? []).map((job, ji) => {
+                  if (!tagVisible(tagFilter.schedules, job)) return null;
                   const open = openLogic[job.id] === true;
                   return (
-                  <article key={job.id} className="rounded-xl border border-border bg-surface p-4">
+                  <article
+                    key={job.id}
+                    className="rounded-xl border border-border bg-surface p-4"
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData("text/plain", `sch:${job.id}`)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      const raw = e.dataTransfer.getData("text/plain");
+                      if (!raw.startsWith("sch:")) return;
+                      e.preventDefault();
+                      const fromId = raw.slice(4);
+                      update((c) => {
+                        const from = c.schedules.findIndex((s) => s.id === fromId);
+                        if (from < 0 || from === ji) return;
+                        const [row] = c.schedules.splice(from, 1);
+                        if (row) c.schedules.splice(ji, 0, row);
+                      });
+                    }}
+                  >
                     <button type="button" className="flex w-full items-center justify-between text-left" onClick={() => setOpenLogic((cur) => ({ ...cur, [job.id]: !open }))}>
                       <span className="font-medium">{job.label}</span>
                       <span className="text-xs text-muted">{job.time} {job.enabled ? "On" : "Off"}</span>
@@ -1384,6 +1664,12 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                     {open ? (
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <label className="grid gap-1 text-sm text-muted">Label<input className={fieldClass()} value={job.label} onChange={(e) => update((c) => { c.schedules[ji]!.label = e.target.value; })} /></label>
+                    <label className="grid gap-1 text-sm text-muted">Tag
+                      <select className={fieldClass()} value={tagOf(job)} onChange={(e) => update((c) => fileItem(c, "schedules", job.id, e.target.value))}>
+                        <option value="">Untagged</option>
+                        {tagNames(draft, "schedules").map((n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </label>
                     <label className="grid gap-1 text-sm text-muted">Time<input className={fieldClass()} type="time" value={job.time} onChange={(e) => update((c) => { c.schedules[ji]!.time = e.target.value; })} /></label>
                     <label className="grid gap-1 text-sm text-muted">Macro
                     <select className={fieldClass()} value={job.macroId} onChange={(e) => update((c) => { c.schedules[ji]!.macroId = e.target.value; })}>
@@ -1418,15 +1704,37 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                   </article>
                   );
                 })}
-                <Button variant="secondary" onClick={() => update((c) => { c.schedules.push({ id: `sch-${Date.now().toString(36)}`, label: "New schedule", enabled: false, time: "08:00", days: [1, 2, 3, 4, 5], macroId: c.macros[0]?.id ?? "" }); })}>Add schedule</Button>
+                <Button variant="secondary" onClick={() => update((c) => { c.schedules.push({ id: `sch-${Date.now().toString(36)}`, label: "New schedule", enabled: false, time: "08:00", days: [1, 2, 3, 4, 5], macroId: c.macros[0]?.id ?? "", tag: currentTag(tagFilter.schedules) || null }); })}>Add schedule</Button>
               </section>
             ) : null}
             {logicTab === "triggers" ? (
               <section className="grid gap-3">
+                <TagBar {...tagBarFor("triggers")} />
                 {(draft.triggers ?? []).map((rule, ti) => {
+                  if (!tagVisible(tagFilter.triggers, rule)) return null;
                   const open = openLogic[rule.id] === true;
                   return (
-                    <article key={rule.id} className="rounded-xl border border-border bg-surface p-4">
+                    <article
+                      key={rule.id}
+                      className="rounded-xl border border-border bg-surface p-4"
+                      draggable
+                      onDragStart={(e) => e.dataTransfer.setData("text/plain", `trg:${rule.id}`)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        const raw = e.dataTransfer.getData("text/plain");
+                        if (!raw.startsWith("trg:")) return;
+                        e.preventDefault();
+                        const fromId = raw.slice(4);
+                        update((c) => {
+                          const list = c.triggers ?? [];
+                          const from = list.findIndex((item) => item.id === fromId);
+                          if (from < 0 || from === ti) return;
+                          const [row] = list.splice(from, 1);
+                          if (row) list.splice(ti, 0, row);
+                          c.triggers = list;
+                        });
+                      }}
+                    >
                       <button type="button" className="flex w-full items-center justify-between text-left" onClick={() => setOpenLogic((cur) => ({ ...cur, [rule.id]: !open }))}>
                         <span className="font-medium">{rule.label}</span>
                         <span className="text-xs text-muted">{rule.mode} · {rule.compare}{(rule.whenTrue?.length || rule.whenFalse?.length) ? ` · +${(rule.whenTrue?.length ?? 0) + (rule.whenFalse?.length ?? 0)}` : ""}</span>
@@ -1435,6 +1743,12 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
                           <label className="grid gap-1 text-sm text-muted">Label
                             <input className={fieldClass()} value={rule.label} onChange={(e) => update((c) => { c.triggers![ti]!.label = e.target.value; })} />
+                          </label>
+                          <label className="grid gap-1 text-sm text-muted">Tag
+                            <select className={fieldClass()} value={tagOf(rule)} onChange={(e) => update((c) => fileItem(c, "triggers", rule.id, e.target.value))}>
+                              <option value="">Untagged</option>
+                              {tagNames(draft, "triggers").map((n) => <option key={n} value={n}>{n}</option>)}
+                            </select>
                           </label>
                           <label className="grid gap-1 text-sm text-muted">Trigger variable
                             <select className={fieldClass()} value={rule.variable} onChange={(e) => update((c) => { c.triggers![ti]!.variable = e.target.value; })}>
@@ -1534,7 +1848,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                 })}
                 <Button variant="secondary" onClick={() => update((c) => {
                   c.triggers = c.triggers ?? [];
-                  c.triggers.push({ id: `trg-${Date.now().toString(36)}`, label: "New trigger", enabled: false, variable: c.variables[0]?.id ?? "", compare: "eq", equals: "on", whenTrue: [], whenFalse: [], mode: "change", intervalSec: 5, delaySec: 0, holdSec: 0, macroId: c.macros[0]?.id ?? "", falseMacroId: "" });
+                  c.triggers.push({ id: `trg-${Date.now().toString(36)}`, label: "New trigger", enabled: false, variable: c.variables[0]?.id ?? "", compare: "eq", equals: "on", whenTrue: [], whenFalse: [], mode: "change", intervalSec: 5, delaySec: 0, holdSec: 0, macroId: c.macros[0]?.id ?? "", falseMacroId: "", tag: currentTag(tagFilter.triggers) || null });
                 })}>Add trigger</Button>
               </section>
             ) : null}

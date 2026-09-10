@@ -259,6 +259,7 @@ export type RoomVariable = {
   values?: string[];
   pushDevice?: string | null;
   pushCommand?: string | null;
+  tag?: string | null;
 };
 
 export type Schedule = {
@@ -268,6 +269,7 @@ export type Schedule = {
   time: string;
   days: number[];
   macroId: string;
+  tag?: string | null;
 };
 
 export type TriggerCompare = "eq" | "neq" | "gt" | "lt";
@@ -297,6 +299,7 @@ export type VariableTrigger = {
   holdMs?: number;
   macroId: string;
   falseMacroId?: string;
+  tag?: string | null;
 };
 
 export type MonitorRule = {
@@ -314,6 +317,7 @@ export type MonitorRule = {
   errorValue?: string;
   mapMode: "raw" | "map";
   map: { from: string; to: string }[];
+  tag?: string | null;
 };
 
 export type Page = {
@@ -365,6 +369,7 @@ export type Macro = {
   retries: number;
   onFail: { kind: FailKind; id?: string };
   steps: MacroStep[];
+  tag?: string | null;
 };
 
 export const NONE_MACRO_ID = "none";
@@ -415,6 +420,13 @@ export type RoomConfig = {
   schedules: Schedule[];
   monitors: MonitorRule[];
   triggers?: VariableTrigger[];
+  tags?: {
+    macros?: string[];
+    variables?: string[];
+    monitors?: string[];
+    schedules?: string[];
+    triggers?: string[];
+  };
 };
 
 export type DeviceStateMap = Record<string, Record<string, string | number | boolean>>;

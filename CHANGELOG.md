@@ -2,6 +2,12 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.8.1 (beta) — 2026-09-11
+
+- Tag `v0.8.1`. Still beta; not production-certified.
+- Config tags for macros / logic (filter chips, drag onto a chip to file, drag chips to reorder). Old `folder` values still load as tags.
+- Interface cards fold and drag-reorder. Logic tab sits between Macros and Pages.
+
 ## 0.8.0 (beta) — 2026-09-10
 
 - Tag `v0.8.0`. Still beta; not production-certified.
