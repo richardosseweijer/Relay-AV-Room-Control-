@@ -1,35 +1,28 @@
 {
-  "specVersion": "1.0",
+  "specVersion": "2",
   "device": {
     "manufacturer": "Generic",
-    "model": "Wake-on-LAN",
+    "model": "PC (WOL + LAN shutdown)",
     "type": "other",
-    "notes": "MAC in auth.mac."
+    "notes": "Wake uses the NIC MAC (enable WOL in BIOS). Shutdown: Windows RPC (user/password; Linux host needs samba-common-bin) or HTTP GET to auth.path on this device’s Port (small helper on the PC)."
   },
   "transports": {
     "lan": {
-      "protocol": "wol",
+      "protocol": "http",
       "port": 9,
-      "timeoutMs": 1000
+      "timeoutMs": 4000
     }
   },
   "auth": {
     "type": "none",
-    "instanceFields": [
-      "mac"
-    ]
+    "instanceFields": ["mac", "user", "password", "path"]
   },
-  "helpers": {
-    "checksum": "none"
-  },
+  "pacing": { "minIntervalMs": 200, "powerOnDelayMs": 0 },
+  "helpers": { "checksum": "none" },
   "commands": [
-    {
-      "id": "power.on",
-      "label": "Wake",
-      "kind": "action",
-      "transport": "lan",
-      "payload": ""
-    }
+    { "id": "power.on", "label": "Wake", "kind": "action", "transport": "lan", "wake": { "protocol": "wol" }, "payload": "" },
+    { "id": "power.off", "label": "Shutdown", "kind": "action", "transport": "lan", "httpMethod": "RPC", "payload": "" },
+    { "id": "power.http", "label": "HTTP shutdown", "kind": "action", "transport": "lan", "httpMethod": "GET", "httpPath": "{auth.path}", "payload": "" }
   ],
   "feedback": []
 }

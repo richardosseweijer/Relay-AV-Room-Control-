@@ -133,12 +133,17 @@ export const extraDrivers: Record<string, DriverSpec> = {
     ],
   },
   "wake-on-lan.json": {
-    specVersion: "1.0",
-    device: { manufacturer: "Generic", model: "Wake-on-LAN", type: "other", notes: "MAC in auth.mac." },
-    transports: { lan: { protocol: "wol", port: 9, timeoutMs: 1000 } },
-    auth: { type: "none", instanceFields: ["mac"] },
+    specVersion: "2",
+    device: { manufacturer: "Generic", model: "PC (WOL + LAN shutdown)", type: "other", notes: "Wake: MAC. Shutdown: user/password for Windows RPC (samba-common-bin on Linux) or HTTP GET auth.path on Port." },
+    transports: { lan: { protocol: "http", port: 9, timeoutMs: 4000 } },
+    auth: { type: "none", instanceFields: ["mac", "user", "password", "path"] },
+    pacing: { minIntervalMs: 200, powerOnDelayMs: 0 },
     helpers: { checksum: "none" },
-    commands: [{ id: "power.on", label: "Wake", kind: "action", transport: "lan", payload: "" }],
+    commands: [
+      { id: "power.on", label: "Wake", kind: "action", transport: "lan", wake: { protocol: "wol" }, payload: "" },
+      { id: "power.off", label: "Shutdown", kind: "action", transport: "lan", httpMethod: "RPC", payload: "" },
+      { id: "power.http", label: "HTTP shutdown", kind: "action", transport: "lan", httpMethod: "GET", httpPath: "{auth.path}", payload: "" },
+    ],
     feedback: [],
   },
   "pi-gpio.json": {

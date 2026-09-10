@@ -792,6 +792,15 @@ async function sendWol(mac: string, host: string): Promise<CommandResult> {
   }
 }
 
+async function sendRpcShutdown(host: string, user: string, password: string): Promise<CommandResult> {
+  if (!allowedLanHost(host)) return { ok: false, message: "Host not on room LAN" };
+  if (process.platform === "win32") {
+    return runTool("shutdown", ["/s", "/m", `\\\\${host}`, "/t", "0", "/f"], 8000);
+  }
+  if (!user) return { ok: false, message: "Set user and password (Windows RPC) or HTTP path" };
+  return runTool("net", ["rpc", "shutdown", "-I", host, "-U", `${user}%${password}`, "-f", "-t", "0"], 8000);
+}
+
 async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: string, command?: DriverCommand): Promise<CommandResult> {
   const lan = driver.transports.lan;
   if (!lan) return { ok: false, message: "No LAN transport on this driver" };
@@ -807,7 +816,8 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
   let result: CommandResult;
   const wire = encodeWire(payload, encoding, lan.lineEnding ?? (lan.protocol === "pjlink" ? "\r" : undefined));
   if ("error" in wire) return { ok: false, message: wire.error };
-  if (lan.protocol === "wol") result = await sendWol(device.auth?.mac || "", host);
+  if (command?.httpMethod === "RPC") result = await sendRpcShutdown(host, device.auth?.user || device.auth?.username || "", device.auth?.password || "");
+  else if (lan.protocol === "wol") result = await sendWol(device.auth?.mac || "", host);
   else if (lan.protocol === "cast") result = await sendCast(host, port, payload, timeout, command?.namespace);
   else if (lan.protocol === "http" || lan.protocol === "https") {
     const path = (command?.httpPath || lan.http?.path || "/").replace("{auth.token}", device.auth?.token ?? "");
@@ -1424,6 +1434,7 @@ export async function executeCommand(opts: {
   if (command.wake?.protocol === "wol") {
     const wol = await sendWol(device.auth?.mac || "", wired.host);
     pushTrace(device.id, "note", wol.message);
+    if (!payload && !path) return wol;
     if (!wol.ok && !payload) return wol;
     await sleep(driver.pacing?.powerOnDelayMs ?? 2500);
   }
