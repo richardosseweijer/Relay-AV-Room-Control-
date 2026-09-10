@@ -3,7 +3,6 @@
   .panel-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     grid-template-rows: none !important;
-    /* Hidden decorative overflow must not let tracks shrink below their text. */
     grid-auto-rows: minmax(min-content, auto);
     align-content: start;
   }
@@ -15,6 +14,13 @@
     grid-row: auto !important;
   }
 
+  /* Captions are not tiles — don’t stretch them to button height. */
+  .panel-grid > [data-type="label"] {
+    min-height: 0;
+    grid-column: 1 / -1 !important;
+  }
+
+  /* Full span only for sliders, schedules, or widgets that already fill the row. */
   .panel-grid > [data-wide="true"] {
     grid-column: 1 / -1 !important;
   }

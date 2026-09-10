@@ -596,7 +596,7 @@ export function ControlPanel() {
             : readFeedback(snap, widget.bind.device, widget.bind.feedback);
           const lit = widgetActive(snap, widget, confirm?.id === widget.id);
           const waiting = busyId === widget.id;
-          const wide = widget.w > 1 || widget.type === "slider" || widget.type === "schedule";
+          const wide = widget.type === "slider" || widget.type === "schedule" || widget.type === "label" || widget.w >= page.grid.cols;
           if (widget.type === "slider") {
             const num = Number(value || 0);
             const min = resolveBoundNumber(widget.min, snap.vars ?? {}, 0, snap.config.variables);
@@ -608,6 +608,7 @@ export function ControlPanel() {
               <div
                 key={widget.id}
                 data-wide={wide}
+                data-type={widget.type}
                 className="flex min-w-0 flex-col justify-between gap-3 rounded-2xl border border-border/70 bg-surface/80 px-4 py-3"
                 style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
               >
@@ -634,6 +635,7 @@ export function ControlPanel() {
               <div
                 key={widget.id}
                 data-wide={wide}
+                data-type={widget.type}
                 className="flex min-w-0 items-center [overflow-wrap:anywhere] rounded-lg px-3 text-sm text-muted"
                 style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
               >
@@ -647,6 +649,7 @@ export function ControlPanel() {
               <div
                 key={widget.id}
                 data-wide={wide}
+                data-type={widget.type}
                 className="grid min-w-0"
                 style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
               >
@@ -667,6 +670,7 @@ export function ControlPanel() {
             <div
               key={widget.id}
               data-wide={wide}
+              data-type={widget.type}
               className="grid min-w-0"
               style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
             >

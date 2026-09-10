@@ -5,6 +5,7 @@ Format: date, then bullets. Older work lives in `git log`.
 ## 0.8.0 (beta) — 2026-09-10
 
 - Tag `v0.8.0`. Still beta; not production-certified.
+- Portrait: two-column flow; full-width only for sliders, schedules, and widgets that already span the authored row; labels stay captions.
 - Gateway interfaces (IPL T SFI244), MPS 602 SIS (`input.source`), generic PC WOL + RPC/HTTP shutdown.
 - Triggers with extra true/false checks; monitor auto-vars `MON_*`; 500 ms gateway polls.
 - Panel access default remains **pin**. **Open on LAN** skips the panel PIN and mints a shared panel session; that is not `externalControl`. New buttons are 1×1 bound to hidden None.
