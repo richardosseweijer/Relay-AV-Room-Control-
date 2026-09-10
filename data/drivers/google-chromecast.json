@@ -4,7 +4,7 @@
     "manufacturer": "Google",
     "model": "Chromecast",
     "type": "source",
-    "notes": "Cast on TCP 8009. Volume uses valueMap 0–100 → 0–1."
+    "notes": "Cast on TCP 8009. Play/Pause read the live mediaSessionId from the dongle. Volume uses valueMap 0–100 → 0–1."
   },
   "transports": {
     "lan": {

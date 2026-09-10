@@ -3,7 +3,7 @@ import type { DriverSpec } from "./types";
 export const extraDrivers: Record<string, DriverSpec> = {
   "google-chromecast.json": {
     specVersion: "1.0",
-    device: { manufacturer: "Google", model: "Chromecast", type: "source", notes: "Cast on TCP 8009. Volume uses valueMap 0–100 → 0–1." },
+    device: { manufacturer: "Google", model: "Chromecast", type: "source", notes: "Cast on TCP 8009. Play/Pause use the live media session. Volume 0–100 → 0–1." },
     transports: { lan: { protocol: "cast", port: 8009, timeoutMs: 5000 } },
     auth: { type: "none" },
     pacing: { minIntervalMs: 250 },
