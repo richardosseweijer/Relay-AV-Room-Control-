@@ -16,6 +16,7 @@ Format: date, then bullets. Older work lives in `git log`.
 - Delayed trigger edges reserve their execution before waiting, preventing duplicate macro runs.
 - Server startup loads persisted state and starts automation before the first API request.
 - In-app updates build and probe an isolated worktree; failed activation restores and restarts the previous release.
+- Configurator navigation uses descriptive labels for sections and automation categories.
 
 ## 2026-09-08 — gateway interfaces and Pi update
 

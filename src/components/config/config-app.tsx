@@ -35,6 +35,27 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const COLORS: WidgetColor[] = ["steel", "sage", "clay", "fog", "ink", "ocean", "pine", "rust", "sand", "slate", "rose"];
+const CONFIG_TABS = ["room", "security", "drivers", "devices", "interfaces", "macros", "pages", "logic", "log"] as const;
+type ConfigTab = (typeof CONFIG_TABS)[number];
+const CONFIG_TAB_LABELS: Record<ConfigTab, string> = {
+  room: "Room",
+  security: "Security",
+  drivers: "Driver library",
+  devices: "Devices",
+  interfaces: "Interfaces",
+  macros: "Macros",
+  pages: "Panel pages",
+  logic: "Automation",
+  log: "Activity log",
+};
+const LOGIC_TABS = ["variables", "monitor", "schedule", "triggers"] as const;
+type LogicTab = (typeof LOGIC_TABS)[number];
+const LOGIC_TAB_LABELS: Record<LogicTab, string> = {
+  variables: "Variables",
+  monitor: "Monitors",
+  schedule: "Schedules",
+  triggers: "Triggers",
+};
 const COLOR_FILL: Record<WidgetColor, string> = {
   steel: "bg-steel", sage: "bg-sage", clay: "bg-clay", fog: "bg-fog", ink: "bg-raised",
   ocean: "bg-ocean", pine: "bg-pine", rust: "bg-rust", sand: "bg-sand", slate: "bg-slate", rose: "bg-rose",
@@ -218,8 +239,8 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
   const [snap, setSnap] = useState<RoomSnapshot | null>(null);
   const [draft, setDraft] = useState<RoomConfig | null>(null);
   const token = props.token;
-  const [tab, setTab] = useState<"room" | "security" | "drivers" | "devices" | "interfaces" | "macros" | "pages" | "logic" | "log">("room");
-  const [logicTab, setLogicTab] = useState<"variables" | "monitor" | "schedule" | "triggers">("variables");
+  const [tab, setTab] = useState<ConfigTab>("room");
+  const [logicTab, setLogicTab] = useState<LogicTab>("variables");
   const [logKind, setLogKind] = useState("all");
   const [toast, setToast] = useState<{ title: string; body: string; sticky?: boolean } | null>(null);
   const [lockPin, setLockPin] = useState("");
@@ -467,8 +488,8 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
           </div>
         </div>
         <nav className="mx-auto mt-3 flex max-w-5xl gap-1 overflow-x-auto">
-          {(["room", "security", "drivers", "devices", "interfaces", "macros", "pages", "logic", "log"] as const).map((id) => (
-            <button key={id} type="button" onClick={() => setTab(id)} className={cn("h-10 rounded-md px-3 text-sm capitalize", tab === id ? "bg-accent text-accent-fg" : "text-muted")}>{id}</button>
+          {CONFIG_TABS.map((id) => (
+            <button key={id} type="button" onClick={() => setTab(id)} className={cn("h-10 rounded-md px-3 text-sm", tab === id ? "bg-accent text-accent-fg" : "text-muted")}>{CONFIG_TAB_LABELS[id]}</button>
           ))}
         </nav>
       </header>
@@ -1198,8 +1219,8 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
         {tab === "logic" ? (
           <div>
             <div className="mb-4 flex flex-wrap gap-1">
-              {(["variables", "monitor", "schedule", "triggers"] as const).map((id) => (
-                <button key={id} type="button" className={cn("h-10 rounded-md px-3 text-sm capitalize", logicTab === id ? "bg-raised text-fg" : "text-muted")} onClick={() => setLogicTab(id)}>{id}</button>
+              {LOGIC_TABS.map((id) => (
+                <button key={id} type="button" className={cn("h-10 rounded-md px-3 text-sm", logicTab === id ? "bg-raised text-fg" : "text-muted")} onClick={() => setLogicTab(id)}>{LOGIC_TAB_LABELS[id]}</button>
               ))}
             </div>
             {logicTab === "variables" ? (

@@ -34,4 +34,3 @@
 - Corrupt primary room or secrets data makes boot try the matching `.good` pair, then an empty room if no valid pair remains. The bad room file is renamed `.bad`.
 - Empty schedule `days` skips the job (never runs; pick at least one day).
 - PINs are scrypt hashes. Peer secret, session secrets, and device tokens stay in `data/relay-secrets.json`. See issue #14.
-- Config nav labels are raw ids. See issue #16.
