@@ -243,7 +243,7 @@ async function readSecretCandidate(file: string): Promise<SecretFile> {
 
 export async function loadPersisted(): Promise<Memory> {
   const mem = memory();
-  recoverPersistPair(SECRET_STORE, FILE_STORE);
+  try { recoverPersistPair(SECRET_STORE, FILE_STORE); } catch { /* keep last-good files */ }
   const files = [FILE_STORE, `${FILE_STORE}.good`];
   for (const file of files) {
   try {

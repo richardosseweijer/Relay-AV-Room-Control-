@@ -101,16 +101,21 @@ function removeIfPresent(file) {
 export function recoverPersistPair(secretPath, roomPath) {
   const transaction = `${roomPath}.transaction`;
   if (!existsSync(transaction)) return false;
-  const pending = JSON.parse(readFileSync(transaction, "utf8"));
-  if (typeof pending?.secretBody !== "string" || typeof pending?.roomBody !== "string") {
-    throw new Error("invalid persistence transaction");
+  try {
+    const pending = JSON.parse(readFileSync(transaction, "utf8"));
+    if (typeof pending?.secretBody !== "string" || typeof pending?.roomBody !== "string") {
+      throw new Error("invalid persistence transaction");
+    }
+    writeAtomicFile(secretPath, pending.secretBody);
+    writeAtomicFile(roomPath, pending.roomBody);
+    writeAtomicFile(`${secretPath}.good`, pending.secretBody);
+    writeAtomicFile(`${roomPath}.good`, pending.roomBody);
+    removeIfPresent(transaction);
+    return true;
+  } catch {
+    try { renameSync(transaction, `${transaction}.bad`); } catch { removeIfPresent(transaction); }
+    return false;
   }
-  writeAtomicFile(secretPath, pending.secretBody);
-  writeAtomicFile(roomPath, pending.roomBody);
-  writeAtomicFile(`${secretPath}.good`, pending.secretBody);
-  writeAtomicFile(`${roomPath}.good`, pending.roomBody);
-  removeIfPresent(transaction);
-  return true;
 }
 
 /**

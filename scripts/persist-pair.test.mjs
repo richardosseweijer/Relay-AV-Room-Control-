@@ -58,3 +58,17 @@ test("boot recovery completes a paired save interrupted after the secrets rename
   assert.equal(readFileSync(`${room}.good`, "utf8"), "room-new");
   assert.equal(existsSync(`${room}.transaction`), false);
 });
+
+test("corrupt transaction is set aside and does not throw", () => {
+  const dir = mkdtempSync(join(tmpdir(), "relay-persist-bad-tx-"));
+  const secrets = join(dir, "relay-secrets.json");
+  const room = join(dir, "relay-room.json");
+  writeFileSync(secrets, "secret-ok");
+  writeFileSync(room, "room-ok");
+  writeFileSync(`${room}.transaction`, "{not json");
+  assert.equal(recoverPersistPair(secrets, room), false);
+  assert.equal(readFileSync(secrets, "utf8"), "secret-ok");
+  assert.equal(readFileSync(room, "utf8"), "room-ok");
+  assert.equal(existsSync(`${room}.transaction`), false);
+  assert.equal(existsSync(`${room}.transaction.bad`), true);
+});
