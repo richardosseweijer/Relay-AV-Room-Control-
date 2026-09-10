@@ -26,6 +26,12 @@ test("config PIN rejected on panel when flag is false", () => {
   assert.equal(panelUnlockAllowed("7613", room), true);
 });
 
+test("open LAN panel does not need a PIN", () => {
+  assert.equal(panelUnlockAllowed("", { panelAccess: "open", panelPin: hashPin("8492") }), true);
+  assert.equal(panelUnlockAllowed("anything", { panelAccess: "open" }), true);
+  assert.equal(panelUnlockAllowed("", { panelAccess: "pin", panelPin: hashPin("8492") }), false);
+});
+
 test("expired token rejected", () => {
   const sessions = {
     live: { secret: "panel-live", kind: "panel", exp: Date.now() + 60_000 },

@@ -22,19 +22,29 @@ export const Route = createFileRoute("/api/panel-unlock")({
         const host = memory().host ?? (memory().host = { dim: false, locked: false, toast: null, block: null, pageId: null });
         const gate = checkLockout(lockoutKey("panel"));
         if (gate.blocked) return Response.json({ ok: false, message: "Try again later" });
-        if (!pin) return Response.json({ ok: false, message: "Enter a PIN" });
+        const openLan = cfg.room.panelAccess === "open";
+        if (!openLan && !pin) return Response.json({ ok: false, message: "Enter a PIN" });
         const ok = panelUnlockAllowed(pin, cfg.room);
         if (!ok) {
           notePinFail(lockoutKey("panel"));
           return Response.json({ ok: false, message: "Wrong PIN" });
         }
         clearPinFail(lockoutKey("panel"));
-        if (cfg.room.panelPin && !isHashedPin(cfg.room.panelPin)) {
+        if (!openLan && cfg.room.panelPin && !isHashedPin(cfg.room.panelPin)) {
           cfg.room.panelPin = hashPin(pin);
+        }
+        if (openLan) {
+          const existing = Object.values(memory().sessions ?? {}).find((row) => row.kind === "panel" && row.label === "open-lan" && (!row.exp || row.exp > Date.now()));
+          if (existing?.secret) {
+            existing.lastSeen = Date.now();
+            existing.exp = Date.now() + 30 * 24 * 60 * 60 * 1000;
+            host.locked = false;
+            return Response.json({ ok: true, token: existing.secret });
+          }
         }
         const id = randomHex(8);
         const secret = `panel-${randomHex(18)}`;
-        const row = { id, secret, kind: "panel" as const, exp: Date.now() + 30 * 24 * 60 * 60 * 1000, created: Date.now(), lastSeen: Date.now(), label: "panel" };
+        const row = { id, secret, kind: "panel" as const, exp: Date.now() + 30 * 24 * 60 * 60 * 1000, created: Date.now(), lastSeen: Date.now(), label: openLan ? "open-lan" : "panel" };
         const g = globalThis as typeof globalThis & { __relayTokens__?: Map<string, typeof row> };
         g.__relayTokens__ ??= new Map();
         g.__relayTokens__.set(secret, row);

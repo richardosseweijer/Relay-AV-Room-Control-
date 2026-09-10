@@ -112,6 +112,7 @@ export function ControlPanel() {
   const [block, setBlock] = useState<string | null>(null);
   const [clock, setClock] = useState(() => new Date());
   const [session, setSession] = useState("");
+  const [gate, setGate] = useState<"boot" | "pin" | "ok">("boot");
   const [drag, setDrag] = useState<Record<string, number>>({});
   const dragRef = useRef<Record<string, number>>({});
   const slideTimer = useRef<number | null>(null);
@@ -276,9 +277,28 @@ export function ControlPanel() {
         }
         const next = await refresh();
         if (cancel) return;
+        if (!token && next?.config?.room?.panelAccess === "open") {
+          try {
+            const res = await fetch("/api/panel-unlock", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+            const data = await res.json().catch(() => ({})) as { ok?: boolean; token?: string };
+            if (data.ok && data.token) {
+              token = data.token;
+              sessionStorage.setItem(PANEL_TOKEN_KEY, token);
+              localStorage.setItem(PANEL_TOKEN_KEY, token);
+              setSession(token);
+              await refresh();
+            }
+          } catch { /* stay gated */ }
+        }
+        if (cancel) return;
+        if (token) setGate("ok");
+        else setGate("pin");
         setLocked(!(token && next?.config?.room));
       } catch {
-        if (!cancel) setLocked(true);
+        if (!cancel) {
+          setLocked(true);
+          setGate("pin");
+        }
       }
     })();
     const tick = () => {
@@ -424,7 +444,15 @@ export function ControlPanel() {
     sendSlide(widget, value);
   }
 
-  if (!session) {
+  if (gate === "boot") {
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-bg text-muted">
+        <p>{loadErr ?? "Loading room…"}</p>
+      </main>
+    );
+  }
+
+  if (gate === "pin" || !session) {
     async function unlockRoom() {
       setNote(null);
       try {
@@ -439,7 +467,10 @@ export function ControlPanel() {
           localStorage.setItem(PANEL_TOKEN_KEY, data.token);
           setSession(data.token);
           const next = await refresh();
-          if (next?.config?.room) setLocked(false);
+          if (next?.config?.room) {
+            setLocked(false);
+            setGate("ok");
+          }
           else setNote(loadErr || "Room did not load");
           return;
         }
