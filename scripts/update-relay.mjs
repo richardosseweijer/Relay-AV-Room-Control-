@@ -68,14 +68,18 @@ async function verifyStagedBuild() {
     env: process.env,
   });
   let ready = false;
-  for (let attempt = 0; attempt < 40; attempt++) {
+  const deadline = Date.now() + Number(process.env.RELAY_UPDATE_READY_MS || 120_000);
+  while (Date.now() < deadline) {
     if (child.exitCode !== null) break;
     try {
-      const response = await fetch(`http://127.0.0.1:${port}/api/room`, { signal: AbortSignal.timeout(500) });
+      const remaining = Math.max(1, deadline - Date.now());
+      const response = await fetch(`http://127.0.0.1:${port}/api/room`, {
+        signal: AbortSignal.timeout(Math.min(2000, remaining)),
+      });
       ready = response.ok;
       if (ready) break;
-    } catch { /* keep polling until deadline */ }
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    } catch { /* cold starts can refuse connections until Vite is ready */ }
+    if (Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 500));
   }
   if (child.exitCode === null) child.kill("SIGTERM");
   return ready;
@@ -95,13 +99,17 @@ function startPreview(port) {
 }
 
 async function waitForPreview(port, child) {
-  for (let attempt = 0; attempt < 40; attempt++) {
+  const deadline = Date.now() + Number(process.env.RELAY_UPDATE_READY_MS || 120_000);
+  while (Date.now() < deadline) {
     if (child.exitCode !== null) return false;
     try {
-      const response = await fetch(`http://127.0.0.1:${port}/api/room`, { signal: AbortSignal.timeout(500) });
+      const remaining = Math.max(1, deadline - Date.now());
+      const response = await fetch(`http://127.0.0.1:${port}/api/room`, {
+        signal: AbortSignal.timeout(Math.min(2000, remaining)),
+      });
       if (response.ok) return true;
     } catch { /* keep polling until deadline */ }
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    if (Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 500));
   }
   return false;
 }

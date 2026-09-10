@@ -524,7 +524,13 @@ async function tcpSessionWrite(
   }
 }
 
-export async function sendHttp(url: string, method: string, body: string, timeout: number): Promise<CommandResult> {
+export async function sendHttp(
+  url: string,
+  method: string,
+  body: string,
+  timeout: number,
+  limits: { maxBytes?: number; maxMessageChars?: number } = {},
+): Promise<CommandResult> {
   try {
     const verb = method.toUpperCase();
     let target = url;
@@ -535,8 +541,8 @@ export async function sendHttp(url: string, method: string, body: string, timeou
       method: verb,
       body: verb === "GET" || verb === "HEAD" ? undefined : body,
       headers: { "content-type": "application/json" },
-    }, timeout);
-    return { ok: res.ok, message: res.text.slice(0, 400) || String(res.status) };
+    }, timeout, limits.maxBytes);
+    return { ok: res.ok, message: res.text.slice(0, limits.maxMessageChars ?? 400) || String(res.status) };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "http failed" };
   }
@@ -1116,7 +1122,12 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
   for (const resource of resources) {
     const path = renderPayload(resource.httpPath, undefined, device.auth, { host: device.host, port: device.port, id: device.id });
     const url = `http://${device.host}:${device.port ?? driver.transports.lan?.port ?? 80}${path}`;
-    const res = await sendHttp(url, resource.httpMethod || "GET", "", 3000);
+    const inventoryLimit = 2 * 1024 * 1024;
+    const res = await sendHttp(url, resource.httpMethod || "GET", "", 8000, {
+      maxBytes: inventoryLimit,
+      maxMessageChars: inventoryLimit,
+    });
+    if (!res.ok) return { ok: false, message: res.message };
     const items: InventoryItem[] = [];
     try {
       const parsed = JSON.parse(res.message) as Record<string, { name?: string; value?: string | number; group?: string; type?: string; class?: string }>;
@@ -1281,6 +1292,7 @@ export async function readMonitorValue(opts: {
     const url = statusUrl;
     try {
       const response = await fetchTextBounded(url, {}, 2000);
+      if (!response.ok) return { ok: false, value: "", message: response.text || String(response.status) };
       const text = response.text;
       const power = pickJsonField(text, "device.PowerState");
       const parsed = opts.feedbackId.includes("power") && power ? power : parseFeedback(fb.parse, text);
@@ -1423,7 +1435,7 @@ async function signedPeerFetch(device: { host: string; port?: number; auth?: Rec
     method,
     headers,
     body: method === "GET" ? undefined : payload,
-  }, 8000);
+  }, 8000, 2 * 1024 * 1024);
 }
 
 async function callRelayPeer(

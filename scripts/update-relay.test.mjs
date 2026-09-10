@@ -8,6 +8,13 @@ import { test } from "node:test";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 
+test("update readiness allows two minutes and retries boot responses", () => {
+  const source = readFileSync(join(repo, "scripts", "update-relay.mjs"), "utf8");
+  assert.match(source, /RELAY_UPDATE_READY_MS \|\| 120_000/g);
+  assert.equal(source.match(/RELAY_UPDATE_READY_MS \|\| 120_000/g)?.length, 2);
+  assert.match(source, /while \(Date\.now\(\) < deadline\)/);
+});
+
 test("failed staged install leaves the running checkout untouched", { skip: process.platform === "win32" }, () => {
   const root = mkdtempSync(join(tmpdir(), "relay-update-test-"));
   mkdirSync(join(root, "scripts"));
