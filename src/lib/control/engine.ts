@@ -529,7 +529,7 @@ export async function sendHttp(
   method: string,
   body: string,
   timeout: number,
-  limits: { maxBytes?: number; maxMessageChars?: number } = {},
+  limits: { maxBytes?: number; maxMessageChars?: number; headers?: Record<string, string> } = {},
 ): Promise<CommandResult> {
   try {
     const verb = method.toUpperCase();
@@ -540,7 +540,7 @@ export async function sendHttp(
     const res = await fetchTextBounded(target, {
       method: verb,
       body: verb === "GET" || verb === "HEAD" ? undefined : body,
-      headers: { "content-type": "application/json" },
+      headers: limits.headers ?? { "content-type": "application/json" },
     }, timeout, limits.maxBytes);
     return { ok: res.ok, message: res.text.slice(0, limits.maxMessageChars ?? 400) || String(res.status) };
   } catch (err) {
@@ -899,7 +899,14 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
   else if (lan.protocol === "cast") result = await sendCast(host, port, payload, timeout, command?.namespace);
   else if (lan.protocol === "http" || lan.protocol === "https") {
     const path = (command?.httpPath || lan.http?.path || "/").replace("{auth.token}", device.auth?.token ?? "");
-    result = await sendHttp(`${lan.protocol}://${host}:${port}${path}`, command?.httpMethod || lan.http?.method || "GET", payload, timeout);
+    result = await sendHttp(`${lan.protocol}://${host}:${port}${path}`, command?.httpMethod || lan.http?.method || "GET", payload, timeout, {
+      maxMessageChars: lan.http?.contentType?.includes("xml") ? 64 * 1024 : undefined,
+      headers: {
+        "content-type": lan.http?.contentType || "application/json",
+        ...(lan.http?.headers ?? {}),
+        ...(command?.httpHeaders ?? {}),
+      },
+    });
   } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") result = await sendSamsungKey(host, port, payload, device.auth?.token, timeout);
   else if (lan.protocol === "pjlink") result = await sendPjlink(host, port, payload, device.auth?.password || device.auth?.pin, timeout);
   else if (lan.protocol === "udp") {
