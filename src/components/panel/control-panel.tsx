@@ -116,6 +116,7 @@ export function ControlPanel() {
   const [drag, setDrag] = useState<Record<string, number>>({});
   const dragRef = useRef<Record<string, number>>({});
   const slideTimer = useRef<number | null>(null);
+  const slideWidget = useRef<string | null>(null);
   const misses = useRef(0);
   const [offline, setOffline] = useState(false);
 
@@ -408,7 +409,7 @@ export function ControlPanel() {
     }
   }
 
-  function sendSlide(widget: Widget, value: number) {
+  function sendSlide(widget: Widget, value: number, done = false) {
     void (async () => {
       const varId = sliderVariable(snap!, widget);
         const { fireCommand, setVariable } = await rpc();
@@ -420,6 +421,7 @@ export function ControlPanel() {
         await setVariable({ data: { id: varId, value, token: session } });
       }
       await refresh();
+      if (!done && dragRef.current[widget.id] !== undefined) return;
       setDrag((cur) => {
         const next = { ...cur };
         delete next[widget.id];
@@ -439,9 +441,29 @@ export function ControlPanel() {
       dragRef.current = next;
       return next;
     });
-    if (!flush) return;
+    if (flush) {
+      if (slideTimer.current) window.clearTimeout(slideTimer.current);
+      slideTimer.current = null;
+      slideWidget.current = null;
+      sendSlide(widget, value, true);
+      return;
+    }
+    if (slideTimer.current && slideWidget.current === widget.id) return;
     if (slideTimer.current) window.clearTimeout(slideTimer.current);
-    sendSlide(widget, value);
+    slideWidget.current = widget.id;
+    const pulse = () => {
+      slideTimer.current = window.setTimeout(() => {
+        const live = dragRef.current[widget.id];
+        if (live === undefined) {
+          slideTimer.current = null;
+          slideWidget.current = null;
+          return;
+        }
+        sendSlide(widget, live, false);
+        pulse();
+      }, 500);
+    };
+    pulse();
   }
 
   if (gate === "boot") {
