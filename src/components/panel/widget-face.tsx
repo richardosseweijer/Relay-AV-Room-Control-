@@ -75,12 +75,12 @@ export function WidgetShell({
         <NamedIcon
           name={widget.icon}
           className={cn(
-            "pointer-events-none absolute bottom-2 right-2 size-[68%] stroke-[1.25]",
+            "pointer-events-none absolute right-2 top-1/2 aspect-square h-[72%] w-auto -translate-y-1/2 stroke-[1.25]",
             disabled ? "opacity-20" : active ? "opacity-[0.22]" : "opacity-[0.16]",
           )}
         />
       ) : null}
-      <div className="relative z-[1] flex items-start justify-between gap-2">
+      <div className={cn("relative z-[1] flex items-start justify-between gap-2", widget.icon && "pr-10")}>
         <span className={cn("text-[11px] font-medium tracking-[0.16em] uppercase", disabled ? "opacity-60" : active ? "text-bg/70" : "text-muted")}>
           {widget.label}
         </span>
