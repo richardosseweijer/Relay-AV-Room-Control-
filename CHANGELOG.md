@@ -18,6 +18,7 @@ Format: date, then bullets. Older work lives in `git log`.
 - Delayed trigger edges reserve their execution before waiting, preventing duplicate macro runs.
 - Server startup loads persisted state and starts automation before the first API request.
 - In-app updates build and probe an isolated worktree; failed activation restores and restarts the previous release.
+- Added a Samsung QE77S95D driver validated against the TV's Tizen discovery endpoint and secure remote-control port.
 - Docs (SECURITY, KNOWN_ISSUES, README, LINUX): panelAccess vs externalControl; firewall as an install step; closed stale tracker issues #17 #19 #20 #21.
 
 ## 2026-09-08 — gateway interfaces and Pi update
