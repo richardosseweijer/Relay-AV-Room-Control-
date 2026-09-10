@@ -16,6 +16,9 @@ test("update readiness allows two minutes and retries boot responses", () => {
   assert.match(source, /NITRO_PORT: String\(port\)/);
   assert.match(source, /PORT: String\(port\)/);
   assert.match(source, /--strictPort/);
+  assert.match(source, /fetch", "--prune", "--force", "--tags"/);
+  assert.match(source, /checkout", "-B", "main"/);
+  assert.equal(source.includes("--ff-only"), false);
 });
 
 test("failed staged install leaves the running checkout untouched", { skip: process.platform === "win32" }, () => {

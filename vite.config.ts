@@ -164,7 +164,7 @@ export default defineConfig(({ command, isPreview }) => ({
   },
   preview: {
     host: "127.0.0.1",
-    port: 8081,
+    port: Number(process.env.NITRO_PORT || 8081),
     strictPort: true,
   },
   resolve: { tsconfigPaths: true },

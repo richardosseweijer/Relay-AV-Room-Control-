@@ -64,6 +64,7 @@ function previewEnv(port) {
     PORT: String(port),
     NITRO_PORT: String(port),
     VITE_PORT: String(port),
+    VITE_PREVIEW_PORT: String(port),
     CHOKIDAR_USEPOLLING: "1",
   };
 }
@@ -80,6 +81,7 @@ async function verifyStagedBuild() {
     env: previewEnv(port),
   });
   let ready = false;
+  let lastWaitLog = 0;
   const deadline = Date.now() + Number(process.env.RELAY_UPDATE_READY_MS || 120_000);
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
@@ -92,9 +94,14 @@ async function verifyStagedBuild() {
         signal: AbortSignal.timeout(Math.min(2000, remaining)),
       });
       log(`staged preview /api/room ${response.status}`);
-      ready = response.ok || response.status === 204;
+      ready = response.ok || response.status === 204 || response.status === 401;
       if (ready) break;
-    } catch { /* cold starts can refuse connections until Vite is ready */ }
+    } catch (err) {
+      if (Date.now() - lastWaitLog > 10_000) {
+        lastWaitLog = Date.now();
+        log(`staged preview wait ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
     if (Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 500));
   }
   if (child.exitCode === null) child.kill("SIGTERM");
@@ -140,11 +147,13 @@ if (!run("git", ["diff", "--quiet"]) || !run("git", ["diff", "--cached", "--quie
   process.exit(1);
 }
 
-const tag = process.env.RELAY_RELEASE || "";
-if (!run("git", tag ? ["fetch", "--tags", "origin"] : ["fetch", "origin"])) process.exit(1);
-const target = tag ? `tags/${tag}` : "origin/main";
+const tag = (process.env.RELAY_RELEASE || "").replace(/^refs\/tags\//, "").replace(/^tags\//, "");
+if (!run("git", ["fetch", "--prune", "--force", "--tags", "origin"])) process.exit(1);
+const target = tag ? `${tag}^{commit}` : "origin/main";
+const sha = gitText(["rev-parse", target]) || gitText(["rev-parse", tag || "origin/main"]);
 const oldHead = gitText(["rev-parse", "HEAD"]);
-if (!oldHead || !run("git", ["worktree", "add", "--detach", stage, target])) process.exit(1);
+log(`update ${oldHead} -> ${sha || target}`);
+if (!oldHead || !sha || !run("git", ["worktree", "add", "--detach", stage, sha])) process.exit(1);
 
 let switched = false;
 try {
@@ -156,7 +165,7 @@ try {
 
   fs.mkdirSync(rollback, { recursive: true });
   copyIfPresent(path.join(root, ".vercel"), path.join(rollback, ".vercel"));
-  if (!run("git", tag ? ["checkout", "--force", target] : ["merge", "--ff-only", target])) throw new Error("release checkout failed");
+  if (!run("git", ["checkout", "-B", "main", sha])) throw new Error("release checkout failed");
   for (const name of ["node_modules", ".vercel"]) {
     const current = path.join(root, name);
     const saved = path.join(rollback, name);

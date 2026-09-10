@@ -320,7 +320,7 @@ npm run build
 sudo systemctl enable --now relay
 ```
 
-Uncommitted files (especially leftover `.vercel/`) block `git pull --ff-only`. A zip-only copy cannot use the button.
+Uncommitted tracked files block Update. The updater fetches `origin/main` (force-updating tags), builds it in a worktree, then `git checkout -B main <sha>` — a rewritten tag no longer needs a fast-forward. A zip-only copy cannot use the button.
 
 Manual equivalent (use this if the button failed):
 

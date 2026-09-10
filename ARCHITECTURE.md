@@ -176,7 +176,7 @@ Room actions: export (browser download, secrets stripped), import, clear configu
 
 Save all calls `persistNow()`. If either JSON file cannot be written, the save returns failure and the dirty flag stays set (issue #18: the two files are still separate renames).
 
-`system.update` (Room tab) requires a Git checkout. It copies `.vercel` to `.vercel.prev`, then `git fetch` + `git pull --ff-only origin main`, `npm ci --include=dev`, and `npm run build`. If ci/build fail, `.vercel.prev` is restored and the running process is **not** signalled. On success the previous snapshot is deleted and systemd `Restart=always` (or a detached preview spawn) starts the new tree. Nitro writes `.vercel/output`, not `dist/`. Log: `data/relay-update.log`.
+`system.update` (Room tab) requires a Git checkout. It fetches `origin` with `--force --tags`, builds and readiness-checks a detached worktree, then `git checkout -B main <sha>` and swaps `node_modules` / `.vercel`. A failed stage leaves the running checkout untouched. Nitro writes `.vercel/output`, not `dist/`. Log: `data/relay-update.log`.
 
 ---
 
