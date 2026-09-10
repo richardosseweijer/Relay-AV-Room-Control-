@@ -470,6 +470,7 @@ export type RoomSnapshot = {
   runningMacro: string | null;
   activeScene: string | null;
   host?: HostUi;
+  version?: string;
 };
 
 export type CommandResult = {

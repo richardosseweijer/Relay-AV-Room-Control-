@@ -6,6 +6,8 @@ import { applyMonitors, clampVar, resolveTemplate, seedVars, withMonitorVars, mo
 import { scheduleShouldRun, triggerPathHit, triggerStep } from "./logic-policy";
 import { persistPair } from "../../../scripts/write-atomic.mjs";
 import { mkdir, readFile, writeFile, readdir, unlink, access, rename } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { isSecretKey } from "./secrets";
 
@@ -323,6 +325,24 @@ export async function persistNow() {
   }
 }
 
+let cachedRelayVersion = "";
+
+export function relayVersion() {
+  if (cachedRelayVersion) return cachedRelayVersion;
+  let ver = "dev";
+  try {
+    const pkg = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8")) as { version?: string };
+    ver = pkg.version || ver;
+  } catch { /* ignore */ }
+  let sha = "";
+  try {
+    const git = spawnSync("git", ["rev-parse", "--short", "HEAD"], { cwd: process.cwd(), encoding: "utf8", timeout: 1500 });
+    if (git.status === 0) sha = git.stdout.trim();
+  } catch { /* ignore */ }
+  cachedRelayVersion = sha ? `${ver} (${sha})` : ver;
+  return cachedRelayVersion;
+}
+
 export function persist() {
   persistDirty = true;
   if (persistTimer) return persistChain;
@@ -374,6 +394,7 @@ export function snapshot(): RoomSnapshot {
     activeScene: mem.activeScene,
     latches: mem.latches ?? {},
     host: mem.host ?? { dim: false, locked: false, toast: null, block: null, pageId: null },
+    version: relayVersion(),
   };
 }
 

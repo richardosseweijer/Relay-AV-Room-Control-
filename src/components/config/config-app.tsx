@@ -477,6 +477,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
         {tab === "room" ? (
           <section className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1 text-sm text-muted">Room name<input className={fieldClass()} value={draft.room.name} onChange={(e) => update((c) => { c.room.name = e.target.value; })} /></label>
+            <p className="grid gap-1 text-sm text-muted">Relay version<span className="font-mono text-fg">{snap.version || "—"}</span></p>
             <label className="grid gap-1 text-sm text-muted">Theme
               <select className={fieldClass()} value={draft.room.theme === "pastel" ? "pastel" : "dark"} onChange={(e) => update((c) => { c.room.theme = e.target.value as "dark" | "pastel"; })}>
                 <option value="dark">Dark</option>
