@@ -5,6 +5,7 @@ Format: date, then bullets. Older work lives in `git log`.
 ## 0.8.0 (beta) — 2026-09-10
 
 - Tag `v0.8.0`. Still beta; not production-certified.
+- In-app update checker binds the staged preview with `PORT`/`NITRO_PORT` so it does not collide with the live room on 8081.
 - Portrait: two-column flow; full-width only for sliders, schedules, and widgets that already span the authored row; labels stay captions.
 - Gateway interfaces (IPL T SFI244), MPS 602 SIS (`input.source`), generic PC WOL + RPC/HTTP shutdown.
 - Triggers with extra true/false checks; monitor auto-vars `MON_*`; 500 ms gateway polls.

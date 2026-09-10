@@ -58,41 +58,58 @@ function cleanup() {
   removeTree(rollback);
 }
 
+function previewEnv(port) {
+  return {
+    ...process.env,
+    PORT: String(port),
+    NITRO_PORT: String(port),
+    VITE_PORT: String(port),
+    CHOKIDAR_USEPOLLING: "1",
+  };
+}
+
 async function verifyStagedBuild() {
   const port = String(process.env.RELAY_UPDATE_CHECK_PORT || "18081");
   const viteJs = path.join(stage, "node_modules", "vite", "bin", "vite.js");
   if (!fs.existsSync(viteJs)) return false;
-  const child = spawn(process.execPath, [viteJs, "preview", "--host", "127.0.0.1", "--port", port], {
+  fs.mkdirSync(path.dirname(logFile), { recursive: true });
+  const logStream = fs.openSync(logFile, "a");
+  const child = spawn(process.execPath, [viteJs, "preview", "--host", "127.0.0.1", "--port", port, "--strictPort"], {
     cwd: stage,
-    stdio: "ignore",
-    env: process.env,
+    stdio: ["ignore", logStream, logStream],
+    env: previewEnv(port),
   });
   let ready = false;
   const deadline = Date.now() + Number(process.env.RELAY_UPDATE_READY_MS || 120_000);
   while (Date.now() < deadline) {
-    if (child.exitCode !== null) break;
+    if (child.exitCode !== null) {
+      log(`staged preview exited ${child.exitCode}`);
+      break;
+    }
     try {
       const remaining = Math.max(1, deadline - Date.now());
       const response = await fetch(`http://127.0.0.1:${port}/api/room`, {
         signal: AbortSignal.timeout(Math.min(2000, remaining)),
       });
-      ready = response.ok;
+      log(`staged preview /api/room ${response.status}`);
+      ready = response.ok || response.status === 204;
       if (ready) break;
     } catch { /* cold starts can refuse connections until Vite is ready */ }
     if (Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 500));
   }
   if (child.exitCode === null) child.kill("SIGTERM");
+  try { fs.closeSync(logStream); } catch { /* already closed */ }
   return ready;
 }
 
 function startPreview(port) {
   const viteJs = path.join(root, "node_modules", "vite", "bin", "vite.js");
   if (!fs.existsSync(viteJs)) return null;
-  const child = spawn(process.execPath, [viteJs, "preview", "--host", "0.0.0.0", "--port", port], {
+  const child = spawn(process.execPath, [viteJs, "preview", "--host", "0.0.0.0", "--port", port, "--strictPort"], {
     cwd: root,
     detached: true,
     stdio: "ignore",
-    env: { ...process.env, CHOKIDAR_USEPOLLING: "1" },
+    env: previewEnv(port),
   });
   child.unref();
   return child;

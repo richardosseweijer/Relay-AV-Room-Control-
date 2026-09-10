@@ -6,6 +6,5 @@ export default definePlugin(async () => {
     await ensureLoaded();
   } catch (err) {
     console.error("[relay] startup initialization failed", err);
-    throw err;
   }
 });
