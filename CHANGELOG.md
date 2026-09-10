@@ -5,11 +5,11 @@ Format: date, then bullets. Older work lives in `git log`.
 ## 0.8.0 (beta) — 2026-09-10
 
 - Tag `v0.8.0`. Still beta; not production-certified.
-- Gateway interfaces (IPL T SFI244), MPS 602 SIS, generic PC WOL + RPC/HTTP shutdown.
+- Gateway interfaces (IPL T SFI244), MPS 602 SIS (`input.source`), generic PC WOL + RPC/HTTP shutdown.
 - Triggers with extra true/false checks; monitor auto-vars `MON_*`; 500 ms gateway polls.
 - Open on LAN does not require a panel PIN. New buttons are 1×1 bound to hidden None.
-- Chromecast Play/Pause use the live media session. Button icons pin to the right.
-- Room tab shows package version + git SHA. In-app update snapshots `.vercel` and restores it if the build fails.
+- Chromecast Play/Pause use the live media session and app transport. Button icons pin to the right.
+- Room tab shows package version + git SHA. In-app update snapshots `.vercel.prev` and restores it if ci/build fail.
 - PIN validation/redaction (PR #22). Empty number fields no longer force 0.
 
 ## 2026-09-08 — gateway interfaces and Pi update

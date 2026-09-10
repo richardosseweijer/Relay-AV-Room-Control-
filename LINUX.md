@@ -50,7 +50,7 @@ On a Raspberry Pi you may use [nvm](https://github.com/nvm-sh/nvm) instead of No
 Install these if this machine will drive GPIO, I2C, CEC, or IR. Skip on a plain PC that only talks LAN.
 
 ```bash
-sudo apt-get install -y gpiod i2c-tools cec-utils lirc
+sudo apt-get install -y gpiod i2c-tools cec-utils lirc samba-common-bin
 ```
 
 | Function | Tool | Package |
@@ -61,6 +61,7 @@ sudo apt-get install -y gpiod i2c-tools cec-utils lirc
 | CEC | `cec-client` | `cec-utils` |
 | IR | `ir-ctl` / `irsend` | `lirc` |
 | Serial | `/dev/tty*` / `/dev/serial0` | kernel |
+| PC RPC shutdown | `net rpc shutdown` | `samba-common-bin` |
 
 On Raspberry Pi OS: `sudo raspi-config` → Interface Options → enable I2C / Serial / SPI as needed → reboot.
 
@@ -288,7 +289,7 @@ The application directory must be a clone of [Relay-AV-Room-Control-](https://gi
 
 Configurator → Room → **Save all**, then **Update from GitHub**. Confirm the warning.
 
-That runs `git fetch`, `git pull --ff-only origin main`, `npm ci --include=dev`, and `npm run build`. Leftover `.vercel/` from the last Nitro build is deleted first so it cannot block the pull. If pull or build fails, the running tree is left alone and Relay is not restarted. On success the process exits so systemd (`Restart=always`) starts the new build. Log: `data/relay-update.log`.
+That runs `git fetch`, `git pull --ff-only origin main`, copies `.vercel` → `.vercel.prev`, then `npm ci --include=dev` and `npm run build`. If ci/build fail, the previous `.vercel` is put back and Relay is not restarted. On success the process exits so systemd (`Restart=always`) starts the new build. Log: `data/relay-update.log`. After a successful update, Room tab version should match `git log -1` (for example `0.8.0 (669fae5)`).
 
 `NODE_ENV=production` (systemd) would otherwise skip Vite. `--include=dev` keeps it.
 

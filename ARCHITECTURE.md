@@ -82,8 +82,8 @@ Each timer tick:
 | Stage | Behaviour |
 |---|---|
 | Monitors | For each enabled rule whose interval has elapsed, read feedback, optionally parse, write `writeVar`. On failure, optionally write `errorVar`. |
-| Schedules | Compare host time (or configured timezone) and weekday with each enabled job. An empty day list means every day. Each job fires at most once per minute stamp. |
-| Triggers | Compare a variable to a literal or another variable. Mode `change` fires on an edge; mode `interval` fires while the condition holds. After `delayMs` the condition is re-read before the macro runs. |
+| Schedules | Compare host time (or configured timezone) and weekday with each enabled job. An empty day list **skips** the job. Each job fires at most once per minute stamp. |
+| Triggers | Primary predicate plus optional `whenTrue` / `whenFalse` extra clauses. Mode `change` fires on an edge; mode `interval` may re-fire. After `delaySec` the condition is re-read before the macro runs. |
 
 Macros invoked from any of these paths use the same runner as a panel press: ordered steps, per-step retry, then the step’s failure action (`retry`, another macro, or a page change).
 
@@ -96,13 +96,13 @@ Macros invoked from any of these paths use the same runner as a panel press: ord
 | Driver | Description of one product family. Contains transports, authentication metadata, probe, pacing, commands, feedback, inventory queries, and pairing. Contains no room-specific addresses. |
 | Device instance | Binding of a driver to a host: IP and port, or a local interface id, plus `auth` fields (token, user, password, MIDI channel, baud). |
 | Variable | Named room value (`string` or `number`) with optional min/max. Used for highlight, enable-when, sliders, monitors, and triggers. |
-| Monitor | Periodic read of one feedback field into one variable. |
-| Macro | Ordered list of steps (device command, delay, variable assignment, nested macro). |
+| Macro | Ordered list of steps (device command, delay, variable assignment, nested macro). Id `none` is a hidden no-op; new buttons bind to it. |
+| Monitor | Periodic read of one feedback field. Always writes `MON_<label>`; optional extra `writeVar` / `errorVar`. |
 | Page | Named grid. Widgets have column, row, width, height, colour, bindings, and enable-when clauses. |
-| Widget | `button`, `toggle`, `slider`, `label`, `status`, or `schedule`. |
+| Widget | `button`, `toggle`, `slider`, `label`, `status`, or `schedule`. Icons sit on the right, sized from tile height. |
 | Schedule | Clock time and weekday mask that starts a macro. |
-| Trigger | Variable predicate that starts a macro. |
-| Host interface | Local serial, GPIO, I2C, SPI, IR, or CEC endpoint discovered or entered on the Interfaces tab. |
+| Trigger | Primary predicate plus optional `whenTrue` / `whenFalse` extra clauses that start a macro. |
+| Host interface | Local serial, GPIO, I2C, SPI, IR, CEC, or a gateway box (e.g. IPL T SFI244) that maps slots to TCP ports. |
 | Host device | Instance of `relay-host.json`. Commands act on the panel process (dim, lock, toast, block, page, restart, update, variable and macro access). |
 
 Drivers exist in two layers. The **library** is the set of JSON files on disk. The **room** references a subset by filename. Removing a driver from the room configuration does not delete the library file unless the integrator confirms deletion and the file is unused.
@@ -117,7 +117,7 @@ All wire formats that drivers may use are implemented in `engine.ts`. A driver m
 
 `tcp`, `udp`, `http`, `https`, `websocket`, `tls-websocket`, `pjlink`, `cast`, `wol`.
 
-HTTP and HTTPS use the command’s method, path, headers, and body. WebSocket and TLS WebSocket open a short-lived socket, send the payload, and wait for a matching reply or timeout. Cast uses the Google Cast receiver/media namespaces. PJLink uses the documented projector login banner and `%1POWR` class commands. Wake-on-LAN sends a magic packet to the configured MAC address; it does not by itself confirm that the display has left standby.
+HTTP and HTTPS use the command’s method, path, headers, and body. `httpMethod` `RPC` runs Windows remote shutdown (`shutdown /s /m` on Windows, `net rpc shutdown` on Linux). WebSocket and TLS WebSocket open a short-lived socket, send the payload, and wait for a matching reply or timeout. Cast keeps a TLS session: receiver GET_STATUS, CONNECT to the app transport, media GET_STATUS, then PLAY/PAUSE/STOP with the live `mediaSessionId`. PJLink uses the documented projector login banner and `%1POWR` class commands. Wake-on-LAN sends a magic packet to the configured MAC (ports 7 and 9); it does not confirm the target left standby. Empty WOL commands do not follow with HTTP.
 
 ### 5.2 Local protocols
 
@@ -160,7 +160,7 @@ Host commands `ui.toast`, `ui.block`, `ui.unblock`, and `ui.clear` draw overlays
 
 Tabs: Room, Security, Drivers, Devices, Interfaces, Pages, Macros, Logic (variables, monitors, schedules, triggers), Log.
 
-Room actions: export, import, clear configuration, restart Vite, update from GitHub, reboot the host. There is no Restore demo. Export requires a configurator session and writes a JSON bundle with PINs and tokens removed. Import preserves existing secrets when the bundle left those fields empty.
+Room actions: export (browser download, secrets stripped), import, clear configuration, restart Vite, update from GitHub, reboot the host. Room tab shows `package.json` version plus `git rev-parse --short HEAD`. There is no Restore demo. Export requires a configurator session. Import preserves existing secrets when the bundle left those fields empty.
 
 ---
 
@@ -176,7 +176,7 @@ Room actions: export, import, clear configuration, restart Vite, update from Git
 
 Save all calls `persistNow()`. If either JSON file cannot be written, the save returns failure and the dirty flag stays set (issue #18: the two files are still separate renames).
 
-`system.update` (Room tab) requires a Git checkout. It deletes leftover `.vercel/`, then `git fetch` + `git pull --ff-only origin main`, `npm ci --include=dev`, and `npm run build`. A failed pull or build leaves the running tree alone. Under systemd the process exits and `Restart=always` starts the new tree. Nitro writes `.vercel/output`, not `dist/`.
+`system.update` (Room tab) requires a Git checkout. It copies `.vercel` to `.vercel.prev`, then `git fetch` + `git pull --ff-only origin main`, `npm ci --include=dev`, and `npm run build`. If ci/build fail, `.vercel.prev` is restored and the running process is **not** signalled. On success the previous snapshot is deleted and systemd `Restart=always` (or a detached preview spawn) starts the new tree. Nitro writes `.vercel/output`, not `dist/`. Log: `data/relay-update.log`.
 
 ---
 

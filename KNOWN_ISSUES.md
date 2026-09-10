@@ -22,7 +22,8 @@
 ## Devices / transports
 
 - Samsung Tizen: pair with **Authenticate**, store the token, use port **8002**. Power-on from cold needs WOL + MAC. HTTP `:8001/api/v2/` is discovery, not key inject.
-- Chromecast play/pause needs a live `mediaSessionId`; GET_STATUS can return idle while a phone still shows Netflix.
+- Chromecast Play/Pause now use the live `mediaSessionId` and app transport. They still need an app actually playing. Backdrop / idle → `No media session`. A phone UI can show Netflix after Cast already went idle.
+- Generic PC driver (`wake-on-lan.json`): Wake is WOL (MAC). Shutdown is Windows RPC (`net rpc shutdown` on Linux needs `samba-common-bin`) or HTTP GET to `auth.path`. WOL does not confirm the PC left S5.
 - Denon DN-500AV sources are BD / SAT/CBL / Game, not `HDMI1`. Map HDMI in the Denon menu. Volume is 00–98.
 - Pi header UART is 3.3 V TTL. Enable serial hardware, disable serial console, use `/dev/serial0`. RS-232 gear needs a level shifter or USB adapter.
 - GPIO / I2C / IR / CEC / SPI call host binaries (`gpioset`, `i2cset`, `irsend`, `cec-client`, `spidev_test`). Absent packages fail the command, not the room boot. Argv is allowlisted (chip, line, bus, address, scancode).

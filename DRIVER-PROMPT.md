@@ -172,7 +172,9 @@ List extras in `instanceFields` (`midiChannel`, `mac`, …). They appear on the 
 - `kind`: `action` | `range` | `enum` | `toggle`
 - Range needs `min`, `max`, `step`
 - `requires`: optional `["power.state=on"]`. Test buttons send `raw` and skip this
-- `wake`: `{ "protocol": "wol" }` plus instance `mac` for hard-sleep power-on
+- `wake`: `{ "protocol": "wol" }` plus instance `mac` for hard-sleep power-on. Empty payload after WOL does not send HTTP.
+- Cast `PLAY` / `PAUSE` / `STOP` / `QUEUE_*`: set `namespace` to `urn:x-cast:com.google.cast.media`. The engine fills `mediaSessionId` from the live app. Do not hard-code session `1`.
+- `httpMethod` `RPC` is Windows remote shutdown (not a generic HTTP verb). Use it only on a PC-style driver with `user`/`password`.
 - Parse types only: `contains`, `exact`, `regex`, `jsonpath`, `map`
 - Binary replies: hex needle (`B02601` or `B0 26 01`) is also matched against a hex dump. JSON/ASCII polls are not hex-dumped
 - Inventory: only for bridges that list children (lights, scenes)
