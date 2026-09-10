@@ -127,6 +127,7 @@ export const extraDrivers: Record<string, DriverSpec> = {
     ],
     feedback: [
       { id: "input.current", label: "Input", kind: "string", transport: "lan", mode: "poll", query: "!", pollMs: 3000, parse: { type: "regex", pattern: "In(\\d+)" } },
+      { id: "input.source", label: "Input source", kind: "string", transport: "lan", mode: "poll", query: "!", pollMs: 3000, parse: { type: "regex", pattern: "In(\\d+)", map: { "0": "off", "1": "VGA 1", "2": "VGA 2", "3": "HDMI 3", "4": "HDMI 4", "5": "HDMI 5", "6": "DTP 6" } } },
       { id: "volume.level", label: "Volume", kind: "range", min: 0, max: 100, transport: "lan", mode: "poll", query: "V", pollMs: 4000, parse: { type: "regex", pattern: "(\\d+)" } },
       { id: "mute.state", label: "Mute", kind: "enum", values: ["0", "1"], transport: "lan", mode: "poll", query: "Z", pollMs: 4000, parse: { type: "regex", pattern: "([01])" } },
     ],

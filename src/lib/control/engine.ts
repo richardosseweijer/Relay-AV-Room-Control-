@@ -1121,7 +1121,16 @@ async function readHostFeedback(id: string, host?: { dim: boolean; locked: boole
   return { ok: false, value: "", message: "Unknown host feedback" };
 }
 
-export async function readMonitorValue(opts: {
+function findFeedback(driver: DriverSpec | undefined, id: string) {
+  const list = driver?.feedback ?? [];
+  if (!id) return list[0];
+  const lower = id.trim().toLowerCase();
+  return list.find((item) => item.id === id)
+    || list.find((item) => item.id.toLowerCase() === lower)
+    || list.find((item) => item.label.toLowerCase() === lower)
+    || list.find((item) => item.id.toLowerCase().startsWith(`${lower}.`))
+    || list.find((item) => item.id.toLowerCase().endsWith(`.${lower}`));
+}
   config: RoomConfig;
   drivers: Record<string, DriverSpec>;
   state: DeviceStateMap;
@@ -1172,8 +1181,11 @@ export async function readMonitorValue(opts: {
     opts.state[device.id] = { ...slot, [opts.feedbackId]: result.value };
     return result;
   }
-  const fb = driver?.feedback.find((item) => item.id === opts.feedbackId);
-  if (!driver || !fb) return { ok: false, value: "", message: "Feedback missing" };
+  const fb = findFeedback(driver, opts.feedbackId);
+  if (!driver || !fb) {
+    const ids = (driver?.feedback ?? []).map((item) => item.id).join(", ");
+    return { ok: false, value: "", message: ids ? `Feedback missing (try ${ids})` : "Feedback missing" };
+  }
   if (device.simulate) {
     const current = slot[opts.feedbackId];
     const value = current === undefined || current === null ? "" : String(current);

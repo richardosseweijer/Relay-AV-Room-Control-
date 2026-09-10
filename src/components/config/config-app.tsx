@@ -1270,7 +1270,12 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                     : "No poll yet";
                   return (
                   <article key={rule.id} className="rounded-xl border border-border bg-surface p-4">
-                    <button type="button" className="flex w-full items-center justify-between gap-3 text-left" onClick={() => setOpenLogic((cur) => ({ ...cur, [rule.id]: !open }))}>
+                    <button type="button" className="flex w-full items-center justify-between gap-3 text-left" onClick={() => {
+                      setOpenLogic((cur) => ({ ...cur, [rule.id]: !open }));
+                      if (!rule.interfaceId && driver?.feedback?.length && !driver.feedback.some((fb) => fb.id === rule.feedback)) {
+                        update((c) => { c.monitors[ri]!.feedback = driver.feedback[0]!.id; });
+                      }
+                    }}>
                       <span className="font-medium">{rule.label}</span>
                       <span className="min-w-0 truncate text-xs text-muted">{pollLine}</span>
                     </button>
@@ -1290,6 +1295,8 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                         } else {
                           c.monitors[ri]!.interfaceId = null;
                           c.monitors[ri]!.device = e.target.value;
+                          const nextDriver = snap.drivers[c.devices.find((d) => d.id === e.target.value)?.driver ?? ""];
+                          c.monitors[ri]!.feedback = nextDriver?.feedback?.[0]?.id ?? "";
                         }
                       })}>
                         {draft.devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -1309,7 +1316,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                       </>
                     ) : (
                     <label className="grid gap-1 text-sm text-muted">Feedback
-                      <select className={fieldClass()} value={rule.feedback} onChange={(e) => update((c) => { c.monitors[ri]!.feedback = e.target.value; })}>
+                      <select className={fieldClass()} value={driver?.feedback.some((fb) => fb.id === rule.feedback) ? rule.feedback : (driver?.feedback[0]?.id ?? "")} onChange={(e) => update((c) => { c.monitors[ri]!.feedback = e.target.value; })}>
                         {(driver?.feedback ?? []).map((fb) => <option key={fb.id} value={fb.id}>{fb.label}</option>)}
                       </select>
                     </label>
@@ -1353,7 +1360,12 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
                   </article>
                   );
                 })}
-                <Button variant="secondary" onClick={() => update((c) => { c.monitors.push({ id: `mon-${Date.now().toString(36)}`, label: "New monitor", enabled: true, device: c.devices[0]?.id ?? "", feedback: "power.state", pollMs: 4000, writeVar: null, mapMode: "raw", map: [] }); c.variables = withMonitorVars(c).variables; })}>Add monitor</Button>
+                <Button variant="secondary" onClick={() => update((c) => {
+                  const deviceId = c.devices[0]?.id ?? "";
+                  const firstFb = snap.drivers[c.devices[0]?.driver ?? ""]?.feedback?.[0]?.id ?? "power.state";
+                  c.monitors.push({ id: `mon-${Date.now().toString(36)}`, label: "New monitor", enabled: true, device: deviceId, feedback: firstFb, pollMs: 4000, writeVar: null, mapMode: "raw", map: [] });
+                  c.variables = withMonitorVars(c).variables;
+                })}>Add monitor</Button>
               </section>
             ) : null}
             {logicTab === "schedule" ? (
