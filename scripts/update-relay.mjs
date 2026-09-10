@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 /**
  * git fetch + ff-only onto origin/main, npm ci --include=dev, npm run build.
- * Do not delete .vercel while preview is still serving it — that takes the
- * room down mid-update. Leave the running tree if pull or build fails.
- * systemd Restart=always bounces the process on exit.
+ * Snapshot .vercel before the build. Restore it if ci/build fail so systemd
+ * can keep serving the last good tree. Only signal restart after a good build.
  */
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -13,6 +12,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const logFile = path.join(root, "data", "relay-update.log");
 const vercel = path.join(root, ".vercel");
+const prev = `${vercel}.prev`;
 
 function log(line) {
   try {
@@ -31,10 +31,24 @@ function run(cmd, args) {
   });
   if (r.stdout) log(r.stdout.trimEnd());
   if (r.stderr) log(r.stderr.trimEnd());
-  if (r.status !== 0) {
-    log(`exit ${r.status} — leaving the running tree in place`);
-    process.exit(r.status || 1);
+  return r.status === 0;
+}
+
+function snapshotOutput() {
+  try { fs.rmSync(prev, { recursive: true, force: true }); } catch { /* ignore */ }
+  if (!fs.existsSync(vercel)) return;
+  fs.cpSync(vercel, prev, { recursive: true });
+  log("saved .vercel.prev");
+}
+
+function restoreOutput() {
+  if (!fs.existsSync(prev)) {
+    log("no .vercel.prev to restore");
+    return;
   }
+  try { fs.rmSync(vercel, { recursive: true, force: true }); } catch { /* ignore */ }
+  fs.renameSync(prev, vercel);
+  log("restored last good .vercel");
 }
 
 if (!fs.existsSync(path.join(root, ".git"))) {
@@ -44,21 +58,27 @@ if (!fs.existsSync(path.join(root, ".git"))) {
 
 const tag = process.env.RELAY_RELEASE || "";
 if (tag) {
-  run("git", ["fetch", "--tags", "origin"]);
-  run("git", ["checkout", "--force", `tags/${tag}`]);
-} else {
-  run("git", ["fetch", "origin"]);
-  run("git", ["pull", "--ff-only", "origin", "main"]);
-}
-
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-run(npm, ["ci", "--include=dev"]);
-run(npm, ["run", "build"]);
-
-if (!fs.existsSync(path.join(vercel, "output")) && !fs.existsSync(path.join(root, "dist"))) {
-  log("build produced neither .vercel/output nor dist/");
+  if (!run("git", ["fetch", "--tags", "origin"]) || !run("git", ["checkout", "--force", `tags/${tag}`])) process.exit(1);
+} else if (!run("git", ["fetch", "origin"]) || !run("git", ["pull", "--ff-only", "origin", "main"])) {
   process.exit(1);
 }
+
+snapshotOutput();
+const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+if (!run(npm, ["ci", "--include=dev"])) {
+  restoreOutput();
+  process.exit(1);
+}
+if (!run(npm, ["run", "build"])) {
+  restoreOutput();
+  process.exit(1);
+}
+if (!fs.existsSync(path.join(vercel, "output")) && !fs.existsSync(path.join(root, "dist"))) {
+  log("build produced neither .vercel/output nor dist/");
+  restoreOutput();
+  process.exit(1);
+}
+try { fs.rmSync(prev, { recursive: true, force: true }); } catch { /* ignore */ }
 log("build ok");
 
 if (process.env.INVOCATION_ID && process.platform !== "win32") {
