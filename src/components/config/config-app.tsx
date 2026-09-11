@@ -34,6 +34,7 @@ import { orphanBindings } from "@/lib/control/schema";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { COLORS, COLOR_FILL, fieldClass } from "./config-ui";
+import { applyRoomTheme } from "@/lib/theme";
 import { InputNum } from "./config-fields";
 import { TAG_ALL, TagBar, currentTag, fileItem, setTags, tagNames, tagOf, tagVisible, type TagBucket, type Tagged } from "./tag-bar";
 import { InventoryBoard, InventoryPicker } from "./inventory-board";
@@ -229,9 +230,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
   }, [tab, token]);
 
   useEffect(() => {
-    const theme = (draft?.room.theme ?? snap?.config.room.theme) === "pastel" ? "pastel" : "dark";
-    document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "pastel" ? "#3a2a32" : "#0a0a0b");
+    applyRoomTheme(draft?.room.theme ?? snap?.config.room.theme);
   }, [draft?.room.theme, snap?.config.room.theme]);
 
   function update(mut: (c: RoomConfig) => void) {

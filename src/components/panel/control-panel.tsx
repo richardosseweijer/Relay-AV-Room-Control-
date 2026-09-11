@@ -8,6 +8,7 @@ import { nextScheduled } from "@/lib/control/schedule";
 import { Button } from "@/components/ui/button";
 import { WidgetShell } from "./widget-face";
 import { applyRoomSession, clearPanelToken, PANEL_TOKEN_KEY } from "@/lib/control/panel-token";
+import { applyRoomTheme } from "@/lib/theme";
 
 async function rpc() {
   return import("@/lib/control/actions");
@@ -253,9 +254,7 @@ export function ControlPanel() {
   }
 
   useEffect(() => {
-    const theme = snap?.config.room.theme === "pastel" ? "pastel" : "dark";
-    document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "pastel" ? "#3a2a32" : "#0a0a0b");
+    applyRoomTheme(snap?.config.room.theme);
   }, [snap?.config.room.theme]);
 
   useEffect(() => {

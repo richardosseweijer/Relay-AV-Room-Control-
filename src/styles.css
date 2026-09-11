@@ -32,27 +32,73 @@
   --radius-xl: 30px;
 }
 
-html[data-theme="pastel"] {
-  --color-bg: #3a2a32;
-  --color-surface: #4a3840;
-  --color-raised: #5a454c;
-  --color-fg: #fff4f7;
-  --color-muted: #ecc0cc;
-  --color-subtle: #d4a0b0;
-  --color-border: #6a5058;
-  --color-accent: #f4a8b8;
-  --color-accent-fg: #3a1820;
-  --color-steel: #7a9ab0;
-  --color-sage: #7aaa7a;
-  --color-clay: #e09090;
-  --color-fog: #b090a0;
-  --color-ink: #5a4048;
-  --color-ocean: #6a9ab8;
-  --color-pine: #5a8a68;
-  --color-rust: #e0a070;
-  --color-sand: #e0c070;
-  --color-slate: #8a7880;
-  --color-rose: #e87898;
+html[data-theme="peach"] {
+  --color-bg: #dcc4b8;
+  --color-surface: #ead6cc;
+  --color-raised: #e4cec4;
+  --color-fg: #3a1f2e;
+  --color-muted: #7a4a5c;
+  --color-subtle: #9a6878;
+  --color-border: #c8a898;
+  --color-accent: #d45a80;
+  --color-accent-fg: #3a1f2e;
+  --color-steel: #5b8aa0;
+  --color-sage: #5a9a62;
+  --color-clay: #c86868;
+  --color-fog: #b8a090;
+  --color-ink: #6a4858;
+  --color-ocean: #5b8aa0;
+  --color-pine: #4a8a58;
+  --color-rust: #c87050;
+  --color-sand: #c8a050;
+  --color-slate: #8a7080;
+  --color-rose: #d45a80;
+}
+
+html[data-theme="green"] {
+  --color-bg: #c5d0c4;
+  --color-surface: #d8e2d6;
+  --color-raised: #ced8cc;
+  --color-fg: #1e2a20;
+  --color-muted: #4a6050;
+  --color-subtle: #6a8070;
+  --color-border: #a8b8a8;
+  --color-accent: #5a9a6a;
+  --color-accent-fg: #1e2a20;
+  --color-steel: #6a9088;
+  --color-sage: #5a9a62;
+  --color-clay: #c08078;
+  --color-fog: #a8b8a8;
+  --color-ink: #3a4a3c;
+  --color-ocean: #5a8890;
+  --color-pine: #3d8b4a;
+  --color-rust: #c09060;
+  --color-sand: #c8b870;
+  --color-slate: #708078;
+  --color-rose: #c87888;
+}
+
+html[data-theme="office"] {
+  --color-bg: #cfcbc4;
+  --color-surface: #e0dcd4;
+  --color-raised: #d6d2ca;
+  --color-fg: #1c1c1c;
+  --color-muted: #5a5a58;
+  --color-subtle: #787874;
+  --color-border: #b4b0a8;
+  --color-accent: #3d5a73;
+  --color-accent-fg: #f4f2ee;
+  --color-steel: #5a7388;
+  --color-sage: #6a7a68;
+  --color-clay: #a07060;
+  --color-fog: #a8a8a4;
+  --color-ink: #3a3a38;
+  --color-ocean: #3d5a73;
+  --color-pine: #4a6050;
+  --color-rust: #a06848;
+  --color-sand: #b8a070;
+  --color-slate: #6a6e74;
+  --color-rose: #8a6870;
 }
 
 @layer base {

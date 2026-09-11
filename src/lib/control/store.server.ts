@@ -11,6 +11,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
 import { isSecretKey } from "./secrets";
+import { resolveRoomTheme } from "@/lib/theme";
 
 const FILE_STORE = path.join(process.cwd(), "data", "relay-room.json");
 const SECRET_STORE = process.env.RELAY_SECRETS_FILE || path.join(process.cwd(), "data", "relay-secrets.json");
@@ -181,7 +182,7 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
       grid: { ...demo.room.grid, ...(config.room?.grid ?? {}) },
       externalControl: config.room?.externalControl === true,
       panelAcceptsConfigPin: config.room?.panelAcceptsConfigPin === true,
-      theme: config.room?.theme === "pastel" ? "pastel" : "dark",
+      theme: resolveRoomTheme(config.room?.theme),
     },
     variables: (config.variables ?? demo.variables).map(liftTag),
     schedules: (config.schedules ?? demo.schedules).map(liftTag),
