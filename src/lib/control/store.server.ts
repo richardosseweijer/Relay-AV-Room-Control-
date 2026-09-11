@@ -1,5 +1,5 @@
 import { bundledDrivers, defaultDeviceState, emptyRoomConfig } from "./defaults";
-import { readMonitorValue, runMacro, traces, scrubSecret } from "./engine";
+import { readMonitorValue, runMacro, traces, scrubSecret, socketStats } from "./engine";
 import type { DeviceHealth, DeviceStateMap, DriverSpec, LogEntry, Macro, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
 import { NONE_MACRO_ID, noneMacro } from "./types";
 import { applyMonitors, clampVar, resolveTemplate, seedVars, withMonitorVars, monitorVarId, type VarMap } from "./vars";
@@ -9,6 +9,7 @@ import { mkdir, readFile, writeFile, readdir, unlink, access, rename } from "nod
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import os from "node:os";
 import { isSecretKey } from "./secrets";
 
 const FILE_STORE = path.join(process.cwd(), "data", "relay-room.json");
@@ -391,6 +392,27 @@ export function pushLog(entry: Omit<LogEntry, "id" | "at"> & { at?: number }) {
 
 export function clearLog() {
   memory().log = [];
+}
+
+export function processStatus() {
+  const mem = memory();
+  const mu = process.memoryUsage();
+  const health = mem.health ?? {};
+  return {
+    pid: process.pid,
+    uptimeSec: Math.round(process.uptime()),
+    osUptimeSec: Math.round(os.uptime()),
+    rssMb: Math.round(mu.rss / 1048576),
+    heapMb: Math.round(mu.heapUsed / 1048576),
+    heapTotalMb: Math.round(mu.heapTotal / 1048576),
+    load: Math.round(os.loadavg()[0] * 100) / 100,
+    sockets: socketStats(),
+    log: (mem.log ?? []).length,
+    runningMacro: mem.runningMacro,
+    lastError: mem.lastError ? scrubSecret(mem.lastError) : null,
+    healthFail: Object.values(health).filter((row) => !row.ok).length,
+    monitors: Object.keys(mem.monitorStatus ?? {}).length,
+  };
 }
 
 export function snapshot(): RoomSnapshot {

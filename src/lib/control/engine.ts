@@ -26,6 +26,14 @@ export function traces(): Record<string, TraceLine[]> {
   return g.__relayTraces__;
 }
 
+export function socketStats() {
+  return {
+    ws: keepWs.size,
+    tcp: sessions.size,
+    cast: keepCast.size,
+  };
+}
+
 export function allowedLanHost(host: string | undefined, opts?: { localOk?: boolean }) {
   const raw = String(host ?? "").trim();
   if (!raw) return false;

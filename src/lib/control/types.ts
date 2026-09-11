@@ -491,6 +491,23 @@ export type RoomSnapshot = {
   activeScene: string | null;
   host?: HostUi;
   version?: string;
+  process?: HostProcessStatus;
+};
+
+export type HostProcessStatus = {
+  pid: number;
+  uptimeSec: number;
+  osUptimeSec: number;
+  rssMb: number;
+  heapMb: number;
+  heapTotalMb: number;
+  load: number;
+  sockets: { ws: number; tcp: number; cast: number };
+  log: number;
+  runningMacro: string | null;
+  lastError: string | null;
+  healthFail: number;
+  monitors: number;
 };
 
 export type CommandResult = {

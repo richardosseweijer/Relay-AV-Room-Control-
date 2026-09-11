@@ -13,6 +13,7 @@ export {
   removeDriverFile,
   loadDriverFiles,
   safeDriverName,
+  processStatus,
 } from "./store.server.ts";
 export { hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey } from "./pins.server.ts";
 

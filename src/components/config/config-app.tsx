@@ -26,7 +26,7 @@ import {
   updateHost,
   verifyConfigPin,
 } from "@/lib/control/actions";
-import type { DriverSpec, InventoryItem, RoomConfig, RoomSnapshot, Widget, WidgetColor } from "@/lib/control/types";
+import type { DriverSpec, HostProcessStatus, InventoryItem, RoomConfig, RoomSnapshot, Widget, WidgetColor } from "@/lib/control/types";
 import { NONE_MACRO_ID } from "@/lib/control/types";
 import { GATEWAY_PROFILES, gatewayProfile, gatewaySlot, isGatewayKind } from "@/lib/control/gateway";
 import { deviceInUse, driverInUse, variableInUse, monitorVarId, withMonitorVars } from "@/lib/control/vars";
@@ -335,6 +335,25 @@ function InventoryPicker(props: {
 
 const TIMEZONES = ["system", "Europe/Brussels", "Europe/Amsterdam", "Europe/London", "Europe/Berlin", "UTC", "America/New_York"];
 
+function formatAge(sec: number) {
+  if (!Number.isFinite(sec) || sec < 0) return "—";
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  if (h) return `${h}h ${m}m`;
+  if (m) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function StatusTile(props: { label: string; value: string; warn?: boolean }) {
+  return (
+    <div className={cn("rounded-md border px-3 py-2", props.warn ? "border-clay/60 bg-clay/10" : "border-border bg-surface")}>
+      <p className="text-[10px] uppercase tracking-[0.16em] text-subtle">{props.label}</p>
+      <p className={cn("font-mono text-sm", props.warn ? "text-clay" : "text-fg")}>{props.value}</p>
+    </div>
+  );
+}
+
 export function ConfigApp(props: { token: string; onSessionLost?: () => void }) {
   const [snap, setSnap] = useState<RoomSnapshot | null>(null);
   const [draft, setDraft] = useState<RoomConfig | null>(null);
@@ -342,6 +361,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
   const [tab, setTab] = useState<"room" | "security" | "drivers" | "devices" | "interfaces" | "macros" | "logic" | "pages" | "log">("room");
   const [logicTab, setLogicTab] = useState<"variables" | "monitor" | "schedule" | "triggers">("variables");
   const [logKind, setLogKind] = useState("all");
+  const [proc, setProc] = useState<HostProcessStatus | null>(null);
   const [toast, setToast] = useState<{ title: string; body: string; sticky?: boolean } | null>(null);
   const [lockPin, setLockPin] = useState("");
   const [needLock, setNeedLock] = useState(false);
@@ -395,6 +415,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
     if (token) {
       const ed = await getEditorConfig({ data: { token } });
       if (ed.ok && ed.traces) next.traces = ed.traces;
+      if (ed.ok && "process" in ed && ed.process) setProc(ed.process as HostProcessStatus);
       if (ed.ok && ed.config) setDraft((cur) => cur ?? structuredClone(ed.config));
     }
     setSnap(next);
@@ -416,6 +437,18 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
     const id = window.setInterval(() => { refresh().catch(() => undefined); }, 8000);
     return () => window.clearInterval(id);
   }, [token]);
+
+  useEffect(() => {
+    if (tab !== "log" || !token) return;
+    let cancel = false;
+    const tick = async () => {
+      const ed = await getEditorConfig({ data: { token } }).catch(() => ({ ok: false as const }));
+      if (!cancel && ed.ok && "process" in ed && ed.process) setProc(ed.process as HostProcessStatus);
+    };
+    tick().catch(() => undefined);
+    const id = window.setInterval(() => { tick().catch(() => undefined); }, 2000);
+    return () => { cancel = true; window.clearInterval(id); };
+  }, [tab, token]);
 
   useEffect(() => {
     let misses = 0;
@@ -1931,6 +1964,19 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
 
         {tab === "log" ? (
           <section className="grid gap-3">
+            {proc ? (
+              <div className="grid gap-2 sm:grid-cols-4">
+                <StatusTile label="Relay up" value={formatAge(proc.uptimeSec)} />
+                <StatusTile label="RSS" value={`${proc.rssMb} MB`} warn={proc.rssMb >= 700} />
+                <StatusTile label="Heap" value={`${proc.heapMb} / ${proc.heapTotalMb} MB`} warn={proc.heapMb >= 500} />
+                <StatusTile label="Load" value={String(proc.load)} warn={proc.load >= 2} />
+                <StatusTile label="Kept sockets" value={`ws ${proc.sockets.ws} · tcp ${proc.sockets.tcp} · cast ${proc.sockets.cast}`} warn={proc.sockets.ws + proc.sockets.tcp + proc.sockets.cast >= 12} />
+                <StatusTile label="Monitors" value={String(proc.monitors)} />
+                <StatusTile label="Device errors" value={String(proc.healthFail)} warn={proc.healthFail > 0} />
+                <StatusTile label="Macro" value={proc.runningMacro || "idle"} warn={Boolean(proc.runningMacro)} />
+                {proc.lastError ? <StatusTile label="Last error" value={proc.lastError} warn /> : <StatusTile label="PID" value={`${proc.pid} · OS ${formatAge(proc.osUptimeSec)}`} />}
+              </div>
+            ) : <p className="text-xs text-subtle">Live status loads with this tab.</p>}
             <div className="flex gap-2">
               <select className={fieldClass()} value={logKind} onChange={(e) => setLogKind(e.target.value)}>
                 <option value="all">All</option>

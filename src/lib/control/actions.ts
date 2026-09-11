@@ -48,7 +48,7 @@ export const getEditorConfig = createServerFn({ method: "POST" })
     ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
     writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
     hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
-    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
+    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex, processStatus,
   } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false as const, config: null };
@@ -62,7 +62,7 @@ export const getEditorConfig = createServerFn({ method: "POST" })
         created: row.created ?? 0,
         lastSeen: row.lastSeen ?? 0,
       }));
-    return { ok: true as const, config, traces: traces(), mustChange: isWeakPin(config.room.configPin), paired };
+    return { ok: true as const, config, traces: traces(), mustChange: isWeakPin(config.room.configPin), paired, process: processStatus() };
   });
 
 export const revokeSession = createServerFn({ method: "POST" })
