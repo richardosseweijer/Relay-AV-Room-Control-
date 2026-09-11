@@ -62,7 +62,7 @@ export const getEditorConfig = createServerFn({ method: "POST" })
         created: row.created ?? 0,
         lastSeen: row.lastSeen ?? 0,
       }));
-    return { ok: true as const, config, traces: traces(), mustChange: isWeakPin(config.room.configPin), paired, process: processStatus() };
+    return { ok: true as const, config, traces: traces(), mustChange: isWeakPin(config.room.configPin), paired, process: processStatus(), log: memory().log ?? [] };
   });
 
 export const revokeSession = createServerFn({ method: "POST" })
