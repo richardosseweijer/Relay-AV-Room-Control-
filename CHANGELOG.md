@@ -11,6 +11,7 @@ Format: date, then bullets. Older work lives in `git log`.
 - Samsung apps inventory (`ed.installedApp.get`) + **App launch** / **App native**. Sync inventory on the device card, then bind the app in a macro. `KEY_NETFLIX` is only the hardware key.
 - Kept LAN sockets (Samsung WS, gateway TCP) no longer grow an unbounded `data` buffer while monitors keep the session alive.
 - Config Log tab: one host-status line above the event list (RSS, sockets, monitors). Event log is RAM-only and comes from the config session.
+- Update from GitHub no longer refuses a dirty `.vercel/` tree (build output was tracked). `.vercel` is untracked; `data/relay-update.log` is gitignored.
 
 ## 0.8.0 (beta) — 2026-09-10
 

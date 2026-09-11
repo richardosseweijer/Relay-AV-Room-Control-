@@ -17,7 +17,8 @@ test("update readiness allows two minutes and retries boot responses", () => {
   assert.match(source, /PORT: String\(port\)/);
   assert.match(source, /--strictPort/);
   assert.match(source, /fetch", "--prune", "--force", "--tags"/);
-  assert.match(source, /checkout", "-B", "main"/);
+  assert.match(source, /checkout", "-f", "-B", "main"/);
+  assert.match(source, /:\(exclude\)\.vercel/);
   assert.equal(source.includes("--ff-only"), false);
 });
 

@@ -142,7 +142,8 @@ if (!fs.existsSync(path.join(root, ".git"))) {
   log("not a git checkout");
   process.exit(2);
 }
-if (!run("git", ["diff", "--quiet"]) || !run("git", ["diff", "--cached", "--quiet"])) {
+if (!run("git", ["diff", "--quiet", "--", ".", ":(exclude).vercel", ":(exclude)data/relay-update.log"])
+    || !run("git", ["diff", "--cached", "--quiet", "--", ".", ":(exclude).vercel", ":(exclude)data/relay-update.log"])) {
   log("tracked edits present; refusing update");
   process.exit(1);
 }
@@ -165,7 +166,7 @@ try {
 
   fs.mkdirSync(rollback, { recursive: true });
   copyIfPresent(path.join(root, ".vercel"), path.join(rollback, ".vercel"));
-  if (!run("git", ["checkout", "-B", "main", sha])) throw new Error("release checkout failed");
+  if (!run("git", ["checkout", "-f", "-B", "main", sha])) throw new Error("release checkout failed");
   for (const name of ["node_modules", ".vercel"]) {
     const current = path.join(root, name);
     const saved = path.join(rollback, name);

@@ -10,6 +10,7 @@ Thumbs.db
 dist/
 data/relay-secrets.json
 data/relay-room.json
+data/relay-update.log
 data/*.tmp
 data/*.transaction
 attachments/

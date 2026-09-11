@@ -320,7 +320,7 @@ npm run build
 sudo systemctl enable --now relay
 ```
 
-Uncommitted tracked files block Update. The updater fetches `origin/main` (force-updating tags), builds it in a worktree, then `git checkout -B main <sha>` — a rewritten tag no longer needs a fast-forward. A zip-only copy cannot use the button.
+Uncommitted source edits block Update. A dirty `.vercel/` tree (build output) does not. The updater fetches `origin/main` (force-updating tags), builds it in a worktree, then `git checkout -f -B main <sha>`. A zip-only copy cannot use the button. If the button still no-ops, `data/relay-update.log` has the reason.
 
 Manual equivalent (use this if the button failed):
 
