@@ -3,9 +3,9 @@
   "device": {
     "manufacturer": "Sonos",
     "model": "S1 / S2 player",
-    "type": "audio",
+    "type": "amplifier",
     "manualUrl": "https://support.sonos.com/",
-    "notes": "Local control on TCP 1400. For a grouped room, enter the group coordinator's IP; transport commands sent to a member may be refused or affect only that player. No authentication is required, so keep players on the trusted room LAN."
+    "notes": "Put the player's LAN IPv4 in the device card (not a hostname). Port 1400. For a grouped room, use the group coordinator's IP; Play/Pause/Next sent to a member are ignored or 500. Play needs something in the queue (error 701 if idle). SOAP on this LAN, no login."
   },
   "transports": {
     "lan": {
@@ -133,11 +133,49 @@
       "values": ["PLAYING", "PAUSED_PLAYBACK", "STOPPED", "TRANSITIONING", "NO_MEDIA_PRESENT"],
       "transport": "lan",
       "mode": "poll",
+      "httpMethod": "POST",
+      "httpPath": "/MediaRenderer/AVTransport/Control",
+      "httpHeaders": { "SOAPAction": "\"urn:schemas-upnp-org:service:AVTransport:1#GetTransportInfo\"" },
       "query": "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:GetTransportInfo xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID></u:GetTransportInfo></s:Body></s:Envelope>",
       "pollMs": 4000,
       "parse": {
         "type": "regex",
         "pattern": "<CurrentTransportState>([^<]+)"
+      }
+    },
+    {
+      "id": "volume.level",
+      "label": "Volume",
+      "kind": "range",
+      "min": 0,
+      "max": 100,
+      "transport": "lan",
+      "mode": "poll",
+      "httpMethod": "POST",
+      "httpPath": "/MediaRenderer/RenderingControl/Control",
+      "httpHeaders": { "SOAPAction": "\"urn:schemas-upnp-org:service:RenderingControl:1#GetVolume\"" },
+      "query": "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:GetVolume xmlns:u=\"urn:schemas-upnp-org:service:RenderingControl:1\"><InstanceID>0</InstanceID><Channel>Master</Channel></u:GetVolume></s:Body></s:Envelope>",
+      "pollMs": 4000,
+      "parse": {
+        "type": "regex",
+        "pattern": "<CurrentVolume>([^<]+)"
+      }
+    },
+    {
+      "id": "mute.state",
+      "label": "Mute",
+      "kind": "enum",
+      "values": ["0", "1"],
+      "transport": "lan",
+      "mode": "poll",
+      "httpMethod": "POST",
+      "httpPath": "/MediaRenderer/RenderingControl/Control",
+      "httpHeaders": { "SOAPAction": "\"urn:schemas-upnp-org:service:RenderingControl:1#GetMute\"" },
+      "query": "<?xml version=\"1.0\" encoding=\"utf-8\"?><s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:GetMute xmlns:u=\"urn:schemas-upnp-org:service:RenderingControl:1\"><InstanceID>0</InstanceID><Channel>Master</Channel></u:GetMute></s:Body></s:Envelope>",
+      "pollMs": 4000,
+      "parse": {
+        "type": "regex",
+        "pattern": "<CurrentMute>([^<]+)"
       }
     }
   ]

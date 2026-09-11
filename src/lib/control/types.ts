@@ -187,6 +187,8 @@ export type DriverFeedback = {
   mode: FeedbackMode;
   query?: string;
   httpPath?: string;
+  httpMethod?: string;
+  httpHeaders?: Record<string, string>;
   pollMs?: number;
   values?: string[];
   min?: number;

@@ -11,7 +11,7 @@ Format: date, then bullets. Older work lives in `git log`.
 - Samsung apps inventory (`ed.installedApp.get`) + **App launch** / **App native**. Sync inventory on the device card, then bind the app in a macro. `KEY_NETFLIX` is only the hardware key.
 - Kept LAN sockets (Samsung WS, gateway TCP) no longer grow an unbounded `data` buffer while monitors keep the session alive.
 - Config Log tab: one host-status line above the event list (RSS, sockets, monitors). Event log is RAM-only and comes from the config session.
-- Monitor success only logged when a user `writeVar` changed, so `MON_*` polls were silent. Log on any value change (still not every poll).
+- Sonos: send UPnP with `SOAPAction` casing (fetch was lowercasing it). Monitor polls use the feedback path/headers. Volume and mute feedback added. Use the player LAN IP and the group coordinator.
 
 ## 0.8.0 (beta) — 2026-09-10
 

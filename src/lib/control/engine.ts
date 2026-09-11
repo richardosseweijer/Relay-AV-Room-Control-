@@ -17,7 +17,7 @@ import { NONE_MACRO_ID } from "./types";
 import { inferPairingSteps } from "./schema";
 import { gatewayProfile, gatewaySlot, isGatewayKind } from "./gateway";
 import { applyMonitors, clampVar, resolveTemplate, type VarMap } from "./vars";
-import { fetchTextBounded } from "./http-client";
+import { fetchTextBounded, requestHttpExact, DEFAULT_MAX_RESPONSE_BYTES } from "./http-client";
 
 const g = globalThis as typeof globalThis & { __relayTraces__?: Record<string, TraceLine[]> };
 
@@ -549,11 +549,15 @@ export async function sendHttp(
     if ((verb === "GET" || verb === "HEAD") && body) {
       target += (url.includes("?") ? "&" : "?") + body.replace(/^\?/, "");
     }
-    const res = await fetchTextBounded(target, {
-      method: verb,
-      body: verb === "GET" || verb === "HEAD" ? undefined : body,
-      headers: limits.headers ?? { "content-type": "application/json" },
-    }, timeout, limits.maxBytes);
+    const headers = limits.headers ?? { "content-type": "application/json" };
+    const soap = Object.keys(headers).some((key) => key.toLowerCase() === "soapaction");
+    const res = soap
+      ? await requestHttpExact(target, verb, verb === "GET" || verb === "HEAD" ? "" : body, headers, timeout, limits.maxBytes ?? DEFAULT_MAX_RESPONSE_BYTES)
+      : await fetchTextBounded(target, {
+          method: verb,
+          body: verb === "GET" || verb === "HEAD" ? undefined : body,
+          headers,
+        }, timeout, limits.maxBytes);
     return { ok: res.ok, message: res.text.slice(0, limits.maxMessageChars ?? 400) || String(res.status) };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "http failed" };
@@ -1428,7 +1432,16 @@ export async function readMonitorValue(opts: {
     }
   }
   const payload = fb.query ?? driver.probe?.payload ?? '{"type":"GET_STATUS","requestId":1}';
-  const result = await sendLan(driver, device, payload);
+  const result = await sendLan(driver, device, payload, {
+    id: fb.id,
+    label: fb.label,
+    kind: "action",
+    transport: fb.transport,
+    payload,
+    httpPath: fb.httpPath,
+    httpMethod: fb.httpMethod,
+    httpHeaders: fb.httpHeaders,
+  });
   if (!result.ok) return { ok: false, value: "", message: result.message };
   const app = pickJsonField(result.message, "displayName");
   const parsed = parseFeedback(fb.parse, result.message);
