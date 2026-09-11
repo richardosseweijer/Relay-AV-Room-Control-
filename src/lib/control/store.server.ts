@@ -1,7 +1,7 @@
 import { bundledDrivers, defaultDeviceState, emptyRoomConfig } from "./defaults";
 import { readMonitorValue, runMacro, traces, scrubSecret, socketStats } from "./engine";
 import type { DeviceHealth, DeviceStateMap, DriverSpec, LogEntry, Macro, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
-import { NONE_MACRO_ID, noneMacro } from "./types";
+import { NONE_MACRO_ID, indexDriver, noneMacro } from "./types";
 import { applyMonitors, clampVar, resolveTemplate, seedVars, withMonitorVars, monitorVarId, type VarMap } from "./vars";
 import { scheduleShouldRun, TriggerReservations, triggerPathHit, triggerStep } from "./logic-policy";
 import { persistPair, recoverPersistPair } from "../../../scripts/write-atomic.mjs";
@@ -424,7 +424,7 @@ export function snapshot(): RoomSnapshot {
   return {
     config: mem.config,
     drivers: mem.drivers,
-    library: mem.library ?? {},
+    library: Object.fromEntries(Object.entries(mem.library ?? {}).map(([name, spec]) => [name, indexDriver(name, spec)])),
     state: mem.state,
     vars: mem.vars,
     health: mem.health ?? {},

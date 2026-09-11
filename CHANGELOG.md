@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.8.2.1 — 2026-09-11
+
+- Tag `v0.8.2.1`.
+- Drivers tab: search, type chips, sort (brand/model). Library list Add / In room. Snapshot library is index-only (not full JSON).
+
 ## 0.8.2 (beta) — 2026-09-11
 
 - Tag `v0.8.2`. Still beta; not production-certified.

@@ -477,10 +477,28 @@ export type HostUi = {
   fullscreenAt?: number;
 };
 
+export type DriverIndex = {
+  filename: string;
+  manufacturer: string;
+  model: string;
+  type: string;
+  notes?: string;
+};
+
+export function indexDriver(filename: string, spec: Pick<DriverSpec, "device">): DriverIndex {
+  return {
+    filename,
+    manufacturer: spec.device?.manufacturer ?? "",
+    model: spec.device?.model ?? "",
+    type: spec.device?.type ?? "",
+    notes: spec.device?.notes || undefined,
+  };
+}
+
 export type RoomSnapshot = {
   config: RoomConfig;
   drivers: Record<string, DriverSpec>;
-  library: Record<string, DriverSpec>;
+  library: Record<string, DriverIndex>;
   state: DeviceStateMap;
   vars: Record<string, string | number>;
   health: DeviceHealth;
