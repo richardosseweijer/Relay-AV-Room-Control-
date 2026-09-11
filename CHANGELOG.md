@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.8.3.2 — 2026-09-11
+
+- Tag `v0.8.3.2`.
+- Library driver `samsung-tizen.json` (generic Tizen IP remote). Q65T and S95D stay as model copies.
+
 ## 0.8.3.1 — 2026-09-11
 
 - Tag `v0.8.3.1`.

@@ -12,6 +12,7 @@ test("shipped drivers keep distinct LAN protocols", () => {
     (got[proto] ??= []).push(name);
   }
   assert.ok(got["tls-websocket"]?.includes("samsung-qe50q65t.json"));
+  assert.ok(got["tls-websocket"]?.includes("samsung-tizen.json"));
   assert.ok(got.http?.includes("philips-hue-bridge.json"));
   assert.ok(got.tcp?.includes("sony-vpl-fhz120l.json"));
   assert.ok(got.cast?.includes("google-chromecast.json"));

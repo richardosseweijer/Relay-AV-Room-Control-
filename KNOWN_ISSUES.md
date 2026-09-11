@@ -21,7 +21,7 @@
 
 ## Devices / transports
 
-- Samsung Tizen (driver JSON, not engine): pair with **Authenticate** on **8002** (Allow popup), store the token, keep port **8002**. HTTP `:8001/api/v2/` is discovery, not key inject. Power-on from cold needs WOL + MAC. User-installed apps need **Sync inventory** + **App launch**; `KEY_NETFLIX` is the hardware key only. Handshake, query, and the dual app-list frames live in the driver (`lan.handshake`, `lan.query`, `lan.alsoSend` / inventory `alsoSend`).
+- Samsung Tizen (driver JSON, not engine): library driver **`samsung-tizen.json`**. Pair with **Authenticate** on **8002** (Allow popup), store the token, keep port **8002**. HTTP `:8001/api/v2/` is discovery, not key inject. Power-on from cold needs WOL + MAC. User-installed apps need **Sync inventory** + **App launch**; `KEY_NETFLIX` is the hardware key only. Handshake, query, and the dual app-list frames live in the driver (`lan.handshake`, `lan.query`, `lan.alsoSend` / inventory `alsoSend`). Q65T / S95D files stay as model-specific copies.
 - Chromecast Play/Pause now use the live `mediaSessionId` and app transport. They still need an app actually playing. Backdrop / idle → `No media session`. A phone UI can show Netflix after Cast already went idle.
 - Generic PC driver (`wake-on-lan.json`): Wake is WOL (MAC). Shutdown is Windows RPC (`net rpc shutdown` on Linux needs `samba-common-bin`) or HTTP GET to `auth.path`. WOL does not confirm the PC left S5.
 - Denon DN-500AV sources are BD / SAT/CBL / Game, not `HDMI1`. Map HDMI in the Denon menu. Volume is 00–98.
