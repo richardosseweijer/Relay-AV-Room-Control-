@@ -675,13 +675,17 @@ async function runDueMonitors() {
     const def = mem.config.variables.find((v) => v.id === rule.writeVar) || mem.config.variables.find((v) => v.id === autoId);
     const next = def ? clampVar(def, value) : value;
     mem.monitorStatus[rule.id] = { at: now, ok: true, value: String(next), message: result.message };
-    if (String(mem.vars[autoId] ?? "") !== String(next)) {
+    const changedAuto = String(mem.vars[autoId] ?? "") !== String(next);
+    const changedWrite = Boolean(rule.writeVar && rule.writeVar !== autoId && String(mem.vars[rule.writeVar]) !== String(next));
+    if (changedAuto) {
       mem.vars[autoId] = next;
       dirty = true;
     }
-    if (rule.writeVar && rule.writeVar !== autoId && String(mem.vars[rule.writeVar]) !== String(next)) {
+    if (changedWrite && rule.writeVar) {
       mem.vars[rule.writeVar] = next;
       dirty = true;
+    }
+    if (changedAuto || changedWrite) {
       pushLog({ kind: "monitor", ok: true, title: rule.label, detail: String(next) });
     }
   }
