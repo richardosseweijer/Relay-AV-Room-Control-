@@ -154,7 +154,7 @@ export function DevicesTab(props: {
                           ) : null}
                           {fields.filter((name) => !["token", "mac", "password", "user"].includes(name)).map((name) => (
                             <label key={name} className="grid gap-1 text-sm text-muted">
-                              {name === "secret" ? "Secret (other room’s peer secret)" : name === "path" ? "HTTP shutdown path" : name}
+                              {name === "secret" ? "Secret (other room’s peer secret)" : name === "path" ? "HTTP shutdown path" : name === "standbyLine" ? "Standby I/O line" : name === "volumeLine" ? "Volume I/O line" : name}
                               <input className={fieldClass()} value={device.auth?.[name] ?? ""} onChange={(e) => update((c) => { c.devices[index]!.auth = { ...c.devices[index]!.auth, [name]: e.target.value }; })} />
                               {name === "secret" ? <span className="text-xs">From the other Relay: Security → This room’s peer secret.</span> : null}
                             </label>

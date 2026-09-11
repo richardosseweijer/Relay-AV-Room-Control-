@@ -163,6 +163,10 @@ export type DriverCommand = {
   transport: TransportName;
   payload: string;
   payloadEncoding?: "ascii" | "hex";
+  /** Look up SIS/GPIO bytes on the bound gateway profile instead of a fixed payload. */
+  gatewayOp?: "digitalOn" | "digitalOff" | "analogOut" | "analogRead";
+  /** `device.auth` field that supplies `{line}` (e.g. standbyLine). */
+  gatewayLine?: string;
   namespace?: string;
   httpPath?: string;
   httpMethod?: string;

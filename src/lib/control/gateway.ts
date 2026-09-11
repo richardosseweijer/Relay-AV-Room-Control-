@@ -1,3 +1,5 @@
+export type GatewayIoOp = "digitalOn" | "digitalOff" | "analogOut" | "analogRead";
+
 export type GatewaySlot = {
   id: string;
   label: string;
@@ -10,6 +12,8 @@ export type GatewayProfile = {
   label: string;
   controlPort: number;
   slots: GatewaySlot[];
+  /** `{line}` and `{value}` filled from the device instance. Omit analogOut if the box cannot source voltage. */
+  io?: Partial<Record<GatewayIoOp, string>>;
 };
 
 export const GATEWAY_PROFILES: Record<string, GatewayProfile> = {
@@ -18,6 +22,7 @@ export const GATEWAY_PROFILES: Record<string, GatewayProfile> = {
     label: "Extron IPL T SFI244",
     controlPort: 23,
     slots: [
+      { id: "flex", label: "Flex I/O (TCP 23)", mapPort: 23 },
       { id: "com1", label: "COM1", mapPort: 2001, baudDefault: 9600 },
       { id: "com2", label: "COM2", mapPort: 2002, baudDefault: 9600 },
       { id: "ir1", label: "IR 1" },
@@ -29,6 +34,10 @@ export const GATEWAY_PROFILES: Record<string, GatewayProfile> = {
       { id: "io3", label: "I/O 3" },
       { id: "io4", label: "I/O 4" },
     ],
+    io: {
+      digitalOn: "{line}*1]",
+      digitalOff: "{line}*0]",
+    },
   },
 };
 
@@ -42,4 +51,9 @@ export function gatewaySlot(vendor?: string, slot?: string) {
 
 export function isGatewayKind(kind?: string) {
   return kind === "gateway";
+}
+
+export function gatewayIoTemplate(vendor: string | undefined, op: GatewayIoOp) {
+  const tpl = gatewayProfile(vendor)?.io?.[op];
+  return tpl || undefined;
 }

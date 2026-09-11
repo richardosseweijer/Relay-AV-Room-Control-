@@ -226,4 +226,24 @@ export const extraDrivers: Record<string, DriverSpec> = {
       { id: "input.current", label: "Input", kind: "string", transport: "lan", mode: "poll", query: "SI?", pollMs: 5000, parse: { type: "regex", pattern: "SI([^\\r]+)" } },
     ],
   },
+  "extron-xpa-1002.json": {
+    specVersion: "2",
+    device: {
+      manufacturer: "Extron",
+      model: "XPA 1002",
+      type: "amplifier",
+      notes: "No LAN. Bind Interface to IPL Flex I/O (TCP 23). Standby is digital out. Volume needs gateway analogOut (SFI244 has none).",
+    },
+    transports: { lan: { protocol: "tcp", port: 23, timeoutMs: 2500, lineEnding: "\r", session: { keepMs: 15000 } } },
+    auth: { type: "none", instanceFields: ["standbyLine", "volumeLine"] },
+    pacing: { minIntervalMs: 80 },
+    probe: { transport: "lan", payload: "Q", success: { type: "contains", value: "" } },
+    helpers: { checksum: "none" },
+    commands: [
+      { id: "power.standby", label: "Standby", kind: "action", transport: "lan", payload: "", gatewayOp: "digitalOn", gatewayLine: "standbyLine" },
+      { id: "power.on", label: "Power On", kind: "action", transport: "lan", payload: "", gatewayOp: "digitalOff", gatewayLine: "standbyLine" },
+      { id: "volume.set", label: "Volume", kind: "range", min: 0, max: 100, step: 1, transport: "lan", payload: "", gatewayOp: "analogOut", gatewayLine: "volumeLine", valueMap: { kind: "float", inMin: 0, inMax: 100, outMin: 0, outMax: 10, decimals: 2 } },
+    ],
+    feedback: [],
+  },
 };

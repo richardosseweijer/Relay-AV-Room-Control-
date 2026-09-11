@@ -2,6 +2,12 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.8.2.2 — 2026-09-11
+
+- Tag `v0.8.2.2`.
+- Extron XPA 1002 driver: gateway I/O templates (`digitalOn`/`digitalOff`; `analogOut` later). Bind Flex I/O, set standbyLine.
+- Pastel theme: dusk rose (dark canvas, blush text). Dark theme unchanged.
+
 ## 0.8.2.1 — 2026-09-11
 
 - Tag `v0.8.2.1`.

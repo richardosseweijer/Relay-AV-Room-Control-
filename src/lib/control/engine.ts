@@ -15,7 +15,7 @@ import type {
 } from "./types";
 import { NONE_MACRO_ID } from "./types";
 import { inferPairingSteps } from "./schema";
-import { gatewayProfile, gatewaySlot, isGatewayKind } from "./gateway";
+import { gatewayIoTemplate, gatewayProfile, gatewaySlot, isGatewayKind } from "./gateway";
 import { applyMonitors, clampVar, resolveTemplate, type VarMap } from "./vars";
 import { fetchTextBounded, requestHttpExact, DEFAULT_MAX_RESPONSE_BYTES } from "./http-client";
 
@@ -1646,7 +1646,16 @@ export async function executeCommand(opts: {
   const iface = opts.config.interfaces?.find((item) => item.id === device.interfaceId);
   const wired = wireThroughInterface(device, iface);
   const ctx = { host: wired.host, port: wired.port ?? driver.transports.lan?.port, id: device.id, vars: opts.vars };
-  const payload = renderPayload(command.payload, value, wired.auth, ctx);
+  let payloadTemplate = command.payload;
+  if (command.gatewayOp) {
+    const tpl = gatewayIoTemplate(iface?.vendor, command.gatewayOp);
+    if (!tpl) return { ok: false, message: `Gateway has no ${command.gatewayOp}` };
+    const lineKey = command.gatewayLine || "line";
+    const line = wired.auth?.[lineKey] || wired.auth?.line || "";
+    if (!line) return { ok: false, message: `Set ${lineKey}` };
+    payloadTemplate = tpl.replaceAll("{line}", line);
+  }
+  const payload = renderPayload(payloadTemplate, value, wired.auth, ctx);
   const path = command.httpPath ? renderPayload(command.httpPath, value, wired.auth, ctx) : command.httpPath;
   const wiredCommand = path ? { ...command, httpPath: path } : command;
   if (command.wake?.protocol === "wol") {

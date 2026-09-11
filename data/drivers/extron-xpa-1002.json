@@ -1,0 +1,31 @@
+{
+  "specVersion": "2",
+  "device": {
+    "manufacturer": "Extron",
+    "model": "XPA 1002",
+    "type": "amplifier",
+    "notes": "No LAN. Bind Interface to an IPL/IPCP Flex I/O slot (TCP 23), not COM/IR. Standby = digital out (contact to XPA standby/GND). Volume = analog voltage on pin C (0–10 V); IPL T SFI244 has analog input only — volume.set fails until the gateway profile defines analogOut. Set standbyLine / volumeLine to 1–4."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "tcp",
+      "port": 23,
+      "timeoutMs": 2500,
+      "lineEnding": "\r",
+      "session": { "keepMs": 15000 }
+    }
+  },
+  "auth": {
+    "type": "none",
+    "instanceFields": ["standbyLine", "volumeLine"]
+  },
+  "pacing": { "minIntervalMs": 80 },
+  "probe": { "transport": "lan", "payload": "Q", "success": { "type": "contains", "value": "" } },
+  "helpers": { "checksum": "none" },
+  "commands": [
+    { "id": "power.standby", "label": "Standby", "kind": "action", "transport": "lan", "payload": "", "gatewayOp": "digitalOn", "gatewayLine": "standbyLine" },
+    { "id": "power.on", "label": "Power On", "kind": "action", "transport": "lan", "payload": "", "gatewayOp": "digitalOff", "gatewayLine": "standbyLine" },
+    { "id": "volume.set", "label": "Volume", "kind": "range", "min": 0, "max": 100, "step": 1, "transport": "lan", "payload": "", "gatewayOp": "analogOut", "gatewayLine": "volumeLine", "valueMap": { "kind": "float", "inMin": 0, "inMax": 100, "outMin": 0, "outMax": 10, "decimals": 2 } }
+  ],
+  "feedback": []
+}
