@@ -17,7 +17,10 @@ function ConfigGate() {
         <p className="text-sm text-muted">Enter the configurator PIN. First-run default is 1234.</p>
         <input
           className="h-12 rounded-md border border-border bg-surface px-3"
+          type="tel"
           inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="one-time-code"
           value={pin}
           onChange={(e) => setPin(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") (document.getElementById("config-unlock") as HTMLButtonElement | null)?.click(); }}
