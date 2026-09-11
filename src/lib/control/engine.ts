@@ -580,7 +580,18 @@ function decodeWsText(buf: Buffer) {
   return buf.slice(start).toString("utf8").replace(/[^\x09\x0a\x0d\x20-\x7e]/g, "");
 }
 
-function decodeWsFrames(buf: Buffer) {
+function wsPong(payload: Buffer) {
+  const mask = Buffer.from([0x21, 0x43, 0x65, 0x87]);
+  const n = payload.length;
+  const head = n < 126
+    ? Buffer.from([0x8a, 0x80 | n])
+    : Buffer.concat([Buffer.from([0x8a, 0xfe]), Buffer.from([(n >> 8) & 0xff, n & 0xff])]);
+  const body = Buffer.alloc(n);
+  for (let i = 0; i < n; i++) body[i] = payload[i]! ^ mask[i % 4]!;
+  return Buffer.concat([head, mask, body]);
+}
+
+function decodeWsFrames(buf: Buffer, onPing?: (payload: Buffer) => void) {
   const idx = buf.indexOf("\r\n\r\n");
   let rest = idx >= 0 ? buf.subarray(idx + 4) : buf;
   let out = "";
@@ -605,7 +616,8 @@ function decodeWsFrames(buf: Buffer) {
       const mask = rest.subarray(off - 4, off);
       for (let i = 0; i < payload.length; i++) payload[i] ^= mask[i % 4]!;
     }
-    if (opcode === 1 || opcode === 0) out += payload.toString("utf8");
+    if (opcode === 9) onPing?.(payload);
+    if (opcode === 1 || opcode === 0 || opcode === 2) out += payload.toString("utf8");
     rest = rest.subarray(off + len);
   }
   return out;
@@ -686,14 +698,11 @@ function extractJsonContaining(text: string, needle: string): string {
 async function sendControlSocket(opts: { host: string; port: number; path: string; payload: string; timeout: number; tls: boolean; waitFor?: string }): Promise<CommandResult> {
   const key = `${opts.host}:${opts.port}:${opts.path.split("?")[0]}`;
   const live = keepWs.get(key);
-  if (live && !live.sock.destroyed && opts.payload) {
+  if (live && !live.sock.destroyed && opts.payload && !opts.waitFor) {
     try {
       live.sock.write(maskWsFrame(opts.payload));
       bumpKeep(key, live.sock);
-      if (!opts.waitFor) return { ok: true, message: "key sent" };
-      const body = await waitWsBody(live.sock, opts.timeout, (text) => text.includes(opts.waitFor!));
-      bumpKeep(key, live.sock);
-      return { ok: true, message: extractJsonContaining(body, opts.waitFor) };
+      return { ok: true, message: "key sent" };
     } catch {
       live.sock.destroy();
       keepWs.delete(key);
@@ -711,7 +720,15 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
     let sent = false;
     let token = "";
     let done = false;
-    const timer = setTimeout(() => { sock.off("data", onData); sock.destroy(); if (!done) { done = true; resolve({ ok: false, message: token ? `token ${token}` : "control timeout" }); } }, opts.timeout);
+    const timer = setTimeout(() => {
+      sock.off("data", onData);
+      sock.destroy();
+      if (done) return;
+      done = true;
+      const got = decodeWsFrames(buf).replace(/\s+/g, " ").slice(0, 180);
+      const miss = opts.waitFor ? `no ${opts.waitFor}` : "control timeout";
+      resolve({ ok: false, message: got ? `${miss} (${got})` : miss });
+    }, opts.timeout);
     const finish = (ok: boolean, message: string) => {
       if (done) return;
       done = true;
@@ -733,12 +750,14 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
         if (!/101 Switching Protocols/i.test(text)) return;
         upgraded = true;
       }
-      const body = decodeWsFrames(buf);
+      const body = decodeWsFrames(buf, (ping) => { try { sock.write(wsPong(ping)); } catch { /* ignore */ } });
       const found = body.match(/"token"\s*:\s*"([^"]+)"/)?.[1];
       if (found) token = found;
       if (/ms.channel.connect/i.test(body) && opts.payload && !sent) {
         sent = true;
-        sock.write(maskWsFrame(opts.payload));
+        const fire = () => { try { sock.write(maskWsFrame(opts.payload)); } catch { /* ignore */ } };
+        if (opts.waitFor) setTimeout(fire, 400);
+        else fire();
         if (!opts.waitFor) {
           finish(true, token ? `token ${token}` : "key sent");
           return;

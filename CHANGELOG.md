@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.8.2.7 — 2026-09-11
+
+- Tag `v0.8.2.7`.
+- Samsung inventory wait: fresh 8002 socket, WS pong, binary frames, honest timeout (not a fake token).
+
 ## 0.8.2.6 — 2026-09-11
 
 - Tag `v0.8.2.6`.
