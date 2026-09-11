@@ -11,6 +11,7 @@
       "protocol": "tls-websocket",
       "port": 8002,
       "timeoutMs": 8000,
+      "handshake": { "waitContains": "ms.channel.connect", "delayMs": 500 },
       "http": {
         "path": "/api/v2/channels/samsung.remote.control"
       }
@@ -493,8 +494,9 @@
       {
         "id": "apps",
         "label": "Apps",
-        "payload": "{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.installedApp.get\",\"to\":\"host\"}}",
-        "waitContains": "ed.installedApp.get",
+        "payload": "{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.installedApp.get\",\"to\":\"host\",\"data\":\"\"}}",
+        "alsoSend": ["{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.edenApp.get\",\"to\":\"host\",\"data\":\"\"}}"],
+        "waitContains": "ed.installedApp.get|ed.edenApp.get",
         "parsePath": "data.data",
         "idField": "appId",
         "nameField": "name",

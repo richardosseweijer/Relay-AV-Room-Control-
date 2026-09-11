@@ -28,7 +28,7 @@ If the manual is unclear, **omit that command** and mention it in `device.notes`
 | ASCII socket (PJLink, Extron, ADCP) | `tcp` | `ascii` | `"\r"` unless the doc says otherwise |
 | Raw bytes / MIDI-TCP | `tcp` | set `encoding` to `hex` | `""` |
 | Browser WebSocket | `websocket` | `ascii` | `""` |
-| TLS WebSocket (Samsung 8002) | `tls-websocket` | `ascii` | `""` |
+| TLS WebSocket | `tls-websocket` | `ascii` | `""` |
 | Chromecast | `cast` | `ascii` | `""` |
 
 One plane per driver. Example only: Allen & Heath SQ third-party control is MIDI-TCP **51325**, not MixPad 51326. Other desks use their own port.
@@ -143,6 +143,63 @@ Write the **entire** frame. Relay does not add status nibbles.
 }
 ```
 
+## Skeleton D — TLS WebSocket
+
+Path, query, TLS, and handshake text come from this file. The engine has no brand defaults.
+
+```json
+{
+  "specVersion": "2",
+  "device": { "manufacturer": "Brand", "model": "Model", "type": "display", "notes": "Control socket is TLS. Authenticate once. Status HTTP is a different port." },
+  "transports": {
+    "lan": {
+      "protocol": "tls-websocket",
+      "port": 8002,
+      "timeoutMs": 8000,
+      "handshake": { "waitContains": "connected", "delayMs": 500 },
+      "http": { "path": "/control" }
+    }
+  },
+  "auth": {
+    "type": "token",
+    "instanceFields": ["token", "name"],
+    "pairing": {
+      "kind": "websocket-handshake",
+      "ports": [8002],
+      "tlsPorts": [8002],
+      "path": "/control",
+      "query": { "nameParam": "name", "tokenParam": "token", "nameFrom": "auth.name" },
+      "waitContains": "connected",
+      "tokenJsonPath": "token",
+      "userPrompt": "Accept the pairing prompt on the device, then Authenticate again.",
+      "steps": [
+        { "action": "websocket", "port": 8002, "tls": true, "path": "/control", "waitContains": "connected", "tokenJsonPath": "token", "timeoutMs": 12000 }
+      ]
+    }
+  },
+  "status": { "protocol": "http", "port": 8001, "path": "/api/" },
+  "probe": { "transport": "lan", "payload": "" },
+  "commands": [
+    { "id": "power.off", "label": "Power Off", "kind": "action", "transport": "lan", "payload": "{\"cmd\":\"off\"}" }
+  ],
+  "feedback": [],
+  "inventory": {
+    "resources": [
+      {
+        "id": "apps",
+        "label": "Apps",
+        "payload": "{\"cmd\":\"list\"}",
+        "alsoSend": ["{\"cmd\":\"list-alt\"}"],
+        "waitContains": "apps",
+        "parsePath": "data",
+        "idField": "id",
+        "nameField": "name"
+      }
+    ]
+  }
+}
+```
+
 ## Tokens the engine substitutes
 
 | token | becomes |
@@ -163,7 +220,9 @@ Write the **entire** frame. Relay does not add status nibbles.
 - `none` — open port
 - `token` — operator pastes `token`
 - `pin` / `userpass` — `pin` or `user` + `password`
-- `pair` — device shows Allow; store `token` from the response (`pairing.discoverPath` + `prompt`)
+- `pair` — device shows Allow; store `token` from the pairing step (`pairing.steps` or `kind` `websocket-handshake` / `http-handshake`). Put path, TLS, `waitContains`, and `tokenJsonPath` in the JSON. The engine does not guess brand URLs.
+
+`lan.handshake.waitContains` is the text that means the socket is up. `delayMs` waits after that before the first payload. `alsoSend` is extra frames after the main payload (inventory or command). Inventory parse uses only `parsePath`, `idField`, `nameField`, `valueField` (or `itemId`/`itemName`). No engine brand names.
 
 List extras in `instanceFields` (`midiChannel`, `mac`, …). They appear on the device card.
 

@@ -24,15 +24,14 @@ export function inferPairingSteps(pairing?: DriverPairing): PairingStep[] {
     }];
   }
   if (pairing.kind === "websocket-handshake") {
-    const ports = pairing.ports?.length ? pairing.ports : [8002, 8001];
-    return ports.map((port) => ({
+    if (!pairing.ports?.length || !pairing.path) return [];
+    return pairing.ports.map((port) => ({
       action: "websocket" as const,
       port,
-      tls: pairing.tlsPorts?.includes(port) || port === 8002,
-      path: pairing.path || "/api/v2/channels/samsung.remote.control",
-      waitContains: pairing.waitContains || "ms.channel.connect",
+      tls: pairing.tlsPorts?.includes(port),
+      path: pairing.path,
+      waitContains: pairing.waitContains,
       tokenJsonPath: pairing.tokenJsonPath || "token",
-      nextPort: port === 8001 ? 8002 : undefined,
       timeoutMs: 12000,
     }));
   }

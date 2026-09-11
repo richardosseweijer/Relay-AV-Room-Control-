@@ -2,6 +2,13 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.8.2.10 — 2026-09-11
+
+- Tag `v0.8.2.10`.
+- Generic WebSocket: handshake and extra frames live in driver JSON (`lan.handshake`, command/inventory `alsoSend`). Engine no longer special-cases Samsung keys or port 8002.
+- `driver-check`: websocket path + handshake; pairing steps; inventory parse fields.
+- Seed S95D, Home Assistant, Sonos S1/S2, and ZonePlayer in extra-drivers. ZonePlayer SOAPAction uses `httpHeaders`. Public Samsung/Chromecast copies match `data/drivers`.
+
 ## 0.8.2.9 — 2026-09-11
 
 - Tag `v0.8.2.9`.

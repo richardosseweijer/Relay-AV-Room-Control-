@@ -29,6 +29,24 @@ if (!spec.commands?.length) issues.push(["ERROR", "Driver needs at least one com
 const ids = (spec.commands ?? []).map((c) => c.id);
 if (new Set(ids).size !== ids.length) issues.push(["ERROR", "Duplicate command ids"]);
 if (spec.transports?.lan && !spec.transports.lan.protocol) issues.push(["ERROR", "LAN transport needs a protocol"]);
+const proto = spec.transports?.lan?.protocol;
+if (proto === "websocket" || proto === "tls-websocket") {
+  if (!spec.transports.lan.handshake?.waitContains) issues.push(["ERROR", "websocket driver needs lan.handshake.waitContains"]);
+  const path = spec.transports.lan.http?.path || spec.auth?.pairing?.path;
+  if (!path) issues.push(["ERROR", "websocket driver needs lan.http.path or pairing.path"]);
+}
+if (spec.auth?.pairing?.kind === "websocket-handshake") {
+  const pair = spec.auth.pairing;
+  if (!pair.steps?.length && !(pair.ports?.length && pair.path)) {
+    issues.push(["ERROR", "websocket-handshake needs pairing.steps (or ports+path)"]);
+  }
+}
+for (const resource of spec.inventory?.resources ?? []) {
+  if (!resource.payload && !resource.httpPath) continue;
+  if (!resource.parsePath && resource.itemId !== "key" && !resource.idField) {
+    issues.push(["ERROR", `inventory ${resource.id || "?"} needs parsePath, idField, or itemId=key`]);
+  }
+}
 if (spec.transports?.lan?.protocol === "tcp" && spec.probe && !spec.probe.payload && spec.probe.success?.value === "ok") {
   issues.push(["WARN", "Empty TCP probe with success \"ok\" — drop the needle"]);
 }

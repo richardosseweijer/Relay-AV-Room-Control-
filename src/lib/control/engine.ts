@@ -10,6 +10,7 @@ import type {
   InventoryItem,
   InventoryResource,
   Macro,
+  PairingStep,
   RoomConfig,
   TraceLine,
 } from "./types";
@@ -706,7 +707,18 @@ function extractJsonContaining(text: string, needle: string): string {
   return i >= 0 ? text.slice(i) : text;
 }
 
-async function sendControlSocket(opts: { host: string; port: number; path: string; payload: string; timeout: number; tls: boolean; waitFor?: string }): Promise<CommandResult> {
+async function sendControlSocket(opts: {
+  host: string;
+  port: number;
+  path: string;
+  payload: string;
+  timeout: number;
+  tls: boolean;
+  waitFor?: string;
+  handshakeWait?: string;
+  handshakeDelayMs?: number;
+  alsoSend?: string[];
+}): Promise<CommandResult> {
   const key = `${opts.host}:${opts.port}:${opts.path.split("?")[0]}`;
   const live = keepWs.get(key);
   if (live && !live.sock.destroyed && opts.payload && !opts.waitFor) {
@@ -764,9 +776,9 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
     sock.on("secureConnect", () => sock.write(req));
     const fire = () => {
       try { sock.write(maskWsFrame(opts.payload)); } catch { /* ignore */ }
-      if (opts.payload.includes("ed.installedApp.get")) {
-        const alt = opts.payload.replace("ed.installedApp.get", "ed.edenApp.get").replace(/"data":\{\}/g, '"data":""');
-        try { sock.write(maskWsFrame(alt)); } catch { /* ignore */ }
+      for (const extra of opts.alsoSend ?? []) {
+        if (!extra) continue;
+        try { sock.write(maskWsFrame(extra)); } catch { /* ignore */ }
       }
       arm();
     };
@@ -781,14 +793,21 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
       const body = decodeWsFrames(buf, (ping) => { try { sock.write(wsPong(ping)); } catch { /* ignore */ } });
       const found = body.match(/"token"\s*:\s*"([^"]+)"/)?.[1];
       if (found) token = found;
-      if (/ms.channel.connect/i.test(body) && opts.payload && !sent) {
+      const handshakeOk = opts.handshakeWait ? bodyHasWait(body, opts.handshakeWait) : upgraded;
+      const delayMs = opts.handshakeDelayMs ?? 0;
+      if (handshakeOk && opts.payload && !sent) {
         sent = true;
         if (opts.waitFor) {
-          setTimeout(fire, 500);
+          setTimeout(fire, delayMs);
           retryTick = setInterval(() => {
             if (done || ++tries >= 2) { if (retryTick) clearInterval(retryTick); return; }
             fire();
           }, 2500);
+        } else if (delayMs) {
+          setTimeout(() => {
+            fire();
+            finish(true, token ? `token ${token}` : "key sent");
+          }, delayMs);
         } else {
           fire();
           finish(true, token ? `token ${token}` : "key sent");
@@ -799,28 +818,37 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
         finish(true, extractJsonContaining(body, opts.waitFor));
         return;
       }
-      if (/ms.channel.connect/i.test(body) && !opts.payload) {
-        finish(Boolean(token), token ? `token ${token}` : "Accept Allow on the TV");
+      if (handshakeOk && !opts.payload) {
+        finish(Boolean(token), token ? `token ${token}` : "waiting for pairing");
       }
     };
     sock.on("data", onData);
   });
 }
 
-async function sendSamsungKey(host: string, port: number, payload: string, token: string | undefined, timeout: number, waitFor?: string): Promise<CommandResult> {
-  const name = Buffer.from("Relay").toString("base64");
-  const q = token ? `name=${name}&token=${encodeURIComponent(token)}` : `name=${name}`;
-  const path = `/api/v2/channels/samsung.remote.control?${q}`;
-  const tls = port === 8002 || Boolean(token);
-  const usePort = tls ? 8002 : (port || 8001);
-  return sendControlSocket({ host, port: usePort, path, payload, timeout, tls, waitFor });
+function buildWsTarget(driver: DriverSpec, device: DeviceInstance, step?: PairingStep): { path: string; port: number; tls: boolean } {
+  const lan = driver.transports.lan;
+  const pairing = driver.auth?.pairing;
+  const pathBase = step?.path || pairing?.path || lan?.http?.path || "/";
+  const tls = step?.tls ?? lan?.protocol === "tls-websocket";
+  const port = step?.port ?? device.port ?? lan?.port ?? (tls ? 443 : 80);
+  const query = pairing?.query;
+  const params = new URLSearchParams();
+  if (query?.nameParam) {
+    const raw = query.nameFrom === "auth.name" ? (device.auth?.name || "Relay") : "Relay";
+    params.set(query.nameParam, Buffer.from(raw).toString("base64"));
+  }
+  if (query?.tokenParam && device.auth?.token) params.set(query.tokenParam, device.auth.token);
+  const qs = params.toString();
+  return { path: qs ? `${pathBase.split("?")[0]}?${qs}` : pathBase, port, tls };
 }
 
 function statusPlane(driver: DriverSpec, device: DeviceInstance, feedback?: { httpPath?: string }) {
   if (driver.transports.lan?.protocol === "cast") return null;
   const path = feedback?.httpPath || driver.status?.path;
   if (!path) return null;
-  const port = driver.status?.port ?? driver.auth?.pairing?.ports?.[0] ?? 8001;
+  const port = driver.status?.port ?? device.port ?? driver.transports.lan?.port;
+  if (port == null) return null;
   const proto = driver.status?.protocol ?? "http";
   return `${proto}://${device.host}:${port}${path.startsWith("/") ? path : `/${path}`}`;
 }
@@ -1080,7 +1108,21 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
         ...(command?.httpHeaders ?? {}),
       },
     });
-  } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") result = await sendSamsungKey(host, port, payload, device.auth?.token, command?.waitContains ? Math.max(timeout, 20000) : timeout, command?.waitContains);
+  } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") {
+    const target = buildWsTarget(driver, device);
+    result = await sendControlSocket({
+      host,
+      port: target.port,
+      path: target.path,
+      payload,
+      timeout: command?.waitContains ? Math.max(timeout, 20000) : timeout,
+      tls: target.tls,
+      waitFor: command?.waitContains,
+      handshakeWait: lan.handshake?.waitContains,
+      handshakeDelayMs: lan.handshake?.delayMs,
+      alsoSend: command?.alsoSend,
+    });
+  }
   else if (lan.protocol === "pjlink") result = await sendPjlink(host, port, payload, device.auth?.password || device.auth?.pin, timeout);
   else if (lan.protocol === "udp") {
     const dgram = await import("node:dgram");
@@ -1108,12 +1150,10 @@ export async function pingReachable(opts: { host: string; port?: number; path?: 
     try {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), timeout);
-      const prefer = port === 8002 ? 8001 : port;
-      const res = await fetch(`http://${opts.host}:${prefer}${path.startsWith("/") ? path : `/${path}`}`, { signal: ctrl.signal });
+      const res = await fetch(`http://${opts.host}:${port}${path.startsWith("/") ? path : `/${path}`}`, { signal: ctrl.signal });
       clearTimeout(t);
-      const text = await res.text();
-      const power = pickJsonField(text, "device.PowerState");
-      return { ok: true, message: power ? `Power ${power}` : String(res.status) };
+      await res.text();
+      return { ok: true, message: String(res.status) };
     } catch {
       /* fall through to TCP */
     }
@@ -1159,10 +1199,26 @@ export async function authenticateDevice(opts: { config: RoomConfig; drivers: Re
       continue;
     }
     if (step.action === "websocket") {
-      const result = await sendSamsungKey(host, port, "", undefined, step.timeoutMs ?? 12000);
-      const token = result.message.match(/token\s+([A-Za-z0-9._-]+)/)?.[1] || result.message.match(/"token"\s*:\s*"([^"]+)"/)?.[1];
-      if (token) return { ok: true, message: "Paired", pairedToken: token, pairedPort: step.nextPort ?? port };
-      if (/Accept Allow|ms.channel.connect/i.test(result.message)) return { ok: false, message: "Accept Allow on the device, then Authenticate again" };
+      const target = buildWsTarget(driver, device, step);
+      const pairing = driver.auth?.pairing;
+      const result = await sendControlSocket({
+        host,
+        port: target.port,
+        path: target.path,
+        payload: "",
+        timeout: step.timeoutMs ?? 12000,
+        tls: target.tls,
+        handshakeWait: step.waitContains || driver.transports.lan?.handshake?.waitContains || pairing?.waitContains,
+        handshakeDelayMs: driver.transports.lan?.handshake?.delayMs,
+      });
+      const tokenPath = step.tokenJsonPath || pairing?.tokenJsonPath || "token";
+      const token = pickJsonField(result.message, tokenPath)
+        || result.message.match(/token\s+([A-Za-z0-9._-]+)/)?.[1]
+        || result.message.match(/"token"\s*:\s*"([^"]+)"/)?.[1];
+      if (token) return { ok: true, message: "Paired", pairedToken: token, pairedPort: step.nextPort ?? target.port };
+      if (result.message.includes("waiting for pairing") || result.ok) {
+        return { ok: false, message: pairing?.userPrompt || "Accept on the device, then Authenticate again" };
+      }
     }
   }
   return { ok: false, message: "No token from pairing steps" };
@@ -1309,6 +1365,7 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
         transport: "lan",
         payload: resource.payload,
         waitContains: resource.waitContains,
+        alsoSend: resource.alsoSend,
       });
       if (!res.ok) return { ok: false, message: res.message };
       raw = res.message;
@@ -1364,10 +1421,10 @@ function fieldFromRow(row: Record<string, unknown>, path: string | undefined, fa
 }
 
 function parseInventoryItems(raw: string, resource: InventoryResource): InventoryItem[] {
-  const paths = [resource.parsePath, "params.data.data", "data.data", "data"].filter(Boolean) as string[];
+  const paths = resource.parsePath ? [resource.parsePath] : [""];
   for (const path of paths) {
     try {
-      const node = jsonAt(raw, path);
+      const node = jsonAt(raw, path || undefined);
       const rows: Record<string, unknown>[] = [];
       if (Array.isArray(node)) {
         for (const row of node) {
@@ -1380,9 +1437,9 @@ function parseInventoryItems(raw: string, resource: InventoryResource): Inventor
         }
       }
       const items = rows.map((row) => {
-        const id = fieldFromRow(row, resource.idField, ["appId", "appid", "entity_id", "id"]) || String(row.appId || row.id || "");
-        const name = fieldFromRow(row, resource.nameField || resource.itemName, ["name", "label", "attributes.friendly_name"]) || id;
-        const value = fieldFromRow(row, resource.valueField, ["app_type", "state", "value"]);
+        const id = fieldFromRow(row, resource.idField, []) || String(row.id || "");
+        const name = fieldFromRow(row, resource.nameField || resource.itemName, []) || id;
+        const value = fieldFromRow(row, resource.valueField, []);
         return { id, name, value, group: resource.label, kind: resource.id };
       }).filter((item) => item.id);
       if (items.length) return items;
@@ -1390,21 +1447,7 @@ function parseInventoryItems(raw: string, resource: InventoryResource): Inventor
       /* try next path */
     }
   }
-  const pairs = [...raw.matchAll(/"appId"\s*:\s*"([^"]+)"[\s\S]{0,500}?"name"\s*:\s*"([^"]+)"/gi)];
-  const rev = pairs.length ? [] : [...raw.matchAll(/"name"\s*:\s*"([^"]+)"[\s\S]{0,500}?"appId"\s*:\s*"([^"]+)"/gi)];
-  const seen = new Set<string>();
-  const loose: InventoryItem[] = [];
-  for (const hit of pairs) {
-    if (seen.has(hit[1]!)) continue;
-    seen.add(hit[1]!);
-    loose.push({ id: hit[1]!, name: hit[2]!, value: "", group: resource.label, kind: resource.id });
-  }
-  for (const hit of rev) {
-    if (seen.has(hit[2]!)) continue;
-    seen.add(hit[2]!);
-    loose.push({ id: hit[2]!, name: hit[1]!, value: "", group: resource.label, kind: resource.id });
-  }
-  return loose;
+  return [];
 }
 
 function parseHaystacks(raw: string, needle?: string) {

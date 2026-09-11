@@ -62,6 +62,7 @@ export type DriverSpec = {
       payloadEncoding?: "ascii" | "hex";
       lineEnding?: string;
       timeoutMs?: number;
+      handshake?: { waitContains?: string; delayMs?: number };
       session?: {
         loginPrompt?: string;
         passwordPrompt?: string;
@@ -136,6 +137,7 @@ export type InventoryResource = {
   httpPath?: string;
   payload?: string;
   waitContains?: string;
+  alsoSend?: string[];
   parsePath?: string;
   idField?: string;
   nameField?: string;
@@ -180,6 +182,7 @@ export type DriverCommand = {
   requires?: string[];
   wake?: { protocol: "wol" };
   waitContains?: string;
+  alsoSend?: string[];
   ack?: { success?: MatchRule; nak?: MatchRule };
 };
 
