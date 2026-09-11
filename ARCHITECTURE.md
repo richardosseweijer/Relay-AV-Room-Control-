@@ -156,9 +156,9 @@ The panel renders the current page grid from the snapshot. Highlight and disable
 
 Host commands `ui.toast`, `ui.block`, `ui.unblock`, and `ui.clear` draw overlays on this surface. `display.dim` reduces brightness. `panel.lock` blocks operator input until the panel PIN succeeds. Configurator access remains available.
 
-### 6.2 Configurator (`config-app.tsx`)
+### 6.2 Configurator (`src/components/config/`)
 
-Tabs: Room, Security, Drivers, Devices, Interfaces, Pages, Macros, Logic (variables, monitors, schedules, triggers), Log.
+Shell: `config-app.tsx` (PIN, Save all, toast, `draft`, tab bar). Tabs: Room, Security, Drivers, Devices, Interfaces, Macros, Logic, Pages, Log. Logic sub-tabs: variables, monitors, schedules, triggers.
 
 Room actions: export (browser download, secrets stripped), import, clear configuration, restart Vite, update from GitHub, reboot the host. Room tab shows `package.json` version plus `git rev-parse --short HEAD`. There is no Restore demo. Export requires a configurator session. Import preserves existing secrets when the bundle left those fields empty.
 
@@ -174,7 +174,7 @@ Room actions: export (browser download, secrets stripped), import, clear configu
 | `data/relay-update.log` | Output of `scripts/update-relay.mjs`. |
 | In-process memory | Device state, health, action log, monitor/schedule/trigger stamps. |
 
-Save all calls `persistNow()`. If either JSON file cannot be written, the save returns failure and the dirty flag stays set (issue #18: the two files are still separate renames).
+Save all calls `persistNow()`. Secrets and room JSON are written through a journal (`*.transaction`) then atomic rename (`scripts/write-atomic.mjs`). If the second file fails, the previous pair is left intact and persist returns failure. A kill during apply is recovered from the journal on the next boot.
 
 `system.update` (Room tab) requires a Git checkout. It fetches `origin` with `--force --tags`, builds and readiness-checks a detached worktree, then `git checkout -B main <sha>` and swaps `node_modules` / `.vercel`. A failed stage leaves the running checkout untouched. Nitro writes `.vercel/output`, not `dist/`. Log: `data/relay-update.log`.
 
@@ -221,7 +221,11 @@ Do not publish port 8081 to the public internet. HTTP only (issue #15).
 |---|---|
 | `src/components/panel/control-panel.tsx` | Operator grid, overlays, wake lock, fullscreen. |
 | `src/components/panel/widget-face.tsx` | Visual treatment of tiles. |
-| `src/components/config/config-app.tsx` | Integrator editor. |
+| `src/components/config/config-app.tsx` | Configurator shell: PIN, Save all, draft, tab switch. |
+| `src/components/config/*-tab.tsx` | One file per tab (room, security, devices, interfaces, macros, logic, drivers, log). |
+| `src/components/config/pages-editor.tsx` | Panel page grid editor. |
+| `src/components/config/tag-bar.tsx` | Tag chips for macros and logic. |
+| `src/components/config/config-ui.ts` | Shared field chrome. |
 | `src/components/ui/button.tsx` | Shared button styles. |
 | `src/routes/index.tsx` | Route `/`. |
 | `src/routes/config.tsx` | Route `/config`. |
