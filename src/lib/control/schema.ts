@@ -24,7 +24,7 @@ export function inferPairingSteps(pairing?: DriverPairing): PairingStep[] {
     }];
   }
   if (pairing.kind === "websocket-handshake") {
-    const ports = pairing.ports?.length ? pairing.ports : [8001, 8002];
+    const ports = pairing.ports?.length ? pairing.ports : [8002, 8001];
     return ports.map((port) => ({
       action: "websocket" as const,
       port,

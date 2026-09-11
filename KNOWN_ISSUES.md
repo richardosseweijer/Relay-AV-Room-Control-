@@ -21,7 +21,7 @@
 
 ## Devices / transports
 
-- Samsung Tizen: pair with **Authenticate**, store the token, use port **8002**. Power-on from cold needs WOL + MAC. HTTP `:8001/api/v2/` is discovery, not key inject.
+- Samsung Tizen: pair with **Authenticate** on **8002** (Allow popup), store the token, keep port **8002**. HTTP `:8001/api/v2/` is discovery, not key inject. Power-on from cold needs WOL + MAC.
 - Chromecast Play/Pause now use the live `mediaSessionId` and app transport. They still need an app actually playing. Backdrop / idle → `No media session`. A phone UI can show Netflix after Cast already went idle.
 - Generic PC driver (`wake-on-lan.json`): Wake is WOL (MAC). Shutdown is Windows RPC (`net rpc shutdown` on Linux needs `samba-common-bin`) or HTTP GET to `auth.path`. WOL does not confirm the PC left S5.
 - Denon DN-500AV sources are BD / SAT/CBL / Game, not `HDMI1`. Map HDMI in the Denon menu. Volume is 00–98.

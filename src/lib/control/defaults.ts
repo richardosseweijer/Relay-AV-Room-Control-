@@ -120,7 +120,7 @@ export const samsungQ65tDriver: DriverSpec = {
     manufacturer: "Samsung",
     model: "QE50Q65TASXXN",
     type: "display",
-    notes: "After full power-off the control socket is dead. Power On sends Wake-on-LAN then KEY_POWERON. Paste the TV MAC in mac. On the TV enable Power On with Mobile / IP Remote. Pairing still needs Allow on screen.",
+    notes: "Tizen remote: keys and Allow popup are wss://TV:8002. HTTP http://TV:8001/api/v2/ is status only. Authenticate on 8002, save token, keep port 8002. Power On needs MAC + WOL (enable Power On with Mobile / IP Remote).",
   },
   transports: {
     lan: {
@@ -136,7 +136,7 @@ export const samsungQ65tDriver: DriverSpec = {
     instanceFields: ["token", "name", "mac"],
     pairing: {
       kind: "websocket-handshake",
-      ports: [8001, 8002],
+      ports: [8002, 8001],
       tlsPorts: [8002],
       path: "/api/v2/channels/samsung.remote.control",
       discoverPath: "/api/v2/",
@@ -144,10 +144,10 @@ export const samsungQ65tDriver: DriverSpec = {
       waitContains: "ms.channel.connect",
       commandAck: "none",
       tokenJsonPath: "token",
-      userPrompt: "Accept Allow on the TV. If Probe returns a token, save it and use port 8002.",
+      userPrompt: "Accept Allow on the TV (8002). Save the token and keep port 8002.",
       steps: [
-        { action: "websocket", port: 8001, path: "/api/v2/channels/samsung.remote.control", waitContains: "ms.channel.connect", tokenJsonPath: "token", nextPort: 8002, timeoutMs: 12000 },
         { action: "websocket", port: 8002, tls: true, path: "/api/v2/channels/samsung.remote.control", waitContains: "ms.channel.connect", tokenJsonPath: "token", timeoutMs: 12000 },
+        { action: "websocket", port: 8001, path: "/api/v2/channels/samsung.remote.control", waitContains: "ms.channel.connect", tokenJsonPath: "token", nextPort: 8002, timeoutMs: 12000 },
       ],
     },
   },

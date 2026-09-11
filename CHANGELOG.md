@@ -7,7 +7,7 @@ Format: date, then bullets. Older work lives in `git log`.
 - Tag `v0.8.1`. Still beta; not production-certified.
 - Config tags for macros / logic (filter chips, drag onto a chip to file, drag chips to reorder). Old `folder` values still load as tags.
 - Interface cards fold and drag-reorder. Logic tab sits between Macros and Pages.
-- In-app update: force-fetch tags, checkout `main` at the fetched SHA (no fast-forward requirement). Staged preview port follows `NITRO_PORT`.
+- Samsung Q65T and S95D: Authenticate tries **8002 WSS first** (Allow + keys). HTTP `:8001/api/v2/` stays status-only; 8001 WS is fallback only.
 
 ## 0.8.0 (beta) — 2026-09-10
 

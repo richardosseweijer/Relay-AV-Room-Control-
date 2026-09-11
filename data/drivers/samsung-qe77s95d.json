@@ -4,7 +4,7 @@
     "manufacturer": "Samsung",
     "model": "QE77S95DATXXN",
     "type": "display",
-    "notes": "Validated against QE77S95DATXXN discovery API v2.0.25. Enable Power On with Mobile / IP Remote. Authenticate once and accept Allow on the TV; save the returned token. Power On also needs the TV MAC for Wake-on-LAN."
+    "notes": "Tizen remote: keys and Allow popup are wss://TV:8002. HTTP http://TV:8001/api/v2/ is status only. Authenticate on 8002, save token, keep port 8002. Power On needs MAC + WOL (enable Power On with Mobile / IP Remote)."
   },
   "transports": {
     "lan": {
@@ -19,7 +19,7 @@
     "instanceFields": ["token", "name", "mac"],
     "pairing": {
       "kind": "websocket-handshake",
-      "ports": [8001, 8002],
+      "ports": [8002, 8001],
       "tlsPorts": [8002],
       "path": "/api/v2/channels/samsung.remote.control",
       "discoverPath": "/api/v2/",
@@ -31,17 +31,8 @@
       "waitContains": "ms.channel.connect",
       "commandAck": "none",
       "tokenJsonPath": "token",
-      "userPrompt": "Accept Allow on the TV. Save the returned token and use port 8002.",
+      "userPrompt": "Accept Allow on the TV (8002). Save the token and keep port 8002.",
       "steps": [
-        {
-          "action": "websocket",
-          "port": 8001,
-          "path": "/api/v2/channels/samsung.remote.control",
-          "waitContains": "ms.channel.connect",
-          "tokenJsonPath": "token",
-          "nextPort": 8002,
-          "timeoutMs": 12000
-        },
         {
           "action": "websocket",
           "port": 8002,
@@ -49,6 +40,15 @@
           "path": "/api/v2/channels/samsung.remote.control",
           "waitContains": "ms.channel.connect",
           "tokenJsonPath": "token",
+          "timeoutMs": 12000
+        },
+        {
+          "action": "websocket",
+          "port": 8001,
+          "path": "/api/v2/channels/samsung.remote.control",
+          "waitContains": "ms.channel.connect",
+          "tokenJsonPath": "token",
+          "nextPort": 8002,
           "timeoutMs": 12000
         }
       ]
