@@ -300,8 +300,8 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
       <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-4 bg-bg px-6">
         <h1 className="text-3xl font-medium tracking-tight">Set a new PIN</h1>
         <p className="text-sm text-muted">1234 and other simple codes are not allowed.</p>
-        <input className={fieldClass()} type="password" inputMode="numeric" value={newPin} onChange={(e) => setNewPin(e.target.value)} placeholder="New PIN" />
-        <input className={fieldClass()} type="password" inputMode="numeric" value={newPin2} onChange={(e) => setNewPin2(e.target.value)} placeholder="Repeat PIN" />
+        <input className={fieldClass()} type="password" inputMode="numeric" pattern="[0-9]*" autoComplete="new-password" value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))} placeholder="New PIN" />
+        <input className={fieldClass()} type="password" inputMode="numeric" pattern="[0-9]*" autoComplete="new-password" value={newPin2} onChange={(e) => setNewPin2(e.target.value.replace(/\D/g, ""))} placeholder="Repeat PIN" />
         <Button onClick={async () => {
           if (newPin !== newPin2) { flash("PIN mismatch", ""); return; }
           update((c) => { c.room.configPin = newPin; });
@@ -328,7 +328,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
           <p className="mt-1 text-sm text-muted">{toast.body}</p>
           {needLock ? (
             <div className="mt-3 grid gap-2">
-              <input className={fieldClass()} inputMode="numeric" value={lockPin} onChange={(e) => setLockPin(e.target.value)} placeholder="PIN" />
+              <input className={fieldClass()} type="password" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" value={lockPin} onChange={(e) => setLockPin(e.target.value.replace(/\D/g, ""))} placeholder="PIN" />
               <Button onClick={async () => {
                 const res = await verifyConfigPin({ data: { pin: lockPin } });
                 if (!res.ok || !res.token) { flash("Wrong PIN", ""); return; }
@@ -349,7 +349,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
           <div className="w-full max-w-sm rounded-xl border border-border bg-surface p-5">
             <p className="text-lg font-medium">Clear this host?</p>
             <p className="mt-2 text-sm text-muted">Enter the configurator PIN.</p>
-            <input className={`${fieldClass()} mt-4`} inputMode="numeric" value={gate.pin} onChange={(e) => setGate({ ...gate, pin: e.target.value })} placeholder="PIN" />
+            <input className={`${fieldClass()} mt-4`} type="password" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" value={gate.pin} onChange={(e) => setGate({ ...gate, pin: e.target.value.replace(/\D/g, "") })} placeholder="PIN" />
             <div className="mt-4 flex gap-2">
               <Button onClick={async () => {
                 const check = await verifyConfigPin({ data: { pin: gate.pin } });

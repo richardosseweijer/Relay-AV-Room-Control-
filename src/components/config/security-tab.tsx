@@ -18,7 +18,7 @@ export function SecurityTab(props: {
   return (
     <section className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1 text-sm text-muted">Config PIN
-              <input className={fieldClass()} type="password" autoComplete="off" placeholder="unchanged" value={String(draft.room.configPin || "").startsWith("scrypt$") ? "" : draft.room.configPin} onChange={(e) => update((c) => { c.room.configPin = e.target.value; })} />
+              <input className={fieldClass()} type="password" inputMode="numeric" pattern="[0-9]*" autoComplete="off" placeholder="unchanged" value={String(draft.room.configPin || "").startsWith("scrypt$") ? "" : draft.room.configPin} onChange={(e) => update((c) => { c.room.configPin = e.target.value.replace(/\D/g, ""); })} />
             </label>
             <label className="grid gap-1 text-sm text-muted">
               Panel access
@@ -29,7 +29,7 @@ export function SecurityTab(props: {
             </label>
             {draft.room.panelAccess === "pin" ? (
               <label className="grid gap-1 text-sm text-muted">Panel PIN
-                <input className={fieldClass()} type="password" autoComplete="off" placeholder="unchanged" value={String(draft.room.panelPin ?? "").startsWith("scrypt$") ? "" : (draft.room.panelPin ?? "")} onChange={(e) => update((c) => { c.room.panelPin = e.target.value; })} />
+                <input className={fieldClass()} type="password" inputMode="numeric" pattern="[0-9]*" autoComplete="off" placeholder="unchanged" value={String(draft.room.panelPin ?? "").startsWith("scrypt$") ? "" : (draft.room.panelPin ?? "")} onChange={(e) => update((c) => { c.room.panelPin = e.target.value.replace(/\D/g, ""); })} />
               </label>
             ) : null}
             <label className="flex items-center gap-2 text-sm sm:col-span-2">

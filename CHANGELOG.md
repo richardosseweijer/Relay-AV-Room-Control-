@@ -2,6 +2,12 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.8.3.3 — 2026-09-11
+
+- Tag `v0.8.3.3`.
+- PIN fields stay masked (`type=password`) and request a numeric keypad (`inputMode=numeric`, digits only). Closes #33; supersedes #35.
+- Library driver `Driver-voor-christiaans-kut-TV.json`: QE77S95D with power toggle only (no WOL on/off, no app inventory).
+
 ## 0.8.3.2 — 2026-09-11
 
 - Tag `v0.8.3.2`.

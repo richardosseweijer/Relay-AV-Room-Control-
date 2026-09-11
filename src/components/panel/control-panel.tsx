@@ -508,9 +508,13 @@ export function ControlPanel() {
         <h1 className="text-4xl font-medium tracking-tight">{snap?.config?.room?.name || "Room"}</h1>
         <p className="text-sm text-muted">PIN to open the room. First-run default is 1234.</p>
         <input
+          type="password"
           inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="one-time-code"
+          enterKeyHint="done"
           value={pin}
-          onChange={(e) => setPin(e.target.value)}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
           onKeyDown={(e) => { if (e.key === "Enter") void unlockRoom(); }}
           className="h-14 rounded-2xl border border-border bg-surface px-4 text-center text-2xl tracking-[0.5em]"
           placeholder="••••"
