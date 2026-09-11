@@ -9,6 +9,7 @@ Format: date, then bullets. Older work lives in `git log`.
 - Interface cards fold and drag-reorder. Logic tab sits between Macros and Pages.
 - Samsung Q65T and S95D: Authenticate tries **8002 WSS first** (Allow + keys). HTTP `:8001/api/v2/` stays status-only; 8001 WS is fallback only.
 - Samsung apps inventory (`ed.installedApp.get`) + **App launch** / **App native**. Sync inventory on the device card, then bind the app in a macro. `KEY_NETFLIX` is only the hardware key.
+- Kept LAN sockets (Samsung WS, gateway TCP) no longer grow an unbounded `data` buffer while monitors keep the session alive.
 
 ## 0.8.0 (beta) — 2026-09-10
 

@@ -461,7 +461,10 @@ async function tcpSessionWrite(
     const sock = net.connect({ host, port });
     let buf = "";
     sock.setEncoding("utf8");
-    sock.on("data", (d) => { buf += d.toString(); });
+    sock.on("data", (d) => {
+      buf += d.toString();
+      if (buf.length > 32768) buf = buf.slice(-8192);
+    });
     const ready = new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("login timeout")), timeout);
       sock.once("error", reject);
@@ -599,14 +602,14 @@ function decodeWsFrames(buf: Buffer) {
 const keepWs = ((globalThis as typeof globalThis & { __relayWs__?: Map<string, { sock: import("node:net").Socket; timer?: ReturnType<typeof setTimeout> }> }).__relayWs__ ??= new Map());
 
 function bumpKeep(key: string, sock: import("node:net").Socket, ms = 20000) {
-  const row = keepWs.get(key) ?? { sock };
-  if (row.timer) clearTimeout(row.timer);
-  row.sock = sock;
-  row.timer = setTimeout(() => {
+  const row = keepWs.get(key);
+  if (row?.timer) clearTimeout(row.timer);
+  if (row?.sock && row.sock !== sock && !row.sock.destroyed) row.sock.destroy();
+  const next = { sock, timer: setTimeout(() => {
     sock.destroy();
     keepWs.delete(key);
-  }, ms);
-  keepWs.set(key, row);
+  }, ms) };
+  keepWs.set(key, next);
 }
 
 async function sendControlSocket(opts: { host: string; port: number; path: string; payload: string; timeout: number; tls: boolean; waitFor?: string }): Promise<CommandResult> {
@@ -633,18 +636,24 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
     let upgraded = false;
     let sent = false;
     let token = "";
-    const timer = setTimeout(() => { sock.destroy(); resolve({ ok: false, message: token ? `token ${token}` : "control timeout" }); }, opts.timeout);
+    let done = false;
+    const timer = setTimeout(() => { sock.off("data", onData); sock.destroy(); if (!done) { done = true; resolve({ ok: false, message: token ? `token ${token}` : "control timeout" }); } }, opts.timeout);
     const finish = (ok: boolean, message: string) => {
+      if (done) return;
+      done = true;
+      sock.off("data", onData);
       clearTimeout(timer);
+      buf = Buffer.alloc(0);
       if (ok) bumpKeep(key, sock);
       else sock.end();
       resolve({ ok, message });
     };
-    sock.on("error", (err) => { clearTimeout(timer); keepWs.delete(key); resolve({ ok: false, message: err.message }); });
+    sock.on("error", (err) => { sock.off("data", onData); clearTimeout(timer); keepWs.delete(key); if (!done) { done = true; resolve({ ok: false, message: err.message }); } });
     sock.on("connect", () => { if (!opts.tls) sock.write(req); });
     sock.on("secureConnect", () => sock.write(req));
-    sock.on("data", (chunk) => {
+    const onData = (chunk: Buffer) => {
       buf = Buffer.concat([buf, chunk]);
+      if (buf.length > 256 * 1024) buf = buf.subarray(buf.length - 64 * 1024);
       const text = buf.toString("utf8");
       if (!upgraded) {
         if (!/101 Switching Protocols/i.test(text)) return;
@@ -669,7 +678,8 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
       if (/ms.channel.connect/i.test(body) && !opts.payload) {
         finish(Boolean(token), token ? `token ${token}` : "Accept Allow on the TV");
       }
-    });
+    };
+    sock.on("data", onData);
   });
 }
 

@@ -27,7 +27,7 @@
 - Denon DN-500AV sources are BD / SAT/CBL / Game, not `HDMI1`. Map HDMI in the Denon menu. Volume is 00–98.
 - Pi header UART is 3.3 V TTL. Enable serial hardware, disable serial console, use `/dev/serial0`. RS-232 gear needs a level shifter or USB adapter.
 - GPIO / I2C / IR / CEC / SPI call host binaries (`gpioset`, `i2cset`, `irsend`, `cec-client`, `spidev_test`). Absent packages fail the command, not the room boot. Argv is allowlisted (chip, line, bus, address, scancode).
-- Generic TCP and MIDI commands are still connect-write-close (issue #4). Gateway / IPL sockets are reused for a short session (about 20s) so 500 ms polls do not reconnect every tick.
+- Generic TCP and MIDI commands are still connect-write-close (issue #4). Gateway / IPL sockets are reused for a short session (about 20s) so 500 ms polls do not reconnect every tick. Receive buffers on those kept sockets are capped.
 
 ## Config / engine
 
