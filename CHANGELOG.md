@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.8.2.8 — 2026-09-11
+
+- Tag `v0.8.2.8`.
+- Samsung inventory: wait clock after emit, resend twice, 64-bit WS length; `data:{}` on app-list emit.
+
 ## 0.8.2.7 — 2026-09-11
 
 - Tag `v0.8.2.7`.

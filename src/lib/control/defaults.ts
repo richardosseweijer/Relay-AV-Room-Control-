@@ -160,7 +160,7 @@ export const samsungQ65tDriver: DriverSpec = {
       {
         id: "apps",
         label: "Apps",
-        payload: "{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.installedApp.get\",\"to\":\"host\"}}",
+        payload: "{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.installedApp.get\",\"to\":\"host\",\"data\":{}}}",
         waitContains: "ed.installedApp.get",
         parsePath: "data.data",
         idField: "appId",

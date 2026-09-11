@@ -606,7 +606,10 @@ function decodeWsFrames(buf: Buffer, onPing?: (payload: Buffer) => void) {
       off = 4;
     } else if (len === 127) {
       if (rest.length < 10) break;
-      len = Number(rest.readUInt32BE(6));
+      const hi = rest.readUInt32BE(2);
+      const lo = rest.readUInt32BE(6);
+      if (hi !== 0 || lo > 4 * 1024 * 1024) break;
+      len = lo;
       off = 10;
     }
     if (masked) off += 4;
@@ -720,20 +723,29 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
     let sent = false;
     let token = "";
     let done = false;
-    const timer = setTimeout(() => {
+    let tries = 0;
+    let retryTick: ReturnType<typeof setInterval> | undefined;
+    const onTimeout = () => {
       sock.off("data", onData);
+      if (retryTick) clearInterval(retryTick);
       sock.destroy();
       if (done) return;
       done = true;
       const got = decodeWsFrames(buf).replace(/\s+/g, " ").slice(0, 180);
       const miss = opts.waitFor ? `no ${opts.waitFor}` : "control timeout";
       resolve({ ok: false, message: got ? `${miss} (${got})` : miss });
-    }, opts.timeout);
+    };
+    let timer = setTimeout(onTimeout, opts.timeout);
+    const arm = () => {
+      clearTimeout(timer);
+      timer = setTimeout(onTimeout, opts.timeout);
+    };
     const finish = (ok: boolean, message: string) => {
       if (done) return;
       done = true;
       sock.off("data", onData);
       clearTimeout(timer);
+      if (retryTick) clearInterval(retryTick);
       buf = Buffer.alloc(0);
       if (ok) bumpKeep(key, sock);
       else sock.end();
@@ -742,6 +754,10 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
     sock.on("error", (err) => { sock.off("data", onData); clearTimeout(timer); keepWs.delete(key); if (!done) { done = true; resolve({ ok: false, message: err.message }); } });
     sock.on("connect", () => { if (!opts.tls) sock.write(req); });
     sock.on("secureConnect", () => sock.write(req));
+    const fire = () => {
+      try { sock.write(maskWsFrame(opts.payload)); } catch { /* ignore */ }
+      arm();
+    };
     const onData = (chunk: Buffer) => {
       buf = Buffer.concat([buf, chunk]);
       if (buf.length > 2 * 1024 * 1024) buf = buf.subarray(buf.length - 512 * 1024);
@@ -755,10 +771,14 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
       if (found) token = found;
       if (/ms.channel.connect/i.test(body) && opts.payload && !sent) {
         sent = true;
-        const fire = () => { try { sock.write(maskWsFrame(opts.payload)); } catch { /* ignore */ } };
-        if (opts.waitFor) setTimeout(fire, 400);
-        else fire();
-        if (!opts.waitFor) {
+        if (opts.waitFor) {
+          setTimeout(fire, 500);
+          retryTick = setInterval(() => {
+            if (done || ++tries >= 2) { if (retryTick) clearInterval(retryTick); return; }
+            fire();
+          }, 2500);
+        } else {
+          fire();
           finish(true, token ? `token ${token}` : "key sent");
           return;
         }
