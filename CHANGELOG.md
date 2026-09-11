@@ -2,6 +2,10 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 2026-09-11 — config UI split
+
+- Configurator tabs live in separate files (`src/components/config/*-tab.tsx`). Shell still owns PIN, Save all, draft, and refresh. No intended behavior change.
+
 ## 0.8.1 (beta) — 2026-09-11
 
 - Tag `v0.8.1`. Still beta; not production-certified.
