@@ -667,8 +667,16 @@ function bumpKeep(key: string, sock: import("node:net").Socket, ms = 20000) {
   keepWs.set(key, next);
 }
 
+function waitNeedles(waitFor?: string) {
+  return (waitFor ?? "").split("|").map((s) => s.trim()).filter(Boolean);
+}
+
+function bodyHasWait(body: string, waitFor?: string) {
+  return waitNeedles(waitFor).some((n) => body.includes(n));
+}
+
 function extractJsonContaining(text: string, needle: string): string {
-  const hit = needle && text.includes(needle) ? needle : "";
+  const hit = waitNeedles(needle).find((n) => text.includes(n)) || "";
   if (!hit) {
     const i = text.indexOf("{");
     return i >= 0 ? text.slice(i) : text;
@@ -756,6 +764,10 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
     sock.on("secureConnect", () => sock.write(req));
     const fire = () => {
       try { sock.write(maskWsFrame(opts.payload)); } catch { /* ignore */ }
+      if (opts.payload.includes("ed.installedApp.get")) {
+        const alt = opts.payload.replace("ed.installedApp.get", "ed.edenApp.get").replace(/"data":\{\}/g, '"data":""');
+        try { sock.write(maskWsFrame(alt)); } catch { /* ignore */ }
+      }
       arm();
     };
     const onData = (chunk: Buffer) => {
@@ -783,7 +795,7 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
           return;
         }
       }
-      if (opts.waitFor && sent && body.includes(opts.waitFor)) {
+      if (opts.waitFor && sent && bodyHasWait(body, opts.waitFor)) {
         finish(true, extractJsonContaining(body, opts.waitFor));
         return;
       }
