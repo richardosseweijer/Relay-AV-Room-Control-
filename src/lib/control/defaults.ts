@@ -120,7 +120,7 @@ export const samsungQ65tDriver: DriverSpec = {
     manufacturer: "Samsung",
     model: "QE50Q65TASXXN",
     type: "display",
-    notes: "Tizen remote: keys and Allow popup are wss://TV:8002. HTTP http://TV:8001/api/v2/ is status only. Authenticate on 8002, save token, keep port 8002. Power On needs MAC + WOL (enable Power On with Mobile / IP Remote).",
+    notes: "Tizen remote: keys and Allow are wss://TV:8002. HTTP :8001/api/v2/ is status only. Authenticate on 8002, save token. Power On needs MAC + WOL. Sync inventory for installed apps (user Netflix etc); bind App launch. If that fails, try App native.",
   },
   transports: {
     lan: {
@@ -155,6 +155,20 @@ export const samsungQ65tDriver: DriverSpec = {
   pacing: { minIntervalMs: 250, powerOnDelayMs: 4000 },
   probe: { transport: "lan", payload: "", success: { type: "contains", value: "ms.channel" } },
   helpers: { checksum: "none" },
+  inventory: {
+    resources: [
+      {
+        id: "apps",
+        label: "Apps",
+        payload: "{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.installedApp.get\",\"to\":\"host\"}}",
+        waitContains: "ed.installedApp.get",
+        parsePath: "data.data",
+        idField: "appId",
+        nameField: "name",
+        useCommand: "app.launch",
+      },
+    ],
+  },
   commands: [
     { id: "power.on", label: "Power On", kind: "action", transport: "lan", wake: { protocol: "wol" }, payload: "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_POWERON\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
     { id: "power.off", label: "Power Off", kind: "action", transport: "lan", payload: "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_POWER\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
@@ -202,8 +216,10 @@ export const samsungQ65tDriver: DriverSpec = {
     { id: "digit.7", label: "7", kind: "action", transport: "lan", payload: "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_7\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
     { id: "digit.8", label: "8", kind: "action", transport: "lan", payload: "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_8\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
     { id: "digit.9", label: "9", kind: "action", transport: "lan", payload: "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_9\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
-    { id: "app.list", label: "Apps", kind: "action", transport: "lan", payload: "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_CONTENTS\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { id: "app.list", label: "Apps key", kind: "action", transport: "lan", payload: "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_CONTENTS\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
     { id: "app.netflix", label: "Netflix key", kind: "action", transport: "lan", payload: "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_NETFLIX\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}" },
+    { id: "app.launch", label: "App launch", kind: "enum", transport: "lan", payload: "{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.apps.launch\",\"to\":\"host\",\"data\":{\"appId\":\"{value}\",\"action_type\":\"DEEP_LINK\"}}}" },
+    { id: "app.native", label: "App native", kind: "enum", transport: "lan", payload: "{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.apps.launch\",\"to\":\"host\",\"data\":{\"appId\":\"{value}\",\"action_type\":\"NATIVE_LAUNCH\"}}}" },
   ],
   feedback: [
     { id: "power.state", label: "Power", kind: "enum", values: ["off", "on"], transport: "lan", mode: "poll", httpPath: "/api/v2/", pollMs: 8000, parse: { type: "jsonpath", path: "device.PowerState", map: { on: "on", ON: "on", standby: "off", Standby: "off", off: "off" } } },

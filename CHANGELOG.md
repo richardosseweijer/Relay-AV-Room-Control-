@@ -8,6 +8,7 @@ Format: date, then bullets. Older work lives in `git log`.
 - Config tags for macros / logic (filter chips, drag onto a chip to file, drag chips to reorder). Old `folder` values still load as tags.
 - Interface cards fold and drag-reorder. Logic tab sits between Macros and Pages.
 - Samsung Q65T and S95D: Authenticate tries **8002 WSS first** (Allow + keys). HTTP `:8001/api/v2/` stays status-only; 8001 WS is fallback only.
+- Samsung apps inventory (`ed.installedApp.get`) + **App launch** / **App native**. Sync inventory on the device card, then bind the app in a macro. `KEY_NETFLIX` is only the hardware key.
 
 ## 0.8.0 (beta) — 2026-09-10
 

@@ -4,7 +4,7 @@
     "manufacturer": "Samsung",
     "model": "QE50Q65TASXXN",
     "type": "display",
-    "notes": "Tizen remote: keys and Allow popup are wss://TV:8002. HTTP http://TV:8001/api/v2/ is status only. Authenticate on 8002, save token, keep port 8002. Power On needs MAC + WOL (enable Power On with Mobile / IP Remote)."
+    "notes": "Tizen remote: keys and Allow are wss://TV:8002. HTTP :8001/api/v2/ is status only. Authenticate on 8002, save token. Power On needs MAC + WOL. Sync inventory for installed apps; bind App launch. If that fails, try App native."
   },
   "transports": {
     "lan": {
@@ -433,6 +433,20 @@
       "kind": "action",
       "transport": "lan",
       "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_NETFLIX\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}"
+    },
+    {
+      "id": "app.launch",
+      "label": "App launch",
+      "kind": "enum",
+      "transport": "lan",
+      "payload": "{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.apps.launch\",\"to\":\"host\",\"data\":{\"appId\":\"{value}\",\"action_type\":\"DEEP_LINK\"}}}"
+    },
+    {
+      "id": "app.native",
+      "label": "App native",
+      "kind": "enum",
+      "transport": "lan",
+      "payload": "{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.apps.launch\",\"to\":\"host\",\"data\":{\"appId\":\"{value}\",\"action_type\":\"NATIVE_LAUNCH\"}}}"
     }
   ],
   "feedback": [
@@ -473,5 +487,19 @@
         "path": "device.FrameTVSupport"
       }
     }
-  ]
+  ],
+  "inventory": {
+    "resources": [
+      {
+        "id": "apps",
+        "label": "Apps",
+        "payload": "{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.installedApp.get\",\"to\":\"host\"}}",
+        "waitContains": "ed.installedApp.get",
+        "parsePath": "data.data",
+        "idField": "appId",
+        "nameField": "name",
+        "useCommand": "app.launch"
+      }
+    ]
+  }
 }

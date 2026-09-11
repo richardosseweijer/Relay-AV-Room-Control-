@@ -8,6 +8,7 @@ import type {
   DriverSpec,
   HostInterface,
   InventoryItem,
+  InventoryResource,
   Macro,
   RoomConfig,
   TraceLine,
@@ -564,6 +565,37 @@ function decodeWsText(buf: Buffer) {
   return buf.slice(start).toString("utf8").replace(/[^\x09\x0a\x0d\x20-\x7e]/g, "");
 }
 
+function decodeWsFrames(buf: Buffer) {
+  const idx = buf.indexOf("\r\n\r\n");
+  let rest = idx >= 0 ? buf.subarray(idx + 4) : buf;
+  let out = "";
+  while (rest.length >= 2) {
+    const opcode = rest[0]! & 0x0f;
+    const masked = (rest[1]! & 0x80) !== 0;
+    let len = rest[1]! & 0x7f;
+    let off = 2;
+    if (len === 126) {
+      if (rest.length < 4) break;
+      len = rest.readUInt16BE(2);
+      off = 4;
+    } else if (len === 127) {
+      if (rest.length < 10) break;
+      len = Number(rest.readUInt32BE(6));
+      off = 10;
+    }
+    if (masked) off += 4;
+    if (rest.length < off + len) break;
+    let payload = Buffer.from(rest.subarray(off, off + len));
+    if (masked) {
+      const mask = rest.subarray(off - 4, off);
+      for (let i = 0; i < payload.length; i++) payload[i] ^= mask[i % 4]!;
+    }
+    if (opcode === 1 || opcode === 0) out += payload.toString("utf8");
+    rest = rest.subarray(off + len);
+  }
+  return out;
+}
+
 const keepWs = ((globalThis as typeof globalThis & { __relayWs__?: Map<string, { sock: import("node:net").Socket; timer?: ReturnType<typeof setTimeout> }> }).__relayWs__ ??= new Map());
 
 function bumpKeep(key: string, sock: import("node:net").Socket, ms = 20000) {
@@ -577,10 +609,10 @@ function bumpKeep(key: string, sock: import("node:net").Socket, ms = 20000) {
   keepWs.set(key, row);
 }
 
-async function sendControlSocket(opts: { host: string; port: number; path: string; payload: string; timeout: number; tls: boolean }): Promise<CommandResult> {
+async function sendControlSocket(opts: { host: string; port: number; path: string; payload: string; timeout: number; tls: boolean; waitFor?: string }): Promise<CommandResult> {
   const key = `${opts.host}:${opts.port}:${opts.path.split("?")[0]}`;
   const live = keepWs.get(key);
-  if (live && !live.sock.destroyed && opts.payload) {
+  if (live && !live.sock.destroyed && opts.payload && !opts.waitFor) {
     try {
       live.sock.write(maskWsFrame(opts.payload));
       bumpKeep(key, live.sock);
@@ -618,13 +650,20 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
         if (!/101 Switching Protocols/i.test(text)) return;
         upgraded = true;
       }
-      const body = text + decodeWsText(buf);
+      const body = decodeWsFrames(buf) || text;
       const found = body.match(/"token"\s*:\s*"([^"]+)"/)?.[1];
       if (found) token = found;
       if (/ms.channel.connect/i.test(body) && opts.payload && !sent) {
         sent = true;
         sock.write(maskWsFrame(opts.payload));
-        finish(true, token ? `token ${token}` : "key sent");
+        if (!opts.waitFor) {
+          finish(true, token ? `token ${token}` : "key sent");
+          return;
+        }
+      }
+      if (opts.waitFor && sent && body.includes(opts.waitFor)) {
+        const jsonAt = body.indexOf("{");
+        finish(true, jsonAt >= 0 ? body.slice(jsonAt) : body);
         return;
       }
       if (/ms.channel.connect/i.test(body) && !opts.payload) {
@@ -634,13 +673,13 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
   });
 }
 
-async function sendSamsungKey(host: string, port: number, payload: string, token: string | undefined, timeout: number): Promise<CommandResult> {
+async function sendSamsungKey(host: string, port: number, payload: string, token: string | undefined, timeout: number, waitFor?: string): Promise<CommandResult> {
   const name = Buffer.from("Relay").toString("base64");
   const q = token ? `name=${name}&token=${encodeURIComponent(token)}` : `name=${name}`;
   const path = `/api/v2/channels/samsung.remote.control?${q}`;
   const tls = port === 8002 || Boolean(token);
   const usePort = tls ? 8002 : (port || 8001);
-  return sendControlSocket({ host, port: usePort, path, payload, timeout, tls });
+  return sendControlSocket({ host, port: usePort, path, payload, timeout, tls, waitFor });
 }
 
 function statusPlane(driver: DriverSpec, device: DeviceInstance, feedback?: { httpPath?: string }) {
@@ -907,7 +946,7 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
         ...(command?.httpHeaders ?? {}),
       },
     });
-  } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") result = await sendSamsungKey(host, port, payload, device.auth?.token, timeout);
+  } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") result = await sendSamsungKey(host, port, payload, device.auth?.token, command?.waitContains ? Math.max(timeout, 12000) : timeout, command?.waitContains);
   else if (lan.protocol === "pjlink") result = await sendPjlink(host, port, payload, device.auth?.password || device.auth?.pin, timeout);
   else if (lan.protocol === "udp") {
     const dgram = await import("node:dgram");
@@ -1127,32 +1166,91 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
   }
   const inventory: DeviceInventory = {};
   for (const resource of resources) {
-    const path = renderPayload(resource.httpPath, undefined, device.auth, { host: device.host, port: device.port, id: device.id });
-    const url = `http://${device.host}:${device.port ?? driver.transports.lan?.port ?? 80}${path}`;
-    const inventoryLimit = 2 * 1024 * 1024;
-    const res = await sendHttp(url, resource.httpMethod || "GET", "", 8000, {
-      maxBytes: inventoryLimit,
-      maxMessageChars: inventoryLimit,
-    });
-    if (!res.ok) return { ok: false, message: res.message };
-    const items: InventoryItem[] = [];
-    try {
-      const parsed = JSON.parse(res.message) as Record<string, { name?: string; value?: string | number; group?: string; type?: string; class?: string }>;
-      for (const [id, row] of Object.entries(parsed)) {
-        if (typeof row === "object" && row) {
-          items.push({
-            id,
-            name: String(row.name || id),
-            value: row.value,
-            group: String(row.group || row.type || row.class || resource.label),
-            kind: String(row.type || resource.id),
-          });
-        }
-      }
-    } catch { /* ignore */ }
-    inventory[resource.id] = items;
+    let raw = "";
+    if (resource.payload) {
+      const res = await sendLan(driver, device, resource.payload, {
+        id: `inventory.${resource.id}`,
+        label: resource.label,
+        kind: "action",
+        transport: "lan",
+        payload: resource.payload,
+        waitContains: resource.waitContains,
+      });
+      if (!res.ok) return { ok: false, message: res.message };
+      raw = res.message;
+    } else if (resource.httpPath) {
+      const path = renderPayload(resource.httpPath, undefined, device.auth, { host: device.host, port: device.port, id: device.id });
+      const port = driver.status?.port ?? device.port ?? driver.transports.lan?.port ?? 80;
+      const url = `http://${device.host}:${port}${path}`;
+      const inventoryLimit = 2 * 1024 * 1024;
+      const res = await sendHttp(url, resource.httpMethod || "GET", "", 8000, {
+        maxBytes: inventoryLimit,
+        maxMessageChars: inventoryLimit,
+      });
+      if (!res.ok) return { ok: false, message: res.message };
+      raw = res.message;
+    } else continue;
+    inventory[resource.id] = parseInventoryItems(raw, resource);
   }
   return { ok: true, message: "ok", inventory };
+}
+
+function jsonAt(raw: string, path?: string): unknown {
+  const startObj = raw.search(/[\[{]/);
+  const json = startObj >= 0 ? raw.slice(startObj) : raw;
+  let cur: unknown = JSON.parse(json);
+  if (!path) return cur;
+  for (const key of path.split(".").filter(Boolean)) {
+    if (Array.isArray(cur)) {
+      const i = Number(key);
+      cur = Number.isFinite(i) ? cur[i] : cur[0];
+      continue;
+    }
+    if (!cur || typeof cur !== "object") return undefined;
+    const rec = cur as Record<string, unknown>;
+    const hit = Object.keys(rec).find((k) => k.toLowerCase() === key.toLowerCase());
+    if (!hit) return undefined;
+    cur = rec[hit];
+  }
+  return cur;
+}
+
+function fieldFromRow(row: Record<string, unknown>, path: string | undefined, fallbacks: string[]): string {
+  const blob = JSON.stringify(row);
+  if (path) {
+    const hit = pickJsonField(blob, path);
+    if (hit && hit !== "[object Object]") return hit;
+  }
+  for (const key of fallbacks) {
+    const hit = pickJsonField(blob, key);
+    if (hit && hit !== "[object Object]") return hit;
+  }
+  return "";
+}
+
+function parseInventoryItems(raw: string, resource: InventoryResource): InventoryItem[] {
+  try {
+    const node = jsonAt(raw, resource.parsePath);
+    const rows: Record<string, unknown>[] = [];
+    if (Array.isArray(node)) {
+      for (const row of node) {
+        if (row && typeof row === "object") rows.push(row as Record<string, unknown>);
+      }
+    } else if (node && typeof node === "object") {
+      for (const [id, row] of Object.entries(node as Record<string, unknown>)) {
+        if (row && typeof row === "object") rows.push({ id, ...(row as Record<string, unknown>) });
+        else rows.push({ id, value: row });
+      }
+    }
+    return rows.map((row) => {
+      const id = fieldFromRow(row, resource.idField, ["appId", "entity_id", "id"]) || String(row.appId || row.id || "");
+      const name = fieldFromRow(row, resource.nameField || resource.itemName, ["name", "label", "attributes.friendly_name"]) || id;
+      const value = fieldFromRow(row, resource.valueField, ["app_type", "state", "value"]);
+      return { id, name, value, group: resource.label, kind: resource.id };
+    }).filter((item) => item.id);
+  } catch {
+    return [];
+  }
 }
 
 function parseHaystacks(raw: string, needle?: string) {

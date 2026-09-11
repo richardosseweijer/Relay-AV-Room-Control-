@@ -133,7 +133,13 @@ export type InventoryResource = {
   id: string;
   label: string;
   httpMethod?: string;
-  httpPath: string;
+  httpPath?: string;
+  payload?: string;
+  waitContains?: string;
+  parsePath?: string;
+  idField?: string;
+  nameField?: string;
+  valueField?: string;
   itemId?: "key" | "field";
   itemName?: string;
   useCommand?: string;
@@ -169,6 +175,7 @@ export type DriverCommand = {
   valueMap?: ValueMap;
   requires?: string[];
   wake?: { protocol: "wol" };
+  waitContains?: string;
   ack?: { success?: MatchRule; nak?: MatchRule };
 };
 
