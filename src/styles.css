@@ -87,7 +87,7 @@ html[data-theme="office"] {
   --color-subtle: #787874;
   --color-border: #b4b0a8;
   --color-accent: #3d5a73;
-  --color-accent-fg: #f4f2ee;
+  --color-accent-fg: #1c1c1c;
   --color-steel: #5a7388;
   --color-sage: #6a7a68;
   --color-clay: #a07060;
@@ -99,6 +99,15 @@ html[data-theme="office"] {
   --color-sand: #b8a070;
   --color-slate: #6a6e74;
   --color-rose: #8a6870;
+}
+
+html[data-theme="peach"] .text-bg,
+html[data-theme="green"] .text-bg,
+html[data-theme="office"] .text-bg,
+html[data-theme="peach"] .text-accent-fg,
+html[data-theme="green"] .text-accent-fg,
+html[data-theme="office"] .text-accent-fg {
+  color: var(--color-fg) !important;
 }
 
 @layer base {

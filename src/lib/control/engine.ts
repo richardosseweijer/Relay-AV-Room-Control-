@@ -611,6 +611,34 @@ function decodeWsFrames(buf: Buffer) {
   return out;
 }
 
+function waitWsBody(sock: import("node:net").Socket, timeout: number, test: (body: string) => boolean, seed = Buffer.alloc(0)): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let buf = seed;
+    const timer = setTimeout(() => {
+      sock.off("data", onData);
+      const body = decodeWsFrames(buf);
+      if (test(body)) resolve(body);
+      else reject(new Error("control timeout"));
+    }, timeout);
+    const onData = (chunk: Buffer) => {
+      buf = Buffer.concat([buf, chunk]);
+      if (buf.length > 2 * 1024 * 1024) buf = buf.subarray(buf.length - 512 * 1024);
+      const body = decodeWsFrames(buf);
+      if (test(body)) {
+        clearTimeout(timer);
+        sock.off("data", onData);
+        resolve(body);
+      }
+    };
+    sock.on("data", onData);
+    if (test(decodeWsFrames(buf))) {
+      clearTimeout(timer);
+      sock.off("data", onData);
+      resolve(decodeWsFrames(buf));
+    }
+  });
+}
+
 const keepWs = ((globalThis as typeof globalThis & { __relayWs__?: Map<string, { sock: import("node:net").Socket; timer?: ReturnType<typeof setTimeout> }> }).__relayWs__ ??= new Map());
 
 function bumpKeep(key: string, sock: import("node:net").Socket, ms = 20000) {
@@ -658,11 +686,14 @@ function extractJsonContaining(text: string, needle: string): string {
 async function sendControlSocket(opts: { host: string; port: number; path: string; payload: string; timeout: number; tls: boolean; waitFor?: string }): Promise<CommandResult> {
   const key = `${opts.host}:${opts.port}:${opts.path.split("?")[0]}`;
   const live = keepWs.get(key);
-  if (live && !live.sock.destroyed && opts.payload && !opts.waitFor) {
+  if (live && !live.sock.destroyed && opts.payload) {
     try {
       live.sock.write(maskWsFrame(opts.payload));
       bumpKeep(key, live.sock);
-      return { ok: true, message: "key sent" };
+      if (!opts.waitFor) return { ok: true, message: "key sent" };
+      const body = await waitWsBody(live.sock, opts.timeout, (text) => text.includes(opts.waitFor!));
+      bumpKeep(key, live.sock);
+      return { ok: true, message: extractJsonContaining(body, opts.waitFor) };
     } catch {
       live.sock.destroy();
       keepWs.delete(key);
@@ -696,13 +727,13 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
     sock.on("secureConnect", () => sock.write(req));
     const onData = (chunk: Buffer) => {
       buf = Buffer.concat([buf, chunk]);
-      if (buf.length > 256 * 1024) buf = buf.subarray(buf.length - 64 * 1024);
-      const text = buf.toString("utf8");
+      if (buf.length > 2 * 1024 * 1024) buf = buf.subarray(buf.length - 512 * 1024);
       if (!upgraded) {
+        const text = buf.toString("utf8");
         if (!/101 Switching Protocols/i.test(text)) return;
         upgraded = true;
       }
-      const body = decodeWsFrames(buf) || text;
+      const body = decodeWsFrames(buf);
       const found = body.match(/"token"\s*:\s*"([^"]+)"/)?.[1];
       if (found) token = found;
       if (/ms.channel.connect/i.test(body) && opts.payload && !sent) {
@@ -998,7 +1029,7 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
         ...(command?.httpHeaders ?? {}),
       },
     });
-  } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") result = await sendSamsungKey(host, port, payload, device.auth?.token, command?.waitContains ? Math.max(timeout, 12000) : timeout, command?.waitContains);
+  } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") result = await sendSamsungKey(host, port, payload, device.auth?.token, command?.waitContains ? Math.max(timeout, 20000) : timeout, command?.waitContains);
   else if (lan.protocol === "pjlink") result = await sendPjlink(host, port, payload, device.auth?.password || device.auth?.pin, timeout);
   else if (lan.protocol === "udp") {
     const dgram = await import("node:dgram");
@@ -1244,7 +1275,8 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
     } else continue;
     inventory[resource.id] = parseInventoryItems(raw, resource);
   }
-  return { ok: true, message: "ok", inventory };
+  const count = Object.values(inventory).reduce((n, list) => n + list.length, 0);
+  return { ok: true, message: count ? `${count} items` : "No items in reply", inventory };
 }
 
 function jsonAt(raw: string, path?: string): unknown {
@@ -1281,28 +1313,47 @@ function fieldFromRow(row: Record<string, unknown>, path: string | undefined, fa
 }
 
 function parseInventoryItems(raw: string, resource: InventoryResource): InventoryItem[] {
-  try {
-    const node = jsonAt(raw, resource.parsePath);
-    const rows: Record<string, unknown>[] = [];
-    if (Array.isArray(node)) {
-      for (const row of node) {
-        if (row && typeof row === "object") rows.push(row as Record<string, unknown>);
+  const paths = [resource.parsePath, "params.data.data", "data.data", "data"].filter(Boolean) as string[];
+  for (const path of paths) {
+    try {
+      const node = jsonAt(raw, path);
+      const rows: Record<string, unknown>[] = [];
+      if (Array.isArray(node)) {
+        for (const row of node) {
+          if (row && typeof row === "object") rows.push(row as Record<string, unknown>);
+        }
+      } else if (node && typeof node === "object") {
+        for (const [id, row] of Object.entries(node as Record<string, unknown>)) {
+          if (row && typeof row === "object") rows.push({ id, ...(row as Record<string, unknown>) });
+          else rows.push({ id, value: row });
+        }
       }
-    } else if (node && typeof node === "object") {
-      for (const [id, row] of Object.entries(node as Record<string, unknown>)) {
-        if (row && typeof row === "object") rows.push({ id, ...(row as Record<string, unknown>) });
-        else rows.push({ id, value: row });
-      }
+      const items = rows.map((row) => {
+        const id = fieldFromRow(row, resource.idField, ["appId", "appid", "entity_id", "id"]) || String(row.appId || row.id || "");
+        const name = fieldFromRow(row, resource.nameField || resource.itemName, ["name", "label", "attributes.friendly_name"]) || id;
+        const value = fieldFromRow(row, resource.valueField, ["app_type", "state", "value"]);
+        return { id, name, value, group: resource.label, kind: resource.id };
+      }).filter((item) => item.id);
+      if (items.length) return items;
+    } catch {
+      /* try next path */
     }
-    return rows.map((row) => {
-      const id = fieldFromRow(row, resource.idField, ["appId", "entity_id", "id"]) || String(row.appId || row.id || "");
-      const name = fieldFromRow(row, resource.nameField || resource.itemName, ["name", "label", "attributes.friendly_name"]) || id;
-      const value = fieldFromRow(row, resource.valueField, ["app_type", "state", "value"]);
-      return { id, name, value, group: resource.label, kind: resource.id };
-    }).filter((item) => item.id);
-  } catch {
-    return [];
   }
+  const pairs = [...raw.matchAll(/"appId"\s*:\s*"([^"]+)"[\s\S]{0,500}?"name"\s*:\s*"([^"]+)"/gi)];
+  const rev = pairs.length ? [] : [...raw.matchAll(/"name"\s*:\s*"([^"]+)"[\s\S]{0,500}?"appId"\s*:\s*"([^"]+)"/gi)];
+  const seen = new Set<string>();
+  const loose: InventoryItem[] = [];
+  for (const hit of pairs) {
+    if (seen.has(hit[1]!)) continue;
+    seen.add(hit[1]!);
+    loose.push({ id: hit[1]!, name: hit[2]!, value: "", group: resource.label, kind: resource.id });
+  }
+  for (const hit of rev) {
+    if (seen.has(hit[2]!)) continue;
+    seen.add(hit[2]!);
+    loose.push({ id: hit[2]!, name: hit[1]!, value: "", group: resource.label, kind: resource.id });
+  }
+  return loose;
 }
 
 function parseHaystacks(raw: string, needle?: string) {
