@@ -77,18 +77,8 @@
   },
   "commands": [
     {
-      "id": "power.on",
-      "label": "Power On",
-      "kind": "action",
-      "transport": "lan",
-      "wake": {
-        "protocol": "wol"
-      },
-      "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_POWERON\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}"
-    },
-    {
-      "id": "power.off",
-      "label": "Power Off",
+      "id": "power.toggle",
+      "label": "Power toggle",
       "kind": "action",
       "transport": "lan",
       "payload": "{\"method\":\"ms.remote.control\",\"params\":{\"Cmd\":\"Click\",\"DataOfCmd\":\"KEY_POWER\",\"Option\":\"false\",\"TypeOfRemote\":\"SendRemoteKey\"}}"
@@ -237,19 +227,5 @@
         "path": "device.name"
       }
     }
-  ],
-  "inventory": {
-    "resources": [
-      {
-        "id": "apps",
-        "label": "Apps",
-        "payload": "{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.installedApp.get\",\"to\":\"host\",\"data\":\"\"}}",
-        "waitContains": "ed.installedApp.get|ed.edenApp.get",
-        "parsePath": "data.data",
-        "idField": "appId",
-        "nameField": "name",
-        "useCommand": "app.launch"
-      }
-    ]
-  }
+  ]
 }
