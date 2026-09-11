@@ -4,7 +4,7 @@
     "manufacturer": "Samsung",
     "model": "QE77S95DATXXN",
     "type": "display",
-    "notes": "Tizen remote: keys and Allow are wss://TV:8002. HTTP :8001/api/v2/ is status only. Authenticate on 8002, save token. Power On needs MAC + WOL. Sync inventory for installed apps; bind App launch. If that fails, try App native."
+    "notes": "2024 S95D: Authenticate on wss 8002 only (8001 will not show Allow). Enable Power On with Mobile / IP Remote. Use the wired MAC if on Ethernet. WOL waits 10s. Sync inventory for apps."
   },
   "transports": {
     "lan": {
@@ -26,8 +26,7 @@
     "pairing": {
       "kind": "websocket-handshake",
       "ports": [
-        8002,
-        8001
+        8002
       ],
       "tlsPorts": [
         8002
@@ -42,7 +41,7 @@
       "waitContains": "ms.channel.connect",
       "commandAck": "none",
       "tokenJsonPath": "token",
-      "userPrompt": "Accept Allow on the TV (8002). Save the token and keep port 8002.",
+      "userPrompt": "Accept Allow on the TV (8002 only). Save the token. Keep port 8002.",
       "steps": [
         {
           "action": "websocket",
@@ -51,15 +50,6 @@
           "path": "/api/v2/channels/samsung.remote.control",
           "waitContains": "ms.channel.connect",
           "tokenJsonPath": "token",
-          "timeoutMs": 12000
-        },
-        {
-          "action": "websocket",
-          "port": 8001,
-          "path": "/api/v2/channels/samsung.remote.control",
-          "waitContains": "ms.channel.connect",
-          "tokenJsonPath": "token",
-          "nextPort": 8002,
           "timeoutMs": 12000
         }
       ]
@@ -72,7 +62,7 @@
   },
   "pacing": {
     "minIntervalMs": 250,
-    "powerOnDelayMs": 4000
+    "powerOnDelayMs": 10000
   },
   "probe": {
     "transport": "lan",

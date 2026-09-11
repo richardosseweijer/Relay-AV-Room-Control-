@@ -2,6 +2,12 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.8.2.4 — 2026-09-11
+
+- Tag `v0.8.2.4`.
+- Samsung inventory: parse the JSON that contains the wait event, not the first `{` (app list).
+- S95D: pair on 8002 only; WOL delay 10s.
+
 ## 0.8.2.3 — 2026-09-11
 
 - Tag `v0.8.2.3`.

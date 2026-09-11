@@ -624,6 +624,37 @@ function bumpKeep(key: string, sock: import("node:net").Socket, ms = 20000) {
   keepWs.set(key, next);
 }
 
+function extractJsonContaining(text: string, needle: string): string {
+  const hit = needle && text.includes(needle) ? needle : "";
+  if (!hit) {
+    const i = text.indexOf("{");
+    return i >= 0 ? text.slice(i) : text;
+  }
+  let from = 0;
+  while (from < text.length) {
+    const start = text.indexOf("{", from);
+    if (start < 0) break;
+    let depth = 0;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          const blob = text.slice(start, i + 1);
+          if (blob.includes(hit)) return blob;
+          from = i + 1;
+          break;
+        }
+      }
+    }
+    if (depth !== 0) break;
+    from = start + 1;
+  }
+  const i = text.indexOf("{");
+  return i >= 0 ? text.slice(i) : text;
+}
+
 async function sendControlSocket(opts: { host: string; port: number; path: string; payload: string; timeout: number; tls: boolean; waitFor?: string }): Promise<CommandResult> {
   const key = `${opts.host}:${opts.port}:${opts.path.split("?")[0]}`;
   const live = keepWs.get(key);
@@ -683,8 +714,7 @@ async function sendControlSocket(opts: { host: string; port: number; path: strin
         }
       }
       if (opts.waitFor && sent && body.includes(opts.waitFor)) {
-        const jsonAt = body.indexOf("{");
-        finish(true, jsonAt >= 0 ? body.slice(jsonAt) : body);
+        finish(true, extractJsonContaining(body, opts.waitFor));
         return;
       }
       if (/ms.channel.connect/i.test(body) && !opts.payload) {
