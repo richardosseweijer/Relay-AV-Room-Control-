@@ -2,6 +2,12 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.8.3.0 — 2026-09-11
+
+- Tag `v0.8.3.0`.
+- LAN I/O split: generic `ws.ts`, `cast.ts`, `pjlink.ts`, `wol.ts`. Websocket path/query/handshake/alsoSend come from driver JSON. Unknown protocol fails closed.
+- Sony ADCP `NOKEY` retry is `session.reply` on the driver.
+
 ## 0.8.2.10 — 2026-09-11
 
 - Tag `v0.8.2.10`.

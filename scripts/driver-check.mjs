@@ -32,8 +32,8 @@ if (spec.transports?.lan && !spec.transports.lan.protocol) issues.push(["ERROR",
 const proto = spec.transports?.lan?.protocol;
 if (proto === "websocket" || proto === "tls-websocket") {
   if (!spec.transports.lan.handshake?.waitContains) issues.push(["ERROR", "websocket driver needs lan.handshake.waitContains"]);
-  const path = spec.transports.lan.http?.path || spec.auth?.pairing?.path;
-  if (!path) issues.push(["ERROR", "websocket driver needs lan.http.path or pairing.path"]);
+  const path = spec.transports.lan.path || spec.transports.lan.http?.path || spec.auth?.pairing?.path;
+  if (!path) issues.push(["ERROR", "websocket driver needs lan.path, lan.http.path, or pairing.path"]);
 }
 if (spec.auth?.pairing?.kind === "websocket-handshake") {
   const pair = spec.auth.pairing;

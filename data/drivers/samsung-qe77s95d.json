@@ -11,7 +11,22 @@
       "protocol": "tls-websocket",
       "port": 8002,
       "timeoutMs": 8000,
-      "handshake": { "waitContains": "ms.channel.connect", "delayMs": 500 },
+      "path": "/api/v2/channels/samsung.remote.control",
+      "query": {
+        "name": "{base64:Relay}",
+        "token": "{token}"
+      },
+      "handshake": {
+        "waitContains": "ms.channel.connect",
+        "delayMs": 500
+      },
+      "alsoSend": [
+        {
+          "replace": {
+            "ed.installedApp.get": "ed.edenApp.get"
+          }
+        }
+      ],
       "http": {
         "path": "/api/v2/channels/samsung.remote.control"
       }
@@ -245,7 +260,9 @@
         "id": "apps",
         "label": "Apps",
         "payload": "{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.installedApp.get\",\"to\":\"host\",\"data\":\"\"}}",
-        "alsoSend": ["{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.edenApp.get\",\"to\":\"host\",\"data\":\"\"}}"],
+        "alsoSend": [
+          "{\"method\":\"ms.channel.emit\",\"params\":{\"event\":\"ed.edenApp.get\",\"to\":\"host\",\"data\":\"\"}}"
+        ],
         "waitContains": "ed.installedApp.get|ed.edenApp.get",
         "parsePath": "data.data",
         "idField": "appId",

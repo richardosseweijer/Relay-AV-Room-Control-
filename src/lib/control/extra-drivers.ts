@@ -259,10 +259,18 @@ export const extraDrivers: Record<string, DriverSpec> = {
       "protocol": "tls-websocket",
       "port": 8002,
       "timeoutMs": 8000,
+      "path": "/api/v2/channels/samsung.remote.control",
+      "query": {
+        "name": "{base64:Relay}",
+        "token": "{token}"
+      },
       "handshake": {
         "waitContains": "ms.channel.connect",
         "delayMs": 500
       },
+      "alsoSend": [
+        { "replace": { "ed.installedApp.get": "ed.edenApp.get" } }
+      ],
       "http": {
         "path": "/api/v2/channels/samsung.remote.control"
       }

@@ -62,11 +62,16 @@ export type DriverSpec = {
       payloadEncoding?: "ascii" | "hex";
       lineEnding?: string;
       timeoutMs?: number;
+      path?: string;
+      query?: Record<string, string>;
       handshake?: { waitContains?: string; delayMs?: number };
+      alsoSend?: { replace: Record<string, string> }[];
       session?: {
         loginPrompt?: string;
         passwordPrompt?: string;
         readyContains?: string;
+        waitContains?: string;
+        reply?: string;
         usernameFrom?: string;
         passwordFrom?: string;
         keepMs?: number;

@@ -1,6 +1,6 @@
 {
   "name": "relay",
-  "version": "0.8.2.10",
+  "version": "0.8.3.0",
   "license": "MIT",
   "private": true,
   "sideEffects": false,
@@ -19,7 +19,7 @@
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "driver:check": "node scripts/driver-check.mjs",
-    "test": "node --experimental-strip-types --test scripts/control-security.test.mjs scripts/write-atomic.test.mjs scripts/persist-pair.test.mjs scripts/session-trust.test.mjs scripts/control-plane.test.mjs scripts/pin-actions.test.mjs scripts/stability-regressions.test.mjs scripts/update-relay.test.mjs",
+    "test": "node --experimental-strip-types --test scripts/control-security.test.mjs scripts/write-atomic.test.mjs scripts/persist-pair.test.mjs scripts/session-trust.test.mjs scripts/control-plane.test.mjs scripts/pin-actions.test.mjs scripts/stability-regressions.test.mjs scripts/update-relay.test.mjs scripts/ws-not-samsung.test.mjs scripts/protocol-adapters.test.mjs",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

@@ -7,6 +7,10 @@ export function validateDriver(spec: DriverSpec): string | null {
   if (new Set(ids).size !== ids.length) return "Duplicate command ids";
   const proto = spec.transports.lan?.protocol;
   if (spec.transports.lan && !proto) return "LAN transport needs a protocol";
+  const pairing = spec.auth?.pairing;
+  if (pairing?.kind === "websocket-handshake" && !pairing.path && !pairing.steps?.some((s) => s.path)) {
+    return "websocket-handshake pairing needs a path";
+  }
   return null;
 }
 
@@ -28,7 +32,7 @@ export function inferPairingSteps(pairing?: DriverPairing): PairingStep[] {
     return pairing.ports.map((port) => ({
       action: "websocket" as const,
       port,
-      tls: pairing.tlsPorts?.includes(port),
+      tls: Boolean(pairing.tlsPorts?.includes(port)),
       path: pairing.path,
       waitContains: pairing.waitContains,
       tokenJsonPath: pairing.tokenJsonPath || "token",

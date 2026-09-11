@@ -156,7 +156,10 @@ Path, query, TLS, and handshake text come from this file. The engine has no bran
       "protocol": "tls-websocket",
       "port": 8002,
       "timeoutMs": 8000,
+      "path": "/control",
+      "query": { "name": "{base64:Relay}", "token": "{token}" },
       "handshake": { "waitContains": "connected", "delayMs": 500 },
+      "alsoSend": [{ "replace": { "list": "list-alt" } }],
       "http": { "path": "/control" }
     }
   },
@@ -222,7 +225,7 @@ Path, query, TLS, and handshake text come from this file. The engine has no bran
 - `pin` / `userpass` — `pin` or `user` + `password`
 - `pair` — device shows Allow; store `token` from the pairing step (`pairing.steps` or `kind` `websocket-handshake` / `http-handshake`). Put path, TLS, `waitContains`, and `tokenJsonPath` in the JSON. The engine does not guess brand URLs.
 
-`lan.handshake.waitContains` is the text that means the socket is up. `delayMs` waits after that before the first payload. `alsoSend` is extra frames after the main payload (inventory or command). Inventory parse uses only `parsePath`, `idField`, `nameField`, `valueField` (or `itemId`/`itemName`). No engine brand names.
+`lan.path` / `lan.query` build the WebSocket URL (`{token}`, `{base64:…}`). `lan.handshake.waitContains` is the text that means the socket is up. `delayMs` waits after that before the first payload. `lan.alsoSend` is string-replace extra frames; command/inventory `alsoSend` is extra raw frames. TCP `session.reply` is sent if `readyContains` is missing. Inventory parse uses only `parsePath`, `idField`, `nameField`, `valueField` (or `itemId`/`itemName`). No engine brand names.
 
 List extras in `instanceFields` (`midiChannel`, `mac`, …). They appear on the device card.
 

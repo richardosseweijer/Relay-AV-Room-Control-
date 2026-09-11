@@ -10,7 +10,6 @@ import type {
   InventoryItem,
   InventoryResource,
   Macro,
-  PairingStep,
   RoomConfig,
   TraceLine,
 } from "./types";
@@ -19,6 +18,10 @@ import { inferPairingSteps } from "./schema";
 import { gatewayIoTemplate, gatewayProfile, gatewaySlot, isGatewayKind } from "./gateway";
 import { applyMonitors, clampVar, resolveTemplate, type VarMap } from "./vars";
 import { fetchTextBounded, requestHttpExact, DEFAULT_MAX_RESPONSE_BYTES } from "./http-client";
+import { wsPoolSize, sendControlSocket, buildWsTarget } from "./ws";
+import { sendPjlink } from "./pjlink";
+import { sendCast, castPoolSize } from "./cast";
+import { sendWol } from "./wol";
 
 const g = globalThis as typeof globalThis & { __relayTraces__?: Record<string, TraceLine[]> };
 
@@ -29,9 +32,9 @@ export function traces(): Record<string, TraceLine[]> {
 
 export function socketStats() {
   return {
-    ws: keepWs.size,
+    ws: wsPoolSize(),
     tcp: sessions.size,
-    cast: keepCast.size,
+    cast: castPoolSize(),
   };
 }
 
@@ -383,58 +386,6 @@ function decodeWire(buf: Buffer, encoding: string | undefined) {
   return buf.toString("utf8").slice(0, 400);
 }
 
-async function sendPjlink(host: string, port: number, payload: string, password: string | undefined, timeout: number): Promise<CommandResult> {
-  const net = await import("node:net");
-  const crypto = await import("node:crypto");
-  const body = payload.replace(/\r?\n/g, "") + "\r";
-  return new Promise((resolve) => {
-    const sock = net.connect({ host, port });
-    let buf = "";
-    let sent = false;
-    const timer = setTimeout(() => { sock.destroy(); resolve({ ok: false, message: "PJLink timeout" }); }, timeout);
-    const fail = (message: string) => { clearTimeout(timer); sock.destroy(); resolve({ ok: false, message }); };
-    sock.setEncoding("utf8");
-    sock.on("error", (err) => fail(err.message));
-    sock.on("data", (chunk) => {
-      buf += chunk.toString();
-      const take = (): string | null => {
-        const at = buf.search(/\r|\n/);
-        if (at < 0) return null;
-        const line = buf.slice(0, at).trim();
-        buf = buf.slice(at + 1).replace(/^\n/, "");
-        return line || take();
-      };
-      if (!sent) {
-        const line = take();
-        if (line == null) return;
-        const banner = line.match(/PJLINK\s+(\d)(?:\s+([0-9a-fA-F]+))?/i);
-        if (!banner) return fail("bad PJLink banner");
-        const secured = banner[1] === "1";
-        const rand = banner[2] ?? "";
-        if (secured) {
-          if (!password) return fail("PJLink password required");
-          if (!rand) return fail("PJLink challenge incomplete");
-          const digest = crypto.createHash("md5").update(rand + password).digest("hex");
-          sock.write(digest + body);
-        } else sock.write(body);
-        sent = true;
-        return;
-      }
-      const line = take();
-      if (line == null) return;
-      clearTimeout(timer);
-      sock.end();
-      if (/ERRA/i.test(line)) resolve({ ok: false, message: "PJLink auth failed" });
-      else if (/ERR\d/i.test(line)) resolve({ ok: false, message: line.slice(0, 80) });
-      else if (!/=/.test(line) && !/OK/i.test(line)) resolve({ ok: false, message: line.slice(0, 80) || "PJLink incomplete" });
-      else resolve({ ok: true, message: line.slice(0, 200) });
-    });
-    sock.on("close", () => {
-      if (!sent) fail("no PJLink banner");
-    });
-  });
-}
-
 async function tcpWrite(host: string, port: number, payload: Buffer, timeout: number, encoding?: string): Promise<CommandResult> {
   const net = await import("node:net");
   return new Promise((resolve) => {
@@ -497,7 +448,7 @@ async function tcpSessionWrite(
             try {
               await waitFor(session.readyContains);
             } catch {
-              sock.write("NOKEY\r\n");
+              if (session.reply) sock.write(session.reply);
               try {
                 await waitFor(session.readyContains);
               } catch {
@@ -565,510 +516,13 @@ export async function sendHttp(
   }
 }
 
-function maskWsFrame(text: string) {
-  const data = Buffer.from(text);
-  const mask = Buffer.from([0x12, 0x34, 0x56, 0x78]);
-  const head = data.length < 126 ? Buffer.from([0x81, 0x80 | data.length]) : Buffer.concat([Buffer.from([0x81, 0xfe]), Buffer.from([(data.length >> 8) & 0xff, data.length & 0xff])]);
-  const body = Buffer.alloc(data.length);
-  for (let i = 0; i < data.length; i++) body[i] = data[i] ^ mask[i % 4];
-  return Buffer.concat([head, mask, body]);
-}
-
-function decodeWsText(buf: Buffer) {
-  if (buf.length < 2) return "";
-  const len = buf[1]! & 0x7f;
-  const start = len === 126 ? 4 : 2;
-  return buf.slice(start).toString("utf8").replace(/[^\x09\x0a\x0d\x20-\x7e]/g, "");
-}
-
-function wsPong(payload: Buffer) {
-  const mask = Buffer.from([0x21, 0x43, 0x65, 0x87]);
-  const n = payload.length;
-  const head = n < 126
-    ? Buffer.from([0x8a, 0x80 | n])
-    : Buffer.concat([Buffer.from([0x8a, 0xfe]), Buffer.from([(n >> 8) & 0xff, n & 0xff])]);
-  const body = Buffer.alloc(n);
-  for (let i = 0; i < n; i++) body[i] = payload[i]! ^ mask[i % 4]!;
-  return Buffer.concat([head, mask, body]);
-}
-
-function decodeWsFrames(buf: Buffer, onPing?: (payload: Buffer) => void) {
-  const idx = buf.indexOf("\r\n\r\n");
-  let rest = idx >= 0 ? buf.subarray(idx + 4) : buf;
-  let out = "";
-  while (rest.length >= 2) {
-    const opcode = rest[0]! & 0x0f;
-    const masked = (rest[1]! & 0x80) !== 0;
-    let len = rest[1]! & 0x7f;
-    let off = 2;
-    if (len === 126) {
-      if (rest.length < 4) break;
-      len = rest.readUInt16BE(2);
-      off = 4;
-    } else if (len === 127) {
-      if (rest.length < 10) break;
-      const hi = rest.readUInt32BE(2);
-      const lo = rest.readUInt32BE(6);
-      if (hi !== 0 || lo > 4 * 1024 * 1024) break;
-      len = lo;
-      off = 10;
-    }
-    if (masked) off += 4;
-    if (rest.length < off + len) break;
-    let payload = Buffer.from(rest.subarray(off, off + len));
-    if (masked) {
-      const mask = rest.subarray(off - 4, off);
-      for (let i = 0; i < payload.length; i++) payload[i] ^= mask[i % 4]!;
-    }
-    if (opcode === 9) onPing?.(payload);
-    if (opcode === 1 || opcode === 0 || opcode === 2) out += payload.toString("utf8");
-    rest = rest.subarray(off + len);
-  }
-  return out;
-}
-
-function waitWsBody(sock: import("node:net").Socket, timeout: number, test: (body: string) => boolean, seed = Buffer.alloc(0)): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let buf = seed;
-    const timer = setTimeout(() => {
-      sock.off("data", onData);
-      const body = decodeWsFrames(buf);
-      if (test(body)) resolve(body);
-      else reject(new Error("control timeout"));
-    }, timeout);
-    const onData = (chunk: Buffer) => {
-      buf = Buffer.concat([buf, chunk]);
-      if (buf.length > 2 * 1024 * 1024) buf = buf.subarray(buf.length - 512 * 1024);
-      const body = decodeWsFrames(buf);
-      if (test(body)) {
-        clearTimeout(timer);
-        sock.off("data", onData);
-        resolve(body);
-      }
-    };
-    sock.on("data", onData);
-    if (test(decodeWsFrames(buf))) {
-      clearTimeout(timer);
-      sock.off("data", onData);
-      resolve(decodeWsFrames(buf));
-    }
-  });
-}
-
-const keepWs = ((globalThis as typeof globalThis & { __relayWs__?: Map<string, { sock: import("node:net").Socket; timer?: ReturnType<typeof setTimeout> }> }).__relayWs__ ??= new Map());
-
-function bumpKeep(key: string, sock: import("node:net").Socket, ms = 20000) {
-  const row = keepWs.get(key);
-  if (row?.timer) clearTimeout(row.timer);
-  if (row?.sock && row.sock !== sock && !row.sock.destroyed) row.sock.destroy();
-  const next = { sock, timer: setTimeout(() => {
-    sock.destroy();
-    keepWs.delete(key);
-  }, ms) };
-  keepWs.set(key, next);
-}
-
-function waitNeedles(waitFor?: string) {
-  return (waitFor ?? "").split("|").map((s) => s.trim()).filter(Boolean);
-}
-
-function bodyHasWait(body: string, waitFor?: string) {
-  return waitNeedles(waitFor).some((n) => body.includes(n));
-}
-
-function extractJsonContaining(text: string, needle: string): string {
-  const hit = waitNeedles(needle).find((n) => text.includes(n)) || "";
-  if (!hit) {
-    const i = text.indexOf("{");
-    return i >= 0 ? text.slice(i) : text;
-  }
-  let from = 0;
-  while (from < text.length) {
-    const start = text.indexOf("{", from);
-    if (start < 0) break;
-    let depth = 0;
-    for (let i = start; i < text.length; i++) {
-      const ch = text[i];
-      if (ch === "{") depth++;
-      else if (ch === "}") {
-        depth--;
-        if (depth === 0) {
-          const blob = text.slice(start, i + 1);
-          if (blob.includes(hit)) return blob;
-          from = i + 1;
-          break;
-        }
-      }
-    }
-    if (depth !== 0) break;
-    from = start + 1;
-  }
-  const i = text.indexOf("{");
-  return i >= 0 ? text.slice(i) : text;
-}
-
-async function sendControlSocket(opts: {
-  host: string;
-  port: number;
-  path: string;
-  payload: string;
-  timeout: number;
-  tls: boolean;
-  waitFor?: string;
-  handshakeWait?: string;
-  handshakeDelayMs?: number;
-  alsoSend?: string[];
-}): Promise<CommandResult> {
-  const key = `${opts.host}:${opts.port}:${opts.path.split("?")[0]}`;
-  const live = keepWs.get(key);
-  if (live && !live.sock.destroyed && opts.payload && !opts.waitFor) {
-    try {
-      live.sock.write(maskWsFrame(opts.payload));
-      bumpKeep(key, live.sock);
-      return { ok: true, message: "key sent" };
-    } catch {
-      live.sock.destroy();
-      keepWs.delete(key);
-    }
-  }
-  const mod = opts.tls ? await import("node:tls") : await import("node:net");
-  const cryptoKey = (await import("node:crypto")).randomBytes(16).toString("base64");
-  const req = `GET ${opts.path} HTTP/1.1\r\nHost: ${opts.host}:${opts.port}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${cryptoKey}\r\nSec-WebSocket-Version: 13\r\n\r\n`;
-  return new Promise((resolve) => {
-    const sock = opts.tls
-      ? (mod as typeof import("node:tls")).connect({ host: opts.host, port: opts.port, rejectUnauthorized: false })
-      : (mod as typeof import("node:net")).connect({ host: opts.host, port: opts.port });
-    let buf = Buffer.alloc(0);
-    let upgraded = false;
-    let sent = false;
-    let token = "";
-    let done = false;
-    let tries = 0;
-    let retryTick: ReturnType<typeof setInterval> | undefined;
-    const onTimeout = () => {
-      sock.off("data", onData);
-      if (retryTick) clearInterval(retryTick);
-      sock.destroy();
-      if (done) return;
-      done = true;
-      const got = decodeWsFrames(buf).replace(/\s+/g, " ").slice(0, 180);
-      const miss = opts.waitFor ? `no ${opts.waitFor}` : "control timeout";
-      resolve({ ok: false, message: got ? `${miss} (${got})` : miss });
-    };
-    let timer = setTimeout(onTimeout, opts.timeout);
-    const arm = () => {
-      clearTimeout(timer);
-      timer = setTimeout(onTimeout, opts.timeout);
-    };
-    const finish = (ok: boolean, message: string) => {
-      if (done) return;
-      done = true;
-      sock.off("data", onData);
-      clearTimeout(timer);
-      if (retryTick) clearInterval(retryTick);
-      buf = Buffer.alloc(0);
-      if (ok) bumpKeep(key, sock);
-      else sock.end();
-      resolve({ ok, message });
-    };
-    sock.on("error", (err) => { sock.off("data", onData); clearTimeout(timer); keepWs.delete(key); if (!done) { done = true; resolve({ ok: false, message: err.message }); } });
-    sock.on("connect", () => { if (!opts.tls) sock.write(req); });
-    sock.on("secureConnect", () => sock.write(req));
-    const fire = () => {
-      try { sock.write(maskWsFrame(opts.payload)); } catch { /* ignore */ }
-      for (const extra of opts.alsoSend ?? []) {
-        if (!extra) continue;
-        try { sock.write(maskWsFrame(extra)); } catch { /* ignore */ }
-      }
-      arm();
-    };
-    const onData = (chunk: Buffer) => {
-      buf = Buffer.concat([buf, chunk]);
-      if (buf.length > 2 * 1024 * 1024) buf = buf.subarray(buf.length - 512 * 1024);
-      if (!upgraded) {
-        const text = buf.toString("utf8");
-        if (!/101 Switching Protocols/i.test(text)) return;
-        upgraded = true;
-      }
-      const body = decodeWsFrames(buf, (ping) => { try { sock.write(wsPong(ping)); } catch { /* ignore */ } });
-      const found = body.match(/"token"\s*:\s*"([^"]+)"/)?.[1];
-      if (found) token = found;
-      const handshakeOk = opts.handshakeWait ? bodyHasWait(body, opts.handshakeWait) : upgraded;
-      const delayMs = opts.handshakeDelayMs ?? 0;
-      if (handshakeOk && opts.payload && !sent) {
-        sent = true;
-        if (opts.waitFor) {
-          setTimeout(fire, delayMs);
-          retryTick = setInterval(() => {
-            if (done || ++tries >= 2) { if (retryTick) clearInterval(retryTick); return; }
-            fire();
-          }, 2500);
-        } else if (delayMs) {
-          setTimeout(() => {
-            fire();
-            finish(true, token ? `token ${token}` : "key sent");
-          }, delayMs);
-        } else {
-          fire();
-          finish(true, token ? `token ${token}` : "key sent");
-          return;
-        }
-      }
-      if (opts.waitFor && sent && bodyHasWait(body, opts.waitFor)) {
-        finish(true, extractJsonContaining(body, opts.waitFor));
-        return;
-      }
-      if (handshakeOk && !opts.payload) {
-        finish(Boolean(token), token ? `token ${token}` : "waiting for pairing");
-      }
-    };
-    sock.on("data", onData);
-  });
-}
-
-function buildWsTarget(driver: DriverSpec, device: DeviceInstance, step?: PairingStep): { path: string; port: number; tls: boolean } {
-  const lan = driver.transports.lan;
-  const pairing = driver.auth?.pairing;
-  const pathBase = step?.path || pairing?.path || lan?.http?.path || "/";
-  const tls = step?.tls ?? lan?.protocol === "tls-websocket";
-  const port = step?.port ?? device.port ?? lan?.port ?? (tls ? 443 : 80);
-  const query = pairing?.query;
-  const params = new URLSearchParams();
-  if (query?.nameParam) {
-    const raw = query.nameFrom === "auth.name" ? (device.auth?.name || "Relay") : "Relay";
-    params.set(query.nameParam, Buffer.from(raw).toString("base64"));
-  }
-  if (query?.tokenParam && device.auth?.token) params.set(query.tokenParam, device.auth.token);
-  const qs = params.toString();
-  return { path: qs ? `${pathBase.split("?")[0]}?${qs}` : pathBase, port, tls };
-}
-
 function statusPlane(driver: DriverSpec, device: DeviceInstance, feedback?: { httpPath?: string }) {
   if (driver.transports.lan?.protocol === "cast") return null;
   const path = feedback?.httpPath || driver.status?.path;
   if (!path) return null;
-  const port = driver.status?.port ?? device.port ?? driver.transports.lan?.port;
-  if (port == null) return null;
+  const port = driver.status?.port ?? driver.auth?.pairing?.ports?.[0] ?? 8001;
   const proto = driver.status?.protocol ?? "http";
   return `${proto}://${device.host}:${port}${path.startsWith("/") ? path : `/${path}`}`;
-}
-
-function extractCastApp(buf: Buffer): string | undefined {
-  const text = buf.toString("utf8");
-  return text.match(/"displayName"\s*:\s*"([^"]+)"/)?.[1];
-}
-
-function extractCastTransport(buf: Buffer): string | undefined {
-  const text = buf.toString("utf8");
-  const apps = [...text.matchAll(/"appId"\s*:\s*"([^"]+)"[\s\S]{0,500}?"transportId"\s*:\s*"([^"]+)"/g)];
-  const hit = apps.find((row) => row[1] !== "E8C28D3C") || apps[0];
-  return hit?.[2] || text.match(/"transportId"\s*:\s*"([^"]+)"/)?.[1];
-}
-
-function extractCastMediaSession(buf: Buffer): number | undefined {
-  const n = buf.toString("utf8").match(/"mediaSessionId"\s*:\s*(\d+)/)?.[1];
-  return n ? Number(n) : undefined;
-}
-
-function castFrame(ns: string, body: string, dest = "receiver-0") {
-  const parts: Buffer[] = [];
-  const putVarint = (tag: number, n: number) => {
-    const out = [tag];
-    let v = n >>> 0;
-    while (v > 0x7f) { out.push((v & 0x7f) | 0x80); v >>>= 7; }
-    out.push(v);
-    parts.push(Buffer.from(out));
-  };
-  const putBytes = (tag: number, data: Buffer) => {
-    const head = [tag];
-    let len = data.length;
-    while (len > 0x7f) { head.push((len & 0x7f) | 0x80); len >>>= 7; }
-    head.push(len);
-    parts.push(Buffer.concat([Buffer.from(head), data]));
-  };
-  putVarint(8, 0);
-  putBytes(18, Buffer.from("sender-0"));
-  putBytes(26, Buffer.from(dest));
-  putBytes(34, Buffer.from(ns));
-  putVarint(40, 0);
-  putBytes(50, Buffer.from(body));
-  const proto = Buffer.concat(parts);
-  const out = Buffer.alloc(4 + proto.length);
-  out.writeUInt32BE(proto.length, 0);
-  proto.copy(out, 4);
-  return out;
-}
-
-type CastLive = {
-  sock: import("node:tls").TLSSocket;
-  timer?: ReturnType<typeof setTimeout>;
-  req: number;
-  transportId?: string;
-  mediaSessionId?: number;
-};
-
-const keepCast = ((globalThis as typeof globalThis & { __relayCast__?: Map<string, CastLive> }).__relayCast__ ??= new Map());
-const CAST_CONN = "urn:x-cast:com.google.cast.tp.connection";
-const CAST_BEAT = "urn:x-cast:com.google.cast.tp.heartbeat";
-const CAST_RECV = "urn:x-cast:com.google.cast.receiver";
-const CAST_MEDIA = "urn:x-cast:com.google.cast.media";
-
-function bumpCast(key: string, live: CastLive) {
-  if (live.timer) clearTimeout(live.timer);
-  live.timer = setTimeout(() => { live.sock.destroy(); keepCast.delete(key); }, 25000);
-}
-
-function waitCast(sock: import("node:tls").TLSSocket, timeout: number, test: (buf: Buffer) => boolean): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    let buf = Buffer.alloc(0);
-    const timer = setTimeout(() => {
-      sock.off("data", onData);
-      if (test(buf)) resolve(buf);
-      else reject(new Error("Cast timeout"));
-    }, timeout);
-    const onData = (chunk: Buffer) => {
-      buf = Buffer.concat([buf, chunk]);
-      if (test(buf)) {
-        clearTimeout(timer);
-        sock.off("data", onData);
-        resolve(buf);
-      }
-    };
-    sock.on("data", onData);
-  });
-}
-
-async function ensureCast(host: string, port: number, timeout: number): Promise<CastLive> {
-  const key = `${host}:${port}`;
-  const live = keepCast.get(key);
-  if (live && !live.sock.destroyed) {
-    try {
-      live.sock.write(castFrame(CAST_BEAT, '{"type":"PING"}'));
-      bumpCast(key, live);
-      return live;
-    } catch {
-      live.sock.destroy();
-      keepCast.delete(key);
-    }
-  }
-  const tls = await import("node:tls");
-  const sock = tls.connect({ host, port, rejectUnauthorized: false });
-  await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("Cast connect timeout")), timeout);
-    sock.once("error", (err) => { clearTimeout(timer); reject(err); });
-    sock.once("secureConnect", () => {
-      clearTimeout(timer);
-      sock.write(castFrame(CAST_CONN, '{"type":"CONNECT","origin":{}}'));
-      sock.write(castFrame(CAST_BEAT, '{"type":"PING"}'));
-      resolve();
-    });
-  });
-  const row: CastLive = { sock, req: 1 };
-  keepCast.set(key, row);
-  bumpCast(key, row);
-  return row;
-}
-
-function nextCastReq(live: CastLive) {
-  live.req = (live.req || 1) + 1;
-  return live.req;
-}
-
-function withCastRequestId(json: string, id: number) {
-  if (/"requestId"/.test(json)) return json.replace(/"requestId"\s*:\s*\d+/, `"requestId":${id}`);
-  return json.replace(/\}$/, `,"requestId":${id}}`);
-}
-
-async function sendCast(host: string, port: number, payload: string, timeout: number, namespace?: string): Promise<CommandResult> {
-  let json = payload.trim().startsWith("{") ? payload.trim() : '{"type":"GET_STATUS"}';
-  const media = namespace === CAST_MEDIA || /"(PLAY|PAUSE|QUEUE_NEXT|QUEUE_PREV|SEEK)"/.test(json);
-  const ns = namespace || (media ? CAST_MEDIA : CAST_RECV);
-  try {
-    const live = await ensureCast(host, port, timeout);
-    const key = `${host}:${port}`;
-    const waitStatus = (wantMedia: boolean) => waitCast(live.sock, timeout, (buf) => {
-      const text = buf.toString("utf8");
-      if (wantMedia) return /MEDIA_STATUS/i.test(text) && /mediaSessionId/i.test(text);
-      return /RECEIVER_STATUS/i.test(text) || Boolean(extractCastApp(buf));
-    });
-    if (media) {
-      live.sock.write(castFrame(CAST_RECV, withCastRequestId('{"type":"GET_STATUS"}', nextCastReq(live))));
-      const recv = await waitStatus(false);
-      const transport = extractCastTransport(recv);
-      if (!transport) return { ok: false, message: "No Cast app running" };
-      if (live.transportId !== transport) {
-        live.sock.write(castFrame(CAST_CONN, '{"type":"CONNECT","origin":{}}', transport));
-        live.transportId = transport;
-        await sleep(80);
-      }
-      live.sock.write(castFrame(CAST_MEDIA, withCastRequestId('{"type":"GET_STATUS"}', nextCastReq(live)), transport));
-      const mediaBuf = await waitStatus(true).catch(() => Buffer.alloc(0));
-      const session = extractCastMediaSession(mediaBuf);
-      if (!session) return { ok: false, message: "No media session" };
-      live.mediaSessionId = session;
-      json = withCastRequestId(json, nextCastReq(live));
-      json = /"mediaSessionId"/.test(json)
-        ? json.replace(/"mediaSessionId"\s*:\s*\d+/, `"mediaSessionId":${session}`)
-        : json.replace(/\}$/, `,"mediaSessionId":${session}}`);
-      live.sock.write(castFrame(CAST_MEDIA, json, transport));
-      bumpCast(key, live);
-      await sleep(200);
-      return { ok: true, message: `session ${session}` };
-    }
-    json = withCastRequestId(json, nextCastReq(live));
-    live.sock.write(castFrame(ns, json));
-    bumpCast(key, live);
-    if (!/"GET_STATUS"/.test(json)) {
-      await sleep(200);
-      return { ok: true, message: "sent" };
-    }
-    const buf = await waitStatus(false);
-    const app = extractCastApp(buf);
-    return { ok: true, message: app ? `{"displayName":"${app}"}` : buf.toString("utf8").slice(0, 240) };
-  } catch (err) {
-    keepCast.get(`${host}:${port}`)?.sock.destroy();
-    keepCast.delete(`${host}:${port}`);
-    return { ok: false, message: err instanceof Error ? err.message : "Cast failed" };
-  }
-}
-
-function subnetBroadcast(host: string) {
-  const parts = host.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return "255.255.255.255";
-  return `${parts[0]}.${parts[1]}.${parts[2]}.255`;
-}
-
-async function sendWol(mac: string, host: string): Promise<CommandResult> {
-  const clean = mac.replace(/[^0-9a-f]/gi, "");
-  if (clean.length !== 12) return { ok: false, message: "Need the TV MAC in the mac field (wired MAC if the set is on Ethernet)" };
-  const dgram = await import("node:dgram");
-  const packet = Buffer.alloc(6 + 16 * 6, 0xff);
-  const macBuf = Buffer.from(clean, "hex");
-  for (let i = 0; i < 16; i++) macBuf.copy(packet, 6 + i * 6);
-  const targets = [...new Set([host, subnetBroadcast(host), "255.255.255.255"].filter(Boolean))];
-  const ports = [9, 7];
-  try {
-    const sock = dgram.createSocket({ type: "udp4", reuseAddr: true });
-    await new Promise<void>((resolve, reject) => {
-      sock.once("error", reject);
-      sock.bind(0, "0.0.0.0", () => {
-        try { sock.setBroadcast(true); } catch { /* ignore */ }
-        resolve();
-      });
-    });
-    for (let n = 0; n < 8; n++) {
-      for (const dest of targets) {
-        for (const port of ports) {
-          await new Promise<void>((resolve) => sock.send(packet, port, dest, () => resolve()));
-        }
-      }
-      await sleep(60);
-    }
-    sock.close();
-    return { ok: true, message: `WOL ${clean} → ${targets.join(", ")}` };
-  } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "WOL failed" };
-  }
 }
 
 async function sendRpcShutdown(host: string, user: string, password: string): Promise<CommandResult> {
@@ -1080,6 +534,18 @@ async function sendRpcShutdown(host: string, user: string, password: string): Pr
   return runTool("net", ["rpc", "shutdown", "-I", host, "-U", `${user}%${password}`, "-f", "-t", "0"], 8000);
 }
 
+function wsQueryFromDriver(driver: DriverSpec, device: DeviceInstance): Record<string, string> | undefined {
+  const out: Record<string, string> = {};
+  const pairingQuery = driver.auth?.pairing?.query;
+  if (pairingQuery?.nameParam) {
+    const raw = pairingQuery.nameFrom === "auth.name" ? (device.auth?.name || "Relay") : "Relay";
+    out[pairingQuery.nameParam] = `{base64:${raw}}`;
+  }
+  if (pairingQuery?.tokenParam) out[pairingQuery.tokenParam] = "{token}";
+  if (driver.transports.lan?.query) Object.assign(out, driver.transports.lan.query);
+  return Object.keys(out).length ? out : undefined;
+}
+
 async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: string, command?: DriverCommand): Promise<CommandResult> {
   const lan = driver.transports.lan;
   if (!lan) return { ok: false, message: "No LAN transport on this driver" };
@@ -1089,6 +555,10 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
   }
   const port = device.port ?? lan.port;
   const timeout = lan.timeoutMs ?? 3000;
+  const proto = String(lan.protocol || "");
+  if (!proto || /[/\\:]/.test(proto)) return { ok: false, message: "Unknown protocol" };
+  const known = new Set(["tcp", "udp", "http", "https", "websocket", "tls-websocket", "pjlink", "cast", "wol"]);
+  if (!known.has(proto)) return { ok: false, message: "Unknown protocol" };
   const encoding = wireEncoding(driver, command);
   await paceDevice(device.id, driver.pacing?.minIntervalMs);
   pushTrace(device.id, "tx", `${command?.namespace ? command.namespace.split(".").pop() + " " : ""}${payload.slice(0, 160)}`);
@@ -1109,19 +579,27 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
       },
     });
   } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") {
-    const target = buildWsTarget(driver, device);
-    result = await sendControlSocket({
-      host,
-      port: target.port,
-      path: target.path,
-      payload,
-      timeout: command?.waitContains ? Math.max(timeout, 20000) : timeout,
-      tls: target.tls,
-      waitFor: command?.waitContains,
-      handshakeWait: lan.handshake?.waitContains,
-      handshakeDelayMs: lan.handshake?.delayMs,
-      alsoSend: command?.alsoSend,
-    });
+    if (/[/:]/.test(String(lan.protocol))) result = { ok: false, message: "Unknown protocol" };
+    else if (/^file:/i.test(lan.path || lan.http?.path || "")) result = { ok: false, message: "Invalid path" };
+    else {
+      const target = buildWsTarget({
+        path: lan.path || lan.http?.path,
+        query: wsQueryFromDriver(driver, device),
+        port: device.port ?? lan.port,
+        tls: lan.protocol === "tls-websocket",
+        token: device.auth?.token,
+      });
+      result = await sendControlSocket({
+        host,
+        ...target,
+        payload,
+        timeout: command?.waitContains ? Math.max(timeout, 20000) : timeout,
+        waitFor: command?.waitContains,
+        handshake: lan.handshake,
+        alsoSend: lan.alsoSend,
+        alsoSendRaw: command?.alsoSend,
+      });
+    }
   }
   else if (lan.protocol === "pjlink") result = await sendPjlink(host, port, payload, device.auth?.password || device.auth?.pin, timeout);
   else if (lan.protocol === "udp") {
@@ -1199,17 +677,25 @@ export async function authenticateDevice(opts: { config: RoomConfig; drivers: Re
       continue;
     }
     if (step.action === "websocket") {
-      const target = buildWsTarget(driver, device, step);
+      if (/^file:/i.test(step.path || "")) continue;
+      const lan = driver.transports.lan;
       const pairing = driver.auth?.pairing;
+      const target = buildWsTarget({
+        path: step.path || lan?.path || pairing?.path || lan?.http?.path,
+        query: wsQueryFromDriver(driver, device),
+        port,
+        tls: step.tls ?? lan?.protocol === "tls-websocket",
+        token: device.auth?.token,
+      });
       const result = await sendControlSocket({
         host,
-        port: target.port,
-        path: target.path,
+        ...target,
         payload: "",
         timeout: step.timeoutMs ?? 12000,
-        tls: target.tls,
-        handshakeWait: step.waitContains || driver.transports.lan?.handshake?.waitContains || pairing?.waitContains,
-        handshakeDelayMs: driver.transports.lan?.handshake?.delayMs,
+        handshake: {
+          waitContains: step.waitContains || lan?.handshake?.waitContains || pairing?.waitContains,
+          delayMs: lan?.handshake?.delayMs,
+        },
       });
       const tokenPath = step.tokenJsonPath || pairing?.tokenJsonPath || "token";
       const token = pickJsonField(result.message, tokenPath)

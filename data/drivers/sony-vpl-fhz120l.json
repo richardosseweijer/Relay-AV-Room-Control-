@@ -12,7 +12,7 @@
       "port": 53595,
       "timeoutMs": 8000,
       "lineEnding": "\r\n",
-      "session": { "readyContains": "nokey", "keepMs": 20000 }
+      "session": { "readyContains": "nokey", "reply": "NOKEY\r\n", "keepMs": 20000 }
     }
   },
   "auth": { "type": "none" },
