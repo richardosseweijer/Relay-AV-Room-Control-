@@ -33,26 +33,26 @@
 }
 
 html[data-theme="pastel"] {
-  --color-bg: #161018;
-  --color-surface: #22181e;
-  --color-raised: #2c2128;
-  --color-fg: #f3e6ec;
-  --color-muted: #c9a4b0;
-  --color-subtle: #9a7a86;
-  --color-border: #3d2e36;
-  --color-accent: #e39aab;
-  --color-accent-fg: #2a1820;
-  --color-steel: #8a6d7a;
-  --color-sage: #8a5a6c;
-  --color-clay: #c4787a;
-  --color-fog: #7a6870;
-  --color-ink: #4a3840;
-  --color-ocean: #6a4a62;
-  --color-pine: #5a3a4a;
-  --color-rust: #c49070;
-  --color-sand: #c4a078;
-  --color-slate: #6a5860;
-  --color-rose: #c07080;
+  --color-bg: #3a2a32;
+  --color-surface: #4a3840;
+  --color-raised: #5a454c;
+  --color-fg: #fff4f7;
+  --color-muted: #ecc0cc;
+  --color-subtle: #d4a0b0;
+  --color-border: #6a5058;
+  --color-accent: #f4a8b8;
+  --color-accent-fg: #3a1820;
+  --color-steel: #7a9ab0;
+  --color-sage: #7aaa7a;
+  --color-clay: #e09090;
+  --color-fog: #b090a0;
+  --color-ink: #5a4048;
+  --color-ocean: #6a9ab8;
+  --color-pine: #5a8a68;
+  --color-rust: #e0a070;
+  --color-sand: #e0c070;
+  --color-slate: #8a7880;
+  --color-rose: #e87898;
 }
 
 @layer base {

@@ -1,6 +1,6 @@
 # Relay — Windows
 
-Relay **0.8.2.2** (beta). Windows 10/11. Command Prompt or PowerShell.
+Relay **0.8.2.3** (beta). Windows 10/11. Command Prompt or PowerShell.
 
 Default configurator PIN: `1234`. The app then requires a stronger PIN. Tablets stay paired until Forget on Security.
 
@@ -93,7 +93,7 @@ Requires a git clone of [Relay-AV-Room-Control-](https://github.com/richardossew
 
 Configurator → Room → **Save all** → **Update from GitHub**.
 
-Builds the fetched release in a separate git worktree, checks its `/api/room` response, and only then switches the live checkout and build. A failed stage leaves the running release untouched. If the switched release fails readiness, the updater restores and restarts the previous release. Log: `data\relay-update.log`. Room tab then shows `0.8.2.2 (<sha>)`. Tracked uncommitted edits block the update.
+Builds the fetched release in a separate git worktree, checks its `/api/room` response, and only then switches the live checkout and build. A failed stage leaves the running release untouched. If the switched release fails readiness, the updater restores and restarts the previous release. Log: `data\relay-update.log`. Room tab then shows `0.8.2.3 (<sha>)`. Tracked uncommitted edits block the update.
 
 ```bat
 cd C:\relay

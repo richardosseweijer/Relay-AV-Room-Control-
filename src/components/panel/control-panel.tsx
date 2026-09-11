@@ -255,7 +255,7 @@ export function ControlPanel() {
   useEffect(() => {
     const theme = snap?.config.room.theme === "pastel" ? "pastel" : "dark";
     document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "pastel" ? "#161018" : "#0a0a0b");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "pastel" ? "#3a2a32" : "#0a0a0b");
   }, [snap?.config.room.theme]);
 
   useEffect(() => {

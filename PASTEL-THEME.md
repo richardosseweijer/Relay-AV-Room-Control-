@@ -17,7 +17,7 @@ No new theme key. No engine / PIN / persist. Stop after each phase. `tsc` 0. **D
 
 | Token | Role | Hex |
 |---|---|---|
-| `--color-bg` | page | `#161018` |
+| `--color-bg` | page | `#3a2a32` (shaded garden, not cream, not black) |
 | `--color-surface` | cards | `#22181e` |
 | `--color-raised` | raised / header | `#2c2128` |
 | `--color-fg` | body | `#f3e6ec` |
