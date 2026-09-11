@@ -281,8 +281,8 @@ export const hueBridgeDriver: DriverSpec = {
     { id: "scene.concentrate", label: "Concentrate", kind: "action", transport: "lan", httpMethod: "PUT", httpPath: "/api/{auth.token}/groups/{auth.group}/action", payload: "{\"scene\":\"concentrate\"}" },
   ],
   feedback: [
-    { id: "power.state", label: "Power", kind: "enum", values: ["off", "on"], transport: "lan", mode: "poll", query: "", pollMs: 4000, parse: { type: "contains", value: "on" } },
-    { id: "level.value", label: "Level", kind: "range", min: 0, max: 254, transport: "lan", mode: "poll", pollMs: 4000, parse: { type: "jsonpath", path: "bri" } },
+    { id: "power.state", label: "Power", kind: "enum", values: ["off", "on"], transport: "lan", mode: "poll", httpMethod: "GET", httpPath: "/api/{auth.token}/groups/0", pollMs: 4000, parse: { type: "jsonpath", path: "state.any_on", map: { "true": "on", "false": "off" } } },
+    { id: "level.value", label: "Level", kind: "range", min: 0, max: 254, transport: "lan", mode: "poll", httpMethod: "GET", httpPath: "/api/{auth.token}/groups/0", pollMs: 4000, parse: { type: "jsonpath", path: "action.bri" } },
   ],
 };
 

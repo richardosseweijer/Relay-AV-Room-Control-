@@ -10,7 +10,7 @@ function subnetBroadcast(host: string) {
 
 export async function sendWol(mac: string, host: string): Promise<CommandResult> {
   const clean = mac.replace(/[^0-9a-f]/gi, "");
-  if (clean.length !== 12) return { ok: false, message: "Need the TV MAC in the mac field (wired MAC if the set is on Ethernet)" };
+  if (clean.length !== 12) return { ok: false, message: "Need the device MAC in the mac field (wired MAC if the device is on Ethernet)" };
   const dgram = await import("node:dgram");
   const packet = Buffer.alloc(6 + 16 * 6, 0xff);
   const macBuf = Buffer.from(clean, "hex");

@@ -198,11 +198,16 @@
       ],
       "transport": "lan",
       "mode": "poll",
-      "query": "",
+      "httpMethod": "GET",
+      "httpPath": "/api/{auth.token}/groups/0",
       "pollMs": 4000,
       "parse": {
-        "type": "contains",
-        "value": "on"
+        "type": "jsonpath",
+        "path": "state.any_on",
+        "map": {
+          "true": "on",
+          "false": "off"
+        }
       }
     },
     {
@@ -213,10 +218,12 @@
       "max": 254,
       "transport": "lan",
       "mode": "poll",
+      "httpMethod": "GET",
+      "httpPath": "/api/{auth.token}/groups/0",
       "pollMs": 4000,
       "parse": {
         "type": "jsonpath",
-        "path": "bri"
+        "path": "action.bri"
       }
     }
   ]

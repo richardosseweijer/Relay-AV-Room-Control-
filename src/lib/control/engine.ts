@@ -516,11 +516,11 @@ export async function sendHttp(
   }
 }
 
-function statusPlane(driver: DriverSpec, device: DeviceInstance, feedback?: { httpPath?: string }) {
+function statusPlane(driver: DriverSpec, device: DeviceInstance) {
   if (driver.transports.lan?.protocol === "cast") return null;
-  const path = feedback?.httpPath || driver.status?.path;
-  if (!path) return null;
-  const port = driver.status?.port ?? driver.auth?.pairing?.ports?.[0] ?? 8001;
+  const path = driver.status?.path;
+  const port = driver.status?.port;
+  if (!path || !port) return null;
   const proto = driver.status?.protocol ?? "http";
   return `${proto}://${device.host}:${port}${path.startsWith("/") ? path : `/${path}`}`;
 }
@@ -535,14 +535,13 @@ async function sendRpcShutdown(host: string, user: string, password: string): Pr
 }
 
 function wsQueryFromDriver(driver: DriverSpec, device: DeviceInstance): Record<string, string> | undefined {
-  const out: Record<string, string> = {};
+  const out: Record<string, string> = { ...(driver.transports.lan?.query ?? {}) };
   const pairingQuery = driver.auth?.pairing?.query;
   if (pairingQuery?.nameParam) {
     const raw = pairingQuery.nameFrom === "auth.name" ? (device.auth?.name || "Relay") : "Relay";
     out[pairingQuery.nameParam] = `{base64:${raw}}`;
   }
   if (pairingQuery?.tokenParam) out[pairingQuery.tokenParam] = "{token}";
-  if (driver.transports.lan?.query) Object.assign(out, driver.transports.lan.query);
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -569,14 +568,21 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
   else if (lan.protocol === "wol") result = await sendWol(device.auth?.mac || "", host);
   else if (lan.protocol === "cast") result = await sendCast(host, port, payload, timeout, command?.namespace);
   else if (lan.protocol === "http" || lan.protocol === "https") {
-    const path = (command?.httpPath || lan.http?.path || "/").replace("{auth.token}", device.auth?.token ?? "");
+    const auth = device.auth || {};
+    const ctx = { host, port, id: device.id };
+    const path = renderPayload(command?.httpPath || lan.http?.path || "/", undefined, auth, ctx);
+    const rawHeaders: Record<string, string> = {
+      "content-type": lan.http?.contentType || "application/json",
+      ...(lan.http?.headers ?? {}),
+      ...(command?.httpHeaders ?? {}),
+    };
+    const headers: Record<string, string> = {};
+    for (const [key, val] of Object.entries(rawHeaders)) {
+      headers[key] = renderPayload(String(val ?? ""), undefined, auth, ctx);
+    }
     result = await sendHttp(`${lan.protocol}://${host}:${port}${path}`, command?.httpMethod || lan.http?.method || "GET", payload, timeout, {
       maxMessageChars: lan.http?.contentType?.includes("xml") ? 64 * 1024 : undefined,
-      headers: {
-        "content-type": lan.http?.contentType || "application/json",
-        ...(lan.http?.headers ?? {}),
-        ...(command?.httpHeaders ?? {}),
-      },
+      headers,
     });
   } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") {
     if (/[/:]/.test(String(lan.protocol))) result = { ok: false, message: "Unknown protocol" };
@@ -1075,19 +1081,16 @@ export async function readMonitorValue(opts: {
     const value = current === undefined || current === null ? "" : String(current);
     return { ok: true, value, message: value || "simulated" };
   }
-  const statusUrl = statusPlane(driver, device, fb);
+  const statusUrl = statusPlane(driver, device);
   if (statusUrl) {
     const url = statusUrl;
     try {
       const response = await fetchTextBounded(url, {}, 2000);
       if (!response.ok) return { ok: false, value: "", message: response.text || String(response.status) };
       const text = response.text;
-      const power = pickJsonField(text, "device.PowerState");
-      const parsed = opts.feedbackId.includes("power") && power ? power : parseFeedback(fb.parse, text);
-      const value = parsed.toLowerCase() === "standby" ? "off" : parsed.toLowerCase();
-      const short = value.length > 32 && power ? power.toLowerCase() : value;
-      opts.state[device.id] = { ...slot, [opts.feedbackId]: short };
-      return { ok: true, value: short, message: short };
+      const parsed = parseFeedback(fb.parse, text);
+      opts.state[device.id] = { ...slot, [opts.feedbackId]: parsed };
+      return { ok: true, value: parsed, message: parsed };
     } catch (err) {
       return { ok: false, value: "", message: err instanceof Error ? err.message : "poll failed" };
     }
@@ -1104,11 +1107,9 @@ export async function readMonitorValue(opts: {
     httpHeaders: fb.httpHeaders,
   });
   if (!result.ok) return { ok: false, value: "", message: result.message };
-  const app = pickJsonField(result.message, "displayName");
   const parsed = parseFeedback(fb.parse, result.message);
-  const value = opts.feedbackId.includes("app") ? (app || "idle") : parsed;
-  opts.state[device.id] = { ...slot, [opts.feedbackId]: value };
-  return { ok: true, value, message: value };
+  opts.state[device.id] = { ...slot, [opts.feedbackId]: parsed };
+  return { ok: true, value: parsed, message: parsed };
 }
 
 export async function applyHost(

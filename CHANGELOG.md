@@ -2,6 +2,14 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.8.3.1 — 2026-09-11
+
+- Tag `v0.8.3.1`.
+- Poll uses `driver.status` only (no feedback `httpPath` GET on port 8001). Sonos/HA monitors go through `sendLan`.
+- HTTP path and headers fill `{token}` / `{auth.*}`. Pairing name/token win over `lan.query`.
+- Cast `GET_STATUS` returns JSON matching driver parse. Engine no longer peeks `PowerState` / `displayName`.
+- Hue feedback: GET `/api/{auth.token}/groups/0`. WOL missing-MAC copy is generic.
+
 ## 0.8.3.0 — 2026-09-11
 
 - Tag `v0.8.3.0`.

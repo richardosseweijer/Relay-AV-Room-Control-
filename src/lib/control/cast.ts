@@ -9,6 +9,29 @@ function extractCastApp(buf: Buffer): string | undefined {
   return text.match(/"displayName"\s*:\s*"([^"]+)"/)?.[1];
 }
 
+function extractCastVolume(buf: Buffer): number | undefined {
+  const n = buf.toString("utf8").match(/"volume"\s*:\s*\{[^}]{0,120}"level"\s*:\s*([0-9.]+)/)?.[1];
+  return n !== undefined && Number.isFinite(Number(n)) ? Number(n) : undefined;
+}
+
+function extractCastType(buf: Buffer): string | undefined {
+  return buf.toString("utf8").match(/"type"\s*:\s*"([^"]+)"/)?.[1];
+}
+
+function castStatusJson(buf: Buffer): string {
+  const app = extractCastApp(buf) || "idle";
+  const type = extractCastType(buf) || "RECEIVER_STATUS";
+  const level = extractCastVolume(buf);
+  return JSON.stringify({
+    type,
+    displayName: app,
+    status: {
+      applications: [{ displayName: app }],
+      volume: { level: level ?? 0 },
+    },
+  });
+}
+
 function extractCastTransport(buf: Buffer): string | undefined {
   const text = buf.toString("utf8");
   const apps = [...text.matchAll(/"appId"\s*:\s*"([^"]+)"[\s\S]{0,500}?"transportId"\s*:\s*"([^"]+)"/g)];
@@ -176,8 +199,7 @@ export async function sendCast(host: string, port: number, payload: string, time
       return { ok: true, message: "sent" };
     }
     const buf = await waitStatus(false);
-    const app = extractCastApp(buf);
-    return { ok: true, message: app ? `{"displayName":"${app}"}` : buf.toString("utf8").slice(0, 240) };
+    return { ok: true, message: castStatusJson(buf) };
   } catch (err) {
     keepCast.get(`${host}:${port}`)?.sock.destroy();
     keepCast.delete(`${host}:${port}`);
