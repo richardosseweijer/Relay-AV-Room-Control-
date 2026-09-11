@@ -2,20 +2,20 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
-## 2026-09-11 — config UI split
+## 0.8.2 (beta) — 2026-09-11
 
-- Configurator tabs live in separate files (`src/components/config/*-tab.tsx`). Shell still owns PIN, Save all, draft, and refresh. No intended behavior change.
+- Tag `v0.8.2`. Still beta; not production-certified.
+- Configurator tabs live in separate files (`src/components/config/*-tab.tsx`). Shell still owns PIN, Save all, draft, and refresh.
+- Samsung Q65T and S95D: Authenticate tries **8002 WSS first**. HTTP `:8001/api/v2/` is status-only. Installed-app inventory + App launch / App native.
+- Kept LAN sockets no longer grow an unbounded `data` buffer while monitors keep the session alive.
+- Config Log tab: one host-status line above the event list. Monitor value changes are logged (including `MON_*`).
+- Update from GitHub ignores dirty Nitro/`.vercel` artifacts. Sonos UPnP keeps `SOAPAction` case and polls the feedback path.
 
 ## 0.8.1 (beta) — 2026-09-11
 
 - Tag `v0.8.1`. Still beta; not production-certified.
 - Config tags for macros / logic (filter chips, drag onto a chip to file, drag chips to reorder). Old `folder` values still load as tags.
 - Interface cards fold and drag-reorder. Logic tab sits between Macros and Pages.
-- Samsung Q65T and S95D: Authenticate tries **8002 WSS first** (Allow + keys). HTTP `:8001/api/v2/` stays status-only; 8001 WS is fallback only.
-- Samsung apps inventory (`ed.installedApp.get`) + **App launch** / **App native**. Sync inventory on the device card, then bind the app in a macro. `KEY_NETFLIX` is only the hardware key.
-- Kept LAN sockets (Samsung WS, gateway TCP) no longer grow an unbounded `data` buffer while monitors keep the session alive.
-- Config Log tab: one host-status line above the event list (RSS, sockets, monitors). Event log is RAM-only and comes from the config session.
-- Sonos: send UPnP with `SOAPAction` casing (fetch was lowercasing it). Monitor polls use the feedback path/headers. Volume and mute feedback added. Use the player LAN IP and the group coordinator.
 
 ## 0.8.0 (beta) — 2026-09-10
 
