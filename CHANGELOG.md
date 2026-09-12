@@ -2,6 +2,13 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.8.3.4 — 2026-09-12
+
+- Tag `v0.8.3.4`.
+- LAN adapters: OSC UDP, sACN (E1.31 multicast), ipMIDI (multicast MIDI), RTP-MIDI (AppleMIDI). USB MIDI is `local.kind` `midi` via `amidi`.
+- Library drivers: `osc-udp.json`, `sacn-universe.json`, `usb-midi.json`, `ipmidi.json`, `rtp-midi.json`.
+- MIDI in / MTC: `midiWatch` on the driver writes existing feedback ids. Send-only first.
+
 ## 0.8.3.3 — 2026-09-11
 
 - Tag `v0.8.3.3`.

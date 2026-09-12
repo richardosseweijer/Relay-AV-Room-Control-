@@ -22,6 +22,13 @@ import { wsPoolSize, sendControlSocket, buildWsTarget } from "./ws";
 import { sendPjlink } from "./pjlink";
 import { sendCast, castPoolSize } from "./cast";
 import { sendWol } from "./wol";
+import { sendUdp } from "./udp";
+import { sendOscCommand } from "./osc";
+import { sendSacnCommand } from "./sacn";
+import { sendUsbMidi } from "./midi";
+import { sendIpmidi } from "./ipmidi";
+import { sendRtpMidiCommand, rtpMidiPoolSize } from "./rtp-midi";
+import { encodeMtcQf, encodeMtcSysex } from "./midi-in";
 
 const g = globalThis as typeof globalThis & { __relayTraces__?: Record<string, TraceLine[]> };
 
@@ -35,6 +42,7 @@ export function socketStats() {
     ws: wsPoolSize(),
     tcp: sessions.size,
     cast: castPoolSize(),
+    rtpMidi: rtpMidiPoolSize(),
   };
 }
 
@@ -235,6 +243,16 @@ export async function listHostInterfaces(): Promise<{ ok: boolean; message: stri
         if (/^cec\d+$/i.test(name)) add("cec", `/dev/${name}`);
         if (/^lirc\d+$/i.test(name)) add("ir", `/dev/${name}`);
       }
+      const { execFile } = await import("node:child_process");
+      const amidi = await new Promise<string>((resolve) => {
+        execFile("amidi", ["-l"], { timeout: 2000, windowsHide: true }, (err, stdout) => {
+          resolve(err ? "" : String(stdout || ""));
+        });
+      });
+      for (const line of amidi.split(/\r?\n/)) {
+        const hw = line.match(/\b(hw:[A-Za-z0-9:_,-]{1,24})\b/)?.[1];
+        if (hw) add("midi", hw, line.trim());
+      }
       for (const alias of ["/dev/serial0", "/dev/serial1", "/dev/ttyAMA0", "/dev/ttyS0"]) {
         const exists = await fs.access(alias).then(() => true).catch(() => false);
         if (exists) add("serial", alias, alias.includes("serial") ? `${alias} (Pi UART)` : alias);
@@ -348,6 +366,9 @@ async function sendLocal(driver: DriverSpec, device: DeviceInstance, payload: st
     const body = localArg(payload.replace(/\s+/g, " ").trim(), /^[A-Za-z0-9 .:_-]{1,80}$/);
     if (!body) return { ok: false, message: "CEC payload rejected" };
     return runToolStdin("cec-client", args, `${body}\n`, local?.timeoutMs ?? 4000);
+  }
+  if (kind === "midi") {
+    return sendUsbMidi({ port: path, payload, timeoutMs: local?.timeoutMs });
   }
   const spiDev = localArg(path || "/dev/spidev0.0", /^\/dev\/spidev\d+\.\d+$/);
   const spiData = localArg(payload, /^[0-9A-Fa-f]{2,128}$/);
@@ -548,16 +569,17 @@ function wsQueryFromDriver(driver: DriverSpec, device: DeviceInstance): Record<s
 async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: string, command?: DriverCommand): Promise<CommandResult> {
   const lan = driver.transports.lan;
   if (!lan) return { ok: false, message: "No LAN transport on this driver" };
+  const proto = String(lan.protocol || "");
+  if (!proto || /[/\\:]/.test(proto)) return { ok: false, message: "Unknown protocol" };
+  const known = new Set(["tcp", "udp", "http", "https", "websocket", "tls-websocket", "pjlink", "cast", "wol", "osc", "sacn", "ipmidi", "rtp-midi"]);
+  if (!known.has(proto)) return { ok: false, message: "Unknown protocol" };
   const host = device.host;
-  if (!allowedLanHost(host, { localOk: device.driver === "relay-host.json" || driver.device.type === "host" })) {
+  const skipUnicastHost = proto === "sacn" || (proto === "ipmidi" && lan.multicast !== false);
+  if (!skipUnicastHost && !allowedLanHost(host, { localOk: device.driver === "relay-host.json" || driver.device.type === "host" })) {
     return { ok: false, message: "Host not on room LAN" };
   }
   const port = device.port ?? lan.port;
   const timeout = lan.timeoutMs ?? 3000;
-  const proto = String(lan.protocol || "");
-  if (!proto || /[/\\:]/.test(proto)) return { ok: false, message: "Unknown protocol" };
-  const known = new Set(["tcp", "udp", "http", "https", "websocket", "tls-websocket", "pjlink", "cast", "wol"]);
-  if (!known.has(proto)) return { ok: false, message: "Unknown protocol" };
   const encoding = wireEncoding(driver, command);
   await paceDevice(device.id, driver.pacing?.minIntervalMs);
   pushTrace(device.id, "tx", `${command?.namespace ? command.namespace.split(".").pop() + " " : ""}${payload.slice(0, 160)}`);
@@ -608,13 +630,53 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
     }
   }
   else if (lan.protocol === "pjlink") result = await sendPjlink(host, port, payload, device.auth?.password || device.auth?.pin, timeout);
-  else if (lan.protocol === "udp") {
-    const dgram = await import("node:dgram");
-    result = await new Promise((resolve) => {
-      const sock = dgram.createSocket("udp4");
-      sock.send(wire, port, host, (err) => { sock.close(); resolve(err ? { ok: false, message: err.message } : { ok: true, message: "udp sent" }); });
+  else if (lan.protocol === "osc") {
+    const oscPort = Number(port || 9000);
+    const ctx = { host, port: oscPort, id: device.id };
+    const auth = device.auth || {};
+    result = await sendOscCommand({
+      host,
+      port: oscPort,
+      path: renderPayload(payload, undefined, auth, ctx),
+      types: command?.osc?.types,
+      values: (command?.osc?.values ?? []).map((v) => renderPayload(String(v ?? ""), undefined, auth, ctx)),
     });
-  } else if (lan.session && encoding !== "hex") {
+  }
+  else if (lan.protocol === "sacn") {
+    const auth = device.auth || {};
+    const ctx = { host, port: 5568, id: device.id };
+    const universe = Number(auth.universe || 1);
+    result = await sendSacnCommand({
+      universe,
+      slot: command?.sacn?.slot,
+      value: command?.sacn ? renderPayload(String(command.sacn.value ?? payload ?? "0"), undefined, auth, ctx) : undefined,
+      cidKey: device.id || host || "relay",
+    });
+  }
+  else if (lan.protocol === "ipmidi") {
+    const midiWire = encoding === "hex" ? wire : encodeWire(payload, "hex");
+    if ("error" in midiWire) return { ok: false, message: midiWire.error };
+    result = await sendIpmidi({
+      buf: midiWire,
+      multicast: lan.multicast !== false,
+      host,
+      port: Number(port || 21928),
+    });
+  }
+  else if (lan.protocol === "rtp-midi") {
+    const midiWire = encoding === "hex" ? wire : encodeWire(payload, "hex");
+    if ("error" in midiWire) return { ok: false, message: midiWire.error };
+    const controlPort = Number(port || 5004);
+    result = await sendRtpMidiCommand({
+      host,
+      controlPort,
+      dataPort: lan.rtpMidi?.dataPort ?? controlPort + 1,
+      midi: midiWire,
+      keepMs: lan.session?.keepMs ?? 60_000,
+      timeoutMs: timeout,
+    });
+  }
+  else if (lan.protocol === "udp") result = await sendUdp(host, Number(port), wire); else if (lan.session && encoding !== "hex") {
     result = await tcpSessionWrite(device.id, host, port, wire, lan.session, device.auth || {}, timeout);
   } else result = await tcpWrite(host, port, wire, timeout, encoding);
   pushTrace(device.id, result.ok ? "rx" : "note", result.message);
@@ -1081,6 +1143,11 @@ export async function readMonitorValue(opts: {
     const value = current === undefined || current === null ? "" : String(current);
     return { ok: true, value, message: value || "simulated" };
   }
+  if (fb.mode === "push" && !fb.query && !fb.httpPath) {
+    const current = slot[opts.feedbackId];
+    const value = current === undefined || current === null ? "" : String(current);
+    return { ok: true, value, message: value || "push" };
+  }
   const statusUrl = statusPlane(driver, device);
   if (statusUrl) {
     const url = statusUrl;
@@ -1317,7 +1384,12 @@ export async function executeCommand(opts: {
     if (!line) return { ok: false, message: `Set ${lineKey}` };
     payloadTemplate = tpl.replaceAll("{line}", line);
   }
-  const payload = renderPayload(payloadTemplate, value, wired.auth, ctx);
+  let payload = renderPayload(payloadTemplate, value, wired.auth, ctx);
+  if (command.mtcSend) {
+    const frames = command.mtcSend === "sysex" ? encodeMtcSysex(payload) : encodeMtcQf(payload);
+    if (!frames) return { ok: false, message: "MTC time HH:MM:SS:FF" };
+    payload = frames.toString("hex");
+  }
   const path = command.httpPath ? renderPayload(command.httpPath, value, wired.auth, ctx) : command.httpPath;
   const wiredCommand = path ? { ...command, httpPath: path } : command;
   if (command.wake?.protocol === "wol") {

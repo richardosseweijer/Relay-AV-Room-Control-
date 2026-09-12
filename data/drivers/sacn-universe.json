@@ -1,0 +1,71 @@
+{
+  "specVersion": "2.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "sACN Universe",
+    "type": "lights",
+    "notes": "E1.31 multicast 239.255.0.{universe}:5568 TTL 1. Set universe on the card (1–63999). Slot 1 is the first DMX address. Do not run sACN on office Wi-Fi."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "sacn",
+      "port": 5568,
+      "timeoutMs": 1000
+    }
+  },
+  "auth": {
+    "type": "none",
+    "instanceFields": [
+      "universe"
+    ]
+  },
+  "pacing": {
+    "minIntervalMs": 25
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": ""
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "power.on",
+      "label": "Lights On",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "255",
+      "sacn": {
+        "slot": 1,
+        "value": "255"
+      }
+    },
+    {
+      "id": "power.off",
+      "label": "Lights Off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "0",
+      "sacn": {
+        "slot": 1,
+        "value": "0"
+      }
+    },
+    {
+      "id": "level.set",
+      "label": "Level",
+      "kind": "range",
+      "min": 0,
+      "max": 255,
+      "step": 1,
+      "transport": "lan",
+      "payload": "{value}",
+      "sacn": {
+        "slot": 1,
+        "value": "{value}"
+      }
+    }
+  ],
+  "feedback": []
+}

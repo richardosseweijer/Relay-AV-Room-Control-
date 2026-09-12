@@ -1,5 +1,6 @@
 import { bundledDrivers, defaultDeviceState, emptyRoomConfig } from "./defaults";
 import { readMonitorValue, runMacro, traces, scrubSecret, socketStats } from "./engine";
+import { syncMidiWatchers } from "./midi-in";
 import type { DeviceHealth, DeviceStateMap, DriverSpec, LogEntry, Macro, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
 import { NONE_MACRO_ID, indexDriver, noneMacro } from "./types";
 import { applyMonitors, clampVar, resolveTemplate, seedVars, withMonitorVars, monitorVarId, type VarMap } from "./vars";
@@ -704,10 +705,12 @@ function startScheduler() {
   }
   if (!g.__relayMon__) {
     g.__relayMon__ = setInterval(() => {
+      syncMidiWatchers(memory());
       runDueMonitors().catch(() => undefined);
       runDueTriggers().catch(() => undefined);
     }, 500);
   }
+  syncMidiWatchers(memory());
 }
 
 let boot: Promise<Memory> | null = null;

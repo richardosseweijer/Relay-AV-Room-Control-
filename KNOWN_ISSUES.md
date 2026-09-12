@@ -26,8 +26,13 @@
 - Generic PC driver (`wake-on-lan.json`): Wake is WOL (MAC). Shutdown is Windows RPC (`net rpc shutdown` on Linux needs `samba-common-bin`) or HTTP GET to `auth.path`. WOL does not confirm the PC left S5.
 - Denon DN-500AV sources are BD / SAT/CBL / Game, not `HDMI1`. Map HDMI in the Denon menu. Volume is 00–98.
 - Pi header UART is 3.3 V TTL. Enable serial hardware, disable serial console, use `/dev/serial0`. RS-232 gear needs a level shifter or USB adapter.
-- GPIO / I2C / IR / CEC / SPI call host binaries (`gpioset`, `i2cset`, `irsend`, `cec-client`, `spidev_test`). Absent packages fail the command, not the room boot. Argv is allowlisted (chip, line, bus, address, scancode).
+- GPIO / I2C / IR / CEC / SPI / USB MIDI call host binaries (`gpioset`, `i2cset`, `irsend`, `cec-client`, `spidev_test`, `amidi`). Absent packages fail the command, not the room boot. Argv is allowlisted (chip, line, bus, address, scancode, `hw:` port).
 - Sonos UPnP is TCP 1400 on the player IPv4 (not a hostname). Use the group coordinator. Play with an empty queue returns SOAP 701.
+- sACN is multicast 239.255.0.x:5568 TTL 1. Put it on the lighting VLAN. Do not send it across office Wi-Fi.
+- USB MIDI is ALSA `amidi` on Linux. No WinMM. Bind a MIDI interface and set Path to `hw:1,0,0` (`amidi -l`). Status nibbles in hex payloads are channel 1.
+- ipMIDI is raw MIDI hex over UDP multicast 225.0.0.37:21928 TTL 1. Not MIDI-TCP (tcp+hex) and not Apple RTP-MIDI. Put it on the AV VLAN. Host on the card is unused unless `lan.multicast` is false.
+- RTP-MIDI is a unicast AppleMIDI session on 5004/5005. No Bonjour — type the desk IPv4. Idle drop (default 60s) sends BY. Session dies if the desk sleeps. Incoming MIDI on the data port is unwrapped after the session is up.
+- MTC needs all eight quarter-frames (`F1 0n`…`F1 7n`) before `mtc.time` is written. USB MIDI read is Linux (`amidi -d` or `/dev/snd/midiC*D*`). No Windows in. MIDI-TCP stays send-only.
 
 ## Config / engine
 

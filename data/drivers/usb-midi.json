@@ -1,0 +1,89 @@
+{
+  "specVersion": "2.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "USB MIDI",
+    "type": "mixer",
+    "notes": "ALSA amidi on Linux only. Add a MIDI interface and set Path to hw:1,0,0 (amidi -l). Status nibbles are channel 1 (90 / 80 / B0). {midiChannel} is decimal 1–16 for ASCII; do not stuff it into hex. No Windows / WinMM."
+  },
+  "transports": {
+    "local": {
+      "kind": "midi",
+      "path": "hw:1,0,0",
+      "timeoutMs": 1500
+    }
+  },
+  "auth": {
+    "type": "none",
+    "instanceFields": [
+      "midiChannel"
+    ]
+  },
+  "pacing": {
+    "minIntervalMs": 20
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "note.on",
+      "label": "Note On C4",
+      "kind": "range",
+      "min": 0,
+      "max": 127,
+      "step": 1,
+      "transport": "local",
+      "payload": "90 3C {value:hex2}"
+    },
+    {
+      "id": "note.off",
+      "label": "Note Off C4",
+      "kind": "action",
+      "transport": "local",
+      "payload": "80 3C 00"
+    },
+    {
+      "id": "level.set",
+      "label": "CC7 Volume",
+      "kind": "range",
+      "min": 0,
+      "max": 127,
+      "step": 1,
+      "transport": "local",
+      "payload": "B0 07 {value:hex2}"
+    },
+    {
+      "id": "mtc.set",
+      "label": "MTC locate",
+      "kind": "action",
+      "transport": "local",
+      "payload": "{value}",
+      "mtcSend": true
+    }
+  ],
+  "midiWatch": [
+    { "kind": "cc", "channel": 1, "controller": 7, "feedback": "level.value" },
+    { "kind": "mtc", "feedback": "mtc.time" }
+  ],
+  "feedback": [
+    {
+      "id": "level.value",
+      "label": "CC7",
+      "kind": "range",
+      "min": 0,
+      "max": 127,
+      "transport": "local",
+      "mode": "push",
+      "parse": { "type": "exact" }
+    },
+    {
+      "id": "mtc.time",
+      "label": "MTC",
+      "kind": "string",
+      "transport": "local",
+      "mode": "push",
+      "parse": { "type": "exact" }
+    }
+  ]
+}

@@ -30,6 +30,11 @@ If the manual is unclear, **omit that command** and mention it in `device.notes`
 | Browser WebSocket | `websocket` | `ascii` | `""` |
 | TLS WebSocket | `tls-websocket` | `ascii` | `""` |
 | Chromecast | `cast` | `ascii` | `""` |
+| OSC UDP | `osc` | binary OSC | n/a — payload is the path; `osc.types` / `osc.values` |
+| sACN / E1.31 | `sacn` | E1.31 multicast | n/a — `sacn.slot` 1–512, `auth.universe` |
+| USB MIDI (ALSA) | `local.kind` `midi` | hex bytes via `amidi` | n/a — Interface Path `hw:1,0,0` (`amidi -l`) |
+| ipMIDI / multicast MIDI | `ipmidi` | hex MIDI UDP | n/a — group 225.0.0.37:21928 TTL 1. Not MIDI-TCP. |
+| RTP-MIDI / AppleMIDI | `rtp-midi` | hex MIDI in RTP | n/a — control 5004, data 5005. Type the IP; no Bonjour. |
 
 One plane per driver. Example only: Allen & Heath SQ third-party control is MIDI-TCP **51325**, not MixPad 51326. Other desks use their own port.
 
@@ -245,6 +250,96 @@ List extras in `instanceFields` (`midiChannel`, `mac`, …). They appear on the 
 
 Empty `payload` (or omitted payload) is TCP connect only — the socket opening is success. The engine does not read a reply and does not look for `ok` or `open`. Put a payload + `success` needle only when the device must answer a short get. Pairing dialogs belong on Authenticate. `pollMs` ≥ 4000 if you poll a parameter.
 
+## Skeleton E — OSC UDP
+
+```json
+{
+  "specVersion": "2",
+  "device": { "manufacturer": "Brand", "model": "Desk", "type": "mixer", "notes": "OSC UDP 9000. Payload is the path." },
+  "transports": { "lan": { "protocol": "osc", "port": 9000, "timeoutMs": 2000 } },
+  "auth": { "type": "none" },
+  "pacing": { "minIntervalMs": 40 },
+  "probe": { "transport": "lan", "payload": "/ping" },
+  "commands": [
+    { "id": "ping", "label": "Ping", "kind": "action", "transport": "lan", "payload": "/ping" },
+    { "id": "level.set", "label": "Fader", "kind": "range", "min": 0, "max": 1, "step": 0.01, "transport": "lan", "payload": "/ch/1/mix/fader", "osc": { "types": "f", "values": ["{value}"] } }
+  ],
+  "feedback": []
+}
+```
+
+## Skeleton F — sACN / E1.31
+
+```json
+{
+  "specVersion": "2",
+  "device": { "manufacturer": "Generic", "model": "sACN Universe", "type": "lights", "notes": "E1.31 multicast 239.255.0.{universe}:5568 TTL 1. Set universe on the card. Not for office Wi-Fi." },
+  "transports": { "lan": { "protocol": "sacn", "port": 5568, "timeoutMs": 1000 } },
+  "auth": { "type": "none", "instanceFields": ["universe"] },
+  "pacing": { "minIntervalMs": 25 },
+  "commands": [
+    { "id": "power.on", "label": "Lights On", "kind": "action", "transport": "lan", "payload": "255", "sacn": { "slot": 1, "value": "255" } },
+    { "id": "power.off", "label": "Lights Off", "kind": "action", "transport": "lan", "payload": "0", "sacn": { "slot": 1, "value": "0" } },
+    { "id": "level.set", "label": "Level", "kind": "range", "min": 0, "max": 255, "step": 1, "transport": "lan", "payload": "{value}", "sacn": { "slot": 1, "value": "{value}" } }
+  ],
+  "feedback": []
+}
+```
+
+## Skeleton — USB MIDI (local)
+
+```json
+{
+  "specVersion": "2",
+  "device": { "manufacturer": "Generic", "model": "USB MIDI", "type": "mixer", "notes": "ALSA amidi. Path hw:1,0,0 (amidi -l). Channel 1 status nibbles. Linux only." },
+  "transports": { "local": { "kind": "midi", "path": "hw:1,0,0", "timeoutMs": 1500 } },
+  "auth": { "type": "none", "instanceFields": ["midiChannel"] },
+  "pacing": { "minIntervalMs": 20 },
+  "commands": [
+    { "id": "note.on", "label": "Note On C4", "kind": "range", "min": 0, "max": 127, "step": 1, "transport": "local", "payload": "90 3C {value:hex2}" },
+    { "id": "note.off", "label": "Note Off C4", "kind": "action", "transport": "local", "payload": "80 3C 00" },
+    { "id": "level.set", "label": "CC7 Volume", "kind": "range", "min": 0, "max": 127, "step": 1, "transport": "local", "payload": "B0 07 {value:hex2}" }
+  ],
+  "feedback": []
+}
+```
+
+## Skeleton — ipMIDI (multicast MIDI)
+
+```json
+{
+  "specVersion": "2",
+  "device": { "manufacturer": "Generic", "model": "ipMIDI", "type": "mixer", "notes": "UDP multicast 225.0.0.37:21928 TTL 1. Host unused unless lan.multicast is false." },
+  "transports": { "lan": { "protocol": "ipmidi", "port": 21928, "encoding": "hex", "timeoutMs": 1000 } },
+  "auth": { "type": "none", "instanceFields": ["midiChannel"] },
+  "pacing": { "minIntervalMs": 20 },
+  "commands": [
+    { "id": "note.on", "label": "Note On C4", "kind": "range", "min": 0, "max": 127, "step": 1, "transport": "lan", "payload": "90 3C {value:hex2}" },
+    { "id": "note.off", "label": "Note Off C4", "kind": "action", "transport": "lan", "payload": "80 3C 00" },
+    { "id": "level.set", "label": "CC7 Volume", "kind": "range", "min": 0, "max": 127, "step": 1, "transport": "lan", "payload": "B0 07 {value:hex2}" }
+  ],
+  "feedback": []
+}
+```
+
+## Skeleton G — RTP-MIDI (AppleMIDI)
+
+```json
+{
+  "specVersion": "2",
+  "device": { "manufacturer": "Generic", "model": "RTP-MIDI", "type": "mixer", "notes": "AppleMIDI 5004/5005. Type the desk IPv4. Enable Network MIDI. No Bonjour." },
+  "transports": { "lan": { "protocol": "rtp-midi", "port": 5004, "encoding": "hex", "timeoutMs": 2000, "session": { "keepMs": 60000 } } },
+  "auth": { "type": "none", "instanceFields": ["midiChannel"] },
+  "pacing": { "minIntervalMs": 20 },
+  "commands": [
+    { "id": "note.on", "label": "Note On C4", "kind": "range", "min": 0, "max": 127, "step": 1, "transport": "lan", "payload": "90 3C {value:hex2}" },
+    { "id": "note.off", "label": "Note Off C4", "kind": "action", "transport": "lan", "payload": "80 3C 00" },
+    { "id": "level.set", "label": "CC7 Volume", "kind": "range", "min": 0, "max": 127, "step": 1, "transport": "lan", "payload": "B0 07 {value:hex2}" }
+  ],
+  "feedback": []
+}
+```
+
 ## Do not
 
 - Invent parse types (`midi`, `nrpn`, `sysex`) or engine keys
@@ -254,6 +349,19 @@ Empty `payload` (or omitted payload) is TCP connect only — the socket opening 
 - Use MixPad / vendor-app framing because a sniffer saw it
 - Claim live MIDI feedback unless you can parse a poll with the types above — if not, omit it and say so in `device.notes`
 - Put host UI (dim, lock, toast) in a device driver
+
+## MIDI in / MTC
+
+`midiWatch` on the driver (not a parse type) writes existing feedback ids. Monitors already watch that state.
+
+| `kind` | match | value written |
+|---|---|---|
+| `cc` | optional `channel` 1–16, `controller` 0–127 | decimal 0–127 |
+| `note` / `noteOff` / `pc` | optional `channel` | note or program number |
+| `clock` / `start` / `stop` / `cont` | realtime | tick count or 1/0 |
+| `mtc` | eight quarter-frames or SysEx full frame | `HH:MM:SS:FF` |
+
+Command `mtcSend: true` (or `"sysex"`) encodes `{value}` as `HH:MM:SS:FF` on the existing send path. Relay is not a master clock.
 
 ## Quality bar
 

@@ -1856,4 +1856,428 @@ export const extraDrivers: Record<string, DriverSpec> = {
     }
   ]
 } as unknown as DriverSpec,
+  "osc-udp.json": {
+  "specVersion": "2.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "OSC UDP",
+    "type": "mixer",
+    "notes": "OSC over UDP. Host is the receiver. Port default 9000. Command payload is the OSC path. Optional osc.types (s/i/f/b) and osc.values with {value}/{auth.*}."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "osc",
+      "port": 9000,
+      "timeoutMs": 2000
+    }
+  },
+  "auth": {
+    "type": "none"
+  },
+  "pacing": {
+    "minIntervalMs": 40
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": "/ping"
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "ping",
+      "label": "Ping",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "/ping"
+    },
+    {
+      "id": "level.set",
+      "label": "Fader",
+      "kind": "range",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "transport": "lan",
+      "payload": "/ch/1/mix/fader",
+      "osc": {
+        "types": "f",
+        "values": [
+          "{value}"
+        ]
+      }
+    },
+    {
+      "id": "mute.on",
+      "label": "Mute on",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "/ch/1/mix/on",
+      "osc": {
+        "types": "i",
+        "values": [
+          "1"
+        ]
+      }
+    },
+    {
+      "id": "mute.off",
+      "label": "Mute off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "/ch/1/mix/on",
+      "osc": {
+        "types": "i",
+        "values": [
+          "0"
+        ]
+      }
+    }
+  ],
+  "feedback": []
+} as unknown as DriverSpec,
+  "sacn-universe.json": {
+  "specVersion": "2.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "sACN Universe",
+    "type": "lights",
+    "notes": "E1.31 multicast 239.255.0.{universe}:5568 TTL 1. Set universe on the card (1\u201363999). Slot 1 is the first DMX address. Do not run sACN on office Wi-Fi."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "sacn",
+      "port": 5568,
+      "timeoutMs": 1000
+    }
+  },
+  "auth": {
+    "type": "none",
+    "instanceFields": [
+      "universe"
+    ]
+  },
+  "pacing": {
+    "minIntervalMs": 25
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": ""
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "power.on",
+      "label": "Lights On",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "255",
+      "sacn": {
+        "slot": 1,
+        "value": "255"
+      }
+    },
+    {
+      "id": "power.off",
+      "label": "Lights Off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "0",
+      "sacn": {
+        "slot": 1,
+        "value": "0"
+      }
+    },
+    {
+      "id": "level.set",
+      "label": "Level",
+      "kind": "range",
+      "min": 0,
+      "max": 255,
+      "step": 1,
+      "transport": "lan",
+      "payload": "{value}",
+      "sacn": {
+        "slot": 1,
+        "value": "{value}"
+      }
+    }
+  ],
+  "feedback": []
+} as unknown as DriverSpec,
+  "usb-midi.json": {
+  "specVersion": "2.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "USB MIDI",
+    "type": "mixer",
+    "notes": "ALSA amidi on Linux only. Add a MIDI interface and set Path to hw:1,0,0 (amidi -l). Status nibbles are channel 1 (90 / 80 / B0). {midiChannel} is decimal 1\u201316 for ASCII; do not stuff it into hex. No Windows / WinMM."
+  },
+  "transports": {
+    "local": {
+      "kind": "midi",
+      "path": "hw:1,0,0",
+      "timeoutMs": 1500
+    }
+  },
+  "auth": {
+    "type": "none",
+    "instanceFields": [
+      "midiChannel"
+    ]
+  },
+  "pacing": {
+    "minIntervalMs": 20
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "note.on",
+      "label": "Note On C4",
+      "kind": "range",
+      "min": 0,
+      "max": 127,
+      "step": 1,
+      "transport": "local",
+      "payload": "90 3C {value:hex2}"
+    },
+    {
+      "id": "note.off",
+      "label": "Note Off C4",
+      "kind": "action",
+      "transport": "local",
+      "payload": "80 3C 00"
+    },
+    {
+      "id": "level.set",
+      "label": "CC7 Volume",
+      "kind": "range",
+      "min": 0,
+      "max": 127,
+      "step": 1,
+      "transport": "local",
+      "payload": "B0 07 {value:hex2}"
+    },
+    {
+      "id": "mtc.set",
+      "label": "MTC locate",
+      "kind": "action",
+      "transport": "local",
+      "payload": "{value}",
+      "mtcSend": true
+    }
+  ],
+  "midiWatch": [
+    { "kind": "cc", "channel": 1, "controller": 7, "feedback": "level.value" },
+    { "kind": "mtc", "feedback": "mtc.time" }
+  ],
+  "feedback": [
+    {
+      "id": "level.value",
+      "label": "CC7",
+      "kind": "range",
+      "min": 0,
+      "max": 127,
+      "transport": "local",
+      "mode": "push",
+      "parse": { "type": "exact" }
+    },
+    {
+      "id": "mtc.time",
+      "label": "MTC",
+      "kind": "string",
+      "transport": "local",
+      "mode": "push",
+      "parse": { "type": "exact" }
+    }
+  ]
+} as unknown as DriverSpec,
+  "ipmidi.json": {
+  "specVersion": "2.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "ipMIDI",
+    "type": "mixer",
+    "notes": "Raw MIDI bytes over UDP multicast 225.0.0.37:21928 TTL 1 (ipMIDI-style). Host on the card is unused unless lan.multicast is false. Status nibbles are channel 1 (90 / 80 / B0). Not MIDI-TCP and not Apple RTP-MIDI."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "ipmidi",
+      "port": 21928,
+      "encoding": "hex",
+      "timeoutMs": 1000
+    }
+  },
+  "auth": {
+    "type": "none",
+    "instanceFields": [
+      "midiChannel"
+    ]
+  },
+  "pacing": {
+    "minIntervalMs": 20
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "note.on",
+      "label": "Note On C4",
+      "kind": "range",
+      "min": 0,
+      "max": 127,
+      "step": 1,
+      "transport": "lan",
+      "payload": "90 3C {value:hex2}"
+    },
+    {
+      "id": "note.off",
+      "label": "Note Off C4",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "80 3C 00"
+    },
+    {
+      "id": "level.set",
+      "label": "CC7 Volume",
+      "kind": "range",
+      "min": 0,
+      "max": 127,
+      "step": 1,
+      "transport": "lan",
+      "payload": "B0 07 {value:hex2}"
+    },
+    {
+      "id": "mtc.set",
+      "label": "MTC locate",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{value}",
+      "mtcSend": true
+    }
+  ],
+  "midiWatch": [
+    { "kind": "cc", "channel": 1, "controller": 7, "feedback": "level.value" },
+    { "kind": "mtc", "feedback": "mtc.time" }
+  ],
+  "feedback": [
+    {
+      "id": "level.value",
+      "label": "CC7",
+      "kind": "range",
+      "min": 0,
+      "max": 127,
+      "transport": "lan",
+      "mode": "push",
+      "parse": { "type": "exact" }
+    },
+    {
+      "id": "mtc.time",
+      "label": "MTC",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "push",
+      "parse": { "type": "exact" }
+    }
+  ]
+} as unknown as DriverSpec,
+  "rtp-midi.json": {
+  "specVersion": "2.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "RTP-MIDI",
+    "type": "mixer",
+    "notes": "AppleMIDI session on the card IP, control port 5004, data port 5005. Enable Network MIDI on the desk and type the IPv4 \u2014 no Bonjour. Hex MIDI, channel-1 status nibbles. Not MIDI-TCP and not ipMIDI multicast. Session dies if the desk sleeps."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "rtp-midi",
+      "port": 5004,
+      "encoding": "hex",
+      "timeoutMs": 2000,
+      "session": {
+        "keepMs": 60000
+      }
+    }
+  },
+  "auth": {
+    "type": "none",
+    "instanceFields": [
+      "midiChannel"
+    ]
+  },
+  "pacing": {
+    "minIntervalMs": 20
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "note.on",
+      "label": "Note On C4",
+      "kind": "range",
+      "min": 0,
+      "max": 127,
+      "step": 1,
+      "transport": "lan",
+      "payload": "90 3C {value:hex2}"
+    },
+    {
+      "id": "note.off",
+      "label": "Note Off C4",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "80 3C 00"
+    },
+    {
+      "id": "level.set",
+      "label": "CC7 Volume",
+      "kind": "range",
+      "min": 0,
+      "max": 127,
+      "step": 1,
+      "transport": "lan",
+      "payload": "B0 07 {value:hex2}"
+    },
+    {
+      "id": "mtc.set",
+      "label": "MTC locate",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "{value}",
+      "mtcSend": true
+    }
+  ],
+  "midiWatch": [
+    { "kind": "cc", "channel": 1, "controller": 7, "feedback": "level.value" },
+    { "kind": "mtc", "feedback": "mtc.time" }
+  ],
+  "feedback": [
+    {
+      "id": "level.value",
+      "label": "CC7",
+      "kind": "range",
+      "min": 0,
+      "max": 127,
+      "transport": "lan",
+      "mode": "push",
+      "parse": { "type": "exact" }
+    },
+    {
+      "id": "mtc.time",
+      "label": "MTC",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "push",
+      "parse": { "type": "exact" }
+    }
+  ]
+} as unknown as DriverSpec,
 };

@@ -1,8 +1,15 @@
 export type TransportName = "lan" | "rs232" | "local";
-export type LocalKind = "gpio" | "serial" | "i2c" | "spi" | "ir" | "cec";
+export type LocalKind = "gpio" | "serial" | "i2c" | "spi" | "ir" | "cec" | "midi";
 export type InterfaceKind = LocalKind | "gateway";
 export type CommandKind = "action" | "toggle" | "range" | "enum";
 export type ParseType = "regex" | "jsonpath" | "contains" | "exact" | "map";
+export type MidiWatchKind = "cc" | "note" | "noteOff" | "pc" | "clock" | "start" | "stop" | "cont" | "mtc";
+export type MidiWatch = {
+  kind: MidiWatchKind;
+  channel?: number;
+  controller?: number;
+  feedback: string;
+};
 export type FeedbackKind = "enum" | "range" | "toggle" | "string" | "text";
 export type FeedbackMode = "poll" | "push";
 export type ChecksumKind = "none" | "sum8" | "xor8" | "pjlink";
@@ -35,7 +42,7 @@ export type DriverPairing = {
   steps?: PairingStep[];
 };
 export type AuthType = "none" | "password" | "token" | "header" | "pin" | "userpass" | "pair";
-export type LanProtocol = "tcp" | "udp" | "http" | "https" | "websocket" | "tls-websocket" | "pjlink" | "cast" | "wol";
+export type LanProtocol = "tcp" | "udp" | "http" | "https" | "websocket" | "tls-websocket" | "pjlink" | "cast" | "wol" | "osc" | "sacn" | "ipmidi" | "rtp-midi";
 
 export type MatchRule = {
   type: ParseType;
@@ -62,6 +69,8 @@ export type DriverSpec = {
       payloadEncoding?: "ascii" | "hex";
       lineEnding?: string;
       timeoutMs?: number;
+      multicast?: boolean;
+      rtpMidi?: { dataPort?: number };
       path?: string;
       query?: Record<string, string>;
       handshake?: { waitContains?: string; delayMs?: number };
@@ -125,6 +134,7 @@ export type DriverSpec = {
   inventory?: { resources: InventoryResource[] };
   commands: DriverCommand[];
   feedback: DriverFeedback[];
+  midiWatch?: MidiWatch[];
   status?: {
     protocol: "http" | "https";
     port: number;
@@ -188,6 +198,9 @@ export type DriverCommand = {
   wake?: { protocol: "wol" };
   waitContains?: string;
   alsoSend?: string[];
+  osc?: { types?: string; values?: string[] };
+  sacn?: { slot?: number; value?: string };
+  mtcSend?: true | "sysex";
   ack?: { success?: MatchRule; nak?: MatchRule };
 };
 

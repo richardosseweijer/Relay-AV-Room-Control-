@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.8.3.3** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.8.3.4** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -115,13 +115,13 @@ All wire formats that drivers may use are implemented in `engine.ts`. A driver m
 
 ### 5.1 LAN protocols
 
-`tcp`, `udp`, `http`, `https`, `websocket`, `tls-websocket`, `pjlink`, `cast`, `wol`.
+`tcp`, `udp`, `http`, `https`, `websocket`, `tls-websocket`, `pjlink`, `cast`, `wol`, `osc`, `sacn`, `ipmidi`, `rtp-midi`.
 
-HTTP and HTTPS use the command’s method, path, headers, and body. `httpMethod` `RPC` runs Windows remote shutdown (`shutdown /s /m` on Windows, `net rpc shutdown` on Linux). WebSocket and TLS WebSocket open a short-lived socket, send the payload, and wait for a matching reply or timeout. Cast keeps a TLS session: receiver GET_STATUS, CONNECT to the app transport, media GET_STATUS, then PLAY/PAUSE/STOP with the live `mediaSessionId`. PJLink uses the documented projector login banner and `%1POWR` class commands. Wake-on-LAN sends a magic packet to the configured MAC (ports 7 and 9); it does not confirm the target left standby. Empty WOL commands do not follow with HTTP.
+HTTP and HTTPS use the command’s method, path, headers, and body. `httpMethod` `RPC` runs Windows remote shutdown (`shutdown /s /m` on Windows, `net rpc shutdown` on Linux). WebSocket and TLS WebSocket open a short-lived socket, send the payload, and wait for a matching reply or timeout. Cast keeps a TLS session: receiver GET_STATUS, CONNECT to the app transport, media GET_STATUS, then PLAY/PAUSE/STOP with the live `mediaSessionId`. PJLink uses the documented projector login banner and `%1POWR` class commands. Wake-on-LAN sends a magic packet to the configured MAC (ports 7 and 9); it does not confirm the target left standby. Empty WOL commands do not follow with HTTP. OSC encodes the payload as a UDP path plus optional `osc.types` / `osc.values`. sACN is E1.31 multicast `239.255.0.{universe}:5568` TTL 1. ipMIDI is raw MIDI hex on UDP multicast `225.0.0.37:21928` TTL 1. RTP-MIDI is a unicast AppleMIDI session (control 5004, data 5005); no Bonjour.
 
 ### 5.2 Local protocols
 
-Serial, GPIO, I2C, SPI, IR, and CEC are dispatched to host binaries (`gpioset`, `i2cset`, `cec-client`, `irsend`, and similar) or to a serial path selected on the device card. These paths exist only on the machine that has the hardware.
+Serial, GPIO, I2C, SPI, IR, CEC, and USB MIDI are dispatched to host binaries (`gpioset`, `i2cset`, `cec-client`, `irsend`, `amidi`, and similar) or to a serial path selected on the device card. These paths exist only on the machine that has the hardware.
 
 ### 5.3 Encoding and substitution
 

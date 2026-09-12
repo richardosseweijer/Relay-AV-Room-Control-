@@ -90,6 +90,7 @@ export function InterfacesTab(props: {
                   <option value="spi">SPI</option>
                   <option value="ir">IR blaster</option>
                   <option value="cec">HDMI CEC</option>
+                  <option value="midi">USB MIDI</option>
                   <option value="gateway">Gateway (IPL / I/O box)</option>
                 </select>
                 </label>
@@ -155,16 +156,16 @@ export function InterfacesTab(props: {
                     </div>
                   </>
                 ) : null}
-                {iface.kind === "serial" || iface.kind === "spi" || iface.kind === "ir" ? (
+                {iface.kind === "serial" || iface.kind === "spi" || iface.kind === "ir" || iface.kind === "cec" || iface.kind === "midi" ? (
                   <>
-                  <label className="grid gap-1 text-sm text-muted">{iface.kind === "serial" ? "Port" : iface.kind === "spi" ? "SPI device" : "IR device"}
+                  <label className="grid gap-1 text-sm text-muted">{iface.kind === "serial" ? "Port" : iface.kind === "spi" ? "SPI device" : iface.kind === "midi" ? "MIDI port" : iface.kind === "cec" ? "CEC device" : "IR device"}
                     <select className={fieldClass()} value={paths.some((p) => p.path === iface.path) ? (iface.path ?? "") : ""} onChange={(e) => update((c) => { c.interfaces![ii]!.path = e.target.value; })}>
                       <option value="">{paths.length ? "Select…" : "None found"}</option>
                       {paths.map((p) => <option key={`${p.kind}-${p.path}`} value={p.path}>{p.label}</option>)}
                     </select>
                   </label>
                   <label className="grid gap-1 text-sm text-muted">Path
-                    <input className={fieldClass()} placeholder="/dev/serial0 or COM3" value={iface.path ?? ""} onChange={(e) => update((c) => { c.interfaces![ii]!.path = e.target.value; })} />
+                    <input className={fieldClass()} placeholder={iface.kind === "midi" ? "hw:1,0,0" : "/dev/serial0 or COM3"} value={iface.path ?? ""} onChange={(e) => update((c) => { c.interfaces![ii]!.path = e.target.value; })} />
                   </label>
                   </>
                 ) : null}

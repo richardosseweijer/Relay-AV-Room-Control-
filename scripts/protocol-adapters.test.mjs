@@ -16,13 +16,17 @@ test("shipped drivers keep distinct LAN protocols", () => {
   assert.ok(got.http?.includes("philips-hue-bridge.json"));
   assert.ok(got.tcp?.includes("sony-vpl-fhz120l.json"));
   assert.ok(got.cast?.includes("google-chromecast.json"));
+  assert.ok(got.osc?.includes("osc-udp.json"));
+  assert.ok(got.sacn?.includes("sacn-universe.json"));
+  assert.ok(got.ipmidi?.includes("ipmidi.json"));
+  assert.ok(got["rtp-midi"]?.includes("rtp-midi.json"));
   assert.ok(got.pjlink?.includes("pjlink-projector.json"));
   assert.equal(got.cast?.includes("samsung-qe50q65t.json") || false, false);
 });
 
 test("engine sendLan still names http cast pjlink wol tcp websocket", () => {
   const src = fs.readFileSync("src/lib/control/engine.ts", "utf8");
-  for (const needle of ['lan.protocol === "cast"', 'lan.protocol === "pjlink"', 'lan.protocol === "wol"', "tls-websocket", 'lan.protocol === "http"']) {
+  for (const needle of ['lan.protocol === "cast"', 'lan.protocol === "pjlink"', 'lan.protocol === "wol"', "tls-websocket", 'lan.protocol === "http"', 'lan.protocol === "osc"', 'lan.protocol === "sacn"', 'lan.protocol === "ipmidi"', 'lan.protocol === "rtp-midi"']) {
     assert.ok(src.includes(needle), needle);
   }
   assert.equal(src.includes("sendSamsungKey"), false);
@@ -31,6 +35,27 @@ test("engine sendLan still names http cast pjlink wol tcp websocket", () => {
   assert.equal(src.includes("ms.channel.connect"), false);
   assert.ok(src.includes("Unknown protocol"));
 });
+
+test("usb-midi is local.kind midi and engine calls sendUsbMidi", () => {
+  const spec = JSON.parse(fs.readFileSync("data/drivers/usb-midi.json", "utf8"));
+  assert.equal(spec.transports.local.kind, "midi");
+  const src = fs.readFileSync("src/lib/control/engine.ts", "utf8");
+  assert.ok(src.includes('kind === "midi"'));
+  assert.ok(src.includes("sendUsbMidi"));
+  assert.equal(src.includes("node-midi"), false);
+});
+
+test("midiWatch is JSON matchers; no parse type midi", () => {
+  const usb = JSON.parse(fs.readFileSync("data/drivers/usb-midi.json", "utf8"));
+  assert.ok(usb.midiWatch.some((w) => w.kind === "cc" && w.feedback === "level.value"));
+  assert.ok(usb.midiWatch.some((w) => w.kind === "mtc"));
+  const types = fs.readFileSync("src/lib/control/types.ts", "utf8");
+  assert.ok(types.includes("midiWatch"));
+  assert.match(types, /export type ParseType = "regex" \| "jsonpath" \| "contains" \| "exact" \| "map"/);
+  const engine = fs.readFileSync("src/lib/control/engine.ts", "utf8");
+  assert.ok(engine.includes("mtcSend"));
+});
+
 
 test("statusPlane uses only driver.status; Sonos poll stays on sendLan", () => {
   const src = fs.readFileSync("src/lib/control/engine.ts", "utf8");

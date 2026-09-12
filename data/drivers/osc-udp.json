@@ -1,0 +1,81 @@
+{
+  "specVersion": "2.0",
+  "device": {
+    "manufacturer": "Generic",
+    "model": "OSC UDP",
+    "type": "mixer",
+    "notes": "OSC over UDP. Host is the receiver. Port default 9000. Command payload is the OSC path. Optional osc.types (s/i/f/b) and osc.values with {value}/{auth.*}."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "osc",
+      "port": 9000,
+      "timeoutMs": 2000
+    }
+  },
+  "auth": {
+    "type": "none"
+  },
+  "pacing": {
+    "minIntervalMs": 40
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": "/ping"
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "ping",
+      "label": "Ping",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "/ping"
+    },
+    {
+      "id": "level.set",
+      "label": "Fader",
+      "kind": "range",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "transport": "lan",
+      "payload": "/ch/1/mix/fader",
+      "osc": {
+        "types": "f",
+        "values": [
+          "{value}"
+        ]
+      }
+    },
+    {
+      "id": "mute.on",
+      "label": "Mute on",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "/ch/1/mix/on",
+      "osc": {
+        "types": "i",
+        "values": [
+          "1"
+        ]
+      }
+    },
+    {
+      "id": "mute.off",
+      "label": "Mute off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "/ch/1/mix/on",
+      "osc": {
+        "types": "i",
+        "values": [
+          "0"
+        ]
+      }
+    }
+  ],
+  "feedback": []
+}
