@@ -37,7 +37,7 @@ They are easy to confuse. They are not the same control.
 
 HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex characters. Replay cache stores the digest for 90s. Peers may run only macros listed on Security. Host commands are rejected. The peer secret is not a PIN.
 
-Foyer (optional) talks to Relay `GET /api/peer` on loopback with the same HMAC. Empty peer secret is deny. Foyer occupancy this pass maps `vars[].value` when `vars[].name` equals the Foyer room name.
+Foyer (optional) talks to Relay `GET /api/peer` on loopback with the same HMAC. Empty peer secret is deny. Foyer uses `occupancy` (`available` | `in-session` | `busy` | `do-not-disturb` | `closed`). Room names do not need to match.
 
 ## Secrets on disk
 

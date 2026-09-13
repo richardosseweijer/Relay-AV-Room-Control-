@@ -12,6 +12,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
 import { isSecretKey } from "./secrets";
+import { withOccupancyVar, occupancyOf, OCCUPANCY_VAR_ID } from "./peer-payload";
 import { resolveRoomTheme } from "@/lib/theme";
 
 const FILE_STORE = path.join(process.cwd(), "data", "relay-room.json");
@@ -173,7 +174,7 @@ function liftTag<T extends { tag?: string | null }>(item: T): T {
 export function normalize(config?: RoomConfig | null): RoomConfig {
   const demo = emptyRoomConfig();
   if (!config) return demo;
-  return withMonitorVars({
+  return withOccupancyVar(withMonitorVars({
     ...demo,
     ...config,
     room: {
@@ -213,7 +214,7 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
     interfaces: config.interfaces ?? [],
     tags: config.tags ?? (config as { folders?: RoomConfig["tags"] }).folders ?? {},
     macros: [noneMacro(), ...(config.macros ?? demo.macros).filter((m) => m.id !== NONE_MACRO_ID)].map(liftTag),
-  });
+  }));
 }
 
 function emptyMemory(): Memory {
@@ -283,6 +284,7 @@ export async function loadPersisted(): Promise<Memory> {
       }
       mem.state = saved.state ?? defaultDeviceState();
       mem.vars = seedVars(mem.config, saved.vars);
+      mem.vars[OCCUPANCY_VAR_ID] = occupancyOf(mem.config.room);
       mem.latches = saved.latches ?? {};
       mem.sessions = fromDisk.sessions ?? {};
       const nextSessions: Memory["sessions"] = {};
@@ -423,6 +425,7 @@ export function snapshot(): RoomSnapshot {
   mem.drivers = mem.drivers ?? {};
   mem.library = mem.library ?? {};
   mem.vars = seedVars(mem.config, mem.vars);
+  mem.vars[OCCUPANCY_VAR_ID] = occupancyOf(mem.config.room);
   return {
     config: mem.config,
     drivers: mem.drivers,

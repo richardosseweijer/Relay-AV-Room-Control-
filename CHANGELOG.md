@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.3 — 2026-09-13
+
+- Tag `v0.9.3`.
+- Occupancy is first-class (`room.occupancy`) plus a baked list var `occupancy` (`available` / `in-session` / `busy` / `do-not-disturb` / `closed`). Foyer HMAC GET `/api/peer` reads `occupancy` only. Room names do not need to match. No occupancy-variable picker. Foyer is not a Relay device this pass.
+
 ## 0.9.2 — 2026-09-13
 
 - Tag `v0.9.2`.
@@ -10,14 +15,14 @@ Format: date, then bullets. Older work lives in `git log`.
 ## 0.9.1 — 2026-09-13
 
 - Tag `v0.9.1`.
-- Room tab: **Networks** and **Occupancy / Foyer** cards. Refresh NICs, Match room name, Save all writes occupancy into the bound variable. Peer-secret help names Foyer on loopback.
+- Room tab: **Networks** and **Occupancy / Foyer** cards. Refresh NICs. Peer-secret help names Foyer on loopback.
 
 ## 0.9.0 — 2026-09-13
 
 - Tag `v0.9.0`. Versions are three-part from here (`major.minor.patch`). No fourth ticker.
 - Room tab: **AV-LAN** and **LAN (internet)** NIC pickers (Foyer `f6abb8e` list: Node A–Z, 0-based, em dash). Same NIC allowed.
 - Device sockets bind AV-LAN `localAddress`. GitHub update refuses if the outbound NIC has no IPv4.
-- Occupancy (`available` / `in-session` / `busy` / `closed`) plus host `occupancy.*`. `GET /api/peer` emits `v:1`, `room:{id,name}`, `occupancy`, and vars. Foyer this pass still maps a Relay variable **label** to the Foyer room name.
+- Occupancy (`available` / `in-session` / `busy` / `closed`) plus host `occupancy.*`. `GET /api/peer` emits `v:1`, `room:{id,name}`, `occupancy`, and vars.
 - Foyer is optional. No Foyer poller. HMAC stays loopback.
 
 ## 0.8.3.5 — 2026-09-13

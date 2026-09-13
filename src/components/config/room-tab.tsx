@@ -12,6 +12,7 @@ const OCCUPANCY: { id: Occupancy; label: string }[] = [
   { id: "available", label: "Available" },
   { id: "in-session", label: "In session" },
   { id: "busy", label: "Busy" },
+  { id: "do-not-disturb", label: "Do not disturb" },
   { id: "closed", label: "Closed" },
 ];
 
@@ -89,35 +90,6 @@ export function RoomTab(props: {
       else { c.room.outboundNicIndex = nic.index < 0 ? null : nic.index; c.room.outboundNicName = nic.name; }
     });
   };
-  const matchFoyerVar = () => {
-    const label = draft.room.name.trim();
-    if (!label) {
-      flash("Room name needed", "Set the room name first. Foyer matches that label.");
-      return;
-    }
-    update((c) => {
-      const hit = c.variables.find((item) => item.label === label) ?? c.variables.find((item) => item.id === c.room.occupancyVarId);
-      if (hit) {
-        hit.label = label;
-        if (hit.kind === "enum") hit.values = ["available", "in-session", "busy", "closed"];
-        c.room.occupancyVarId = hit.id;
-        return;
-      }
-      const id = `occ-${c.room.id || "room"}`;
-      const taken = c.variables.some((item) => item.id === id);
-      const nextId = taken ? `occ-${Date.now().toString(36)}` : id;
-      c.variables.push({
-        id: nextId,
-        label,
-        kind: "enum",
-        values: ["available", "in-session", "busy", "closed"],
-        default: c.room.occupancy && c.room.occupancy !== "do-not-disturb" ? c.room.occupancy : "available",
-        tag: null,
-      });
-      c.room.occupancyVarId = nextId;
-    });
-    flash("Occupancy variable ready", "Save all. Foyer matches this variable’s label to the Foyer room name.");
-  };
   return (
     <section className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1 text-sm text-muted">Room name<input className={fieldClass()} value={draft.room.name} onChange={(e) => update((c) => { c.room.name = e.target.value; })} /></label>
@@ -167,21 +139,12 @@ export function RoomTab(props: {
 
             <article className="sm:col-span-2 grid gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2">
               <p className="sm:col-span-2 text-[11px] uppercase tracking-[0.2em] text-subtle">Occupancy / Foyer</p>
-              <p className="sm:col-span-2 text-xs text-muted">Optional. Skip this card if Foyer is not installed. Foyer this pass reads a Relay variable whose <span className="text-fg">label equals the Foyer room name</span>. HMAC is Security → This room’s peer secret (loopback, not a PIN).</p>
-              <label className="grid gap-1 text-sm text-muted">Occupancy
+              <p className="sm:col-span-2 text-xs text-muted">Foyer on this PC reads occupancy. Room names do not need to match.</p>
+              <label className="grid gap-1 text-sm text-muted sm:col-span-2">Occupancy
                 <select className={fieldClass()} value={draft.room.occupancy ?? "available"} onChange={(e) => update((c) => { c.room.occupancy = e.target.value as Occupancy; })}>
                   {OCCUPANCY.map((row) => <option key={row.id} value={row.id}>{row.label}</option>)}
                 </select>
-                <span className="text-xs">Save all writes this to the occupancy variable (not DND).</span>
               </label>
-              <label className="grid gap-1 text-sm text-muted">Occupancy variable
-                <select className={fieldClass()} value={draft.room.occupancyVarId ?? ""} onChange={(e) => update((c) => { c.room.occupancyVarId = e.target.value || null; })}>
-                  <option value="">None</option>
-                  {draft.variables.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                </select>
-                <Button type="button" size="sm" variant="secondary" className="mt-1 w-fit" onClick={matchFoyerVar}>Match room name</Button>
-              </label>
-              <p className="sm:col-span-2 text-xs text-muted">Foyer has no peer yet</p>
             </article>
 
             <div className="sm:col-span-2 flex flex-wrap gap-2">

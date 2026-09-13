@@ -1,5 +1,6 @@
 import type { Occupancy, RoomConfig, RoomVariable } from "./types";
 
+export const OCCUPANCY_VAR_ID = "occupancy";
 export const OCCUPANCY_VALUES: Occupancy[] = ["available", "in-session", "busy", "do-not-disturb", "closed"];
 
 const VAR_ALIASES: Record<string, Occupancy> = {
@@ -17,25 +18,42 @@ const VAR_ALIASES: Record<string, Occupancy> = {
   busy: "busy",
   closed: "closed",
   off: "closed",
+  "do-not-disturb": "do-not-disturb",
+  dnd: "do-not-disturb",
 };
 
 export function occupancyFromVarValue(raw: string | number | boolean | undefined): Occupancy | null {
   const key = String(raw ?? "").trim().toLowerCase();
   if (!key) return null;
+  if (OCCUPANCY_VALUES.includes(key as Occupancy)) return key as Occupancy;
   return VAR_ALIASES[key] ?? null;
 }
 
-export function occupancyOf(room: RoomConfig["room"], variables: RoomVariable[], vars: Record<string, string | number | boolean>): Occupancy {
-  const field = room.occupancy;
-  if (field && OCCUPANCY_VALUES.includes(field)) return field;
-  const named = room.occupancyVarId
-    ? variables.find((item) => item.id === room.occupancyVarId)
-    : variables.find((item) => item.id === "occupancy" || item.label.toLowerCase() === "occupancy");
-  if (named) {
-    const mapped = occupancyFromVarValue(vars[named.id] ?? named.default);
-    if (mapped) return mapped;
+export function occupancyVarSpec(): RoomVariable {
+  return {
+    id: OCCUPANCY_VAR_ID,
+    label: "Occupancy",
+    kind: "enum",
+    values: [...OCCUPANCY_VALUES],
+    default: "available",
+  };
+}
+
+export function withOccupancyVar(config: RoomConfig): RoomConfig {
+  const baked = occupancyVarSpec();
+  const list = [...(config.variables ?? [])];
+  const i = list.findIndex((item) => item.id === OCCUPANCY_VAR_ID);
+  if (i < 0) list.unshift({ ...baked, tag: null });
+  else {
+    const cur = list[i]!;
+    list[i] = { ...cur, ...baked, tag: cur.tag ?? null };
   }
-  return "available";
+  const occupancy = occupancyOf(config.room);
+  return { ...config, room: { ...config.room, occupancy }, variables: list };
+}
+
+export function occupancyOf(room: RoomConfig["room"]): Occupancy {
+  return occupancyFromVarValue(room.occupancy) ?? "available";
 }
 
 export function applyOccupancy(
@@ -43,12 +61,10 @@ export function applyOccupancy(
   vars: Record<string, string | number>,
   value: string,
 ): { ok: boolean; message: string } {
-  if (!OCCUPANCY_VALUES.includes(value as Occupancy)) return { ok: false, message: "Bad occupancy" };
-  const next = value as Occupancy;
+  const next = occupancyFromVarValue(value);
+  if (!next) return { ok: false, message: "Bad occupancy" };
   config.room.occupancy = next;
-  const varId = config.room.occupancyVarId
-    || config.variables.find((item) => item.id === "occupancy" || item.label.toLowerCase() === "occupancy")?.id;
-  if (varId && next !== "do-not-disturb") vars[varId] = next;
+  vars[OCCUPANCY_VAR_ID] = next;
   return { ok: true, message: next };
 }
 
@@ -71,7 +87,7 @@ export function buildPeerGet(opts: {
     v: 1 as const,
     room: { id: opts.room.id, name: opts.room.name },
     host: { dim: opts.host.dim, locked: opts.host.locked, pageId: opts.host.pageId },
-    occupancy: occupancyOf(opts.room, opts.variables, opts.vars),
+    occupancy: occupancyOf(opts.room),
     vars,
     macros,
   };

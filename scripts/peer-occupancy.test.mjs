@@ -1,21 +1,34 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyOccupancy, buildPeerGet, occupancyFromVarValue } from "../src/lib/control/peer-payload.ts";
+import { applyOccupancy, buildPeerGet, occupancyFromVarValue, occupancyOf, occupancyVarSpec, withOccupancyVar } from "../src/lib/control/peer-payload.ts";
 
-test("var aliases map to Foyer live statuses", () => {
+const roomBase = {
+  id: "room-a",
+  name: "Conference A",
+  panelAccess: "pin",
+  panelPin: "1",
+  configPin: "1",
+  theme: "dark",
+  idleDimSeconds: 0,
+  grid: { cols: 1, rows: 1 },
+  network: { mode: "dhcp", address: "", prefix: 24, gateway: "", dns: "", ntp: "", timezone: "system", hostname: "" },
+};
+
+test("aliases map to occupancy values including DND", () => {
   assert.equal(occupancyFromVarValue("idle"), "available");
   assert.equal(occupancyFromVarValue("OCCUPIED"), "in-session");
   assert.equal(occupancyFromVarValue("busy"), "busy");
   assert.equal(occupancyFromVarValue("off"), "closed");
-  assert.equal(occupancyFromVarValue("dnd"), null);
+  assert.equal(occupancyFromVarValue("dnd"), "do-not-disturb");
+  assert.equal(occupancyFromVarValue("nope"), null);
 });
 
-test("buildPeerGet emits room object, occupancy, and vars", () => {
+test("buildPeerGet occupancy is the room field, not a var", () => {
   const body = buildPeerGet({
-    room: { id: "room-a", name: "Conference A", occupancy: "busy", occupancyVarId: "occ", panelAccess: "pin", panelPin: "1", configPin: "1", theme: "dark", idleDimSeconds: 0, grid: { cols: 1, rows: 1 }, network: { mode: "dhcp", address: "", prefix: 24, gateway: "", dns: "", ntp: "", timezone: "system", hostname: "" } },
+    room: { ...roomBase, occupancy: "busy" },
     host: { dim: false, locked: true, pageId: null },
-    variables: [{ id: "occ", label: "Conference A", kind: "text", default: "available" }],
-    vars: { occ: "busy" },
+    variables: [occupancyVarSpec()],
+    vars: { occupancy: "available" },
     macros: [{ id: "m1", label: "Start" }],
   });
   assert.equal(typeof body.room, "object");
@@ -24,42 +37,47 @@ test("buildPeerGet emits room object, occupancy, and vars", () => {
   assert.equal(body.v, 1);
   assert.equal(body.occupancy, "busy");
   assert.equal(body.host.locked, true);
-  assert.equal(body.vars.occ.name, "Conference A");
-  assert.equal(body.vars.occ.value, "busy");
+  assert.equal(body.vars.occupancy.name, "Occupancy");
   assert.equal(body.macros.m1.name, "Start");
 });
 
-test("applyOccupancy writes field and bound var", () => {
-  const config = {
-    room: { occupancy: "available", occupancyVarId: "occ" },
-    variables: [{ id: "occ", label: "Conference A", kind: "text", default: "available" }],
-  };
-  const vars = { occ: "available" };
-  const res = applyOccupancy(config, vars, "in-session");
-  assert.equal(res.ok, true);
-  assert.equal(config.room.occupancy, "in-session");
-  assert.equal(vars.occ, "in-session");
+test("occupancyOf ignores vars and room names", () => {
+  assert.equal(occupancyOf({ occupancy: "closed" }), "closed");
+  assert.equal(occupancyOf({}), "available");
+  assert.equal(occupancyOf({ occupancy: "nope" }), "available");
+  assert.equal(occupancyOf({ occupancy: "dnd" }), "do-not-disturb");
 });
 
-test("applyOccupancy dnd is stored but not written to the Foyer var", () => {
+test("applyOccupancy writes field and baked occupancy var, including DND", () => {
   const config = {
-    room: { occupancy: "available", occupancyVarId: "occ" },
-    variables: [{ id: "occ", label: "Conference A", kind: "text", default: "available" }],
+    room: { occupancy: "available" },
+    variables: [occupancyVarSpec()],
   };
-  const vars = { occ: "available" };
+  const vars = { occupancy: "available" };
   const res = applyOccupancy(config, vars, "do-not-disturb");
   assert.equal(res.ok, true);
   assert.equal(config.room.occupancy, "do-not-disturb");
-  assert.equal(vars.occ, "available");
+  assert.equal(vars.occupancy, "do-not-disturb");
 });
 
-test("occupancy falls back to var alias when field unset", () => {
-  const body = buildPeerGet({
-    room: { id: "r", name: "Hall", panelAccess: "pin", panelPin: "1", configPin: "1", theme: "dark", idleDimSeconds: 0, grid: { cols: 1, rows: 1 }, network: { mode: "dhcp", address: "", prefix: 24, gateway: "", dns: "", ntp: "", timezone: "system", hostname: "" } },
-    host: { dim: false, locked: false, pageId: null },
-    variables: [{ id: "occupancy", label: "occupancy", kind: "text", default: "idle" }],
-    vars: {},
-    macros: [],
+test("withOccupancyVar bakes a fixed occupancy list", () => {
+  const next = withOccupancyVar({ room: {}, variables: [{ id: "scene", label: "Scene", kind: "text", default: "idle" }] });
+  const occ = next.variables.find((item) => item.id === "occupancy");
+  assert.ok(occ);
+  assert.equal(occ.kind, "enum");
+  assert.deepEqual(occ.values, ["available", "in-session", "busy", "do-not-disturb", "closed"]);
+  assert.equal(next.room.occupancy, "available");
+  assert.equal(next.variables.some((item) => item.id === "scene"), true);
+});
+
+test("withOccupancyVar overwrites a hijacked occupancy var", () => {
+  const next = withOccupancyVar({
+    room: { occupancy: "busy" },
+    variables: [{ id: "occupancy", label: "Status", kind: "text", default: "idle" }],
   });
-  assert.equal(body.occupancy, "available");
+  const occ = next.variables.find((item) => item.id === "occupancy");
+  assert.equal(occ.kind, "enum");
+  assert.equal(occ.label, "Occupancy");
+  assert.deepEqual(occ.values, ["available", "in-session", "busy", "do-not-disturb", "closed"]);
+  assert.equal(next.room.occupancy, "busy");
 });

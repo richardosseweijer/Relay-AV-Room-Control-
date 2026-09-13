@@ -370,7 +370,7 @@ export const relayHostDriver: DriverSpec = {
     { id: "system.platform", label: "Platform", kind: "string", transport: "lan", mode: "poll", query: "platform", pollMs: 30000, parse: { type: "exact" } },
     { id: "panel.locked", label: "Panel lock", kind: "toggle", transport: "lan", mode: "poll", query: "lock", pollMs: 2000, parse: { type: "exact" } },
     { id: "display.dimmed", label: "Panel dim", kind: "toggle", transport: "lan", mode: "poll", query: "dim", pollMs: 2000, parse: { type: "exact" } },
-    { id: "occupancy.state", label: "Occupancy", kind: "enum", values: ["available", "in-session", "busy", "closed", "do-not-disturb"], transport: "lan", mode: "poll", query: "occupancy", pollMs: 4000, parse: { type: "exact" } },
+    { id: "occupancy.state", label: "Occupancy", kind: "enum", values: ["available", "in-session", "busy", "do-not-disturb", "closed"], transport: "lan", mode: "poll", query: "occupancy", pollMs: 4000, parse: { type: "exact" } },
   ],
 };
 
@@ -410,7 +410,6 @@ export function defaultRoomConfig(): RoomConfig {
       outboundNicIndex: null,
       outboundNicName: null,
       occupancy: "available",
-      occupancyVarId: null,
       network: { mode: "dhcp", address: "10.0.10.10", prefix: 24, gateway: "10.0.10.1", dns: "10.0.10.1", ntp: "", timezone: "system", hostname: "relay-room-a" },
     },
     devices: [
@@ -544,6 +543,7 @@ export function defaultRoomConfig(): RoomConfig {
       { id: "cam-off", label: "Camera Off", retries: 1, onFail: { kind: "none" }, steps: [{ device: "cam", command: "power.off" }] },
     ],
     variables: [
+      { id: "occupancy", label: "Occupancy", kind: "enum", default: "available", values: ["available", "in-session", "busy", "do-not-disturb", "closed"] },
       { id: "volMin", label: "Volume min", kind: "number", default: 0, min: 0, max: 100, step: 1 },
       { id: "volMax", label: "Volume max", kind: "number", default: 40, min: 0, max: 100, step: 1 },
       { id: "watchVol", label: "Watch volume", kind: "number", default: 22, min: 0, max: 100, step: 1, pushDevice: "tv", pushCommand: "volume.set" },
@@ -577,7 +577,7 @@ export function emptyRoomConfig(pin = DEFAULT_CONFIG_PIN): RoomConfig {
     devices: [],
     pages: [{ id: "home", label: "Home", grid: { ...demo.room.grid }, widgets: [] }],
     macros: [],
-    variables: [],
+    variables: [{ id: "occupancy", label: "Occupancy", kind: "enum", default: "available", values: ["available", "in-session", "busy", "do-not-disturb", "closed"] }],
     schedules: [],
     monitors: [],
     triggers: [],

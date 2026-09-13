@@ -87,6 +87,6 @@
     { "id": "system.platform", "label": "Platform", "kind": "string", "transport": "lan", "mode": "poll", "query": "platform", "pollMs": 30000, "parse": { "type": "exact" } },
     { "id": "panel.locked", "label": "Panel lock", "kind": "toggle", "transport": "lan", "mode": "poll", "query": "lock", "pollMs": 2000, "parse": { "type": "exact" } },
     { "id": "display.dimmed", "label": "Panel dim", "kind": "toggle", "transport": "lan", "mode": "poll", "query": "dim", "pollMs": 2000, "parse": { "type": "exact" } },
-    { "id": "occupancy.state", "label": "Occupancy", "kind": "enum", "values": ["available", "in-session", "busy", "closed", "do-not-disturb"], "transport": "lan", "mode": "poll", "query": "occupancy", "pollMs": 4000, "parse": { "type": "exact" } }
+    { "id": "occupancy.state", "label": "Occupancy", "kind": "enum", "values": ["available", "in-session", "busy", "do-not-disturb", "closed"], "transport": "lan", "mode": "poll", "query": "occupancy", "pollMs": 4000, "parse": { "type": "exact" } }
   ]
 }

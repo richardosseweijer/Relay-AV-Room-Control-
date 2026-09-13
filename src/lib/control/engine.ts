@@ -1141,7 +1141,8 @@ export async function readMonitorValue(opts: {
       }
     }
     if (opts.feedbackId === "occupancy.state") {
-      const value = opts.config.room.occupancy ?? "available";
+      const { occupancyOf } = await import("./peer-payload");
+      const value = occupancyOf(opts.config.room);
       opts.state[device.id] = { ...slot, [opts.feedbackId]: value };
       return { ok: true, value, message: value };
     }
@@ -1384,6 +1385,14 @@ export async function executeCommand(opts: {
     const resolved = resolveTemplate(opts.value, opts.vars ?? {}, opts.config.variables);
     const result = await applyHost(opts.commandId, resolved, host, opts.vars);
     if (opts.host) Object.assign(opts.host, host);
+    if (opts.commandId === "var.set") {
+      const raw = String(resolved ?? "");
+      const eq = raw.indexOf("=");
+      if (eq >= 0 && raw.slice(0, eq).trim() === "occupancy") {
+        const { applyOccupancy } = await import("./peer-payload");
+        applyOccupancy(opts.config, (opts.vars ?? {}) as Record<string, string | number>, raw.slice(eq + 1));
+      }
+    }
     return result;
   }
   const slot = (opts.state[device.id] ??= {});
@@ -1488,6 +1497,10 @@ async function runMacroOnce(opts: {
       const def = opts.config.variables.find((v) => v.id === step.setVar);
       const resolved = resolveTemplate(step.value, opts.vars, opts.config.variables);
       opts.vars[step.setVar] = def ? clampVar(def, resolved ?? def.default) : (resolved ?? "");
+      if (step.setVar === "occupancy") {
+        const { applyOccupancy } = await import("./peer-payload");
+        applyOccupancy(opts.config, opts.vars, String(opts.vars[step.setVar]));
+      }
       if (def?.pushDevice && def.pushCommand) {
         await executeCommand({ ...opts, deviceId: def.pushDevice, commandId: def.pushCommand, value: opts.vars[step.setVar] });
       }

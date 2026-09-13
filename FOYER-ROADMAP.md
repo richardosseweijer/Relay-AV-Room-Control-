@@ -4,18 +4,20 @@ Do not execute until asked. Halt on red. No push until asked.
 Do not read Foyer data files. Do not import Foyer. Do not add a Foyer JSON driver.
 Do not heap this into `engine.ts` — new files only, thin call-sites.
 
-**Foyer main `f6abb8e` is the lock.** Where the PDF brief disagrees (`ip` order, 1-based `N`, poll Foyer `/api/peer` this pass), **this file wins.**
+**Foyer main `7d8e086` is the lock.** One Ubuntu PC = one Relay (`:8081`) + one Foyer (`:8080` / `:8082`) = one room.
 
-## Locked (operator + Foyer `f6abb8e`)
+## Locked (operator + Foyer `7d8e086`)
 
 - Host: Ubuntu Server 24.04. Pi/Windows stay until parked later.
 - Foyer `:8080` / `:8082`. Relay production `:8081`. Do **not** move Foyer.
 - Grok sandbox: Relay `npm run dev` stays `:8080`. Room PC: `npm start` (`:8081`).
 - HTTP listen `0.0.0.0` + **ufw** (AV-LAN + loopback). No dual Node sockets.
 - Occupancy writer: Foyer polls Relay `GET /api/peer`. **No Relay POST occupancy.** **No Relay poll of Foyer this pass.**
+- Do **not** match room names. Do **not** map occupancy through vars for Foyer.
 - NIC pickers independent (standalone). Same NIC allowed; warn, do not block.
 - Central monitor: out of scope.
 - Isolation: no shared disk, PIN, ICS, or secret file. HMAC on **loopback only**.
+- Foyer-as-Relay-device: out this pass (no poll, no POST). Host `occupancy.*` indexes/sets occupancy.
 
 ## Foyer wire this pass (do not “improve”)
 
@@ -32,23 +34,28 @@ Do not heap this into `engine.ts` — new files only, thin call-sites.
 
 **HMAC** (Foyer → Relay GET): `x-relay-ts` + `x-relay-auth`; payload `` `${ts}\n${method}\n${path}\n${body}` ``; method `GET`; path exactly `/api/peer`; body `""`; HMAC-SHA256 64 lowercase hex; `ts` = `String(Date.now())`. Empty secret: Foyer does not send; Relay deny. Skew/replay: Relay ~90s (Foyer client does not enforce skew).
 
-**Foyer has no `/api/peer`.** 404 or SPA HTML. Do not poll it this pass. Room tab may say “Foyer has no peer yet” as static text. No `foyer-peer.ts` poller this train.
+**Foyer has no `/api/peer`.** 404 or SPA HTML. Do not poll it this pass. No `foyer-peer.ts` poller this train.
 
-**Foyer occupancy (today):** does **not** read first-class `occupancy`. Reads `room` as `{ name }` (string `room` ignored, `room.id` ignored). Maps `vars[].value` when `vars[].name` equals the **Foyer room name** (or Foyer `relayRoomMap`). `host.locked` + matching `room.name` → `in-session` if no var hit.
+**Occupancy (only thing Foyer reads from GET `/api/peer`):**
 
-Var aliases Foyer maps:
+Foyer uses **only**:
+- `ok: true`
+- `occupancy`: `"available"` | `"in-session"` | `"busy"` | `"do-not-disturb"` | `"closed"`
+- `host.locked` (only if occupancy is missing → treated as in-session)
 
-| Incoming (case-insensitive) | Foyer live |
-|---|---|
-| available, free, idle, 0, false | available |
-| in-session, insession, occupied, 1, true, on | in-session |
-| busy | busy |
-| closed, off | closed |
-| do-not-disturb, dnd, anything else | **ignored** (no plate change) |
+It ignores `room`, `room.name`, `room.id`, `vars`, `macros` for occupancy. Names in Foyer and Relay may differ.
 
-Setup override is local to Foyer. `starting-soon` is Foyer calendar, not Relay. Do not send `dnd` expecting a plate change this pass.
+Relay still **emits**:
 
-Relay still **emits** `v`, `occupancy`, `room: { id, name }` so a later Foyer patch can switch without a Relay bump. This pass also keep **vars** + `room.name` so current Foyer works.
+```
+{ "ok": true, "v": 1, "room": { "id": "", "name": "" }, "host": { "dim": false, "locked": false, "pageId": null }, "occupancy": "available", "vars": { … }, "macros": { … } }
+```
+
+Do not require Foyer’s name. Occupancy is first-class `room.occupancy` plus baked enum var `occupancy` (panel/macros). Foyer does not map that var.
+
+When occupancy is set, it is the plate status (Foyer Auto). Calendar still shows the agenda.
+
+Room tab copy: “Foyer on this PC reads occupancy. Room names do not need to match.”
 
 ## Handrails
 
@@ -56,7 +63,7 @@ After every phase: `npx tsc --noEmit`; `driver-check` if a JSON driver changed; 
 
 After each block: full `npm test`.
 
-Do not edit `data/relay-room.json` / secrets. Version is three-part (`0.9.2`); bump only when pushing.
+Do not edit `data/relay-room.json` / secrets. Version is three-part (`0.9.3`); bump only when pushing.
 
 ---
 
@@ -100,7 +107,7 @@ Gate: tsc + nics tests. Fixture asserts `label.includes(" — ")` (em dash, not 
 
 ### Phase 2 — persist fields
 
-`room`: `avLanNicIndex`, `avLanNicName`, `outboundNicIndex`, `outboundNicName`, `occupancy`, `occupancyVarId` (optional: which Relay var label/id Foyer will match).
+`room`: `avLanNicIndex`, `avLanNicName`, `outboundNicIndex`, `outboundNicName`, `occupancy`. Baked var id `occupancy`.
 
 Default occupancy `"available"`. Nic fields null. `foyerPeerUrl` **not used this pass** (no poller). May still persist the default for later; do not GET it.
 
@@ -116,10 +123,9 @@ Room tab:
 
 - Dropdowns **AV-LAN** and **LAN (internet)**, labels from Phase 1.
 - Same NIC → one-line warning, still save.
-- Occupancy select: `available` | `in-session` | `busy` | `closed` (include `busy` because Foyer paints it from vars). `do-not-disturb` may exist on Relay for later; **do not** advertise it as a plate state this pass.
-- Optional: occupancy var picker (Relay variables). Help text: Foyer matches **variable label** to **Foyer room name**.
-- Static line: “Foyer has no peer yet” — **no HTTP**.
-- Relay room name stays editable. Matching Foyer’s name enables Foyer’s `host.locked` → in-session fallback.
+- Occupancy dropdown (available / in-session / busy / do-not-disturb / closed). Help: Foyer on this PC reads occupancy. Room names do not need to match.
+- Baked list var `occupancy`. No occupancy-var picker. No Match room name.
+- Relay room name stays editable. It does not have to match Foyer.
 
 Gate: tsc.
 
@@ -131,10 +137,10 @@ Gate: tsc.
 
 `relay-host.json` + `defaults.ts`:
 
-- `occupancy.available` | `occupancy.in-session` | `occupancy.busy` | `occupancy.closed` (+ optional `occupancy.do-not-disturb` stored only)
+- `occupancy.available` | `occupancy.in-session` | `occupancy.busy` | `occupancy.do-not-disturb` | `occupancy.closed`
 - Feedback `occupancy.state`
 
-`applyHost`: set `room.occupancy`, persist. If `occupancyVarId` set (or a var labeled `occupancy`), write `vars[id]` to the **alias Foyer understands** (`available` / `in-session` / `busy` / `closed` — not `dnd`).
+`applyHost`: set `room.occupancy`, persist, write baked var `occupancy` (including DND).
 
 `GET /api/peer`:
 
@@ -150,7 +156,7 @@ Gate: tsc.
 }
 ```
 
-Must **not** emit `room` as a string. Keep `vars` (Foyer’s live path). `occupancy` is for the later Foyer patch.
+Must **not** emit `room` as a string. Foyer reads `occupancy` only. Keep `vars` for Relay.
 
 Tests `scripts/peer-occupancy.test.mjs`: builder emits object `room`; occupancy field; var value aliases; `busy`; locked flag passthrough.
 
@@ -196,7 +202,7 @@ If outbound NIC set and no IPv4 → refuse update. Do not bind `git`. No AV-LAN 
 
 ### Phase 10 — docs
 
-Two NICs + loopback HMAC. Tablet on AV-LAN (drop rack-AP door story). `0.0.0.0:8081` + ufw. Foyer `:8080`/`:8082`. Production `:8081`. Peer secret ≠ PIN. Foyer occupancy this pass = **Relay var label = Foyer room name**.
+Two NICs + loopback HMAC. Tablet on AV-LAN (drop rack-AP door story). `0.0.0.0:8081` + ufw. Foyer `:8080`/`:8082`. Production `:8081`. Peer secret ≠ PIN. Foyer occupancy = first-class `occupancy`. Room names do not need to match.
 
 ### Phase 11 — full gate
 
@@ -207,7 +213,7 @@ Two NICs + loopback HMAC. Tablet on AV-LAN (drop rack-AP door story). `0.0.0.0:8
 ## External (not this train)
 
 - Phase 12: Foyer `GET :8080/api/peer` — then add `foyer-peer.ts` (loopback-only).
-- Foyer reads first-class `occupancy`.
+- Foyer-as-Relay-device (poll/POST). Occupancy is host `occupancy.*` + Room tab list.
 - Central monitor.
 
 ## Out of scope
@@ -224,19 +230,19 @@ What changed vs the PDF plan:
 |---|---|
 | NIC = Node A–Z, 0-based, em dash (Foyer’s code, not `ip`) | A residual 4% → **1%** |
 | **No Foyer poll this pass** | Block D residual **0%** (work removed) |
-| Emit `room` object **and** vars Foyer already maps | C stays ~3% (operator must label the var) |
+| Emit first-class `occupancy`; Foyer 7d8e086 reads that field | C residual **0%** (no label match) |
 | Bind helper unchanged | E **6%** (still the fat one) |
 
 First-clean product of residuals:
 
-`(0.99)(0.98)(0.97)(1.00)(0.94)(0.98)(0.98) ≈ **84%** first-pass.
+`(0.99)(0.98)(1.00)(1.00)(0.94)(0.98)(0.98) ≈ **87%** first-pass.
 
 Halt-on-red eventual for **this train**: **~97%**.
 
-Not 99%: dual-NIC not in this sandbox; Foyer occupancy still depends on a **matching variable label** (config, not code).
+Not 99%: dual-NIC not in this sandbox.
 
 Live now/next: **not scored** (Foyer has no peer route).
 
-Errors folded in this revision: do not use `ip`; indexes are 0-based; em dash; do not skip docker; do not poll Foyer; keep vars; include `busy`; do not expect `dnd` on the plate.
+Errors folded in this revision: do not use `ip`; indexes are 0-based; em dash; do not skip docker; do not poll Foyer; occupancy is first-class including DND; do not match room names.
 
 Ready to execute from Phase 0 when you say go.
