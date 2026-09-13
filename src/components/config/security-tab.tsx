@@ -63,7 +63,7 @@ export function SecurityTab(props: {
                   );
                 }}>Generate secret</Button>
               </div>
-              <span className="text-xs">HMAC key for incoming /api/peer (other Relay rooms, and Foyer on loopback). Not a PIN. Empty secret = deny. Save all after changing it.</span>
+              <span className="text-xs">HMAC key for incoming /api/peer (Foyer occupancy on loopback). Not a PIN. Loopback GET works without a secret; paste the same string into Foyer Setup if you set one. POST macros still need HMAC. Save all after changing it.</span>
             </label>
             <div className="sm:col-span-2 grid gap-2">
               <p className="text-sm text-muted">Peer may run these macros (none = deny all remote macros)</p>

@@ -2,6 +2,12 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.4 — 2026-09-13
+
+- Tag `v0.9.4`.
+- Relay reads Foyer’s current (or next) calendar session over loopback `GET http://127.0.0.1:8080/api/peer` into baked vars `foyer.kind` / `foyer.title` / `foyer.start` / `foyer.end`. Poll every 4 s. Non-loopback Foyer URLs fail closed.
+- Occupancy GET on loopback is unsigned so Foyer Auto follows the Room tab / Occupancy commands even if the pasted peer secrets differ. HMAC still required for POST macros. Foyer occupancy poll is still Foyer → Relay (no occupancy POST).
+
 ## 0.9.3 — 2026-09-13
 
 - Tag `v0.9.3`.

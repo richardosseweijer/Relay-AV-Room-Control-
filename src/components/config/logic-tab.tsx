@@ -67,13 +67,13 @@ export function LogicTab(props: {
                         {tagNames(draft, "variables").map((n) => <option key={n} value={n}>{n}</option>)}
                       </select>
                     </label>
-                    <select className={fieldClass()} value={variable.kind} disabled={variable.id === "occupancy"} onChange={(e) => update((c) => { c.variables[vi]!.kind = e.target.value as "number" | "enum" | "text"; })}>
+                    <select className={fieldClass()} value={variable.kind} disabled={variable.id === "occupancy" || variable.id.startsWith("foyer.")} onChange={(e) => update((c) => { c.variables[vi]!.kind = e.target.value as "number" | "enum" | "text"; })}>
                       <option value="number">Number</option>
                       <option value="enum">List</option>
                       <option value="text">Text</option>
                     </select>
                     <label className="grid gap-1 text-sm text-muted">Default
-                      <input className={fieldClass()} value={String(variable.default ?? "")} disabled={variable.id === "occupancy"} onChange={(e) => update((c) => {
+                      <input className={fieldClass()} value={String(variable.default ?? "")} disabled={variable.id === "occupancy" || variable.id.startsWith("foyer.")} onChange={(e) => update((c) => {
                         const raw = e.target.value;
                         c.variables[vi]!.default = variable.kind === "number"
                           ? (raw.trim() === "" ? "" : Number(raw))
@@ -107,10 +107,14 @@ export function LogicTab(props: {
                       </label>
                     ) : null}
                     {variable.kind === "enum" && variable.id === "occupancy" ? (
-                      <p className="sm:col-span-2 text-xs text-muted">Built-in list: available, in-session, busy, do-not-disturb, closed. Foyer reads this occupancy.</p>
+                      <p className="sm:col-span-2 text-xs text-muted">Built-in list: available, in-session, busy, do-not-disturb, closed. Foyer Auto reads this occupancy.</p>
+                    ) : null}
+                    {variable.id.startsWith("foyer.") ? (
+                      <p className="sm:col-span-2 text-xs text-muted">Filled from Foyer on this PC: current calendar session, or the next one if the room is free.</p>
                     ) : null}
                     <Button size="sm" variant="danger" onClick={() => {
                       if (variable.id === "occupancy") { flash("Built-in", "Occupancy is baked in. Change it on the Room tab."); return; }
+                      if (variable.id.startsWith("foyer.")) { flash("Built-in", "Foyer session vars come from the calendar on this PC."); return; }
                       if (variable.id.startsWith("MON_")) { flash("Monitor variable", "Rename or delete the monitor instead."); return; }
                       if (variableInUse(draft, variable.id).length) { flash("In use", ""); return; }
                       update((c) => { c.variables = c.variables.filter((v) => v.id !== variable.id); });

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { runMacro } from "@/lib/control/engine";
-import { peerKey, verifyPeerRequest } from "@/lib/control/peer-auth";
+import { authorizePeerGet, peerKey, verifyPeerRequest } from "@/lib/control/peer-auth";
 import { buildPeerGet } from "@/lib/control/peer-payload";
 import { ensureLoaded, memory, persist, pushLog } from "@/lib/control/store.server";
 
@@ -9,6 +9,7 @@ async function authorized(request: Request, body: string, path = "/api/peer") {
   const key = peerKey(mem.config.room);
   const sig = request.headers.get("x-relay-auth") || "";
   const ts = request.headers.get("x-relay-ts") || "";
+  if (request.method === "GET") return authorizePeerGet({ key, request, path });
   if (key) return verifyPeerRequest({ key, method: request.method, path, ts, body, sig });
   return false;
 }

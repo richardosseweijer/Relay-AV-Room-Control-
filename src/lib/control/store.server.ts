@@ -13,6 +13,8 @@ import path from "node:path";
 import os from "node:os";
 import { isSecretKey } from "./secrets";
 import { withOccupancyVar, occupancyOf, OCCUPANCY_VAR_ID } from "./peer-payload";
+import { applyFoyerSession, fetchFoyerSession, withFoyerSessionVars, DEFAULT_FOYER_PEER_URL } from "./foyer-peer";
+import { peerKey } from "./peer-auth";
 import { resolveRoomTheme } from "@/lib/theme";
 
 const FILE_STORE = path.join(process.cwd(), "data", "relay-room.json");
@@ -86,6 +88,7 @@ const g = globalThis as typeof globalThis & {
   __relayMemory__?: Memory;
   __relaySched__?: ReturnType<typeof setInterval>;
   __relayMon__?: ReturnType<typeof setInterval>;
+  __relayFoyer__?: ReturnType<typeof setInterval>;
 };
 const lastScheduleRun = new Map<string, string>();
 let scheduleBusy = false;
@@ -174,7 +177,7 @@ function liftTag<T extends { tag?: string | null }>(item: T): T {
 export function normalize(config?: RoomConfig | null): RoomConfig {
   const demo = emptyRoomConfig();
   if (!config) return demo;
-  return withOccupancyVar(withMonitorVars({
+  return withFoyerSessionVars(withOccupancyVar(withMonitorVars({
     ...demo,
     ...config,
     room: {
@@ -214,7 +217,7 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
     interfaces: config.interfaces ?? [],
     tags: config.tags ?? (config as { folders?: RoomConfig["tags"] }).folders ?? {},
     macros: [noneMacro(), ...(config.macros ?? demo.macros).filter((m) => m.id !== NONE_MACRO_ID)].map(liftTag),
-  }));
+  })));
 }
 
 function emptyMemory(): Memory {
@@ -700,6 +703,27 @@ async function runDueMonitors() {
   }
 }
 
+let foyerBusy = false;
+let lastFoyerPoll = 0;
+
+async function pollFoyerSession() {
+  if (foyerBusy) return;
+  const now = Date.now();
+  if (now - lastFoyerPoll < 3_500) return;
+  lastFoyerPoll = now;
+  foyerBusy = true;
+  try {
+    const mem = memory();
+    const url = String(mem.config.room.foyerPeerUrl ?? DEFAULT_FOYER_PEER_URL).trim();
+    if (!url) return;
+    const res = await fetchFoyerSession({ url, secret: peerKey(mem.config.room) });
+    if (!res.ok) return;
+    applyFoyerSession(mem.vars, res.session);
+  } finally {
+    foyerBusy = false;
+  }
+}
+
 function startScheduler() {
   if (!g.__relaySched__) {
     g.__relaySched__ = setInterval(() => {
@@ -713,7 +737,13 @@ function startScheduler() {
       runDueTriggers().catch(() => undefined);
     }, 500);
   }
+  if (!g.__relayFoyer__) {
+    g.__relayFoyer__ = setInterval(() => {
+      pollFoyerSession().catch(() => undefined);
+    }, 4000);
+  }
   syncMidiWatchers(memory());
+  pollFoyerSession().catch(() => undefined);
 }
 
 let boot: Promise<Memory> | null = null;

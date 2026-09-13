@@ -2,6 +2,7 @@ import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getEditorConfig, importBundle, listLanNics, rebootHost, restartHost, updateHost } from "@/lib/control/actions";
 import type { Occupancy, RoomConfig, RoomSnapshot } from "@/lib/control/types";
+import { FOYER_END_ID, FOYER_KIND_ID, FOYER_START_ID, FOYER_TITLE_ID } from "@/lib/control/foyer-peer";
 import { Button } from "@/components/ui/button";
 import { fieldClass } from "./config-ui";
 import { InputNum } from "./config-fields";
@@ -139,12 +140,21 @@ export function RoomTab(props: {
 
             <article className="sm:col-span-2 grid gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2">
               <p className="sm:col-span-2 text-[11px] uppercase tracking-[0.2em] text-subtle">Occupancy / Foyer</p>
-              <p className="sm:col-span-2 text-xs text-muted">Foyer on this PC reads occupancy. Room names do not need to match.</p>
+              <p className="sm:col-span-2 text-xs text-muted">Relay sets occupancy. Foyer Auto on this PC reads it within a few seconds. Room names do not need to match. Save all after changing occupancy here, or fire Occupancy on the panel.</p>
               <label className="grid gap-1 text-sm text-muted sm:col-span-2">Occupancy
                 <select className={fieldClass()} value={draft.room.occupancy ?? "available"} onChange={(e) => update((c) => { c.room.occupancy = e.target.value as Occupancy; })}>
                   {OCCUPANCY.map((row) => <option key={row.id} value={row.id}>{row.label}</option>)}
                 </select>
               </label>
+              <label className="grid gap-1 text-sm text-muted sm:col-span-2">Foyer URL
+                <input className={fieldClass()} value={draft.room.foyerPeerUrl ?? "http://127.0.0.1:8080"} onChange={(e) => update((c) => { c.room.foyerPeerUrl = e.target.value; })} placeholder="http://127.0.0.1:8080" autoComplete="off" spellCheck={false} />
+                <span className="text-xs">Loopback only. Relay reads the current (or next) calendar session from Foyer GET /api/peer. Same peer secret as Security if you set one.</span>
+              </label>
+              <p className="sm:col-span-2 text-sm text-fg">
+                {String(snap.vars?.[FOYER_KIND_ID] ?? "none") === "none"
+                  ? "No session from Foyer yet."
+                  : `${String(snap.vars?.[FOYER_KIND_ID])} · ${String(snap.vars?.[FOYER_TITLE_ID] || "Untitled")} · ${String(snap.vars?.[FOYER_START_ID] || "—")} → ${String(snap.vars?.[FOYER_END_ID] || "—")}`}
+              </p>
             </article>
 
             <div className="sm:col-span-2 flex flex-wrap gap-2">

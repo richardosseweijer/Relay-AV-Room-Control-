@@ -12,7 +12,7 @@ Do not heap this into `engine.ts` — new files only, thin call-sites.
 - Foyer `:8080` / `:8082`. Relay production `:8081`. Do **not** move Foyer.
 - Grok sandbox: Relay `npm run dev` stays `:8080`. Room PC: `npm start` (`:8081`).
 - HTTP listen `0.0.0.0` + **ufw** (AV-LAN + loopback). No dual Node sockets.
-- Occupancy writer: Foyer polls Relay `GET /api/peer`. **No Relay POST occupancy.** **No Relay poll of Foyer this pass.**
+- Occupancy writer: Foyer polls Relay `GET /api/peer`. **No Relay POST occupancy.** Relay polls Foyer `GET :8080/api/peer` for the current or next calendar session (`foyer-peer.ts`, loopback-only).
 - Do **not** match room names. Do **not** map occupancy through vars for Foyer.
 - NIC pickers independent (standalone). Same NIC allowed; warn, do not block.
 - Central monitor: out of scope.
@@ -32,9 +32,9 @@ Do not heap this into `engine.ts` — new files only, thin call-sites.
 - Persist Relay’s own keys (same *names* as Foyer, own disk): `avLanNicIndex` / `avLanNicName`, `outboundNicIndex` / `outboundNicName`.
 - UI labels: **AV-LAN**, **LAN (internet)**.
 
-**HMAC** (Foyer → Relay GET): `x-relay-ts` + `x-relay-auth`; payload `` `${ts}\n${method}\n${path}\n${body}` ``; method `GET`; path exactly `/api/peer`; body `""`; HMAC-SHA256 64 lowercase hex; `ts` = `String(Date.now())`. Empty secret: Foyer does not send; Relay deny. Skew/replay: Relay ~90s (Foyer client does not enforce skew).
+**HMAC** (optional on loopback GET): `x-relay-ts` + `x-relay-auth`; payload `` `${ts}\n${method}\n${path}\n${body}` ``; method `GET`; path exactly `/api/peer`; body `""`; HMAC-SHA256 64 lowercase hex; `ts` = `String(Date.now())`. Loopback GET is allowed unsigned (both occupancy and calendar). HMAC, if sent, must match. Non-loopback GET is denied on Foyer; Relay POST still requires HMAC. Skew/replay: ~90s.
 
-**Foyer has no `/api/peer`.** 404 or SPA HTML. Do not poll it this pass. No `foyer-peer.ts` poller this train.
+**Foyer `GET /api/peer` (this train):** loopback `:8080`. Body `{ ok, v:1, session: { kind: "now"|"next", title, startIso, endIso } | null }`. HMAC optional on loopback GET. Relay writes `foyer.kind` / `foyer.title` / `foyer.start` / `foyer.end`.
 
 **Occupancy (only thing Foyer reads from GET `/api/peer`):**
 
@@ -63,7 +63,7 @@ After every phase: `npx tsc --noEmit`; `driver-check` if a JSON driver changed; 
 
 After each block: full `npm test`.
 
-Do not edit `data/relay-room.json` / secrets. Version is three-part (`0.9.3`); bump only when pushing.
+Do not edit `data/relay-room.json` / secrets. Version is three-part (`0.9.4`); bump only when pushing.
 
 ---
 
@@ -166,7 +166,7 @@ Gate: tsc + tests + `driver-check` relay-host.
 
 ## Block D — Foyer client
 
-**Deferred.** No `foyer-peer.ts` poller this train. Phase 12 (external) when Foyer ships `GET :8080/api/peer`.
+**Done in 0.9.4.** `foyer-peer.ts` polls Foyer `GET http://127.0.0.1:8080/api/peer` every 4 s (loopback only, unsigned GET). Writes `foyer.kind` / `foyer.title` / `foyer.start` / `foyer.end`. Occupancy stays Foyer → Relay GET. No occupancy POST.
 
 ---
 
@@ -206,13 +206,12 @@ Two NICs + loopback HMAC. Tablet on AV-LAN (drop rack-AP door story). `0.0.0.0:8
 
 ### Phase 11 — full gate
 
-`tsc`, `npm test`, `driver-check` all JSON. Grep: no `data/foyer`, no Foyer imports, no poller to `:8080/api/peer`, no `8181`. `net.connect` grep still holds.
+`tsc`, `npm test`, `driver-check` all JSON. Grep: no `data/foyer`, no Foyer package imports, no `8181`. `net.connect` grep still holds. `foyer-peer.ts` may GET loopback `:8080/api/peer`.
 
 ---
 
 ## External (not this train)
 
-- Phase 12: Foyer `GET :8080/api/peer` — then add `foyer-peer.ts` (loopback-only).
 - Foyer-as-Relay-device (poll/POST). Occupancy is host `occupancy.*` + Room tab list.
 - Central monitor.
 
@@ -243,6 +242,6 @@ Not 99%: dual-NIC not in this sandbox.
 
 Live now/next: **not scored** (Foyer has no peer route).
 
-Errors folded in this revision: do not use `ip`; indexes are 0-based; em dash; do not skip docker; do not poll Foyer; occupancy is first-class including DND; do not match room names.
+Errors folded in this revision: do not use `ip`; indexes are 0-based; em dash; do not skip docker; occupancy is first-class including DND; do not match room names. 0.9.4 polls Foyer loopback GET for calendar session only.
 
 Ready to execute from Phase 0 when you say go.

@@ -443,6 +443,7 @@ export type RoomConfig = {
     outboundNicName?: string | null;
     occupancy?: Occupancy;
     occupancyVarId?: string | null;
+    foyerPeerUrl?: string | null;
     network: {
       mode: "dhcp" | "static";
       address: string;

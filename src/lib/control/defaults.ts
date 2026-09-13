@@ -410,6 +410,7 @@ export function defaultRoomConfig(): RoomConfig {
       outboundNicIndex: null,
       outboundNicName: null,
       occupancy: "available",
+      foyerPeerUrl: "http://127.0.0.1:8080",
       network: { mode: "dhcp", address: "10.0.10.10", prefix: 24, gateway: "10.0.10.1", dns: "10.0.10.1", ntp: "", timezone: "system", hostname: "relay-room-a" },
     },
     devices: [
