@@ -160,9 +160,9 @@ sudo ufw status
 
 Adjust the CIDR to the actual room VLAN (AV-LAN). Do not `ufw allow 8081/tcp` from anywhere, and do not forward 8080, 8081, or 8082 to the public internet.
 
-On a two-NIC Ubuntu room PC: Room tab **AV-LAN** is the device network (no default route). **LAN (internet)** is GitHub update / later central monitor. Both pickers may be the same NIC on a test box. Wall tablets live on AV-LAN (this ufw rule). Foyer (optional, separate process) owns `:8080` / `:8082`; Relay production is `:8081`. HMAC between Relay and Foyer is loopback only and uses the **peer secret**, not a PIN.
+On a two-NIC Ubuntu room PC: Room tab **AV-LAN** is the device network (no default route). **LAN (internet)** is GitHub update / later central monitor. Both pickers may be the same NIC on a test box. Wall tablets live on AV-LAN (this ufw rule). Foyer (optional, separate process) owns `:8080` / `:8082`; Relay production is `:8081`. Foyer ↔ Relay is loopback only — [`FOYER-RELAY.md`](FOYER-RELAY.md).
 
-Foyer occupancy is the Room tab occupancy list (`available` / `in-session` / `busy` / `do-not-disturb` / `closed`). Foyer HMAC-GETs `/api/peer` and reads `occupancy` (or `host.locked` if occupancy is missing). Room names do not need to match.
+Foyer occupancy is the Room tab occupancy list. Foyer GETs `/api/peer` and reads `occupancy`. Room names do not need to match.
 
 If Foyer is installed on this host, also allow the door/welcome ports from AV-LAN (still do not forward them):
 

@@ -1,5 +1,7 @@
 # Foyer contract — Relay roadmap (0.9.0)
 
+**Live wire is [`FOYER-RELAY.md`](FOYER-RELAY.md)** (same file in Foyer). This roadmap is how 0.9.x was built. Do not treat it as the operator contract.
+
 Do not execute until asked. Halt on red. No push until asked.
 Do not read Foyer data files. Do not import Foyer. Do not add a Foyer JSON driver.
 Do not heap this into `engine.ts` — new files only, thin call-sites.

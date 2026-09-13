@@ -10,7 +10,7 @@ This document describes the software in this repository. It is not a substitute 
 
 Relay is a single-process, LAN-hosted controller for audiovisual and related equipment. An integrator describes each product as a JSON driver (ports, payloads, authentication, parse rules). The operator sees only a grid of buttons and sliders bound to those capabilities.
 
-The application is intended to run on a machine that remains on the same private network as the devices. The locked production host is Ubuntu Server with two NICs (AV-LAN for device I/O, internet NIC for outbound update). Windows and Raspberry Pi still run. Foyer room signage is an optional second process on loopback HMAC, not part of this package. Device protocols implemented by third parties are used without affiliation; see NOTICE.
+The application is intended to run on a machine that remains on the same private network as the devices. The locked production host is Ubuntu Server with two NICs (AV-LAN for device I/O, internet NIC for outbound update). Windows and Raspberry Pi still run. Foyer room signage is an optional second process on this PC — communication is [`FOYER-RELAY.md`](FOYER-RELAY.md), not part of this package. Device protocols implemented by third parties are used without affiliation; see NOTICE.
 
 The repository also contains Vite / TanStack Start scaffolding used to boot the HTTP server. Device I/O is only in `src/lib/control/`, `src/components/panel/`, `src/components/config/`, and `src/routes/`.
 
@@ -206,7 +206,9 @@ Do not publish port 8081 to the public internet. HTTP only (issue #15).
 | `src/lib/control/actions.ts` | TanStack server functions used by the panel and configurator. |
 | `src/lib/control/vars.ts` | Variable seeding, clamping, template substitution, enable-when evaluation. |
 | `src/lib/control/schema.ts` | Driver validation and orphan bindings. |
-| `src/lib/control/peer-auth.ts` | HMAC sign/verify and replay cache. |
+| `src/lib/control/peer-auth.ts` | HMAC sign/verify, replay cache, loopback GET. |
+| `src/lib/control/peer-payload.ts` | Occupancy field, baked `occupancy` var, `GET /api/peer` body. |
+| `src/lib/control/foyer-peer.ts` | Loopback poll of Foyer session into `foyer.*` vars. See [`FOYER-RELAY.md`](FOYER-RELAY.md). |
 | `src/lib/control/pins.ts` | Weak PIN list. |
 | `src/lib/control/schedule.ts` | Next enabled schedule occurrence for the schedule widget. |
 | `src/lib/control/defaults.ts` | Demonstration room and primary bundled drivers. |
@@ -230,7 +232,7 @@ Do not publish port 8081 to the public internet. HTTP only (issue #15).
 | `src/routes/index.tsx` | Route `/`. |
 | `src/routes/config.tsx` | Route `/config`. |
 | `src/routes/api/room.ts` | Snapshot HTTP handler. |
-| `src/routes/api/peer.ts` | Relay-to-Relay HMAC API. |
+| `src/routes/api/peer.ts` | Occupancy GET for Foyer; HMAC POST macros for Relay-to-Relay. Foyer wire: [`FOYER-RELAY.md`](FOYER-RELAY.md). |
 | `src/routes/api/ping.ts` | Reachability helper used by the device card. |
 | `src/routes/api/vars.ts` | Variable listing used by the host inventory path. |
 | `src/routes/__root.tsx` | HTML shell, fonts, application metadata. |

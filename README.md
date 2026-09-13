@@ -17,12 +17,13 @@ npm ci
 
 Room `http://HOST:PORT/` — configurator `http://HOST:PORT/config`
 
-Room tab **AV-LAN** / **LAN (internet)** pickers bind device I/O vs GitHub update. Same NIC is allowed (test box). Foyer signage is an optional second process (`:8080` / `:8082`); HMAC is loopback only. Relay sets occupancy; Foyer Auto reads it. Relay reads the current (or next) calendar session from Foyer. Room names do not need to match.
+Room tab **AV-LAN** / **LAN (internet)** pickers bind device I/O vs GitHub update. Same NIC is allowed (test box). Foyer signage is an optional second process (`:8080` / `:8082`). How they talk: **[FOYER-RELAY.md](FOYER-RELAY.md)**.
 
 Do not start with raw `npx vite`. Scripts run `scripts/with-app-env.mjs`.
 
 First PIN is `1234`. You must set a stronger one. New rooms default to **Panel PIN**; each tablet pairs until Forget. **Open on LAN** is an explicit kiosk mode (no panel PIN; shared panel session). Open LAN *control* (`fireCommand` without a token) is a different switch and stays off. See [Security](SECURITY.md).
 
+- [Foyer ↔ Relay contract](FOYER-RELAY.md)
 - [Linux / Pi](LINUX.md)
 - [Windows](WINDOWS.md)
 - [Known issues](KNOWN_ISSUES.md)

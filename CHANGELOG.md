@@ -2,6 +2,10 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## Unreleased
+
+- [`FOYER-RELAY.md`](FOYER-RELAY.md) — communication contract with Foyer 0.2.1 (same file in both repos).
+
 ## 0.9.4 — 2026-09-13
 
 - Tag `v0.9.4`.
