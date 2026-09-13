@@ -15,3 +15,5 @@ data/*.tmp
 data/*.transaction
 attachments/
 artifacts/
+screenshots/app-builder-*
+
