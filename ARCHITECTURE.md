@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.4** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.5** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -214,8 +214,7 @@ Do not publish port 8081 to the public internet. HTTP only (issue #15).
 | `src/lib/control/defaults.ts` | Demonstration room and primary bundled drivers. |
 | `src/lib/control/extra-drivers.ts` | Additional bundled drivers not required by the demonstration room. |
 | `src/lib/control/client.ts` | Browser helper to load `/api/room`. |
-| `src/lib/control/harness.ts` | Static driver inspection and optional live probe/command/feedback. |
-| `scripts/driver-check.mjs` | Command-line entry for the harness. |
+| `scripts/driver-check.mjs` | Offline driver JSON check (static; optional TCP probe with `--host`). |
 
 ### 9.2 User interface and routes
 
@@ -260,15 +259,14 @@ Do not publish port 8081 to the public internet. HTTP only (issue #15).
 | `data/relay-room.json` | Layout, IPs, variables. No PINs or pairing tokens. |
 | `data/relay-secrets.json` | Config PIN, panel PIN, peer secret, device tokens, paired sessions. |
 | `data/drivers/` | Library of driver files. |
-| `public/drivers/` | Optional static copies of a subset of drivers. |
 
 ### 9.5 Remaining template code
 
-The development server still loads PGLite bootstrap, an environment plugin, and a PWA plugin. Those modules start Vite. They do not send device commands.
+The Vite config still ships an environment plugin, a PWA plugin, and a PGLite bootstrap hook. The PGLite hook **skips** when `migrations/` is empty or missing. Those modules start Vite. They do not send device commands.
 
 Better Auth, app-data, multiplayer, and the preview-host bridge have been removed. `src/routes/__root.tsx` no longer mounts a preview bridge.
 
-### 9.6 Driver harness
+### 9.6 Driver check
 
 A driver JSON can be checked without opening the configurator:
 

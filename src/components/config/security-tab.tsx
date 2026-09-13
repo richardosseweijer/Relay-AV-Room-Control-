@@ -47,7 +47,7 @@ export function SecurityTab(props: {
                   const value = draft.room.peerSecret ?? "";
                   try {
                     await navigator.clipboard.writeText(value);
-                    flash("Copied", "Paste this into the other room’s Relay device → Secret field.");
+                    flash("Copied", "Paste this into Foyer Setup → Peer secret (or another Relay’s device Secret).");
                   } catch {
                     flash("Copy failed", value || "Generate a secret first");
                   }
@@ -58,7 +58,7 @@ export function SecurityTab(props: {
                   const secret = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
                   update((c) => { c.room.peerSecret = secret; });
                   void navigator.clipboard.writeText(secret).then(
-                    () => flash("Secret ready", "Copied. Save all. On the other Pi, paste it in that room’s Relay device → Secret."),
+                    () => flash("Secret ready", "Copied. Save all. Paste into Foyer Setup → Peer secret (or the other room’s Relay device → Secret)."),
                     () => flash("Secret ready", "Select the field and copy it, then Save all."),
                   );
                 }}>Generate secret</Button>

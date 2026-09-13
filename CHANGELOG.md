@@ -2,9 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
-## Unreleased
+## 0.9.5 — 2026-09-13
 
-- [`FOYER-RELAY.md`](FOYER-RELAY.md) — communication contract with Foyer 0.2.1 (same file in both repos).
+- Tag `v0.9.5`.
+- Drop unused `occupancyVarId`, `harness.ts`, `src/lib/db.ts` / `migrations/` / `db:migrate`, stale `public/drivers/`, executed agent roadmaps (`CONFIG-SPLIT`, `DRIVER-PAGE`, `PASTEL-THEME`).
+- Security copy/generate toasts name Foyer Setup. Wire unchanged: [`FOYER-RELAY.md`](FOYER-RELAY.md).
 
 ## 0.9.4 — 2026-09-13
 
