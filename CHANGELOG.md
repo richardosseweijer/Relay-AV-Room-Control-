@@ -5,6 +5,7 @@ Format: date, then bullets. Older work lives in `git log`.
 ## 0.9.6 — 2026-09-13
 
 - Tag `v0.9.6`.
+- Peer GET: unsigned only from TCP loopback (not Host/XFF). Unsigned body is occupancy + `host.locked`. HMAC GET still the full snapshot. Calendar poll unchanged.
 - Stop tracking sandbox dumps that `.gitignore` already listed: `artifacts/` (stale engine, tarball, Imagine JPEG), `attachments/`, `.grok/`. Drop App Builder `screenshots/app-builder-*`.
 
 ## 0.9.5 — 2026-09-13

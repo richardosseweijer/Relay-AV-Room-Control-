@@ -68,6 +68,18 @@ export function applyOccupancy(
   return { ok: true, message: next };
 }
 
+export function buildPeerOccupancyGet(opts: {
+  room: RoomConfig["room"];
+  host: { locked: boolean };
+}) {
+  return {
+    ok: true as const,
+    v: 1 as const,
+    occupancy: occupancyOf(opts.room),
+    host: { locked: Boolean(opts.host.locked) },
+  };
+}
+
 export function buildPeerGet(opts: {
   room: RoomConfig["room"];
   host: { dim: boolean; locked: boolean; pageId: string | null };

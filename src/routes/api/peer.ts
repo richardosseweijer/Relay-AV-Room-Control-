@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { runMacro } from "@/lib/control/engine";
-import { authorizePeerGet, peerKey, verifyPeerRequest } from "@/lib/control/peer-auth";
-import { buildPeerGet } from "@/lib/control/peer-payload";
+import { authorizePeerGet, isTcpLoopback, peerKey, verifyPeerRequest } from "@/lib/control/peer-auth";
+import { buildPeerGet, buildPeerOccupancyGet } from "@/lib/control/peer-payload";
 import { ensureLoaded, memory, persist, pushLog } from "@/lib/control/store.server";
 
 async function authorized(request: Request, body: string, path = "/api/peer") {
@@ -14,6 +14,12 @@ async function authorized(request: Request, body: string, path = "/api/peer") {
   return false;
 }
 
+function hmacOnGet(request: Request) {
+  const sig = request.headers.get("x-relay-auth") || "";
+  const ts = request.headers.get("x-relay-ts") || "";
+  return Boolean(sig || ts);
+}
+
 export const Route = createFileRoute("/api/peer")({
   server: {
     handlers: {
@@ -21,6 +27,12 @@ export const Route = createFileRoute("/api/peer")({
         await ensureLoaded();
         if (!await authorized(request, "", "/api/peer")) return Response.json({ ok: false, message: "Auth failed" }, { status: 401 });
         const mem = memory();
+        if (!hmacOnGet(request) && isTcpLoopback(request)) {
+          return Response.json(buildPeerOccupancyGet({
+            room: mem.config.room,
+            host: { locked: Boolean(mem.host.locked) },
+          }));
+        }
         return Response.json(buildPeerGet({
           room: mem.config.room,
           host: mem.host,

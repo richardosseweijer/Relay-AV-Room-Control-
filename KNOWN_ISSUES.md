@@ -10,7 +10,7 @@
 ## Host / deploy
 
 - Grok publish / serverless hosts are unsupported. No writable `data/`. Do not use them as a room.
-- Default bind is `0.0.0.0`. Do not port-forward the panel to the public internet. Restrict 8081 to the room VLAN on the host firewall.
+- Default bind is `0.0.0.0`. Do not port-forward the panel to the public internet. Restrict 8081 to the room VLAN on the host firewall. Unsigned `GET /api/peer` is allowed only from TCP loopback, not because `Host` says localhost.
 - HTTP only. No TLS. See issue #15.
 - Panel access default is **Panel PIN**. **Open on LAN** skips the PIN and mints a shared panel session for anyone who can reach `/`. That is not the same switch as open LAN control (`externalControl`), which is off unless enabled on Security. Then `fireCommand` / `fireMacro` / `setVariable` accept unauthenticated LAN calls.
 - Config PIN works on the panel only if Security → `panelAcceptsConfigPin` is on (default off).

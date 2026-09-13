@@ -11,7 +11,7 @@ Change both trees in the same train. If this file and the code disagree, **the c
 |---|---|
 | Contract | 1 |
 | Date | 2026-09-13 |
-| Relay | **0.9.4** (`v0.9.4`) |
+| Relay | **0.9.6** (`v0.9.6`) |
 | Foyer | **0.2.1** (`v0.2.1`) |
 
 Relay [`FOYER-ROADMAP.md`](https://github.com/richardosseweijer/Relay-AV-Room-Control-/blob/main/FOYER-ROADMAP.md) is implementation history. This file is the live wire.
@@ -125,6 +125,19 @@ Foyer only sends when **Read occupancy from Relay on this PC** is on and the URL
 
 ### 4.3 Response (Relay)
 
+Unsigned loopback GET (TCP peer `127.0.0.1` / `::1` / `::ffff:127.0.0.1`, no HMAC headers):
+
+```json
+{
+  "ok": true,
+  "v": 1,
+  "occupancy": "available",
+  "host": { "locked": false }
+}
+```
+
+HMAC GET (Relay-to-Relay, or loopback with headers) still returns the fat object:
+
 ```json
 {
   "ok": true,
@@ -137,7 +150,8 @@ Foyer only sends when **Read occupancy from Relay on this PC** is on and the URL
 }
 ```
 
-`room` is an **object**, never a string. `vars` / `macros` are for Relay-to-Relay peers; Foyer occupancy does not read them.
+`room` is an **object**, never a string. `vars` / `macros` are for Relay-to-Relay peers; Foyer occupancy does not read them. Foyer occupancy uses `occupancy` and `host.locked` only — both bodies work.
+
 
 ### 4.4 What Foyer uses
 
@@ -265,7 +279,8 @@ Not editable on the Logic tab. Room tab Occupancy / Foyer card shows the live li
 | Relay `:8081/api/peer` | Allow | Must verify against Relay peer secret | Allowed **only** with valid HMAC (Relay-to-Relay). Foyer client never uses this. |
 | Foyer `:8080/api/peer` | Allow | Must verify against Foyer `relaySecret` | **Deny** (even with HMAC) |
 
-Loopback test: request URL hostname, `Host`, `X-Forwarded-For` (first hop), and `X-Forwarded-Host` (first hop) — every named value must be `127.0.0.1` / `localhost` / `::1`. No named value → not loopback.
+Loopback test: **TCP `remoteAddress`** of the accepted socket (`127.0.0.1` / `::1` / `::ffff:127.0.0.1`). Missing or unreadable peer → not loopback. `Host`, `X-Forwarded-For`, and `X-Forwarded-Host` are **not** loopback. The process still listens on `0.0.0.0`; unsigned GET is denied unless the TCP peer is loopback.
+
 
 ### 6.2 HMAC formula (when headers are sent)
 
