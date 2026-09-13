@@ -6,6 +6,7 @@ Format: date, then bullets. Older work lives in `git log`.
 
 - Tag `v0.9.6`.
 - Pair Foyer `v0.2.2`.
+- Panel: park the portrait 2-column reflow. The room page uses the authored grid on phone and tablet.
 - Peer GET: unsigned only from TCP loopback (not Host/XFF). Unsigned body is occupancy + `host.locked`. HMAC GET still the full snapshot. Calendar poll unchanged.
 - Stop tracking sandbox dumps that `.gitignore` already listed: `artifacts/` (stale engine, tarball, Imagine JPEG), `attachments/`, `.grok/`. Drop App Builder `screenshots/app-builder-*`.
 
