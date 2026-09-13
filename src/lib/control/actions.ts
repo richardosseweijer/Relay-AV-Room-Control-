@@ -209,6 +209,10 @@ export const saveConfig = createServerFn({ method: "POST" })
     const nextConfig: RoomConfig = { ...config, devices };
     memory().config = nextConfig;
     const vars = seedVars(nextConfig, memory().vars);
+    if (nextConfig.room.occupancy) {
+      const { applyOccupancy } = await import("./peer-payload");
+      applyOccupancy(nextConfig, vars, nextConfig.room.occupancy);
+    }
     memory().vars = vars;
     try {
       await persistNow();

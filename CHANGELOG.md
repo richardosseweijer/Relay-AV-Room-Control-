@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.1 — 2026-09-13
+
+- Tag `v0.9.1`.
+- Room tab: **Networks** and **Occupancy / Foyer** cards. Refresh NICs, Match room name, Save all writes occupancy into the bound variable. Peer-secret help names Foyer on loopback.
+
 ## 0.9.0 — 2026-09-13
 
 - Tag `v0.9.0`. Versions are three-part from here (`major.minor.patch`). No fourth ticker.

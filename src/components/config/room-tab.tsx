@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getEditorConfig, importBundle, listLanNics, rebootHost, restartHost, updateHost } from "@/lib/control/actions";
 import type { Occupancy, RoomConfig, RoomSnapshot } from "@/lib/control/types";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,13 @@ function nicKey(name?: string | null, index?: number | null) {
   return "";
 }
 
+function withStoredNic(nics: NicRow[], name?: string | null, index?: number | null): NicRow[] {
+  const trimmed = String(name ?? "").trim();
+  if (!trimmed) return nics;
+  if (nics.some((row) => row.name === trimmed)) return nics;
+  return [...nics, { index: index ?? -1, name: trimmed, ipv4: null, label: `${trimmed} (not listed now)` }];
+}
+
 export function RoomTab(props: {
   draft: RoomConfig;
   snap: RoomSnapshot;
@@ -37,18 +44,38 @@ export function RoomTab(props: {
 }) {
   const { draft, snap, token, update, flash, refresh, setDraft, importRef, setGate, downloadRoomFile } = props;
   const [nics, setNics] = useState<NicRow[]>([]);
-  useEffect(() => {
-    let live = true;
-    listLanNics({ data: { token: token || "" } }).then((res) => {
-      if (live && res.ok) setNics(res.nics);
-    }).catch(() => undefined);
-    return () => { live = false; };
+  const [nicError, setNicError] = useState("");
+  const loadNics = useCallback(async () => {
+    try {
+      const res = await listLanNics({ data: { token: token || "" } });
+      if (res.ok) {
+        setNics(res.nics);
+        setNicError(res.nics.length ? "" : "No NICs listed (loopback is skipped).");
+      } else {
+        setNics([]);
+        setNicError(res.message || "Could not list NICs. Unlock, then Refresh.");
+      }
+    } catch {
+      setNics([]);
+      setNicError("Could not list NICs. Unlock, then Refresh.");
+    }
   }, [token]);
+  useEffect(() => { void loadNics(); }, [loadNics]);
+  const nicChoices = useMemo(
+    () => withStoredNic(
+      withStoredNic(nics, draft.room.avLanNicName, draft.room.avLanNicIndex),
+      draft.room.outboundNicName,
+      draft.room.outboundNicIndex,
+    ),
+    [nics, draft.room.avLanNicName, draft.room.avLanNicIndex, draft.room.outboundNicName, draft.room.outboundNicIndex],
+  );
   const sameNic = Boolean(
     (draft.room.avLanNicName && draft.room.outboundNicName && draft.room.avLanNicName === draft.room.outboundNicName)
     || (draft.room.avLanNicName == null && draft.room.outboundNicName == null
       && draft.room.avLanNicIndex != null && draft.room.avLanNicIndex === draft.room.outboundNicIndex),
   );
+  const outboundPick = nicChoices.find((row) => nicKey(row.name, row.index) === nicKey(draft.room.outboundNicName, draft.room.outboundNicIndex));
+  const outboundNoIp = Boolean(draft.room.outboundNicName || draft.room.outboundNicIndex != null) && outboundPick != null && !outboundPick.ipv4;
   const pickNic = (which: "av" | "out", key: string) => {
     update((c) => {
       if (!key) {
@@ -56,11 +83,40 @@ export function RoomTab(props: {
         else { c.room.outboundNicIndex = null; c.room.outboundNicName = null; }
         return;
       }
-      const nic = nics.find((row) => nicKey(row.name, row.index) === key);
+      const nic = nicChoices.find((row) => nicKey(row.name, row.index) === key);
       if (!nic) return;
-      if (which === "av") { c.room.avLanNicIndex = nic.index; c.room.avLanNicName = nic.name; }
-      else { c.room.outboundNicIndex = nic.index; c.room.outboundNicName = nic.name; }
+      if (which === "av") { c.room.avLanNicIndex = nic.index < 0 ? null : nic.index; c.room.avLanNicName = nic.name; }
+      else { c.room.outboundNicIndex = nic.index < 0 ? null : nic.index; c.room.outboundNicName = nic.name; }
     });
+  };
+  const matchFoyerVar = () => {
+    const label = draft.room.name.trim();
+    if (!label) {
+      flash("Room name needed", "Set the room name first. Foyer matches that label.");
+      return;
+    }
+    update((c) => {
+      const hit = c.variables.find((item) => item.label === label) ?? c.variables.find((item) => item.id === c.room.occupancyVarId);
+      if (hit) {
+        hit.label = label;
+        if (hit.kind === "enum") hit.values = ["available", "in-session", "busy", "closed"];
+        c.room.occupancyVarId = hit.id;
+        return;
+      }
+      const id = `occ-${c.room.id || "room"}`;
+      const taken = c.variables.some((item) => item.id === id);
+      const nextId = taken ? `occ-${Date.now().toString(36)}` : id;
+      c.variables.push({
+        id: nextId,
+        label,
+        kind: "enum",
+        values: ["available", "in-session", "busy", "closed"],
+        default: c.room.occupancy && c.room.occupancy !== "do-not-disturb" ? c.room.occupancy : "available",
+        tag: null,
+      });
+      c.room.occupancyVarId = nextId;
+    });
+    flash("Occupancy variable ready", "Save all. Foyer matches this variable’s label to the Foyer room name.");
   };
   return (
     <section className="grid gap-4 sm:grid-cols-2">
@@ -83,32 +139,51 @@ export function RoomTab(props: {
               </select>
               <span className="text-xs">Schedules use this host’s clock. Set the OS time if it is wrong.</span>
             </label>
-            <label className="grid gap-1 text-sm text-muted">Occupancy
-              <select className={fieldClass()} value={draft.room.occupancy ?? "available"} onChange={(e) => update((c) => { c.room.occupancy = e.target.value as Occupancy; })}>
-                {OCCUPANCY.map((row) => <option key={row.id} value={row.id}>{row.label}</option>)}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm text-muted">Occupancy variable
-              <select className={fieldClass()} value={draft.room.occupancyVarId ?? ""} onChange={(e) => update((c) => { c.room.occupancyVarId = e.target.value || null; })}>
-                <option value="">None</option>
-                {draft.variables.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-              </select>
-              <span className="text-xs">Foyer matches this variable’s label to the Foyer room name. Optional if Foyer is not installed.</span>
-            </label>
-            <label className="grid gap-1 text-sm text-muted">AV-LAN
-              <select className={fieldClass()} value={nicKey(draft.room.avLanNicName, draft.room.avLanNicIndex)} onChange={(e) => pickNic("av", e.target.value)}>
-                <option value="">Default (kernel)</option>
-                {nics.map((nic) => <option key={nic.name} value={nicKey(nic.name, nic.index)}>{nic.label}</option>)}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm text-muted">LAN (internet)
-              <select className={fieldClass()} value={nicKey(draft.room.outboundNicName, draft.room.outboundNicIndex)} onChange={(e) => pickNic("out", e.target.value)}>
-                <option value="">Default (kernel)</option>
-                {nics.map((nic) => <option key={`out-${nic.name}`} value={nicKey(nic.name, nic.index)}>{nic.label}</option>)}
-              </select>
-            </label>
-            {sameNic ? <p className="sm:col-span-2 text-xs text-muted">Same NIC on both pickers (test box). Allowed.</p> : null}
-            <p className="sm:col-span-2 text-xs text-muted">Foyer has no peer yet</p>
+
+            <article className="sm:col-span-2 grid gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2">
+              <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-subtle">Networks</p>
+                <Button size="sm" variant="secondary" onClick={() => void loadNics()}>Refresh NICs</Button>
+              </div>
+              <p className="sm:col-span-2 text-xs text-muted">Leave Default (kernel) on a one-NIC box. On two NICs, bind device I/O to AV-LAN and GitHub update to LAN (internet). Same NIC is allowed for testing.</p>
+              <label className="grid gap-1 text-sm text-muted">AV-LAN
+                <select className={fieldClass()} value={nicKey(draft.room.avLanNicName, draft.room.avLanNicIndex)} onChange={(e) => pickNic("av", e.target.value)}>
+                  <option value="">Default (kernel)</option>
+                  {nicChoices.map((nic) => <option key={`av-${nic.name}`} value={nicKey(nic.name, nic.index)}>{nic.label}</option>)}
+                </select>
+                <span className="text-xs">Device sockets and tablets. No default route on a two-NIC room PC.</span>
+              </label>
+              <label className="grid gap-1 text-sm text-muted">LAN (internet)
+                <select className={fieldClass()} value={nicKey(draft.room.outboundNicName, draft.room.outboundNicIndex)} onChange={(e) => pickNic("out", e.target.value)}>
+                  <option value="">Default (kernel)</option>
+                  {nicChoices.map((nic) => <option key={`out-${nic.name}`} value={nicKey(nic.name, nic.index)}>{nic.label}</option>)}
+                </select>
+                <span className="text-xs">GitHub update only. Not used for device I/O.</span>
+              </label>
+              {nicError ? <p className="sm:col-span-2 text-xs text-clay">{nicError}</p> : null}
+              {sameNic ? <p className="sm:col-span-2 text-xs text-muted">Same NIC on both pickers (test box). Allowed.</p> : null}
+              {outboundNoIp ? <p className="sm:col-span-2 text-xs text-clay">LAN (internet) has no IPv4. Update from GitHub will refuse until you pick a NIC with an address, or Default (kernel).</p> : null}
+            </article>
+
+            <article className="sm:col-span-2 grid gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2">
+              <p className="sm:col-span-2 text-[11px] uppercase tracking-[0.2em] text-subtle">Occupancy / Foyer</p>
+              <p className="sm:col-span-2 text-xs text-muted">Optional. Skip this card if Foyer is not installed. Foyer this pass reads a Relay variable whose <span className="text-fg">label equals the Foyer room name</span>. HMAC is Security → This room’s peer secret (loopback, not a PIN).</p>
+              <label className="grid gap-1 text-sm text-muted">Occupancy
+                <select className={fieldClass()} value={draft.room.occupancy ?? "available"} onChange={(e) => update((c) => { c.room.occupancy = e.target.value as Occupancy; })}>
+                  {OCCUPANCY.map((row) => <option key={row.id} value={row.id}>{row.label}</option>)}
+                </select>
+                <span className="text-xs">Save all writes this to the occupancy variable (not DND).</span>
+              </label>
+              <label className="grid gap-1 text-sm text-muted">Occupancy variable
+                <select className={fieldClass()} value={draft.room.occupancyVarId ?? ""} onChange={(e) => update((c) => { c.room.occupancyVarId = e.target.value || null; })}>
+                  <option value="">None</option>
+                  {draft.variables.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                </select>
+                <Button type="button" size="sm" variant="secondary" className="mt-1 w-fit" onClick={matchFoyerVar}>Match room name</Button>
+              </label>
+              <p className="sm:col-span-2 text-xs text-muted">Foyer has no peer yet</p>
+            </article>
+
             <div className="sm:col-span-2 flex flex-wrap gap-2">
               <Button variant="secondary" onClick={() => {
                 downloadRoomFile(draft, snap.drivers);
