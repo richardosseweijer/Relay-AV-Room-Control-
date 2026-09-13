@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { runMacro } from "@/lib/control/engine";
 import { peerKey, verifyPeerRequest } from "@/lib/control/peer-auth";
+import { buildPeerGet } from "@/lib/control/peer-payload";
 import { ensureLoaded, memory, persist, pushLog } from "@/lib/control/store.server";
 
 async function authorized(request: Request, body: string, path = "/api/peer") {
@@ -19,19 +20,13 @@ export const Route = createFileRoute("/api/peer")({
         await ensureLoaded();
         if (!await authorized(request, "", "/api/peer")) return Response.json({ ok: false, message: "Auth failed" }, { status: 401 });
         const mem = memory();
-        const vars: Record<string, { name: string; value: string | number }> = {};
-        for (const item of mem.config.variables) {
-          vars[item.id] = { name: item.label, value: mem.vars[item.id] ?? item.default };
-        }
-        const macros: Record<string, { name: string }> = {};
-        for (const item of mem.config.macros) macros[item.id] = { name: item.label };
-        return Response.json({
-          ok: true,
-          room: mem.config.room.name,
-          host: { dim: mem.host.dim, locked: mem.host.locked, pageId: mem.host.pageId },
-          vars,
-          macros,
-        });
+        return Response.json(buildPeerGet({
+          room: mem.config.room,
+          host: mem.host,
+          variables: mem.config.variables,
+          vars: mem.vars,
+          macros: mem.config.macros,
+        }));
       },
       POST: async ({ request }) => {
         await ensureLoaded();

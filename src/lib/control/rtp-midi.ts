@@ -205,10 +205,10 @@ function waitApple(sock: dgram.Socket, initiator: number, timeoutMs: number): Pr
   });
 }
 
-function bindEphemeral(sock: dgram.Socket): Promise<void> {
+function bindEphemeral(sock: dgram.Socket, localAddress?: string): Promise<void> {
   return new Promise((resolve, reject) => {
     sock.once("error", reject);
-    sock.bind(0, () => resolve());
+    sock.bind(0, localAddress || undefined, () => resolve());
   });
 }
 
@@ -219,6 +219,7 @@ export async function ensureAppleMidi(opts: {
   timeoutMs?: number;
   keepMs?: number;
   name?: string;
+  localAddress?: string;
 }): Promise<CommandResult> {
   const host = String(opts.host || "").trim();
   const controlPort = Number(opts.controlPort || 5004);
@@ -235,8 +236,8 @@ export async function ensureAppleMidi(opts: {
   const ssrc = rand32();
   const initiator = rand32();
   try {
-    await bindEphemeral(sockControl);
-    await bindEphemeral(sockData);
+    await bindEphemeral(sockControl, opts.localAddress);
+    await bindEphemeral(sockData, opts.localAddress);
   } catch (err) {
     closeSock(sockControl);
     closeSock(sockData);
@@ -288,6 +289,7 @@ export async function sendRtpMidiCommand(opts: {
   midi: Buffer;
   keepMs?: number;
   timeoutMs?: number;
+  localAddress?: string;
 }): Promise<CommandResult> {
   if (!opts.midi.length) return { ok: false, message: "RTP-MIDI empty" };
   const up = await ensureAppleMidi({
@@ -296,6 +298,7 @@ export async function sendRtpMidiCommand(opts: {
     dataPort: opts.dataPort,
     keepMs: opts.keepMs,
     timeoutMs: opts.timeoutMs,
+    localAddress: opts.localAddress,
   });
   if (!up.ok) return up;
   const row = sessions.get(sessionKey(opts.host, opts.controlPort));

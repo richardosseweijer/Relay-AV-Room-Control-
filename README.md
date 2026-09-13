@@ -1,6 +1,6 @@
 # Relay
 
-Relay **0.8.3.5** (beta). Room controller for local AV devices. Private LAN only. Tag `v0.8.3.5` is a snapshot of this tree; install and update from **`main`**. After Update, Configurator → Room shows `0.8.3.5 (<git sha>)`.
+Relay **0.9.0** (beta). Room controller for local AV devices. Private LAN only. Tag `v0.9.0` is a snapshot of this tree; install and update from **`main`**. After Update, Configurator → Room shows `0.9.0 (<git sha>)`. Versions are three-part from this release.
 
 Clone is unused until you start it. First boot writes `data/relay-room.json` and `data/relay-secrets.json` on the host. Those files are not in git.
 
@@ -16,6 +16,8 @@ npm ci
 | Production | `npm run build` then `npm start` | `0.0.0.0:8081` | Pi / 24/7 |
 
 Room `http://HOST:PORT/` — configurator `http://HOST:PORT/config`
+
+Room tab **AV-LAN** / **LAN (internet)** pickers bind device I/O vs GitHub update. Same NIC is allowed (test box). Foyer signage is an optional second process (`:8080` / `:8082`); HMAC is loopback only. Foyer occupancy this pass matches a Relay variable **label** to the Foyer room name.
 
 Do not start with raw `npx vite`. Scripts run `scripts/with-app-env.mjs`.
 

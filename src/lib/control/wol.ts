@@ -8,7 +8,7 @@ function subnetBroadcast(host: string) {
   return `${parts[0]}.${parts[1]}.${parts[2]}.255`;
 }
 
-export async function sendWol(mac: string, host: string): Promise<CommandResult> {
+export async function sendWol(mac: string, host: string, localAddress?: string): Promise<CommandResult> {
   const clean = mac.replace(/[^0-9a-f]/gi, "");
   if (clean.length !== 12) return { ok: false, message: "Need the device MAC in the mac field (wired MAC if the device is on Ethernet)" };
   const dgram = await import("node:dgram");
@@ -21,7 +21,7 @@ export async function sendWol(mac: string, host: string): Promise<CommandResult>
     const sock = dgram.createSocket({ type: "udp4", reuseAddr: true });
     await new Promise<void>((resolve, reject) => {
       sock.once("error", reject);
-      sock.bind(0, "0.0.0.0", () => {
+      sock.bind(0, localAddress || "0.0.0.0", () => {
         try { sock.setBroadcast(true); } catch { /* ignore */ }
         resolve();
       });

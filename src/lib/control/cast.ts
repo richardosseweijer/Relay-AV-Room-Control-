@@ -114,7 +114,7 @@ function waitCast(sock: import("node:tls").TLSSocket, timeout: number, test: (bu
   });
 }
 
-async function ensureCast(host: string, port: number, timeout: number): Promise<CastLive> {
+async function ensureCast(host: string, port: number, timeout: number, localAddress?: string): Promise<CastLive> {
   const key = `${host}:${port}`;
   const live = keepCast.get(key);
   if (live && !live.sock.destroyed) {
@@ -128,7 +128,7 @@ async function ensureCast(host: string, port: number, timeout: number): Promise<
     }
   }
   const tls = await import("node:tls");
-  const sock = tls.connect({ host, port, rejectUnauthorized: false });
+  const sock = tls.connect({ host, port, rejectUnauthorized: false, localAddress } as import("node:tls").ConnectionOptions);
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Cast connect timeout")), timeout);
     sock.once("error", (err) => { clearTimeout(timer); reject(err); });
@@ -155,12 +155,12 @@ function withCastRequestId(json: string, id: number) {
   return json.replace(/\}$/, `,"requestId":${id}}`);
 }
 
-export async function sendCast(host: string, port: number, payload: string, timeout: number, namespace?: string): Promise<CommandResult> {
+export async function sendCast(host: string, port: number, payload: string, timeout: number, namespace?: string, localAddress?: string): Promise<CommandResult> {
   let json = payload.trim().startsWith("{") ? payload.trim() : '{"type":"GET_STATUS"}';
   const media = namespace === CAST_MEDIA || /"(PLAY|PAUSE|QUEUE_NEXT|QUEUE_PREV|SEEK)"/.test(json);
   const ns = namespace || (media ? CAST_MEDIA : CAST_RECV);
   try {
-    const live = await ensureCast(host, port, timeout);
+    const live = await ensureCast(host, port, timeout, localAddress);
     const key = `${host}:${port}`;
     const waitStatus = (wantMedia: boolean) => waitCast(live.sock, timeout, (buf) => {
       const text = buf.toString("utf8");

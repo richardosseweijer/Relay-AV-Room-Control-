@@ -57,6 +57,7 @@ export function requestHttpExact(
   headers: Record<string, string>,
   timeout: number,
   maxBytes = DEFAULT_MAX_RESPONSE_BYTES,
+  localAddress?: string,
 ): Promise<{ ok: boolean; status: number; text: string }> {
   return new Promise((resolve) => {
     let parsed: URL;
@@ -79,6 +80,7 @@ export function requestHttpExact(
       path: `${parsed.pathname}${parsed.search}`,
       method: method.toUpperCase(),
       headers: hdrs,
+      localAddress,
     }, (res) => {
       const chunks: Buffer[] = [];
       let size = 0;

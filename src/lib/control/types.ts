@@ -416,6 +416,8 @@ export function isUserMacro(id: string) {
   return id !== NONE_MACRO_ID;
 }
 
+export type Occupancy = "available" | "in-session" | "busy" | "do-not-disturb" | "closed";
+
 export type RoomConfig = {
   configVersion: string;
   exportedAt: string | null;
@@ -435,6 +437,12 @@ export type RoomConfig = {
     keepAwake?: boolean;
     panelFullscreen?: boolean;
     grid: { cols: number; rows: number };
+    avLanNicIndex?: number | null;
+    avLanNicName?: string | null;
+    outboundNicIndex?: number | null;
+    outboundNicName?: string | null;
+    occupancy?: Occupancy;
+    occupancyVarId?: string | null;
     network: {
       mode: "dhcp" | "static";
       address: string;

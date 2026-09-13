@@ -1,6 +1,6 @@
 # Relay — Windows
 
-Relay **0.8.3.5** (beta). Windows 10/11. Command Prompt or PowerShell.
+Relay **0.9.0** (beta). Windows 10/11. Command Prompt or PowerShell.
 
 Default configurator PIN: `1234`. The app then requires a stronger PIN. Tablets stay paired until Forget on Security.
 
@@ -75,7 +75,7 @@ If the phone cannot connect: Windows Security → Firewall → allow `node.exe`.
 ## 5. First room
 
 1. Open `/config`, PIN `1234`. Set a new PIN when asked. Optionally set a different room PIN on Security.
-2. Room tab: name, Save all.
+2. Room tab: name, Save all. **AV-LAN** / **LAN (internet)** pickers are the same as Linux; both may point at one NIC on a test box. The locked production host is Ubuntu Server.
 3. Devices: add driver from library, set IP, turn Simulate off for real hardware.
 4. Authenticate if the driver has pairing (Samsung: Allow on the TV, port 8002, save token).
 5. Pages / Macros: bind buttons.
@@ -93,7 +93,7 @@ Requires a git clone of [Relay-AV-Room-Control-](https://github.com/richardossew
 
 Configurator → Room → **Save all** → **Update from GitHub**.
 
-Builds the fetched release in a separate git worktree, checks its `/api/room` response, and only then switches the live checkout and build. A failed stage leaves the running release untouched. If the switched release fails readiness, the updater restores and restarts the previous release. Log: `data\relay-update.log`. Room tab then shows `0.8.3.5 (<sha>)`. Tracked uncommitted edits block the update.
+Builds the fetched release in a separate git worktree, checks its `/api/room` response, and only then switches the live checkout and build. A failed stage leaves the running release untouched. If the switched release fails readiness, the updater restores and restarts the previous release. Log: `data\relay-update.log`. Room tab then shows `0.9.0 (<sha>)`. Tracked uncommitted edits block the update.
 
 ```bat
 cd C:\relay

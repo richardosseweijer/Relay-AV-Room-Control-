@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.8.3.5** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.0** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -10,7 +10,7 @@ This document describes the software in this repository. It is not a substitute 
 
 Relay is a single-process, LAN-hosted controller for audiovisual and related equipment. An integrator describes each product as a JSON driver (ports, payloads, authentication, parse rules). The operator sees only a grid of buttons and sliders bound to those capabilities.
 
-The application is intended to run on a machine that remains on the same private network as the devices (a Windows PC during commissioning, a Raspberry Pi in a finished room). It does not depend on a cloud service for control. Device protocols implemented by third parties are used without affiliation; see NOTICE.
+The application is intended to run on a machine that remains on the same private network as the devices. The locked production host is Ubuntu Server with two NICs (AV-LAN for device I/O, internet NIC for outbound update). Windows and Raspberry Pi still run. Foyer room signage is an optional second process on loopback HMAC, not part of this package. Device protocols implemented by third parties are used without affiliation; see NOTICE.
 
 The repository also contains Vite / TanStack Start scaffolding used to boot the HTTP server. Device I/O is only in `src/lib/control/`, `src/components/panel/`, `src/components/config/`, and `src/routes/`.
 
@@ -28,9 +28,9 @@ One Node.js process serves three surfaces:
 
 There is no separate device-gateway process. HTTP, TCP, TLS WebSocket, Cast, Wake-on-LAN, and local interfaces are opened from `src/lib/control/engine.ts` inside the same process.
 
-A second browser (wall tablet and desk tablet) may attach to the same origin. Both share one configuration and one variable store.
+A second browser (wall tablet and desk tablet) may attach to the same origin. Both share one configuration and one variable store. Tablets belong on AV-LAN.
 
-Default development bind is `0.0.0.0:8081` so other hosts on the LAN can open the panel. Production deployments should treat that bind as a trusted network. See section 8.
+HTTP listen is `0.0.0.0` (dev `:8080`, production `:8081`) plus ufw. See section 8.
 
 ```
 Operator browser          Integrator browser

@@ -2,6 +2,14 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.0 — 2026-09-13
+
+- Tag `v0.9.0`. Versions are three-part from here (`major.minor.patch`). No fourth ticker.
+- Room tab: **AV-LAN** and **LAN (internet)** NIC pickers (Foyer `f6abb8e` list: Node A–Z, 0-based, em dash). Same NIC allowed.
+- Device sockets bind AV-LAN `localAddress`. GitHub update refuses if the outbound NIC has no IPv4.
+- Occupancy (`available` / `in-session` / `busy` / `closed`) plus host `occupancy.*`. `GET /api/peer` emits `v:1`, `room:{id,name}`, `occupancy`, and vars. Foyer this pass still maps a Relay variable **label** to the Foyer room name.
+- Foyer is optional. No Foyer poller. HMAC stays loopback.
+
 ## 0.8.3.5 — 2026-09-13
 
 - Tag `v0.8.3.5`.

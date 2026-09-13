@@ -29,6 +29,17 @@ test("sendUdp delivers a unicast datagram", async () => {
   recv.close();
 });
 
+test("sendUdp can bind localAddress 127.0.0.1", async () => {
+  const recv = dgram.createSocket("udp4");
+  await new Promise((resolve) => recv.bind(0, "127.0.0.1", resolve));
+  const port = recv.address().port;
+  const got = new Promise((resolve) => recv.once("message", (msg) => resolve(msg.toString())));
+  const res = await sendUdp("127.0.0.1", port, Buffer.from("bind"), "127.0.0.1");
+  assert.equal(res.ok, true);
+  assert.equal(await got, "bind");
+  recv.close();
+});
+
 test("listenUdpMulticast rejects unicast dest", async () => {
   const res = await listenUdpMulticast({ group: "10.0.0.20", port: 21928, onMessage: () => undefined });
   assert.equal("error" in res, true);

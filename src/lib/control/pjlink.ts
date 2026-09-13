@@ -1,11 +1,11 @@
 import type { CommandResult } from "./types";
 
-export async function sendPjlink(host: string, port: number, payload: string, password: string | undefined, timeout: number): Promise<CommandResult> {
+export async function sendPjlink(host: string, port: number, payload: string, password: string | undefined, timeout: number, localAddress?: string): Promise<CommandResult> {
   const net = await import("node:net");
   const crypto = await import("node:crypto");
   const body = payload.replace(/\r?\n/g, "") + "\r";
   return new Promise((resolve) => {
-    const sock = net.connect({ host, port });
+    const sock = net.connect({ host, port, localAddress });
     let buf = "";
     let sent = false;
     const timer = setTimeout(() => { sock.destroy(); resolve({ ok: false, message: "PJLink timeout" }); }, timeout);

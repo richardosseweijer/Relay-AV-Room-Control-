@@ -4,6 +4,7 @@ import { midiPortOk } from "./midi.ts";
 import { listenUdpMulticast } from "./udp.ts";
 import { IPMIDI_GROUP, IPMIDI_PORT } from "./ipmidi.ts";
 import { setRtpMidiBytesHandler } from "./rtp-midi.ts";
+import { roomLanBind } from "./nics.ts";
 
 export type MidiMsg = {
   kind: MidiWatchKind;
@@ -267,12 +268,13 @@ function startUsbMidiIn(deviceId: string, port: string, watch: MidiWatch[], stat
   child.on("close", () => usbChildren.delete(deviceId));
 }
 
-async function startIpmidiIn(deviceId: string, watch: MidiWatch[], state: DeviceStateMap, port?: number) {
+async function startIpmidiIn(deviceId: string, watch: MidiWatch[], state: DeviceStateMap, port?: number, localAddress?: string) {
   closeIpmidi(deviceId);
   const got = await listenUdpMulticast({
     group: IPMIDI_GROUP,
     port: port || IPMIDI_PORT,
     onMessage: (buf) => onMidiBytes(deviceId, buf, watch, state),
+    localAddress,
   });
   if ("error" in got) return;
   ipmidiClosers.set(deviceId, got.close);
@@ -302,7 +304,9 @@ export function syncMidiWatchers(opts: {
       if (port && !usbChildren.has(device.id)) startUsbMidiIn(device.id, port, watch, opts.state);
     }
     if (proto === "ipmidi" && !ipmidiClosers.has(device.id)) {
-      startIpmidiIn(device.id, watch, opts.state, driver.transports.lan?.port).catch(() => undefined);
+      const bind = roomLanBind(opts.config);
+      if (!bind.ok) continue;
+      startIpmidiIn(device.id, watch, opts.state, driver.transports.lan?.port, bind.localAddress).catch(() => undefined);
     }
     if (proto === "rtp-midi") {
       const control = device.port ?? driver.transports.lan?.port ?? 5004;

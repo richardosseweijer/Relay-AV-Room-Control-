@@ -1,12 +1,27 @@
 import type { RefObject } from "react";
-import { getEditorConfig, importBundle, rebootHost, restartHost, updateHost } from "@/lib/control/actions";
-import type { RoomConfig, RoomSnapshot } from "@/lib/control/types";
+import { useEffect, useState } from "react";
+import { getEditorConfig, importBundle, listLanNics, rebootHost, restartHost, updateHost } from "@/lib/control/actions";
+import type { Occupancy, RoomConfig, RoomSnapshot } from "@/lib/control/types";
 import { Button } from "@/components/ui/button";
 import { fieldClass } from "./config-ui";
 import { InputNum } from "./config-fields";
 import { ROOM_THEME_LABELS, resolveRoomTheme, type RoomTheme } from "@/lib/theme";
 
 const TIMEZONES = ["system", "Europe/Brussels", "Europe/Amsterdam", "Europe/London", "Europe/Berlin", "UTC", "America/New_York"];
+const OCCUPANCY: { id: Occupancy; label: string }[] = [
+  { id: "available", label: "Available" },
+  { id: "in-session", label: "In session" },
+  { id: "busy", label: "Busy" },
+  { id: "closed", label: "Closed" },
+];
+
+type NicRow = { index: number; name: string; ipv4: string | null; label: string };
+
+function nicKey(name?: string | null, index?: number | null) {
+  if (name) return `name:${name}`;
+  if (index != null && Number.isFinite(index)) return `index:${index}`;
+  return "";
+}
 
 export function RoomTab(props: {
   draft: RoomConfig;
@@ -21,6 +36,32 @@ export function RoomTab(props: {
   downloadRoomFile: (draft: RoomConfig, drivers: RoomSnapshot["drivers"]) => void;
 }) {
   const { draft, snap, token, update, flash, refresh, setDraft, importRef, setGate, downloadRoomFile } = props;
+  const [nics, setNics] = useState<NicRow[]>([]);
+  useEffect(() => {
+    let live = true;
+    listLanNics({ data: { token: token || "" } }).then((res) => {
+      if (live && res.ok) setNics(res.nics);
+    }).catch(() => undefined);
+    return () => { live = false; };
+  }, [token]);
+  const sameNic = Boolean(
+    (draft.room.avLanNicName && draft.room.outboundNicName && draft.room.avLanNicName === draft.room.outboundNicName)
+    || (draft.room.avLanNicName == null && draft.room.outboundNicName == null
+      && draft.room.avLanNicIndex != null && draft.room.avLanNicIndex === draft.room.outboundNicIndex),
+  );
+  const pickNic = (which: "av" | "out", key: string) => {
+    update((c) => {
+      if (!key) {
+        if (which === "av") { c.room.avLanNicIndex = null; c.room.avLanNicName = null; }
+        else { c.room.outboundNicIndex = null; c.room.outboundNicName = null; }
+        return;
+      }
+      const nic = nics.find((row) => nicKey(row.name, row.index) === key);
+      if (!nic) return;
+      if (which === "av") { c.room.avLanNicIndex = nic.index; c.room.avLanNicName = nic.name; }
+      else { c.room.outboundNicIndex = nic.index; c.room.outboundNicName = nic.name; }
+    });
+  };
   return (
     <section className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1 text-sm text-muted">Room name<input className={fieldClass()} value={draft.room.name} onChange={(e) => update((c) => { c.room.name = e.target.value; })} /></label>
@@ -42,6 +83,32 @@ export function RoomTab(props: {
               </select>
               <span className="text-xs">Schedules use this host’s clock. Set the OS time if it is wrong.</span>
             </label>
+            <label className="grid gap-1 text-sm text-muted">Occupancy
+              <select className={fieldClass()} value={draft.room.occupancy ?? "available"} onChange={(e) => update((c) => { c.room.occupancy = e.target.value as Occupancy; })}>
+                {OCCUPANCY.map((row) => <option key={row.id} value={row.id}>{row.label}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm text-muted">Occupancy variable
+              <select className={fieldClass()} value={draft.room.occupancyVarId ?? ""} onChange={(e) => update((c) => { c.room.occupancyVarId = e.target.value || null; })}>
+                <option value="">None</option>
+                {draft.variables.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </select>
+              <span className="text-xs">Foyer matches this variable’s label to the Foyer room name. Optional if Foyer is not installed.</span>
+            </label>
+            <label className="grid gap-1 text-sm text-muted">AV-LAN
+              <select className={fieldClass()} value={nicKey(draft.room.avLanNicName, draft.room.avLanNicIndex)} onChange={(e) => pickNic("av", e.target.value)}>
+                <option value="">Default (kernel)</option>
+                {nics.map((nic) => <option key={nic.name} value={nicKey(nic.name, nic.index)}>{nic.label}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm text-muted">LAN (internet)
+              <select className={fieldClass()} value={nicKey(draft.room.outboundNicName, draft.room.outboundNicIndex)} onChange={(e) => pickNic("out", e.target.value)}>
+                <option value="">Default (kernel)</option>
+                {nics.map((nic) => <option key={`out-${nic.name}`} value={nicKey(nic.name, nic.index)}>{nic.label}</option>)}
+              </select>
+            </label>
+            {sameNic ? <p className="sm:col-span-2 text-xs text-muted">Same NIC on both pickers (test box). Allowed.</p> : null}
+            <p className="sm:col-span-2 text-xs text-muted">Foyer has no peer yet</p>
             <div className="sm:col-span-2 flex flex-wrap gap-2">
               <Button variant="secondary" onClick={() => {
                 downloadRoomFile(draft, snap.drivers);

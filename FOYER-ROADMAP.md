@@ -1,0 +1,242 @@
+# Foyer contract — Relay roadmap (0.9.0)
+
+Do not execute until asked. Halt on red. No push until asked.
+Do not read Foyer data files. Do not import Foyer. Do not add a Foyer JSON driver.
+Do not heap this into `engine.ts` — new files only, thin call-sites.
+
+**Foyer main `f6abb8e` is the lock.** Where the PDF brief disagrees (`ip` order, 1-based `N`, poll Foyer `/api/peer` this pass), **this file wins.**
+
+## Locked (operator + Foyer `f6abb8e`)
+
+- Host: Ubuntu Server 24.04. Pi/Windows stay until parked later.
+- Foyer `:8080` / `:8082`. Relay production `:8081`. Do **not** move Foyer.
+- Grok sandbox: Relay `npm run dev` stays `:8080`. Room PC: `npm start` (`:8081`).
+- HTTP listen `0.0.0.0` + **ufw** (AV-LAN + loopback). No dual Node sockets.
+- Occupancy writer: Foyer polls Relay `GET /api/peer`. **No Relay POST occupancy.** **No Relay poll of Foyer this pass.**
+- NIC pickers independent (standalone). Same NIC allowed; warn, do not block.
+- Central monitor: out of scope.
+- Isolation: no shared disk, PIN, ICS, or secret file. HMAC on **loopback only**.
+
+## Foyer wire this pass (do not “improve”)
+
+**NIC list** (match exactly):
+
+- `os.networkInterfaces()`, names sorted **A–Z**.
+- Index **0-based** (row order after sort). **Not** `ip` order. **Not** 1-based.
+- Skip only ifaces where **every** address is `internal` (that is `lo`).
+- Keep `docker0`, `veth*`, `br-*`, down, no-IPv4.
+- Label uses **em dash** U+2014: `0 — enp1s0 (10.0.25.10)` / `0 — enp1s0 (no IPv4)`.
+- Resolve: **name first, then index**.
+- Persist Relay’s own keys (same *names* as Foyer, own disk): `avLanNicIndex` / `avLanNicName`, `outboundNicIndex` / `outboundNicName`.
+- UI labels: **AV-LAN**, **LAN (internet)**.
+
+**HMAC** (Foyer → Relay GET): `x-relay-ts` + `x-relay-auth`; payload `` `${ts}\n${method}\n${path}\n${body}` ``; method `GET`; path exactly `/api/peer`; body `""`; HMAC-SHA256 64 lowercase hex; `ts` = `String(Date.now())`. Empty secret: Foyer does not send; Relay deny. Skew/replay: Relay ~90s (Foyer client does not enforce skew).
+
+**Foyer has no `/api/peer`.** 404 or SPA HTML. Do not poll it this pass. Room tab may say “Foyer has no peer yet” as static text. No `foyer-peer.ts` poller this train.
+
+**Foyer occupancy (today):** does **not** read first-class `occupancy`. Reads `room` as `{ name }` (string `room` ignored, `room.id` ignored). Maps `vars[].value` when `vars[].name` equals the **Foyer room name** (or Foyer `relayRoomMap`). `host.locked` + matching `room.name` → `in-session` if no var hit.
+
+Var aliases Foyer maps:
+
+| Incoming (case-insensitive) | Foyer live |
+|---|---|
+| available, free, idle, 0, false | available |
+| in-session, insession, occupied, 1, true, on | in-session |
+| busy | busy |
+| closed, off | closed |
+| do-not-disturb, dnd, anything else | **ignored** (no plate change) |
+
+Setup override is local to Foyer. `starting-soon` is Foyer calendar, not Relay. Do not send `dnd` expecting a plate change this pass.
+
+Relay still **emits** `v`, `occupancy`, `room: { id, name }` so a later Foyer patch can switch without a Relay bump. This pass also keep **vars** + `room.name` so current Foyer works.
+
+## Handrails
+
+After every phase: `npx tsc --noEmit`; `driver-check` if a JSON driver changed; that phase’s test file. Halt on red.
+
+After each block: full `npm test`.
+
+Do not edit `data/relay-room.json` / secrets. Version is three-part (`0.9.0`); bump only when pushing.
+
+---
+
+## Phase 0 — Freeze / inventory (no behaviour)
+
+- Confirm `start` is `:8081`. Leave Vite `server.port` **8080**.
+- Inventory sockets for later `localAddress`: `udp.ts`, `wol.ts`, `engine.ts` tcp/session, `pjlink.ts`, `ws.ts`, `rtp-midi.ts`, `http-client.ts`, midi-in UDP if any.
+- `listHostInterfaces()` is serial/GPIO/MIDI — **not** NICs.
+- `GET /api/peer` today: `room` is a **string**.
+
+Gate: tsc. No tests.
+
+---
+
+## Block A — NIC list + resolve (no UI)
+
+### Phase 1 — `src/lib/control/nics.ts`
+
+Implement **Foyer’s algorithm**, not `ip`:
+
+1. `os.networkInterfaces()`
+2. Drop names where every addr is `internal`
+3. Sort remaining names A–Z (`localeCompare` / code-point, tests lock this)
+4. Index = `0 .. n-1`
+5. IPv4 = first `family` IPv4 / `4` that is not internal; else `null`
+6. Label: `${index} — ${name} (${ipv4 ?? "no IPv4"})` with U+2014
+
+`resolveNic({ name, index })`: name match first (exact), else index.
+
+`outboundAddress`: picker set + `ipv4 == null` → fail closed (no AV-LAN fallback).
+
+Tests `scripts/nics.test.mjs` with a **mocked** `networkInterfaces()` object:
+
+- `lo` (internal) + `enp2s0` + `enp1s0` → order `enp1s0` then `enp2s0`, indexes **0, 1**, labels with em dash.
+- No IPv4 row → `(no IPv4)`.
+- Persist name `enp2s0` + stale index 0 → still `enp2s0`.
+- Fail closed: selected name, `ipv4` null.
+- `docker0` **present** (not skipped).
+
+Gate: tsc + nics tests. Fixture asserts `label.includes(" — ")` (em dash, not hyphen-minus).
+
+### Phase 2 — persist fields
+
+`room`: `avLanNicIndex`, `avLanNicName`, `outboundNicIndex`, `outboundNicName`, `occupancy`, `occupancyVarId` (optional: which Relay var label/id Foyer will match).
+
+Default occupancy `"available"`. Nic fields null. `foyerPeerUrl` **not used this pass** (no poller). May still persist the default for later; do not GET it.
+
+Gate: tsc.
+
+---
+
+## Block B — Room UI
+
+### Phase 3 — pickers + occupancy
+
+Room tab:
+
+- Dropdowns **AV-LAN** and **LAN (internet)**, labels from Phase 1.
+- Same NIC → one-line warning, still save.
+- Occupancy select: `available` | `in-session` | `busy` | `closed` (include `busy` because Foyer paints it from vars). `do-not-disturb` may exist on Relay for later; **do not** advertise it as a plate state this pass.
+- Optional: occupancy var picker (Relay variables). Help text: Foyer matches **variable label** to **Foyer room name**.
+- Static line: “Foyer has no peer yet” — **no HTTP**.
+- Relay room name stays editable. Matching Foyer’s name enables Foyer’s `host.locked` → in-session fallback.
+
+Gate: tsc.
+
+---
+
+## Block C — occupancy + peer GET
+
+### Phase 4 — host commands + wire
+
+`relay-host.json` + `defaults.ts`:
+
+- `occupancy.available` | `occupancy.in-session` | `occupancy.busy` | `occupancy.closed` (+ optional `occupancy.do-not-disturb` stored only)
+- Feedback `occupancy.state`
+
+`applyHost`: set `room.occupancy`, persist. If `occupancyVarId` set (or a var labeled `occupancy`), write `vars[id]` to the **alias Foyer understands** (`available` / `in-session` / `busy` / `closed` — not `dnd`).
+
+`GET /api/peer`:
+
+```json
+{
+  "ok": true,
+  "v": 1,
+  "room": { "id": "<id>", "name": "<relay room.name>" },
+  "host": { "dim": false, "locked": false, "pageId": null },
+  "occupancy": "available",
+  "vars": { "<id>": { "name": "<label>", "value": "<value>" } },
+  "macros": {}
+}
+```
+
+Must **not** emit `room` as a string. Keep `vars` (Foyer’s live path). `occupancy` is for the later Foyer patch.
+
+Tests `scripts/peer-occupancy.test.mjs`: builder emits object `room`; occupancy field; var value aliases; `busy`; locked flag passthrough.
+
+Gate: tsc + tests + `driver-check` relay-host.
+
+---
+
+## Block D — Foyer client
+
+**Deferred.** No `foyer-peer.ts` poller this train. Phase 12 (external) when Foyer ships `GET :8080/api/peer`.
+
+---
+
+## Block E — AV-LAN bind
+
+`avLanBind(config) → { localAddress?: string }` in `nics.ts`.
+
+### Phase 6 — UDP / WOL / multicast
+
+`sendUdp`, `sendUdpMulticast` (`setMulticastInterface`), `listenUdpMulticast` (`addMembership(group, addr)`), `wol.ts` bind.
+
+Gate: tsc + udp/wol tests.
+
+### Phase 7 — TCP / WS / PJLink / RTP-MIDI
+
+`net.connect({ host, port, localAddress })`. Grep: `net.connect(` without `localAddress` in `src/lib/control` is red unless `// loopback`.
+
+Gate: tsc + existing tests + grep.
+
+### Phase 8 — HTTP
+
+`localAddress` on `requestHttpExact`. Route **all** `sendHttp` through it. `fetchTextBounded` only for loopback HMAC (Foyer later / Relay peer).
+
+Gate: tsc + grep `sendHttp` must not call `fetchTextBounded`.
+
+---
+
+## Block F — outbound fail-closed + docs
+
+### Phase 9 — updater preflight
+
+If outbound NIC set and no IPv4 → refuse update. Do not bind `git`. No AV-LAN fallback.
+
+### Phase 10 — docs
+
+Two NICs + loopback HMAC. Tablet on AV-LAN (drop rack-AP door story). `0.0.0.0:8081` + ufw. Foyer `:8080`/`:8082`. Production `:8081`. Peer secret ≠ PIN. Foyer occupancy this pass = **Relay var label = Foyer room name**.
+
+### Phase 11 — full gate
+
+`tsc`, `npm test`, `driver-check` all JSON. Grep: no `data/foyer`, no Foyer imports, no poller to `:8080/api/peer`, no `8181`. `net.connect` grep still holds.
+
+---
+
+## External (not this train)
+
+- Phase 12: Foyer `GET :8080/api/peer` — then add `foyer-peer.ts` (loopback-only).
+- Foyer reads first-class `occupancy`.
+- Central monitor.
+
+## Out of scope
+
+Moving Foyer ports; sandbox `:8080`; dual listen; Foyer driver; occupancy POST; Foyer data files; HMAC on a NIC; Pi/Windows parking.
+
+---
+
+## Success rate (re-scored after `f6abb8e`)
+
+What changed vs the PDF plan:
+
+| Change | Effect |
+|---|---|
+| NIC = Node A–Z, 0-based, em dash (Foyer’s code, not `ip`) | A residual 4% → **1%** |
+| **No Foyer poll this pass** | Block D residual **0%** (work removed) |
+| Emit `room` object **and** vars Foyer already maps | C stays ~3% (operator must label the var) |
+| Bind helper unchanged | E **6%** (still the fat one) |
+
+First-clean product of residuals:
+
+`(0.99)(0.98)(0.97)(1.00)(0.94)(0.98)(0.98) ≈ **84%** first-pass.
+
+Halt-on-red eventual for **this train**: **~97%**.
+
+Not 99%: dual-NIC not in this sandbox; Foyer occupancy still depends on a **matching variable label** (config, not code).
+
+Live now/next: **not scored** (Foyer has no peer route).
+
+Errors folded in this revision: do not use `ip`; indexes are 0-based; em dash; do not skip docker; do not poll Foyer; keep vars; include `busy`; do not expect `dnd` on the plate.
+
+Ready to execute from Phase 0 when you say go.

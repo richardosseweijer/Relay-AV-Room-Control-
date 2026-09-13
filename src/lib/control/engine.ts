@@ -29,6 +29,7 @@ import { sendUsbMidi } from "./midi";
 import { sendIpmidi } from "./ipmidi";
 import { sendRtpMidiCommand, rtpMidiPoolSize } from "./rtp-midi";
 import { encodeMtcQf, encodeMtcSysex } from "./midi-in";
+import { roomLanBind } from "./nics";
 
 const g = globalThis as typeof globalThis & { __relayTraces__?: Record<string, TraceLine[]> };
 
@@ -407,10 +408,10 @@ function decodeWire(buf: Buffer, encoding: string | undefined) {
   return buf.toString("utf8").slice(0, 400);
 }
 
-async function tcpWrite(host: string, port: number, payload: Buffer, timeout: number, encoding?: string): Promise<CommandResult> {
+async function tcpWrite(host: string, port: number, payload: Buffer, timeout: number, encoding?: string, localAddress?: string): Promise<CommandResult> {
   const net = await import("node:net");
   return new Promise((resolve) => {
-    const sock = net.connect({ host, port });
+    const sock = net.connect({ host, port, localAddress });
     let buf = Buffer.alloc(0);
     const timer = setTimeout(() => { sock.destroy(); resolve({ ok: false, message: "timeout" }); }, timeout);
     sock.on("data", (d) => { buf = Buffer.concat([buf, d]); });
@@ -435,11 +436,12 @@ async function tcpSessionWrite(
   session: NonNullable<NonNullable<DriverSpec["transports"]["lan"]>["session"]>,
   auth: Record<string, string>,
   timeout: number,
+  localAddress?: string,
 ): Promise<CommandResult> {
   const net = await import("node:net");
   let row = sessions.get(key);
   if (!row || row.sock.destroyed) {
-    const sock = net.connect({ host, port });
+    const sock = net.connect({ host, port, localAddress });
     let buf = "";
     sock.setEncoding("utf8");
     sock.on("data", (d) => {
@@ -514,7 +516,7 @@ export async function sendHttp(
   method: string,
   body: string,
   timeout: number,
-  limits: { maxBytes?: number; maxMessageChars?: number; headers?: Record<string, string> } = {},
+  limits: { maxBytes?: number; maxMessageChars?: number; headers?: Record<string, string>; localAddress?: string } = {},
 ): Promise<CommandResult> {
   try {
     const verb = method.toUpperCase();
@@ -523,14 +525,7 @@ export async function sendHttp(
       target += (url.includes("?") ? "&" : "?") + body.replace(/^\?/, "");
     }
     const headers = limits.headers ?? { "content-type": "application/json" };
-    const soap = Object.keys(headers).some((key) => key.toLowerCase() === "soapaction");
-    const res = soap
-      ? await requestHttpExact(target, verb, verb === "GET" || verb === "HEAD" ? "" : body, headers, timeout, limits.maxBytes ?? DEFAULT_MAX_RESPONSE_BYTES)
-      : await fetchTextBounded(target, {
-          method: verb,
-          body: verb === "GET" || verb === "HEAD" ? undefined : body,
-          headers,
-        }, timeout, limits.maxBytes);
+    const res = await requestHttpExact(target, verb, verb === "GET" || verb === "HEAD" ? "" : body, headers, timeout, limits.maxBytes ?? DEFAULT_MAX_RESPONSE_BYTES, limits.localAddress);
     return { ok: res.ok, message: res.text.slice(0, limits.maxMessageChars ?? 400) || String(res.status) };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "http failed" };
@@ -566,13 +561,16 @@ function wsQueryFromDriver(driver: DriverSpec, device: DeviceInstance): Record<s
   return Object.keys(out).length ? out : undefined;
 }
 
-async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: string, command?: DriverCommand): Promise<CommandResult> {
+async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: string, command?: DriverCommand, config?: RoomConfig): Promise<CommandResult> {
   const lan = driver.transports.lan;
   if (!lan) return { ok: false, message: "No LAN transport on this driver" };
   const proto = String(lan.protocol || "");
   if (!proto || /[/\\:]/.test(proto)) return { ok: false, message: "Unknown protocol" };
   const known = new Set(["tcp", "udp", "http", "https", "websocket", "tls-websocket", "pjlink", "cast", "wol", "osc", "sacn", "ipmidi", "rtp-midi"]);
   if (!known.has(proto)) return { ok: false, message: "Unknown protocol" };
+  const bind = roomLanBind(config);
+  if (!bind.ok) return bind;
+  const localAddress = bind.localAddress;
   const host = device.host;
   const skipUnicastHost = proto === "sacn" || (proto === "ipmidi" && lan.multicast !== false);
   if (!skipUnicastHost && !allowedLanHost(host, { localOk: device.driver === "relay-host.json" || driver.device.type === "host" })) {
@@ -587,8 +585,8 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
   const wire = encodeWire(payload, encoding, lan.lineEnding ?? (lan.protocol === "pjlink" ? "\r" : undefined));
   if ("error" in wire) return { ok: false, message: wire.error };
   if (command?.httpMethod === "RPC") result = await sendRpcShutdown(host, device.auth?.user || device.auth?.username || "", device.auth?.password || "");
-  else if (lan.protocol === "wol") result = await sendWol(device.auth?.mac || "", host);
-  else if (lan.protocol === "cast") result = await sendCast(host, port, payload, timeout, command?.namespace);
+  else if (lan.protocol === "wol") result = await sendWol(device.auth?.mac || "", host, localAddress);
+  else if (lan.protocol === "cast") result = await sendCast(host, port, payload, timeout, command?.namespace, localAddress);
   else if (lan.protocol === "http" || lan.protocol === "https") {
     const auth = device.auth || {};
     const ctx = { host, port, id: device.id };
@@ -605,6 +603,7 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
     result = await sendHttp(`${lan.protocol}://${host}:${port}${path}`, command?.httpMethod || lan.http?.method || "GET", payload, timeout, {
       maxMessageChars: lan.http?.contentType?.includes("xml") ? 64 * 1024 : undefined,
       headers,
+      localAddress,
     });
   } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") {
     if (/[/:]/.test(String(lan.protocol))) result = { ok: false, message: "Unknown protocol" };
@@ -626,10 +625,11 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
         handshake: lan.handshake,
         alsoSend: lan.alsoSend,
         alsoSendRaw: command?.alsoSend,
+        localAddress,
       });
     }
   }
-  else if (lan.protocol === "pjlink") result = await sendPjlink(host, port, payload, device.auth?.password || device.auth?.pin, timeout);
+  else if (lan.protocol === "pjlink") result = await sendPjlink(host, port, payload, device.auth?.password || device.auth?.pin, timeout, localAddress);
   else if (lan.protocol === "osc") {
     const oscPort = Number(port || 9000);
     const ctx = { host, port: oscPort, id: device.id };
@@ -640,6 +640,7 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
       path: renderPayload(payload, undefined, auth, ctx),
       types: command?.osc?.types,
       values: (command?.osc?.values ?? []).map((v) => renderPayload(String(v ?? ""), undefined, auth, ctx)),
+      localAddress,
     });
   }
   else if (lan.protocol === "sacn") {
@@ -651,6 +652,7 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
       slot: command?.sacn?.slot,
       value: command?.sacn ? renderPayload(String(command.sacn.value ?? payload ?? "0"), undefined, auth, ctx) : undefined,
       cidKey: device.id || host || "relay",
+      localAddress,
     });
   }
   else if (lan.protocol === "ipmidi") {
@@ -661,6 +663,7 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
       multicast: lan.multicast !== false,
       host,
       port: Number(port || 21928),
+      localAddress,
     });
   }
   else if (lan.protocol === "rtp-midi") {
@@ -674,11 +677,12 @@ async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: stri
       midi: midiWire,
       keepMs: lan.session?.keepMs ?? 60_000,
       timeoutMs: timeout,
+      localAddress,
     });
   }
-  else if (lan.protocol === "udp") result = await sendUdp(host, Number(port), wire); else if (lan.session && encoding !== "hex") {
-    result = await tcpSessionWrite(device.id, host, port, wire, lan.session, device.auth || {}, timeout);
-  } else result = await tcpWrite(host, port, wire, timeout, encoding);
+  else if (lan.protocol === "udp") result = await sendUdp(host, Number(port), wire, localAddress); else if (lan.session && encoding !== "hex") {
+    result = await tcpSessionWrite(device.id, host, port, wire, lan.session, device.auth || {}, timeout, localAddress);
+  } else result = await tcpWrite(host, port, wire, timeout, encoding, localAddress);
   pushTrace(device.id, result.ok ? "rx" : "note", result.message);
   return result;
 }
@@ -706,7 +710,7 @@ export async function pingReachable(opts: { host: string; port?: number; path?: 
   }
   return new Promise((resolve) => {
     import("node:net").then((net) => {
-      const sock = net.connect({ host: opts.host, port });
+      const sock = net.connect({ host: opts.host, port }); // loopback-or-unbound ping
       const timer = setTimeout(() => { sock.destroy(); resolve({ ok: false, message: `closed ${port}` }); }, timeout);
       sock.on("connect", () => { clearTimeout(timer); sock.end(); resolve({ ok: true, message: `open ${port}` }); });
       sock.on("error", (err) => { clearTimeout(timer); resolve({ ok: false, message: err.message }); });
@@ -789,7 +793,7 @@ export async function probeDevice(opts: { config: RoomConfig; drivers: Record<st
   const host = opts.host ?? wired.host;
   const probe = driver.probe;
   if (probe?.payload) {
-    const result = await sendLan(driver, { ...wired, host }, probe.payload);
+    const result = await sendLan(driver, { ...wired, host }, probe.payload, undefined, opts.config);
     if (!probe.success) return result;
     const hit = parseFeedback(probe.success, result.message);
     const matched = probe.success.type === "contains" || probe.success.type === "exact" ? Boolean(hit) : hit.length > 0;
@@ -842,6 +846,8 @@ export async function sendGatewayRaw(opts: { config: RoomConfig; interfaceId: st
   }
   pushTrace(iface.id, "tx", `gateway ${wired.host}:${port} ${text.slice(0, 120)}`);
   await paceDevice(`gw:${iface.id}`, 40);
+  const bind = roomLanBind(opts.config);
+  if (!bind.ok) return bind;
   const result = await tcpSessionWrite(
     `gw:${wired.host}:${port}`,
     wired.host,
@@ -850,6 +856,7 @@ export async function sendGatewayRaw(opts: { config: RoomConfig; interfaceId: st
     { keepMs: 20000 },
     {},
     1200,
+    bind.localAddress,
   );
   pushTrace(iface.id, result.ok ? "rx" : "note", result.message);
   return result;
@@ -862,7 +869,7 @@ export async function sendRaw(opts: { config: RoomConfig; drivers: Record<string
   if (!driver) return { ok: false, message: "No driver" };
   const iface = opts.config.interfaces?.find((item) => item.id === device.interfaceId);
   const wired = wireThroughInterface(device, iface);
-  return usesLocalPort(iface) ? sendLocal(driver, wired, opts.payload) : sendLan(driver, wired, opts.payload);
+  return usesLocalPort(iface) ? sendLocal(driver, wired, opts.payload) : sendLan(driver, wired, opts.payload, undefined, opts.config);
 }
 
 export async function syncInventory(opts: { config: RoomConfig; drivers: Record<string, DriverSpec>; deviceId: string; vars?: Record<string, string | number> }): Promise<{ ok: boolean; message: string; inventory?: DeviceInventory }> {
@@ -920,7 +927,7 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
         payload: resource.payload,
         waitContains: resource.waitContains,
         alsoSend: resource.alsoSend,
-      });
+      }, opts.config);
       if (!res.ok) return { ok: false, message: res.message };
       raw = res.message;
     } else if (resource.httpPath) {
@@ -928,9 +935,12 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
       const port = driver.status?.port ?? device.port ?? driver.transports.lan?.port ?? 80;
       const url = `http://${device.host}:${port}${path}`;
       const inventoryLimit = 2 * 1024 * 1024;
+      const bind = roomLanBind(opts.config);
+      if (!bind.ok) return bind;
       const res = await sendHttp(url, resource.httpMethod || "GET", "", 8000, {
         maxBytes: inventoryLimit,
         maxMessageChars: inventoryLimit,
+        localAddress: bind.localAddress,
       });
       if (!res.ok) return { ok: false, message: res.message };
       raw = res.message;
@@ -1121,6 +1131,7 @@ export async function readMonitorValue(opts: {
         let value = "";
         if (opts.feedbackId === "panel.locked") value = parsed.host?.locked ? "1" : "0";
         else if (opts.feedbackId === "display.dimmed") value = parsed.host?.dim ? "1" : "0";
+        else if (opts.feedbackId === "occupancy.state") value = String((parsed as { occupancy?: string }).occupancy ?? "");
         else if (parsed.vars?.[opts.feedbackId]) value = String(parsed.vars[opts.feedbackId]!.value ?? "");
         else value = "";
         opts.state[device.id] = { ...slot, [opts.feedbackId]: value };
@@ -1128,6 +1139,11 @@ export async function readMonitorValue(opts: {
       } catch (err) {
         return { ok: false, value: "", message: err instanceof Error ? err.message : "peer poll failed" };
       }
+    }
+    if (opts.feedbackId === "occupancy.state") {
+      const value = opts.config.room.occupancy ?? "available";
+      opts.state[device.id] = { ...slot, [opts.feedbackId]: value };
+      return { ok: true, value, message: value };
     }
     const result = await readHostFeedback(opts.feedbackId, opts.host);
     opts.state[device.id] = { ...slot, [opts.feedbackId]: result.value };
@@ -1152,7 +1168,9 @@ export async function readMonitorValue(opts: {
   if (statusUrl) {
     const url = statusUrl;
     try {
-      const response = await fetchTextBounded(url, {}, 2000);
+      const bind = roomLanBind(opts.config);
+      if (!bind.ok) return { ok: false, value: "", message: bind.message };
+      const response = await requestHttpExact(url, "GET", "", {}, 2000, DEFAULT_MAX_RESPONSE_BYTES, bind.localAddress);
       if (!response.ok) return { ok: false, value: "", message: response.text || String(response.status) };
       const text = response.text;
       const parsed = parseFeedback(fb.parse, text);
@@ -1172,7 +1190,7 @@ export async function readMonitorValue(opts: {
     httpPath: fb.httpPath,
     httpMethod: fb.httpMethod,
     httpHeaders: fb.httpHeaders,
-  });
+  }, opts.config);
   if (!result.ok) return { ok: false, value: "", message: result.message };
   const parsed = parseFeedback(fb.parse, result.message);
   opts.state[device.id] = { ...slot, [opts.feedbackId]: parsed };
@@ -1358,6 +1376,10 @@ export async function executeCommand(opts: {
       if (!nested) return { ok: false, message: "Unknown macro" };
       return runMacro({ ...opts, macro: nested, vars: opts.vars ?? {}, depth: (opts.depth ?? 0) + 1, stack: opts.stack ?? [] });
     }
+    if (opts.commandId.startsWith("occupancy.")) {
+      const { applyOccupancy } = await import("./peer-payload");
+      return applyOccupancy(opts.config, (opts.vars ?? {}) as Record<string, string | number>, opts.commandId.slice("occupancy.".length));
+    }
     const host = opts.host ?? { dim: false, locked: false, toast: null, pageId: null };
     const resolved = resolveTemplate(opts.value, opts.vars ?? {}, opts.config.variables);
     const result = await applyHost(opts.commandId, resolved, host, opts.vars);
@@ -1393,16 +1415,18 @@ export async function executeCommand(opts: {
   const path = command.httpPath ? renderPayload(command.httpPath, value, wired.auth, ctx) : command.httpPath;
   const wiredCommand = path ? { ...command, httpPath: path } : command;
   if (command.wake?.protocol === "wol") {
-    const wol = await sendWol(device.auth?.mac || "", wired.host);
+    const bind = roomLanBind(opts.config);
+    if (!bind.ok) return bind;
+    const wol = await sendWol(device.auth?.mac || "", wired.host, bind.localAddress);
     pushTrace(device.id, "note", wol.message);
     if (!payload && !path) return wol;
     if (!wol.ok && !payload) return wol;
     await sleep(driver.pacing?.powerOnDelayMs ?? 2500);
   }
-  let result = usesLocalPort(iface) ? await sendLocal(driver, wired, payload) : await sendLan(driver, wired, payload, wiredCommand);
+  let result = usesLocalPort(iface) ? await sendLocal(driver, wired, payload) : await sendLan(driver, wired, payload, wiredCommand, opts.config);
   if (!result.ok && command.wake?.protocol === "wol") {
     await sleep(2000);
-    result = usesLocalPort(iface) ? await sendLocal(driver, wired, payload) : await sendLan(driver, wired, payload, wiredCommand);
+    result = usesLocalPort(iface) ? await sendLocal(driver, wired, payload) : await sendLan(driver, wired, payload, wiredCommand, opts.config);
   }
   if (result.ok) applySim(command, uiValue, slot);
   return result;

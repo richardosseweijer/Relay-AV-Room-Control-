@@ -187,6 +187,7 @@ export async function sendControlSocket(opts: {
   handshake?: { waitContains?: string; delayMs?: number };
   alsoSend?: { replace: Record<string, string> }[];
   alsoSendRaw?: string[];
+  localAddress?: string;
 }): Promise<CommandResult> {
   const key = `${opts.host}:${opts.port}:${opts.path.split("?")[0]}`;
   const live = keepWs.get(key);
@@ -205,8 +206,8 @@ export async function sendControlSocket(opts: {
   const req = `GET ${opts.path} HTTP/1.1\r\nHost: ${opts.host}:${opts.port}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${cryptoKey}\r\nSec-WebSocket-Version: 13\r\n\r\n`;
   return new Promise((resolve) => {
     const sock = opts.tls
-      ? (mod as typeof import("node:tls")).connect({ host: opts.host, port: opts.port, rejectUnauthorized: false })
-      : (mod as typeof import("node:net")).connect({ host: opts.host, port: opts.port });
+      ? (mod as typeof import("node:tls")).connect({ host: opts.host, port: opts.port, rejectUnauthorized: false, localAddress: opts.localAddress } as import("node:tls").ConnectionOptions)
+      : (mod as typeof import("node:net")).connect({ host: opts.host, port: opts.port, localAddress: opts.localAddress });
     let buf = Buffer.alloc(0);
     let upgraded = false;
     let sent = false;

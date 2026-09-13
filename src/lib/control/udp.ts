@@ -7,13 +7,21 @@ export function isMulticastV4(host: string): boolean {
   return parts[0] >= 224 && parts[0] <= 239;
 }
 
-export async function sendUdp(host: string, port: number, buf: Buffer): Promise<CommandResult> {
+export async function sendUdp(host: string, port: number, buf: Buffer, localAddress?: string): Promise<CommandResult> {
   return new Promise((resolve) => {
     const sock = dgram.createSocket("udp4");
-    sock.send(buf, port, host, (err) => {
-      sock.close();
-      resolve(err ? { ok: false, message: err.message } : { ok: true, message: "udp sent" });
+    const send = () => {
+      sock.send(buf, port, host, (err) => {
+        sock.close();
+        resolve(err ? { ok: false, message: err.message } : { ok: true, message: "udp sent" });
+      });
+    };
+    sock.once("error", (err) => {
+      try { sock.close(); } catch { /* ignore */ }
+      resolve({ ok: false, message: err.message });
     });
+    if (localAddress) sock.bind(0, localAddress, send);
+    else send();
   });
 }
 
@@ -22,6 +30,7 @@ export async function sendUdpMulticast(opts: {
   port: number;
   buf: Buffer;
   ttl?: number;
+  localAddress?: string;
 }): Promise<CommandResult> {
   if (!isMulticastV4(opts.group)) return { ok: false, message: "Not a multicast group" };
   const ttl = opts.ttl ?? 1;
@@ -31,8 +40,11 @@ export async function sendUdpMulticast(opts: {
       try { sock.close(); } catch { /* ignore */ }
       resolve({ ok: false, message: err.message });
     });
-    sock.bind(0, () => {
+    sock.bind(0, opts.localAddress || undefined, () => {
       try { sock.setMulticastTTL(ttl); } catch { /* ignore */ }
+      if (opts.localAddress) {
+        try { sock.setMulticastInterface(opts.localAddress); } catch { /* ignore */ }
+      }
       sock.send(opts.buf, opts.port, opts.group, (err) => {
         sock.close();
         resolve(err ? { ok: false, message: err.message } : { ok: true, message: "udp multicast sent" });
@@ -45,6 +57,7 @@ export async function listenUdpMulticast(opts: {
   group: string;
   port: number;
   onMessage: (buf: Buffer) => void;
+  localAddress?: string;
 }): Promise<{ close: () => void } | { error: string }> {
   if (!isMulticastV4(opts.group)) return { error: "Not a multicast group" };
   return new Promise((resolve) => {
@@ -52,7 +65,7 @@ export async function listenUdpMulticast(opts: {
     sock.once("error", (err) => resolve({ error: err.message }));
     sock.bind(opts.port, () => {
       try {
-        sock.addMembership(opts.group);
+        sock.addMembership(opts.group, opts.localAddress);
       } catch (err) {
         try { sock.close(); } catch { /* ignore */ }
         resolve({ error: err instanceof Error ? err.message : "join failed" });
@@ -61,10 +74,11 @@ export async function listenUdpMulticast(opts: {
       sock.on("message", (msg) => opts.onMessage(msg));
       resolve({
         close: () => {
-          try { sock.dropMembership(opts.group); } catch { /* ignore */ }
+          try { sock.dropMembership(opts.group, opts.localAddress); } catch { /* ignore */ }
           try { sock.close(); } catch { /* ignore */ }
         },
       });
     });
   });
 }
+

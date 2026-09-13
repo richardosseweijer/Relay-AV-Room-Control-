@@ -35,7 +35,9 @@ They are easy to confuse. They are not the same control.
 
 ## Room-to-room
 
-HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex characters. Replay cache stores the digest for 90s. Peers may run only macros listed on Security. Host commands are rejected.
+HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex characters. Replay cache stores the digest for 90s. Peers may run only macros listed on Security. Host commands are rejected. The peer secret is not a PIN.
+
+Foyer (optional) talks to Relay `GET /api/peer` on loopback with the same HMAC. Empty peer secret is deny. Foyer occupancy this pass maps `vars[].value` when `vars[].name` equals the Foyer room name.
 
 ## Secrets on disk
 
@@ -57,4 +59,4 @@ Persist writes a `relay-room.json.transaction` journal, then secrets, then room 
 - Leave open LAN control off unless the VLAN is fully trusted.
 - Guest Wi-Fi on another VLAN.
 - Keep `data/` off shared sticks.
-- Do not port-forward 8080 or 8081.
+- Do not port-forward 8080, 8081, or 8082. Foyer (if installed) is a separate process; HMAC between Relay and Foyer is loopback only.

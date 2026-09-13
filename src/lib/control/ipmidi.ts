@@ -10,6 +10,7 @@ export async function sendIpmidi(opts: {
   host?: string;
   group?: string;
   port?: number;
+  localAddress?: string;
 }): Promise<CommandResult> {
   if (!opts.buf.length) return { ok: false, message: "ipMIDI empty payload" };
   const port = Number(opts.port || IPMIDI_PORT);
@@ -17,12 +18,13 @@ export async function sendIpmidi(opts: {
   if (opts.multicast === false) {
     const host = String(opts.host || "").trim();
     if (!host) return { ok: false, message: "ipMIDI unicast needs host" };
-    return sendUdp(host, port, opts.buf);
+    return sendUdp(host, port, opts.buf, opts.localAddress);
   }
   return sendUdpMulticast({
     group: opts.group || IPMIDI_GROUP,
     port,
     buf: opts.buf,
     ttl: 1,
+    localAddress: opts.localAddress,
   });
 }

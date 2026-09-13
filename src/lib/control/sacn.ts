@@ -56,6 +56,7 @@ export async function sendSacnCommand(opts: {
   value?: string | number;
   cidKey: string;
   priority?: number;
+  localAddress?: string;
 }): Promise<CommandResult> {
   const universe = Number(opts.universe);
   if (!Number.isInteger(universe) || universe < 1 || universe > 63999) {
@@ -78,5 +79,5 @@ export async function sendSacnCommand(opts: {
     sequence: seq,
     slots,
   });
-  return sendUdpMulticast({ group: sacnGroup(universe), port: 5568, buf, ttl: 1 });
+  return sendUdpMulticast({ group: sacnGroup(universe), port: 5568, buf, ttl: 1, localAddress: opts.localAddress });
 }

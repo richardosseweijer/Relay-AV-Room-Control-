@@ -45,10 +45,10 @@ export function encodeOsc(path: string, args: OscArg[] = []): Buffer {
   return Buffer.concat(parts);
 }
 
-export async function sendOsc(host: string, port: number, path: string, args: OscArg[] = []): Promise<CommandResult> {
+export async function sendOsc(host: string, port: number, path: string, args: OscArg[] = [], localAddress?: string): Promise<CommandResult> {
   try {
     const buf = encodeOsc(path, args);
-    return sendUdp(host, port, buf);
+    return sendUdp(host, port, buf, localAddress);
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "OSC encode failed" };
   }
@@ -60,6 +60,7 @@ export async function sendOscCommand(opts: {
   path: string;
   types?: string;
   values?: string[];
+  localAddress?: string;
 }): Promise<CommandResult> {
   const types = opts.types || "";
   const values = opts.values || [];
@@ -70,5 +71,5 @@ export async function sendOscCommand(opts: {
     if (t !== "s" && t !== "i" && t !== "f" && t !== "b") return { ok: false, message: "OSC type not s/i/f/b" };
     args.push({ type: t, value: values[i] ?? "" });
   }
-  return sendOsc(opts.host, opts.port, opts.path, args);
+  return sendOsc(opts.host, opts.port, opts.path, args, opts.localAddress);
 }

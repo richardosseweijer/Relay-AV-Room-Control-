@@ -354,6 +354,11 @@ export const relayHostDriver: DriverSpec = {
     { id: "var.get", label: "Read variable", kind: "enum", transport: "lan", payload: "{value}" },
     { id: "var.set", label: "Write variable", kind: "enum", transport: "lan", payload: "{value}" },
     { id: "macro.run", label: "Run macro", kind: "enum", transport: "lan", payload: "{value}" },
+    { id: "occupancy.available", label: "Occupancy available", kind: "action", transport: "lan", payload: "available" },
+    { id: "occupancy.in-session", label: "Occupancy in session", kind: "action", transport: "lan", payload: "in-session" },
+    { id: "occupancy.busy", label: "Occupancy busy", kind: "action", transport: "lan", payload: "busy" },
+    { id: "occupancy.closed", label: "Occupancy closed", kind: "action", transport: "lan", payload: "closed" },
+    { id: "occupancy.do-not-disturb", label: "Occupancy DND", kind: "action", transport: "lan", payload: "do-not-disturb" },
   ],
   feedback: [
     { id: "system.uptime", label: "OS uptime (s)", kind: "range", transport: "lan", mode: "poll", query: "uptime", pollMs: 5000, parse: { type: "exact" } },
@@ -365,6 +370,7 @@ export const relayHostDriver: DriverSpec = {
     { id: "system.platform", label: "Platform", kind: "string", transport: "lan", mode: "poll", query: "platform", pollMs: 30000, parse: { type: "exact" } },
     { id: "panel.locked", label: "Panel lock", kind: "toggle", transport: "lan", mode: "poll", query: "lock", pollMs: 2000, parse: { type: "exact" } },
     { id: "display.dimmed", label: "Panel dim", kind: "toggle", transport: "lan", mode: "poll", query: "dim", pollMs: 2000, parse: { type: "exact" } },
+    { id: "occupancy.state", label: "Occupancy", kind: "enum", values: ["available", "in-session", "busy", "closed", "do-not-disturb"], transport: "lan", mode: "poll", query: "occupancy", pollMs: 4000, parse: { type: "exact" } },
   ],
 };
 
@@ -399,6 +405,12 @@ export function defaultRoomConfig(): RoomConfig {
       keepAwake: true,
       panelFullscreen: false,
       grid: { cols: 6, rows: 8 },
+      avLanNicIndex: null,
+      avLanNicName: null,
+      outboundNicIndex: null,
+      outboundNicName: null,
+      occupancy: "available",
+      occupancyVarId: null,
       network: { mode: "dhcp", address: "10.0.10.10", prefix: 24, gateway: "10.0.10.1", dns: "10.0.10.1", ntp: "", timezone: "system", hostname: "relay-room-a" },
     },
     devices: [
