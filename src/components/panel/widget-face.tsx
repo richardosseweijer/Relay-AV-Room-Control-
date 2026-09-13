@@ -64,7 +64,7 @@ export function WidgetShell({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "relative flex min-h-min min-w-0 w-full flex-col gap-3 items-stretch justify-between overflow-hidden rounded-2xl border px-4 py-3 text-left [overflow-wrap:anywhere] transition duration-200 ease-out",
+        "relative flex h-full min-h-0 min-w-0 w-full flex-col gap-3 items-stretch justify-between overflow-hidden rounded-2xl border px-4 py-3 text-left [overflow-wrap:anywhere] transition duration-200 ease-out",
         "active:scale-[0.98]",
         colorClass[widget.color],
         active && activeClass[widget.color],

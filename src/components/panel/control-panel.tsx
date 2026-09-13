@@ -582,10 +582,10 @@ export function ControlPanel() {
       ) : null}
 
       <section
-        className="panel-grid mx-auto grid min-h-0 w-full max-w-3xl flex-1 content-start gap-3 overflow-auto"
+        className="panel-grid mx-auto grid min-h-0 w-full max-w-3xl flex-1 gap-3 overflow-auto"
         style={{
           gridTemplateColumns: `repeat(${page.grid.cols}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${page.grid.rows}, minmax(min-content, 1fr))`,
+          gridTemplateRows: `repeat(${page.grid.rows}, minmax(0, 1fr))`,
         }}
       >
         {[...page.widgets].sort((a, b) => a.y - b.y || a.x - b.x).map((widget) => {
@@ -613,7 +613,7 @@ export function ControlPanel() {
                 key={widget.id}
                 data-wide={wide}
                 data-type={widget.type}
-                className="flex min-w-0 flex-col justify-between gap-3 rounded-2xl border border-border/70 bg-surface/80 px-4 py-3"
+                className="flex min-h-0 min-w-0 h-full flex-col justify-between gap-3 rounded-2xl border border-border/70 bg-surface/80 px-4 py-3"
                 style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 [overflow-wrap:anywhere]">
@@ -654,7 +654,7 @@ export function ControlPanel() {
                 key={widget.id}
                 data-wide={wide}
                 data-type={widget.type}
-                className="grid min-w-0"
+                className="grid min-h-0 min-w-0 h-full"
                 style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
               >
                 <WidgetShell widget={{ ...widget, label: widget.label === "Next" || widget.label === "Button" || !widget.label ? "Next scheduled task:" : widget.label }}>
@@ -675,7 +675,7 @@ export function ControlPanel() {
               key={widget.id}
               data-wide={wide}
               data-type={widget.type}
-              className="grid min-w-0"
+              className="grid min-h-0 min-w-0 h-full"
               style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
             >
               <WidgetShell
