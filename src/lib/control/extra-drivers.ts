@@ -95,7 +95,7 @@ export const extraDrivers: Record<string, DriverSpec> = {
       manufacturer: "Extron",
       model: "MPS 602",
       type: "switcher",
-      notes: "No Ethernet on the switcher. SIS is RS-232 9600 8N1 on the rear captive-screw port (or USB Config). Behind an IPL, bind this device to the IPL COM slot (TCP 2001/2002). Commands do not need a carriage return. Inputs: 1–2 VGA, 3–5 HDMI, 6 DTP. Volume 0–100. 1Z mutes program audio (not mic).",
+      notes: "No Ethernet on the switcher. SIS is RS-232 9600 8N1 on the rear captive-screw port (or USB Config). Behind an IPL, bind this device to the IPL COM slot (TCP 2001/2002). Commands do not need a carriage return. Inputs: 1–2 VGA, 3–5 HDMI, 6 DTP. Volume 0–100. 1Z mutes program audio (not mic). Signal presence is E 0LS} (inputs 1–6 then RGB/HDMI outputs after *).",
     },
     transports: {
       lan: { protocol: "tcp", port: 2001, timeoutMs: 2500, session: { keepMs: 15000 } },
@@ -130,6 +130,12 @@ export const extraDrivers: Record<string, DriverSpec> = {
       { id: "input.source", label: "Input source", kind: "string", transport: "lan", mode: "poll", query: "!", pollMs: 3000, parse: { type: "regex", pattern: "In(\\d+)", map: { "0": "off", "1": "VGA 1", "2": "VGA 2", "3": "HDMI 3", "4": "HDMI 4", "5": "HDMI 5", "6": "DTP 6" } } },
       { id: "volume.level", label: "Volume", kind: "range", min: 0, max: 100, transport: "lan", mode: "poll", query: "V", pollMs: 4000, parse: { type: "regex", pattern: "(\\d+)" } },
       { id: "mute.state", label: "Mute", kind: "enum", values: ["0", "1"], transport: "lan", mode: "poll", query: "Z", pollMs: 4000, parse: { type: "regex", pattern: "([01])" } },
+      { id: "signal.1", label: "VGA 1 signal", kind: "enum", values: ["off", "on"], transport: "lan", mode: "poll", query: "E 0LS}", pollMs: 4000, parse: { type: "regex", pattern: "(?:Sig\\s*)?([01])(?:\\s+[01]){5}\\s*\\*", map: { "0": "off", "1": "on" } } },
+      { id: "signal.2", label: "VGA 2 signal", kind: "enum", values: ["off", "on"], transport: "lan", mode: "poll", query: "E 0LS}", pollMs: 4000, parse: { type: "regex", pattern: "(?:Sig\\s*)?[01]\\s+([01])(?:\\s+[01]){4}\\s*\\*", map: { "0": "off", "1": "on" } } },
+      { id: "signal.3", label: "HDMI 3 signal", kind: "enum", values: ["off", "on"], transport: "lan", mode: "poll", query: "E 0LS}", pollMs: 4000, parse: { type: "regex", pattern: "(?:Sig\\s*)?(?:[01]\\s+){2}([01])(?:\\s+[01]){3}\\s*\\*", map: { "0": "off", "1": "on" } } },
+      { id: "signal.4", label: "HDMI 4 signal", kind: "enum", values: ["off", "on"], transport: "lan", mode: "poll", query: "E 0LS}", pollMs: 4000, parse: { type: "regex", pattern: "(?:Sig\\s*)?(?:[01]\\s+){3}([01])(?:\\s+[01]){2}\\s*\\*", map: { "0": "off", "1": "on" } } },
+      { id: "signal.5", label: "HDMI 5 signal", kind: "enum", values: ["off", "on"], transport: "lan", mode: "poll", query: "E 0LS}", pollMs: 4000, parse: { type: "regex", pattern: "(?:Sig\\s*)?(?:[01]\\s+){4}([01])\\s+[01]\\s*\\*", map: { "0": "off", "1": "on" } } },
+      { id: "signal.6", label: "DTP 6 signal", kind: "enum", values: ["off", "on"], transport: "lan", mode: "poll", query: "E 0LS}", pollMs: 4000, parse: { type: "regex", pattern: "(?:Sig\\s*)?(?:[01]\\s+){5}([01])\\s*\\*", map: { "0": "off", "1": "on" } } },
     ],
   },
   "wake-on-lan.json": {

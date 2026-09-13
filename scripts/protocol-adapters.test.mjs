@@ -85,3 +85,19 @@ test("poll uses driver parse, not PowerState or displayName peeks", () => {
   assert.equal(hue.feedback[0].httpPath, "/api/{auth.token}/groups/0");
   assert.equal(hue.feedback[0].parse.path, "state.any_on");
 });
+
+test("MPS 602 polls E 0LS} and parses input signal bits", () => {
+  const mps = JSON.parse(fs.readFileSync("data/drivers/extron-mps-602.json", "utf8"));
+  const samples = ["Sig1 0 1 1 0 1*1 1]", "Sig 1 0 1 1 0 1 * 1 1]"];
+  const want = { "signal.1": "1", "signal.2": "0", "signal.3": "1", "signal.4": "1", "signal.5": "0", "signal.6": "1" };
+  for (const sample of samples) {
+    for (const [id, bit] of Object.entries(want)) {
+      const fb = mps.feedback.find((f) => f.id === id);
+      assert.ok(fb, id);
+      assert.equal(fb.query, "E 0LS}");
+      const hit = sample.match(new RegExp(fb.parse.pattern));
+      assert.equal(hit?.[1], bit, `${id} in ${sample}`);
+      assert.equal(fb.parse.map[bit], bit === "1" ? "on" : "off");
+    }
+  }
+});

@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.8.3.5 — 2026-09-13
+
+- Tag `v0.8.3.5`.
+- MPS 602: poll SIS `E 0LS}` into `signal.1`…`signal.6` (VGA/HDMI/DTP sync present).
+
 ## 0.8.3.4 — 2026-09-12
 
 - Tag `v0.8.3.4`.
