@@ -86,18 +86,29 @@ test("poll uses driver parse, not PowerState or displayName peeks", () => {
   assert.equal(hue.feedback[0].parse.path, "state.any_on");
 });
 
-test("MPS 602 polls E 0LS} and parses input signal bits", () => {
+test("MPS 602 polls ESC 0LS CR and parses input signal bits", () => {
   const mps = JSON.parse(fs.readFileSync("data/drivers/extron-mps-602.json", "utf8"));
-  const samples = ["Sig1 0 1 1 0 1*1 1]", "Sig 1 0 1 1 0 1 * 1 1]"];
-  const want = { "signal.1": "1", "signal.2": "0", "signal.3": "1", "signal.4": "1", "signal.5": "0", "signal.6": "1" };
+  const samples = [
+    "Sig1 0 1 1 0 1*1 1]",
+    "Sig 1 0 1 1 0 1 * 1 1]",
+    "Sig1*0*1*1*0*1*1*1]",
+    "Sig 0 0 0 0 0 0 * 0 0\r\n",
+  ];
+  const wantOn = { "signal.1": "1", "signal.2": "0", "signal.3": "1", "signal.4": "1", "signal.5": "0", "signal.6": "1" };
+  const wantOff = { "signal.1": "0", "signal.2": "0", "signal.3": "0", "signal.4": "0", "signal.5": "0", "signal.6": "0" };
   for (const sample of samples) {
+    const want = sample.includes("0 0 0 0 0 0") ? wantOff : wantOn;
     for (const [id, bit] of Object.entries(want)) {
       const fb = mps.feedback.find((f) => f.id === id);
       assert.ok(fb, id);
-      assert.equal(fb.query, "E 0LS}");
+      assert.equal(fb.query.charCodeAt(0), 0x1b);
+      assert.equal(fb.query.slice(1), "0LS\r");
       const hit = sample.match(new RegExp(fb.parse.pattern));
-      assert.equal(hit?.[1], bit, `${id} in ${sample}`);
+      assert.equal(hit?.[1], bit, `${id} in ${JSON.stringify(sample)}`);
       assert.equal(fb.parse.map[bit], bit === "1" ? "on" : "off");
     }
   }
+  const sig1 = mps.feedback.find((f) => f.id === "signal.1");
+  assert.equal("ok".match(new RegExp(sig1.parse.pattern)), null);
+  assert.equal("E10]".match(new RegExp(sig1.parse.pattern)), null);
 });

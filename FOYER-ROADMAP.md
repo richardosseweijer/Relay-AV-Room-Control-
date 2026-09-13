@@ -56,7 +56,7 @@ After every phase: `npx tsc --noEmit`; `driver-check` if a JSON driver changed; 
 
 After each block: full `npm test`.
 
-Do not edit `data/relay-room.json` / secrets. Version is three-part (`0.9.1`); bump only when pushing.
+Do not edit `data/relay-room.json` / secrets. Version is three-part (`0.9.2`); bump only when pushing.
 
 ---
 

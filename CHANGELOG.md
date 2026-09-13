@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.2 — 2026-09-13
+
+- Tag `v0.9.2`.
+- MPS 602: tagged SIS is ESC…CR (`ESC 0LS CR`, `ESC nAUSW CR`), not the literals `E 0LS}` / `E 0AUSW}`. TCP timeout 8s. Regex accepts `Sig1 0…` and `Sig 1*0*…`.
+
 ## 0.9.1 — 2026-09-13
 
 - Tag `v0.9.1`.
