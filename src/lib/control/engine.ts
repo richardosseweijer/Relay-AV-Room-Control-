@@ -652,30 +652,6 @@ export async function authenticateDevice(opts: { config: RoomConfig; drivers: Re
   return { ok: false, message: "No token from pairing steps" };
 }
 
-export async function probeDevice(opts: { config: RoomConfig; drivers: Record<string, DriverSpec>; deviceId: string; host?: string; simulate?: boolean }): Promise<CommandResult & { pairedToken?: string; pairedPort?: number }> {
-  const device = opts.config.devices.find((d) => d.id === opts.deviceId);
-  if (!device) return { ok: false, message: "Unknown device" };
-  const driver = opts.drivers[device.driver];
-  if (!driver) return { ok: false, message: "No driver" };
-  if (opts.simulate ?? device.simulate) return { ok: true, message: "simulated" };
-  const iface = opts.config.interfaces?.find((item) => item.id === device.interfaceId);
-  const wired = wireThroughInterface(device, iface);
-  const host = opts.host ?? wired.host;
-  const probe = driver.probe;
-  if (probe?.payload) {
-    const result = await sendLan(driver, { ...wired, host }, probe.payload, undefined, opts.config);
-    if (!probe.success) return result;
-    const hit = parseFeedback(probe.success, result.message);
-    const matched = probe.success.type === "contains" || probe.success.type === "exact" ? Boolean(hit) : hit.length > 0;
-    return { ok: result.ok && matched, message: result.message };
-  }
-  const status = driver.status;
-  if (status?.path || driver.auth?.pairing?.discoverPath) {
-    return pingReachable({ host, port: status?.port ?? driver.auth?.pairing?.ports?.[0] ?? wired.port ?? 80, path: status?.path ?? driver.auth?.pairing?.discoverPath ?? "/" });
-  }
-  return pingReachable({ host, port: wired.port ?? driver.transports.lan?.port });
-}
-
 export async function scanDevicePorts(host: string, ports?: number[]) {
   const list = ports ?? [80, 23, 2001, 2002, 4352, 8001, 8002, 8008, 8009, 53484, 53595, 51325, 51326, 51327];
   const open: number[] = [];

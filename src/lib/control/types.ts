@@ -412,10 +412,6 @@ export function noneMacro(): Macro {
   return { id: NONE_MACRO_ID, label: "None", retries: 0, onFail: { kind: "none" }, steps: [] };
 }
 
-export function isUserMacro(id: string) {
-  return id !== NONE_MACRO_ID;
-}
-
 export type Occupancy = "available" | "in-session" | "busy" | "do-not-disturb" | "closed";
 
 export type RoomConfig = {

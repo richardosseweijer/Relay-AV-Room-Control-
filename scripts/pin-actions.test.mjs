@@ -30,12 +30,13 @@ function fixture(room) {
   const io = {
     memory: () => mem, ensureLoaded: async () => {}, reloadSecretsFromDisk: async () => {},
     persist: () => { writes++; }, persistNow: async () => { writes++; },
+    writeDriverFile: async () => {}, pruneRoomDrivers: async () => {}, readLibrarySpec: async () => null,
     validToken: token => token === "test-config-session", hashPin, verifyStoredPin,
     checkLockout: () => ({ blocked: false }), lockoutKey: kind => kind,
     clearPinFail: () => {}, notePinFail: () => {}, mint: () => "test-panel-session",
   };
   return { mem, writes: () => writes, bindings: { ...io, S: async () => io, isWeakPin, isHashedPin, panelUnlockAllowed,
-    randomHex: () => "test-id", loadDefaults: async () => ({ emptyRoomConfig: pin => ({ room: { configPin: pin }, devices: [] }), defaultDeviceState: () => ({}) }),
+    randomHex: () => "test-id", seedVars: () => ({}), loadDefaults: async () => ({ emptyRoomConfig: pin => ({ room: { configPin: pin }, devices: [] }), defaultDeviceState: () => ({}), hostDriverSeed: () => ({ "relay-host.json": {} }), HOST_DRIVER: "relay-host.json" }),
   } };
 }
 

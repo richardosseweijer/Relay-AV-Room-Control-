@@ -2,6 +2,16 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.8 — 2026-09-14
+
+- Tag `v0.9.8`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Phase 0 tidy: remove dead `resetDemo`. Empty / wipe room is Relay host on localhost only (no conference demo, no fake TV/amp state). Empty `data/drivers/` seeds `relay-host.json` only. Drop joke driver. Write `home-assistant.json` to disk.
+- Stock drivers live in `data/library/` (`index.json` for search). `data/drivers/` is this room’s working set. Add copies one spec in; Remove unlinks that copy. Library update does not rewrite room files.
+- Deleted `extra-drivers.ts` and the compiled demo specs in `defaults.ts`. Stock is JSON in `data/library/` only. `defaults.ts` keeps empty-room config and last-resort `relayHostDriver`.
+- Boot working set is devices + host + JSON already in `data/drivers/`. Old `relay-room.json` catalog blobs are not copied back from the library. Add keys through `safeDriverName`. Empty-folder host seed prefers `data/library/relay-host.json`.
+- Removed unused server fns (`testDevice`, `exportBundle`, `issuePanelSession`, `checkPanelSession`), unused `probeDevice`, dead helpers (`isUserMacro`, `isFoyerVar`, `stopMidiWatchers`, `isLoopbackRequest`), and stub `client.ts`. Probe button still uses `pingDevice`.
+
+
 ## 0.9.7 — 2026-09-14
 
 - Tag `v0.9.7`. Same Foyer pair (`v0.2.2`). Wire unchanged.

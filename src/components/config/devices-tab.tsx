@@ -282,7 +282,7 @@ export function DevicesTab(props: {
             })}
             <Button variant="secondary" onClick={() => update((c) => {
               const id = `dev-${Date.now().toString(36)}`;
-              const driver = Object.keys(snap.drivers)[0] ?? "lg-oled55c3.json";
+              const driver = Object.keys(snap.drivers)[0] ?? "relay-host.json";
               c.devices.push({ id, name: "New device", driver, transport: "lan", host: "", auth: {}, enabledFeatures: [], simulate: false });
             })}>Add device</Button>
           </section>

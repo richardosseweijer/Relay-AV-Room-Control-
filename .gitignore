@@ -17,3 +17,6 @@ attachments/
 artifacts/
 screenshots/app-builder-*
 
+
+# Room working-set copies. Stock lives in data/library/.
+data/drivers/*.json

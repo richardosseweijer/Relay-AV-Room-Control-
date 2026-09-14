@@ -64,7 +64,7 @@ PRODUCT (phases may change):
 `src/lib/control/**`, `src/components/panel/**`, `src/components/config/**`,
 `src/routes/index.tsx`, `src/routes/config.tsx`,
 `src/routes/api/{room,peer,ping,vars,config-unlock,panel-unlock}.ts`,
-`data/drivers/**`, `scripts/driver-check.mjs`, `scripts/update-relay.mjs`,
+`data/library/**`, `scripts/driver-check.mjs`, `scripts/update-relay.mjs`,
 `scripts/write-atomic.mjs`, `scripts/room-smoke.mjs`,
 `scripts/control-security.test.mjs`, `LINUX.md`, `WINDOWS.md`, `README.md`,
 `SECURITY.md`, `KNOWN_ISSUES.md`, `CHANGELOG.md`, `ARCHITECTURE.md` (facts),
@@ -213,7 +213,7 @@ In `engine.ts` / `sendLocal` only:
 - Keep connect-write-close. Do not “fix” issue #4 this pass. One comment at
   the send site pointing at `KNOWN_ISSUES.md` #4.
 
-Gate: typecheck, build, `npm run driver:check -- data/drivers/samsung-qe50q65t.json`.
+Gate: typecheck, build, `npm run driver:check -- data/library/samsung-qe50q65t.json`.
 
 ## Phase 6 — docs match the code
 

@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.7** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.8** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -52,7 +52,8 @@ Operator browser          Integrator browser
           ▼                        ▼
    data/relay-room.json      LAN / serial / GPIO
    data/relay-secrets.json   PINs and device tokens
-   data/drivers/*.json       HDMI-CEC / IR / …
+   data/library/*.json        Stock driver specs (search / Add)
+   data/drivers/*.json        This room’s working-set copies
 ```
 
 ---
@@ -64,7 +65,7 @@ Operator browser          Integrator browser
 `ensureLoaded()` in `store.server.ts`:
 
 1. Reads `data/relay-room.json` if present and overlays `data/relay-secrets.json`. A missing room file yields an empty room.
-2. Loads every `*.json` in `data/drivers/` into the driver library. Empty directories are seeded from bundled drivers.
+2. Loads `data/library/index.json` for Drivers-tab search. Loads `data/drivers/*.json` into the room working set. An empty room folder is seeded with `relay-host.json` only. Add copies one library spec into the room folder; Remove unlinks that copy.
 3. Normalises the configuration (missing arrays, default grid, timezone).
 4. Seeds room variables from declared defaults.
 5. Starts a periodic timer that evaluates monitors, schedules, and triggers.
@@ -169,7 +170,7 @@ Host commands `ui.toast`, `ui.block`, `ui.unblock`, and `ui.clear` draw overlays
 
 Shell: `config-app.tsx` (PIN, Save all, toast, `draft`, tab bar). Tabs: Room, Security, Drivers, Devices, Interfaces, Macros, Logic, Pages, Log. Logic sub-tabs: variables, monitors, schedules, triggers.
 
-Room actions: export (browser download, secrets stripped), import, clear configuration, restart Vite, update from GitHub, reboot the host. Room tab shows `package.json` version plus `git rev-parse --short HEAD`. There is no Restore demo. Export requires a configurator session. Import preserves existing secrets when the bundle left those fields empty.
+Room actions: export (browser download, secrets stripped), import, clear configuration, restart Vite, update from GitHub, reboot the host. Room tab shows `package.json` version plus `git rev-parse --short HEAD`. There is no Restore demo. Clear configuration leaves occupancy and one `relay-host.json` device on localhost. Export requires a configurator session. Import preserves existing secrets when the bundle left those fields empty.
 
 ---
 
@@ -179,7 +180,8 @@ Room actions: export (browser download, secrets stripped), import, clear configu
 |---|---|
 | `data/relay-room.json` | Layout, IPs, variables, latches. No PINs or tokens. |
 | `data/relay-secrets.json` | Config PIN, panel PIN, peer secret, device tokens, paired session secrets. |
-| `data/drivers/*.json` | Driver library. |
+| `data/library/*.json` | Stock driver library (git). `index.json` is search cards only. |
+| `data/drivers/*.json` | This room’s working-set copies (not git). |
 | `data/relay-update.log` | Output of `scripts/update-relay.mjs`. |
 | In-process memory | Device state, health, action log, monitor/schedule/trigger stamps. |
 
@@ -222,9 +224,7 @@ Do not publish port 8081 to the public internet. HTTP only (issue #15).
 | `src/lib/control/foyer-peer.ts` | Loopback poll of Foyer session into `foyer.*` vars. See [`FOYER-RELAY.md`](FOYER-RELAY.md). |
 | `src/lib/control/pins.ts` | Weak PIN list. |
 | `src/lib/control/schedule.ts` | Next enabled schedule occurrence for the schedule widget. |
-| `src/lib/control/defaults.ts` | Demonstration room and primary bundled drivers. |
-| `src/lib/control/extra-drivers.ts` | Additional bundled drivers not required by the demonstration room. |
-| `src/lib/control/client.ts` | Browser helper to load `/api/room`. |
+| `src/lib/control/defaults.ts` | Empty room (Relay host) and last-resort `relay-host.json`. |
 | `scripts/driver-check.mjs` | Offline driver JSON check (static; optional TCP probe with `--host`). |
 
 ### 9.2 User interface and routes
@@ -269,7 +269,8 @@ Do not publish port 8081 to the public internet. HTTP only (issue #15).
 |---|---|
 | `data/relay-room.json` | Layout, IPs, variables. No PINs or pairing tokens. |
 | `data/relay-secrets.json` | Config PIN, panel PIN, peer secret, device tokens, paired sessions. |
-| `data/drivers/` | Library of driver files. |
+| `data/library/` | Stock driver specs and `index.json`. |
+| `data/drivers/` | This room’s working-set copies. |
 
 ### 9.5 Remaining template code
 
@@ -282,8 +283,8 @@ Better Auth, app-data, multiplayer, and the preview-host bridge have been remove
 A driver JSON can be checked without opening the configurator:
 
 ```
-npm run driver:check -- data/drivers/samsung-qe50q65t.json
-npm run driver:check -- data/drivers/file.json --host 10.0.0.20 --command power.on --feedback power.state
+npm run driver:check -- data/library/samsung-qe50q65t.json
+npm run driver:check -- data/library/file.json --host 10.0.0.20 --command power.on --feedback power.state
 ```
 
 Static mode validates manufacturer/model, command ids, parse types, and substitution tokens. With `--host` it opens a TCP connection to the advertised port. Full command execution remains in the running application.

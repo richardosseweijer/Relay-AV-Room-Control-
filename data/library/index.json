@@ -1,0 +1,202 @@
+{
+  "denon-dn-500av.json": {
+    "filename": "denon-dn-500av.json",
+    "manufacturer": "Denon",
+    "model": "DN-500AV",
+    "type": "amplifier",
+    "notes": "Telnet 23 or RS-232 9600 8N1. Same AVR ASCII as consumer Denon. Source names follow the unit labels (HDMI is assigned to BD/SAT/CBL/etc in the 500AV menu). Volume 00–98."
+  },
+  "extron-ipl-t-sfi244.json": {
+    "filename": "extron-ipl-t-sfi244.json",
+    "manufacturer": "Extron",
+    "model": "IPL T SFI244",
+    "type": "other",
+    "notes": "SIS on TCP 23. Factory IP 192.168.254.254. Leave the unit password empty for first tests. COM1/COM2 raw passthrough is TCP 2001/2002 — point the attached device’s own driver at those ports. IR play needs .eir files loaded with IR Learner / Global Configurator (file + function numbers)."
+  },
+  "extron-mps-602.json": {
+    "filename": "extron-mps-602.json",
+    "manufacturer": "Extron",
+    "model": "MPS 602",
+    "type": "switcher",
+    "notes": "No Ethernet on the switcher. SIS is RS-232 9600 8N1 on the rear captive-screw port (or USB Config). Behind an IPL, bind this device to the IPL COM slot (TCP 2001/2002). Simple commands (! V Z B) are literal. Tagged commands: manual E is ESC (0x1B), } is CR. Inputs: 1-2 VGA, 3-5 HDMI, 6 DTP. Volume 0-100. 1Z mutes program audio (not mic). Signal presence: ESC 0LS CR, reply Sig in1..in6 * rgb hdmi."
+  },
+  "extron-xpa-1002.json": {
+    "filename": "extron-xpa-1002.json",
+    "manufacturer": "Extron",
+    "model": "XPA 1002",
+    "type": "amplifier",
+    "notes": "No LAN. Bind Interface to an IPL/IPCP Flex I/O slot (TCP 23), not COM/IR. Standby = digital out (contact to XPA standby/GND). Volume = analog voltage on pin C (0–10 V); IPL T SFI244 has analog input only — volume.set fails until the gateway profile defines analogOut. Set standbyLine / volumeLine to 1–4."
+  },
+  "google-chromecast.json": {
+    "filename": "google-chromecast.json",
+    "manufacturer": "Google",
+    "model": "Chromecast",
+    "type": "source",
+    "notes": "Cast on TCP 8009. Play/Pause read the live mediaSessionId from the dongle. Volume uses valueMap 0–100 → 0–1."
+  },
+  "home-assistant.json": {
+    "filename": "home-assistant.json",
+    "manufacturer": "Home Assistant",
+    "model": "Core",
+    "type": "other",
+    "notes": "Local REST on TCP 8123. Create a long-lived access token (HA Profile → Security) and paste it in the token field. Set entity to one entity_id (sensor.office_pir) to poll that state into a monitor. Inventory lists all entities. homeassistant.turn_on/off works for lights, switches, scenes, covers."
+  },
+  "ipmidi.json": {
+    "filename": "ipmidi.json",
+    "manufacturer": "Generic",
+    "model": "ipMIDI",
+    "type": "mixer",
+    "notes": "Raw MIDI bytes over UDP multicast 225.0.0.37:21928 TTL 1 (ipMIDI-style). Host on the card is unused unless lan.multicast is false. Status nibbles are channel 1 (90 / 80 / B0). Not MIDI-TCP and not Apple RTP-MIDI."
+  },
+  "lan-amp.json": {
+    "filename": "lan-amp.json",
+    "manufacturer": "Generic",
+    "model": "LAN-AMP",
+    "type": "amplifier",
+    "notes": "HTTP JSON demo amplifier."
+  },
+  "lg-oled55c3.json": {
+    "filename": "lg-oled55c3.json",
+    "manufacturer": "LG",
+    "model": "OLED55C3",
+    "type": "display",
+    "notes": "IP control demo driver. Simulated by default."
+  },
+  "local-serial.json": {
+    "filename": "local-serial.json",
+    "manufacturer": "Generic",
+    "model": "Serial / COM",
+    "type": "other",
+    "notes": "Set Interface to COM1 / /dev/ttyUSB0."
+  },
+  "osc-udp.json": {
+    "filename": "osc-udp.json",
+    "manufacturer": "Generic",
+    "model": "OSC UDP",
+    "type": "mixer",
+    "notes": "OSC over UDP. Host is the receiver. Port default 9000. Command payload is the OSC path. Optional osc.types (s/i/f/b) and osc.values with {value}/{auth.*}."
+  },
+  "philips-hue-bridge.json": {
+    "filename": "philips-hue-bridge.json",
+    "manufacturer": "Philips",
+    "model": "Hue Bridge",
+    "type": "lighting",
+    "notes": "Press the button on the bridge, then Probe. Save the username token. group 0 = all lights."
+  },
+  "pi-gpio.json": {
+    "filename": "pi-gpio.json",
+    "manufacturer": "Raspberry Pi",
+    "model": "GPIO line",
+    "type": "other",
+    "notes": "Line number in Port. Chip gpiochip0."
+  },
+  "pi-i2c.json": {
+    "filename": "pi-i2c.json",
+    "manufacturer": "Raspberry Pi",
+    "model": "I2C device",
+    "type": "other",
+    "notes": "Needs i2cset. Address in auth.address."
+  },
+  "pjlink-projector.json": {
+    "filename": "pjlink-projector.json",
+    "manufacturer": "Generic",
+    "model": "PJLink Class 1",
+    "type": "projector",
+    "notes": "TCP 4352. Password in auth.password if PJLINK 1."
+  },
+  "ptz-20x.json": {
+    "filename": "ptz-20x.json",
+    "manufacturer": "Generic",
+    "model": "PTZ-20x",
+    "type": "camera"
+  },
+  "relay-host.json": {
+    "filename": "relay-host.json",
+    "manufacturer": "Relay",
+    "model": "Host",
+    "type": "host",
+    "notes": "localhost = this process. Other room: LAN IP + that room’s listen port + that room’s peer secret in Secret (not Token). Restart / update / reboot only from this configurator."
+  },
+  "room-lights.json": {
+    "filename": "room-lights.json",
+    "manufacturer": "Generic",
+    "model": "RoomLights",
+    "type": "lighting"
+  },
+  "rtp-midi.json": {
+    "filename": "rtp-midi.json",
+    "manufacturer": "Generic",
+    "model": "RTP-MIDI",
+    "type": "mixer",
+    "notes": "AppleMIDI session on the card IP, control port 5004, data port 5005. Enable Network MIDI on the desk and type the IPv4 — no Bonjour. Hex MIDI, channel-1 status nibbles. Not MIDI-TCP and not ipMIDI multicast. Session dies if the desk sleeps."
+  },
+  "sacn-universe.json": {
+    "filename": "sacn-universe.json",
+    "manufacturer": "Generic",
+    "model": "sACN Universe",
+    "type": "lights",
+    "notes": "E1.31 multicast 239.255.0.{universe}:5568 TTL 1. Set universe on the card (1–63999). Slot 1 is the first DMX address. Do not run sACN on office Wi-Fi."
+  },
+  "samsung-qe50q65t.json": {
+    "filename": "samsung-qe50q65t.json",
+    "manufacturer": "Samsung",
+    "model": "QE50Q65TASXXN",
+    "type": "display",
+    "notes": "Tizen remote: keys and Allow are wss://TV:8002. HTTP :8001/api/v2/ is status only. Authenticate on 8002, save token. Power On needs MAC + WOL. Sync inventory for installed apps; bind App launch. If that fails, try App native."
+  },
+  "samsung-qe77s95d.json": {
+    "filename": "samsung-qe77s95d.json",
+    "manufacturer": "Samsung",
+    "model": "QE77S95DATXXN",
+    "type": "display",
+    "notes": "2024 S95D: Authenticate on wss 8002 only (8001 will not show Allow). Enable Power On with Mobile / IP Remote. Use the wired MAC if on Ethernet. WOL waits 10s. Sync inventory for apps."
+  },
+  "samsung-tizen.json": {
+    "filename": "samsung-tizen.json",
+    "manufacturer": "Samsung",
+    "model": "Tizen TV",
+    "type": "display",
+    "notes": "Generic Tizen IP remote. Keys and Allow are wss://TV:8002 (samsung.remote.control). HTTP :8001/api/v2/ is status only. Authenticate on 8002, Accept Allow, save the token, keep port 8002. This driver then tries 8001 for older sets that still pair there; 2024+ (S95D class) often ignore 8001. Enable Power On with Mobile / IP Remote. Cold power-on needs WOL + MAC (wired MAC if on Ethernet). Sync inventory for apps; bind App launch, or App native if that fails. KEY_NETFLIX is the hardware key only."
+  },
+  "shade-bus.json": {
+    "filename": "shade-bus.json",
+    "manufacturer": "Generic",
+    "model": "ShadeBus",
+    "type": "shades"
+  },
+  "sonos-s1-s2.json": {
+    "filename": "sonos-s1-s2.json",
+    "manufacturer": "Sonos",
+    "model": "S1 / S2 player",
+    "type": "amplifier",
+    "notes": "Put the player's LAN IPv4 in the device card (not a hostname). Port 1400. For a grouped room, use the group coordinator's IP; Play/Pause/Next sent to a member are ignored or 500. Play needs something in the queue (error 701 if idle). SOAP on this LAN, no login."
+  },
+  "sonos-zoneplayer.json": {
+    "filename": "sonos-zoneplayer.json",
+    "manufacturer": "Sonos",
+    "model": "ZonePlayer",
+    "type": "amplifier",
+    "notes": "Local UPnP on TCP 1400. No cloud, no pairing. Point the device IP at the group coordinator (the speaker that shows the group name). Volume 0–100."
+  },
+  "sony-vpl-fhz120l.json": {
+    "filename": "sony-vpl-fhz120l.json",
+    "manufacturer": "Sony",
+    "model": "VPL-FHZ120L",
+    "type": "projector",
+    "notes": "ADCP TCP 53595. Enable ADCP in the web UI. Requires Authentication OFF (banner NOKEY). Only one TCP client — close the projector web Control page. Commands use CR+LF. Warm-up can take a minute after power on. PJLink 4352 is a separate driver."
+  },
+  "usb-midi.json": {
+    "filename": "usb-midi.json",
+    "manufacturer": "Generic",
+    "model": "USB MIDI",
+    "type": "mixer",
+    "notes": "ALSA amidi on Linux only. Add a MIDI interface and set Path to hw:1,0,0 (amidi -l). Status nibbles are channel 1 (90 / 80 / B0). {midiChannel} is decimal 1–16 for ASCII; do not stuff it into hex. No Windows / WinMM."
+  },
+  "wake-on-lan.json": {
+    "filename": "wake-on-lan.json",
+    "manufacturer": "Generic",
+    "model": "PC (WOL + LAN shutdown)",
+    "type": "other",
+    "notes": "Wake uses the NIC MAC (enable WOL in BIOS). Shutdown: Windows RPC (user/password; Linux host needs samba-common-bin) or HTTP GET to auth.path on this device’s Port (small helper on the PC)."
+  }
+}

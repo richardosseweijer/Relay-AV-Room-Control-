@@ -86,9 +86,9 @@ test("payload templates, guards, and parseFeedback", async () => {
 });
 
 test("shipped drivers keep distinct LAN protocols", () => {
-  const dir = path.resolve("data/drivers");
+  const dir = path.resolve("data/library");
   const got = {};
-  for (const name of fs.readdirSync(dir).filter((f) => f.endsWith(".json"))) {
+  for (const name of fs.readdirSync(dir).filter((f) => f.endsWith(".json") && f !== "index.json")) {
     const spec = JSON.parse(fs.readFileSync(path.join(dir, name), "utf8"));
     const proto = spec.transports?.lan?.protocol ?? "none";
     (got[proto] ??= []).push(name);
@@ -120,7 +120,7 @@ test("engine sendLan still names http cast pjlink wol tcp websocket", () => {
 });
 
 test("usb-midi is local.kind midi and engine calls sendUsbMidi", () => {
-  const spec = JSON.parse(fs.readFileSync("data/drivers/usb-midi.json", "utf8"));
+  const spec = JSON.parse(fs.readFileSync("data/library/usb-midi.json", "utf8"));
   assert.equal(spec.transports.local.kind, "midi");
   const src = fs.readFileSync("src/lib/control/engine.ts", "utf8");
   assert.ok(namedFn(src, "sendLocal").includes('kind === "midi"'));
@@ -129,7 +129,7 @@ test("usb-midi is local.kind midi and engine calls sendUsbMidi", () => {
 });
 
 test("midiWatch is JSON matchers; no parse type midi", () => {
-  const usb = JSON.parse(fs.readFileSync("data/drivers/usb-midi.json", "utf8"));
+  const usb = JSON.parse(fs.readFileSync("data/library/usb-midi.json", "utf8"));
   assert.ok(usb.midiWatch.some((w) => w.kind === "cc" && w.feedback === "level.value"));
   assert.ok(usb.midiWatch.some((w) => w.kind === "mtc"));
   const types = fs.readFileSync("src/lib/control/types.ts", "utf8");
@@ -145,10 +145,10 @@ test("statusPlane uses only driver.status; Sonos poll stays on sendLan", () => {
   assert.equal(fn.includes("httpPath"), false);
   assert.equal(fn.includes("8001"), false);
   assert.equal(fn.includes("pairing"), false);
-  const q65 = JSON.parse(fs.readFileSync("data/drivers/samsung-qe50q65t.json", "utf8"));
+  const q65 = JSON.parse(fs.readFileSync("data/library/samsung-qe50q65t.json", "utf8"));
   assert.equal(q65.status.port, 8001);
   assert.equal(q65.status.path, "/api/v2/");
-  const sonos = JSON.parse(fs.readFileSync("data/drivers/sonos-s1-s2.json", "utf8"));
+  const sonos = JSON.parse(fs.readFileSync("data/library/sonos-s1-s2.json", "utf8"));
   assert.equal(sonos.status, undefined);
   const playback = sonos.feedback.find((f) => f.id === "playback.state");
   assert.equal(playback.httpMethod, "POST");
@@ -163,13 +163,13 @@ test("poll uses driver parse, not PowerState or displayName peeks", () => {
   assert.equal(poll.includes('feedbackId.includes("app")'), false);
   const cast = fs.readFileSync("src/lib/control/cast.ts", "utf8");
   assert.ok(cast.includes("applications: [{ displayName: app }]"));
-  const hue = JSON.parse(fs.readFileSync("data/drivers/philips-hue-bridge.json", "utf8"));
+  const hue = JSON.parse(fs.readFileSync("data/library/philips-hue-bridge.json", "utf8"));
   assert.equal(hue.feedback[0].httpPath, "/api/{auth.token}/groups/0");
   assert.equal(hue.feedback[0].parse.path, "state.any_on");
 });
 
 test("MPS 602 polls ESC 0LS CR and parses input signal bits", () => {
-  const mps = JSON.parse(fs.readFileSync("data/drivers/extron-mps-602.json", "utf8"));
+  const mps = JSON.parse(fs.readFileSync("data/library/extron-mps-602.json", "utf8"));
   const samples = [
     "Sig1 0 1 1 0 1*1 1]",
     "Sig 1 0 1 1 0 1 * 1 1]",

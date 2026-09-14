@@ -11,7 +11,7 @@ Change both trees in the same train. If this file and the code disagree, **the c
 |---|---|
 | Contract | 1 |
 | Date | 2026-09-14 |
-| Relay | **0.9.7** (`v0.9.7`) |
+| Relay | **0.9.8** (`v0.9.8`) |
 | Foyer | **0.2.2** (`v0.2.2`) |
 
 Relay [`FOYER-ROADMAP.md`](https://github.com/richardosseweijer/Relay-AV-Room-Control-/blob/main/FOYER-ROADMAP.md) is implementation history. This file is the live wire.

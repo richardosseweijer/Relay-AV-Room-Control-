@@ -1,1 +1,0 @@
-/** Room state is GET /api/room with a Bearer session. */

@@ -321,14 +321,3 @@ export function syncMidiWatchers(opts: {
     onMidiBytes(id, midi, driver.midiWatch, opts.state);
   });
 }
-
-export function stopMidiWatchers() {
-  for (const id of [...usbChildren.keys()]) killUsb(id);
-  for (const id of [...ipmidiClosers.keys()]) closeIpmidi(id);
-  rtpDevices.clear();
-  midiFp = "";
-}
-
-export function _testOnlyUsbCount() {
-  return usbChildren.size;
-}

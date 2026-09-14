@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { applyHost, authenticateDevice, executeCommand, listHostInterfaces, pingReachable, probeDevice, runMacro, scanDevicePorts, sendRaw, syncInventory, traces, scrubSecret } from "./engine";
+import { applyHost, authenticateDevice, executeCommand, listHostInterfaces, pingReachable, runMacro, scanDevicePorts, sendRaw, syncInventory, traces, scrubSecret } from "./engine";
 import { validateDriver } from "./schema";
-import { bundledDrivers } from "./defaults";
 import type { DriverSpec, RoomConfig } from "./types";
 import { NONE_MACRO_ID } from "./types";
 import { clampVar, driverInUse, seedVars } from "./vars";
@@ -12,35 +11,6 @@ import { applyOccupancy, occupancyOf, OCCUPANCY_VAR_ID } from "./peer-payload";
 async function S() {
   return import("./session.server");
 }
-
-export const issuePanelSession = createServerFn({ method: "POST" })
-  .validator((data: { token?: string } = {}) => data)
-  .handler(async ({ data }) => {
-  const {
-    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
-    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
-    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
-    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
-  } = await S();
-    await ensureLoaded();
-    if (validToken(data.token, "panel") || validToken(data.token, "config")) {
-      return { ok: true, token: data.token as string };
-    }
-    return { ok: false, token: null as string | null };
-  });
-
-export const checkPanelSession = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
-  const {
-    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
-    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
-    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
-    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
-  } = await S();
-    await ensureLoaded();
-    return { ok: validToken(data.token, "panel") || validToken(data.token, "config") };
-  });
 
 export const getEditorConfig = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
@@ -237,34 +207,9 @@ export const saveDriver = createServerFn({ method: "POST" })
     const problem = validateDriver(data.spec);
     if (problem) return { ok: false, message: problem };
     memory().drivers[name] = data.spec;
-    memory().library = memory().library ?? {};
-    memory().library[name] = data.spec;
     await writeDriverFile(name, data.spec);
     await persist();
     return { ok: true, message: name };
-  });
-
-export const resetDemo = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
-  const {
-    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
-    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
-    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
-    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
-  } = await S();
-    await ensureLoaded();
-    if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
-    const { defaultRoomConfig, defaultDeviceState } = await import("./defaults");
-    memory().config = defaultRoomConfig();
-    memory().drivers = await loadDriverFiles();
-    memory().state = defaultDeviceState();
-    memory().vars = seedVars(memory().config);
-    memory().lastError = null;
-    memory().runningMacro = null;
-    memory().activeScene = null;
-    await persistNow();
-    return { ok: true, message: "Demo room restored" };
   });
 
 export const setVariable = createServerFn({ method: "POST" })
@@ -462,18 +407,21 @@ export const addDriverFromLibrary = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
   const {
     ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
-    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    writeDriverFile, removeDriverFile, loadDriverFiles, readLibrarySpec, safeDriverName,
     hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
     validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
   } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     const mem = memory();
-    const spec = mem.library?.[data.filename];
+    const name = safeDriverName(data.filename);
+    if (name === "index.json") return { ok: false, message: "Not in library" };
+    const spec = await readLibrarySpec(name);
     if (!spec) return { ok: false, message: "Not in library" };
-    mem.drivers[data.filename] = spec;
+    mem.drivers[name] = spec;
+    await writeDriverFile(name, spec);
     await persist();
-    return { ok: true, message: data.filename };
+    return { ok: true, message: name };
   });
 
 export const deleteDriver = createServerFn({ method: "POST" })
@@ -491,54 +439,9 @@ export const deleteDriver = createServerFn({ method: "POST" })
     const used = driverInUse(mem.config, data.filename);
     if (used.length) return { ok: false, message: `In use by ${used.join(", ")}. Reassign those devices first.` };
     delete mem.drivers[data.filename];
+    await removeDriverFile(data.filename);
     await persist();
     return { ok: true, message: "Removed from room" };
-  });
-
-export const testDevice = createServerFn({ method: "POST" })
-  .validator((data: { token: string; deviceId: string; host?: string; port?: number; simulate?: boolean; driver?: string; auth?: Record<string, string> }) => data)
-  .handler(async ({ data }) => {
-  const {
-    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
-    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
-    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
-    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
-  } = await S();
-    await ensureLoaded();
-    if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
-    const mem = memory();
-    if (!mem.health) mem.health = {};
-    const existing = mem.config.devices.find((d) => d.id === data.deviceId);
-    const device = existing
-      ? { ...existing, host: data.host ?? existing.host, port: data.port ?? existing.port, simulate: data.simulate ?? existing.simulate, driver: data.driver ?? existing.driver, auth: data.auth ?? existing.auth }
-      : {
-          id: data.deviceId,
-          name: data.deviceId,
-          driver: data.driver ?? Object.keys(mem.drivers)[0] ?? "lg-oled55c3.json",
-          transport: "lan" as const,
-          host: data.host ?? "",
-          auth: data.auth ?? {},
-          enabledFeatures: [],
-          simulate: data.simulate ?? false,
-        };
-    const result = await probeDevice({
-      config: { ...mem.config, devices: [device] },
-      drivers: mem.drivers,
-      deviceId: data.deviceId,
-      host: device.host,
-      simulate: device.simulate,
-    });
-    if (result.pairedToken || result.pairedPort) {
-      const row = mem.config.devices.find((d) => d.id === data.deviceId);
-      if (row) {
-        if (result.pairedToken) row.auth = { ...row.auth, token: result.pairedToken };
-        if (result.pairedPort) row.port = result.pairedPort;
-        await persist();
-      }
-    }
-    if (result.ok) mem.health[data.deviceId] = { ok: true, message: result.message };
-    else mem.health[data.deviceId] = { ok: false, message: result.message };
-    return result;
   });
 
 export const authenticate = createServerFn({ method: "POST" })
@@ -736,53 +639,28 @@ export const clearConfig = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
   const {
     ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
-    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
+    writeDriverFile, removeDriverFile, loadDriverFiles, pruneRoomDrivers, readLibrarySpec, safeDriverName,
     hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
     validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
   } = await S();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     if (!verifyStoredPin(data.pin, memory().config.room.configPin)) return { ok: false, message: "PIN did not match" };
-    const { emptyRoomConfig, defaultDeviceState } = await import("./defaults");
+    const { emptyRoomConfig, defaultDeviceState, hostDriverSeed, HOST_DRIVER } = await import("./defaults");
     const pin = memory().config.room.configPin;
     memory().config = emptyRoomConfig(pin);
+    const spec = (await readLibrarySpec(HOST_DRIVER)) ?? hostDriverSeed()[HOST_DRIVER]!;
+    memory().drivers = { [HOST_DRIVER]: spec };
+    await writeDriverFile(HOST_DRIVER, spec);
+    await pruneRoomDrivers([HOST_DRIVER]);
     memory().state = defaultDeviceState();
-    memory().vars = {};
+    memory().vars = seedVars(memory().config);
     memory().health = {};
     memory().lastError = null;
     memory().runningMacro = null;
     memory().activeScene = null;
     await persistNow();
     return { ok: true, message: "Room wiped" };
-  });
-
-export const exportBundle = createServerFn({ method: "POST" })
-  .validator((data: { token: string }) => data)
-  .handler(async ({ data }) => {
-  const {
-    ensureLoaded, memory, persist, persistNow, pushLog, clearLog, normalize,
-    writeDriverFile, removeDriverFile, loadDriverFiles, safeDriverName,
-    hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey,
-    validToken, mint, allowLanControl, redactAuth, tokenStore, randomHex,
-  } = await S();
-    await ensureLoaded();
-    if (!validToken(data.token, "config")) return { ok: false as const, message: "Config lock required" };
-    const mem = memory();
-    const config = structuredClone(mem.config);
-    config.room.configPin = "";
-    config.room.peerSecret = "";
-    config.room.panelPin = config.room.panelAccess === "pin" ? "" : null;
-    config.devices = config.devices.map((device) => ({ ...device, auth: redactAuth(device.auth) }));
-    config.exportedAt = new Date().toISOString();
-    config.sourceRoomId = config.room.id;
-    return {
-      ok: true as const,
-      configVersion: config.configVersion,
-      exportedAt: config.exportedAt,
-      sourceRoomId: config.room.id,
-      config,
-      drivers: mem.drivers,
-    };
   });
 
 export const importBundle = createServerFn({ method: "POST" })
@@ -829,7 +707,6 @@ export const importBundle = createServerFn({ method: "POST" })
         const problem = validateDriver(spec);
         if (problem) continue;
         memory().drivers[file] = spec;
-        memory().library[file] = spec;
         await writeDriverFile(file, spec);
       }
     }

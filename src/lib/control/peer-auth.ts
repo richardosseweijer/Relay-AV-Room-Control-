@@ -6,23 +6,6 @@ export function peerKey(room: { peerSecret?: string | null; configPin?: string |
   return String(room.peerSecret || "").trim();
 }
 
-export function hostnameOf(host: string) {
-  const t = host.trim().toLowerCase();
-  if (!t) return "";
-  if (t.startsWith("[")) {
-    const end = t.indexOf("]");
-    return end > 0 ? t.slice(1, end) : t;
-  }
-  if (/^\d+\.\d+\.\d+\.\d+(?::\d+)?$/.test(t)) return t.split(":")[0];
-  if (t.includes(":") && !t.startsWith("::") && t.split(":").length === 2) return t.split(":")[0];
-  return t;
-}
-
-export function isLoopbackHostname(host: string) {
-  const name = hostnameOf(host);
-  return name === "127.0.0.1" || name === "localhost" || name === "::1";
-}
-
 /** TCP peer only. Host / X-Forwarded-* are not loopback. */
 export function isLoopbackIp(ip: string) {
   const a = ip.trim().toLowerCase();
@@ -49,11 +32,6 @@ export function isTcpLoopback(request: Request) {
   const ip = tcpPeerAddress(request);
   if (!ip) return false;
   return isLoopbackIp(ip);
-}
-
-/** @deprecated Host/XFF theatre. Use isTcpLoopback for auth. Kept for outbound URL hostname checks. */
-export function isLoopbackRequest(request: Request) {
-  return isTcpLoopback(request);
 }
 
 export function signPeer(key: string, method: string, path: string, ts: string, body: string) {

@@ -6,7 +6,6 @@ export const FOYER_TITLE_ID = "foyer.title";
 export const FOYER_START_ID = "foyer.start";
 export const FOYER_END_ID = "foyer.end";
 export const DEFAULT_FOYER_PEER_URL = "http://127.0.0.1:8080";
-export const FOYER_VAR_IDS = [FOYER_KIND_ID, FOYER_TITLE_ID, FOYER_START_ID, FOYER_END_ID] as const;
 
 export type FoyerSessionKind = "now" | "next" | "none";
 
@@ -26,10 +25,6 @@ export function foyerSessionVars(): RoomVariable[] {
     { id: FOYER_START_ID, label: "Foyer start", kind: "text", default: "" },
     { id: FOYER_END_ID, label: "Foyer end", kind: "text", default: "" },
   ];
-}
-
-export function isFoyerVar(id: string) {
-  return (FOYER_VAR_IDS as readonly string[]).includes(id);
 }
 
 export function withFoyerSessionVars(config: RoomConfig): RoomConfig {

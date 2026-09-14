@@ -2,7 +2,7 @@
 /**
  * Offline driver check (no TypeScript loader).
  *
- *   node scripts/driver-check.mjs data/drivers/samsung-qe50q65t.json
+ *   node scripts/driver-check.mjs data/library/samsung-qe50q65t.json
  *   node scripts/driver-check.mjs path.json --host 10.0.0.20
  */
 import fs from "node:fs";

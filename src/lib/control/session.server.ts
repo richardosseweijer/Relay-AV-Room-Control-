@@ -12,6 +12,8 @@ export {
   writeDriverFile,
   removeDriverFile,
   loadDriverFiles,
+  readLibrarySpec,
+  pruneRoomDrivers,
   safeDriverName,
   processStatus,
 } from "./store.server.ts";

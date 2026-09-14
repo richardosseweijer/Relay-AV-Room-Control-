@@ -1,7 +1,7 @@
-import { bundledDrivers, defaultDeviceState, emptyRoomConfig } from "./defaults";
+import { defaultDeviceState, emptyRoomConfig, hostDriverSeed, HOST_DRIVER, workingSetNames } from "./defaults";
 import { readMonitorValue, runMacro, traces, scrubSecret, socketStats } from "./engine";
 import { syncMidiWatchers } from "./midi-in";
-import type { DeviceHealth, DeviceStateMap, DriverSpec, LogEntry, Macro, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
+import type { DeviceHealth, DeviceStateMap, DriverIndex, DriverSpec, LogEntry, Macro, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
 import { NONE_MACRO_ID, indexDriver, noneMacro } from "./types";
 import { applyMonitors, clampVar, resolveTemplate, seedVars, withMonitorVars, monitorVarId, type VarMap } from "./vars";
 import { scheduleShouldRun, TriggerReservations, triggerPathHit, triggerStep } from "./logic-policy";
@@ -20,6 +20,7 @@ import { resolveRoomTheme } from "@/lib/theme";
 const FILE_STORE = path.join(process.cwd(), "data", "relay-room.json");
 const SECRET_STORE = process.env.RELAY_SECRETS_FILE || path.join(process.cwd(), "data", "relay-secrets.json");
 const DRIVER_DIR = path.join(process.cwd(), "data", "drivers");
+const LIBRARY_DIR = path.join(process.cwd(), "data", "library");
 
 export function safeDriverName(name: string) {
   const base = String(name || "driver.json").split(/[/\\]/).pop() || "driver.json";
@@ -35,42 +36,88 @@ export async function writeDriverFile(name: string, spec: DriverSpec) {
 export async function removeDriverFile(name: string) {
   const file = safeDriverName(name);
   await unlink(path.join(DRIVER_DIR, file)).catch(() => undefined);
-  await unlink(path.join(process.cwd(), "public", "drivers", file)).catch(() => undefined);
+}
+
+export async function readLibrarySpec(name: string): Promise<DriverSpec | null> {
+  const file = safeDriverName(name);
+  if (file === "index.json") return null;
+  try {
+    return JSON.parse(await readFile(path.join(LIBRARY_DIR, file), "utf8")) as DriverSpec;
+  } catch {
+    return null;
+  }
+}
+
+export async function loadLibraryIndex(): Promise<Record<string, DriverIndex>> {
+  try {
+    const raw = JSON.parse(await readFile(path.join(LIBRARY_DIR, "index.json"), "utf8")) as Record<string, DriverIndex>;
+    if (raw && typeof raw === "object") return raw;
+  } catch {
+    /* rebuild from specs */
+  }
+  const out: Record<string, DriverIndex> = {};
+  try {
+    await mkdir(LIBRARY_DIR, { recursive: true });
+    for (const name of await readdir(LIBRARY_DIR)) {
+      if (!name.endsWith(".json") || name === "index.json") continue;
+      const spec = await readLibrarySpec(name);
+      if (spec) out[name] = indexDriver(name, spec);
+    }
+  } catch {
+    /* empty library */
+  }
+  return out;
+}
+
+async function readRoomSpec(name: string): Promise<DriverSpec | null> {
+  const file = safeDriverName(name);
+  try {
+    return JSON.parse(await readFile(path.join(DRIVER_DIR, file), "utf8")) as DriverSpec;
+  } catch {
+    return null;
+  }
 }
 
 export async function loadDriverFiles(): Promise<Record<string, DriverSpec>> {
-  const bundled = { ...bundledDrivers };
+  const seed = hostDriverSeed();
   try {
     await mkdir(DRIVER_DIR, { recursive: true });
   } catch {
-    return bundled;
+    return seed;
   }
   try {
     const existing = await readdir(DRIVER_DIR).catch(() => [] as string[]);
     if (!existing.some((n) => n.endsWith(".json"))) {
-      for (const [name, spec] of Object.entries(bundledDrivers)) {
-        await writeFile(path.join(DRIVER_DIR, name), JSON.stringify(spec, null, 2)).catch(() => undefined);
+      const spec = (await readLibrarySpec(HOST_DRIVER)) ?? seed[HOST_DRIVER];
+      if (spec) {
+        await writeFile(path.join(DRIVER_DIR, HOST_DRIVER), JSON.stringify(spec, null, 2)).catch(() => undefined);
       }
     }
     const out: Record<string, DriverSpec> = {};
     for (const name of await readdir(DRIVER_DIR).catch(() => [] as string[])) {
       if (!name.endsWith(".json")) continue;
-      try {
-        out[name] = JSON.parse(await readFile(path.join(DRIVER_DIR, name), "utf8")) as DriverSpec;
-      } catch {
-        /* skip bad file */
-      }
+      const spec = await readRoomSpec(name);
+      if (spec) out[name] = spec;
     }
-    return Object.keys(out).length ? out : bundled;
+    return Object.keys(out).length ? out : seed;
   } catch {
-    return bundled;
+    return seed;
+  }
+}
+
+export async function pruneRoomDrivers(keep: Iterable<string>) {
+  const names = new Set([...keep].map(safeDriverName));
+  names.add(HOST_DRIVER);
+  for (const name of await readdir(DRIVER_DIR).catch(() => [] as string[])) {
+    if (!name.endsWith(".json") || names.has(name)) continue;
+    await unlink(path.join(DRIVER_DIR, name)).catch(() => undefined);
   }
 }
 
 type Memory = {
   config: RoomConfig;
   drivers: Record<string, DriverSpec>;
-  library: Record<string, DriverSpec>;
+  library: Record<string, DriverIndex>;
   state: DeviceStateMap;
   vars: VarMap;
   health: DeviceHealth;
@@ -224,8 +271,8 @@ function emptyMemory(): Memory {
   const config = emptyRoomConfig();
   return {
     config,
-    drivers: { ...bundledDrivers },
-    library: { ...bundledDrivers },
+    drivers: { ...hostDriverSeed() },
+    library: Object.fromEntries(Object.entries(hostDriverSeed()).map(([name, spec]) => [name, indexDriver(name, spec)])),
     state: defaultDeviceState(),
     vars: seedVars(config),
     health: {},
@@ -274,13 +321,23 @@ export async function loadPersisted(): Promise<Memory> {
         peerSecret: fromDisk.peerSecret || fromRoom.peerSecret,
         devices: { ...fromRoom.devices, ...fromDisk.devices },
       });
-      mem.library = await loadDriverFiles();
+      mem.library = await loadLibraryIndex();
       mem.drivers = {};
-      const savedNames = saved.drivers ? Object.keys(saved.drivers) : Object.keys(mem.library);
-      for (const name of savedNames) {
-        if (mem.library[name]) mem.drivers[name] = mem.library[name]!;
-        else if (saved.drivers?.[name]) {
-          mem.library[name] = saved.drivers[name]!;
+      const roomFiles = (await readdir(DRIVER_DIR).catch(() => [] as string[])).filter((n) => n.endsWith(".json"));
+      const names = workingSetNames(mem.config.devices, roomFiles);
+      for (const name of names) {
+        const fromRoom = await readRoomSpec(name);
+        if (fromRoom) {
+          mem.drivers[name] = fromRoom;
+          continue;
+        }
+        const fromLib = await readLibrarySpec(name);
+        if (fromLib) {
+          mem.drivers[name] = fromLib;
+          await writeDriverFile(name, fromLib);
+          continue;
+        }
+        if (saved.drivers?.[name]) {
           mem.drivers[name] = saved.drivers[name]!;
           await writeDriverFile(name, saved.drivers[name]!);
         }
@@ -311,7 +368,7 @@ export async function loadPersisted(): Promise<Memory> {
   }
   }
   mem.drivers = await loadDriverFiles();
-  mem.library = { ...mem.drivers };
+  mem.library = await loadLibraryIndex();
   return mem;
 }
 
@@ -432,7 +489,7 @@ export function snapshot(): RoomSnapshot {
   return {
     config: mem.config,
     drivers: mem.drivers,
-    library: Object.fromEntries(Object.entries(mem.library ?? {}).map(([name, spec]) => [name, indexDriver(name, spec)])),
+    library: mem.library ?? {},
     state: mem.state,
     vars: mem.vars,
     health: mem.health ?? {},
@@ -750,20 +807,22 @@ let boot: Promise<Memory> | null = null;
 export function ensureLoaded() {
   if (!boot) {
     boot = loadPersisted()
-      .then((mem) => {
+      .then(async (mem) => {
         if (!Object.keys(mem.drivers ?? {}).length) {
-          mem.drivers = { ...bundledDrivers };
-          mem.library = { ...bundledDrivers };
+          mem.drivers = hostDriverSeed();
+        }
+        if (!Object.keys(mem.library ?? {}).length) {
+          mem.library = await loadLibraryIndex();
         }
         if (!mem.config?.room) mem.config = emptyRoomConfig();
         startScheduler();
         return mem;
       })
-      .catch(() => {
+      .catch(async () => {
         const mem = memory();
         mem.config = emptyRoomConfig();
-        mem.drivers = { ...bundledDrivers };
-        mem.library = { ...bundledDrivers };
+        mem.drivers = hostDriverSeed();
+        mem.library = await loadLibraryIndex();
         mem.vars = seedVars(mem.config, mem.vars);
         startScheduler();
         return mem;
