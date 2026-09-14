@@ -7,6 +7,7 @@ Format: date, then bullets. Older work lives in `git log`.
 - Tag `v0.9.9`. Same Foyer pair (`v0.2.2`). Occupancy GET strings unchanged.
 - Trigger panes rebuilt: If / and / on-change-or-interval / one macro. Same engine.
 - Room tab occupancy dropdown removed (it overwrote live occupancy on Save). Occupancy var is `0` closed, `1` open, `2` in session, `3` DND. Foyer GET still reads string `occupancy`.
+- `FOYER-RELAY.md` identical with Foyer. Architecture lists trigger panes and occupancy `0`–`3`.
 
 
 

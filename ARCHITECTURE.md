@@ -168,7 +168,7 @@ Host commands `ui.toast`, `ui.block`, `ui.unblock`, and `ui.clear` draw overlays
 
 ### 6.2 Configurator (`src/components/config/`)
 
-Shell: `config-app.tsx` (PIN, Save all, toast, `draft`, tab bar). Tabs: Room, Security, Drivers, Devices, Interfaces, Macros, Logic, Pages, Log. Logic sub-tabs: variables, monitors, schedules, triggers.
+Shell: `config-app.tsx` (PIN, Save all, toast, `draft`, tab bar). Tabs: Room, Security, Drivers, Devices, Interfaces, Macros, Logic, Pages, Log. Logic sub-tabs: variables, monitors, schedules, triggers. Trigger panes (`trigger-pane.tsx`): If / and / on-change-or-interval / one macro. Occupancy is the baked var `0`–`3` (closed / open / in session / DND); there is no Room-tab occupancy dropdown. **Save all** keeps live occupancy (it does not write `draft.room.occupancy`). Foyer GET still reads the string `occupancy` field.
 
 Room actions: export (browser download, secrets stripped), import, clear configuration, restart Vite, update from GitHub, reboot the host. Room tab shows `package.json` version plus `git rev-parse --short HEAD`. There is no Restore demo. Clear configuration leaves occupancy and one `relay-host.json` device on localhost. Export requires a configurator session. Import preserves existing secrets when the bundle left those fields empty.
 
@@ -235,6 +235,7 @@ Do not publish port 8081 to the public internet. HTTP only (issue #15).
 | `src/components/panel/widget-face.tsx` | Visual treatment of tiles. |
 | `src/components/config/config-app.tsx` | Configurator shell: PIN, Save all, draft, tab switch. |
 | `src/components/config/*-tab.tsx` | One file per tab (room, security, devices, interfaces, macros, logic, drivers, log). |
+| `src/components/config/trigger-pane.tsx` | Logic → Triggers panes. Engine still evaluates leftover false-path / hold fields if an old room has them. |
 | `src/components/config/pages-editor.tsx` | Panel page grid editor. |
 | `src/components/config/tag-bar.tsx` | Tag chips for macros and logic. |
 | `src/components/config/config-ui.ts` | Shared field chrome. |
