@@ -881,7 +881,11 @@ export async function readMonitorValue(opts: {
         let value = "";
         if (opts.feedbackId === "panel.locked") value = parsed.host?.locked ? "1" : "0";
         else if (opts.feedbackId === "display.dimmed") value = parsed.host?.dim ? "1" : "0";
-        else if (opts.feedbackId === "occupancy.state") value = String((parsed as { occupancy?: string }).occupancy ?? "");
+        else if (opts.feedbackId === "occupancy.state") {
+          const { occupancyFromVarValue, occupancyCode } = await import("./peer-payload");
+          const occ = occupancyFromVarValue((parsed as { occupancy?: string }).occupancy);
+          value = occ ? occupancyCode(occ) : "";
+        }
         else if (parsed.vars?.[opts.feedbackId]) value = String(parsed.vars[opts.feedbackId]!.value ?? "");
         else value = "";
         opts.state[device.id] = { ...slot, [opts.feedbackId]: value };
@@ -891,8 +895,8 @@ export async function readMonitorValue(opts: {
       }
     }
     if (opts.feedbackId === "occupancy.state") {
-      const { occupancyOf } = await import("./peer-payload");
-      const value = occupancyOf(opts.config.room);
+      const { occupancyOf, occupancyCode } = await import("./peer-payload");
+      const value = occupancyCode(occupancyOf(opts.config.room));
       opts.state[device.id] = { ...slot, [opts.feedbackId]: value };
       return { ok: true, value, message: value };
     }

@@ -101,12 +101,12 @@ test("LAN GET with HMAC still works", () => {
 
 test("unsigned occupancy GET body has no vars or macros", () => {
   const body = buildPeerOccupancyGet({
-    room: { occupancy: "busy" },
+    room: { occupancy: "in-session" },
     host: { locked: true },
   });
   const json = JSON.stringify(body);
   assert.equal(body.ok, true);
-  assert.equal(body.occupancy, "busy");
+  assert.equal(body.occupancy, "in-session");
   assert.equal(body.host.locked, true);
   assert.equal(json.includes("vars"), false);
   assert.equal(json.includes("macros"), false);

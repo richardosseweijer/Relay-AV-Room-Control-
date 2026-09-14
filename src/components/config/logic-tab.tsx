@@ -1,4 +1,4 @@
-import { useState, type ComponentProps } from "react";
+import { type ComponentProps } from "react";
 import { monitorVarId, variableInUse, withMonitorVars } from "@/lib/control/vars";
 import { gatewaySlot, isGatewayKind } from "@/lib/control/gateway";
 import type { RoomConfig, RoomSnapshot } from "@/lib/control/types";
@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { fieldClass } from "./config-ui";
 import { InputNum } from "./config-fields";
 import { TagBar, currentTag, fileItem, tagNames, tagOf, tagVisible, type TagBucket } from "./tag-bar";
+import { TriggersSection } from "./trigger-pane";
 
 export function LogicTab(props: {
   draft: RoomConfig;
@@ -107,13 +108,13 @@ export function LogicTab(props: {
                       </label>
                     ) : null}
                     {variable.kind === "enum" && variable.id === "occupancy" ? (
-                      <p className="sm:col-span-2 text-xs text-muted">Built-in list: available, in-session, busy, do-not-disturb, closed. Foyer Auto reads this occupancy.</p>
+                      <p className="sm:col-span-2 text-xs text-muted">0 closed · 1 open · 2 in session · 3 do not disturb. Foyer Auto reads this. Set with a macro or a Relay Occupancy command.</p>
                     ) : null}
                     {variable.id.startsWith("foyer.") ? (
                       <p className="sm:col-span-2 text-xs text-muted">Filled from Foyer on this PC: current calendar session, or the next one if the room is free.</p>
                     ) : null}
                     <Button size="sm" variant="danger" onClick={() => {
-                      if (variable.id === "occupancy") { flash("Built-in", "Occupancy is baked in. Change it on the Room tab."); return; }
+                      if (variable.id === "occupancy") { flash("Built-in", "Occupancy is baked in. Set it with a macro or a Relay Occupancy command."); return; }
                       if (variable.id.startsWith("foyer.")) { flash("Built-in", "Foyer session vars come from the calendar on this PC."); return; }
                       if (variable.id.startsWith("MON_")) { flash("Monitor variable", "Rename or delete the monitor instead."); return; }
                       if (variableInUse(draft, variable.id).length) { flash("In use", ""); return; }
@@ -338,149 +339,7 @@ export function LogicTab(props: {
               </section>
             ) : null}
             {logicTab === "triggers" ? (
-              <section className="grid gap-3">
-                <TagBar {...tagBarFor("triggers")} />
-                {(draft.triggers ?? []).map((rule, ti) => {
-                  if (!tagVisible(tagFilter.triggers, rule)) return null;
-                  const open = openLogic[rule.id] === true;
-                  return (
-                    <article
-                      key={rule.id}
-                      className="rounded-xl border border-border bg-surface p-4"
-                      draggable
-                      onDragStart={(e) => e.dataTransfer.setData("text/plain", `trg:${rule.id}`)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        const raw = e.dataTransfer.getData("text/plain");
-                        if (!raw.startsWith("trg:")) return;
-                        e.preventDefault();
-                        const fromId = raw.slice(4);
-                        update((c) => {
-                          const list = c.triggers ?? [];
-                          const from = list.findIndex((item) => item.id === fromId);
-                          if (from < 0 || from === ti) return;
-                          const [row] = list.splice(from, 1);
-                          if (row) list.splice(ti, 0, row);
-                          c.triggers = list;
-                        });
-                      }}
-                    >
-                      <button type="button" className="flex w-full items-center justify-between text-left" onClick={() => setOpenLogic((cur) => ({ ...cur, [rule.id]: !open }))}>
-                        <span className="font-medium">{rule.label}</span>
-                        <span className="text-xs text-muted">{rule.mode} · {rule.compare}{(rule.whenTrue?.length || rule.whenFalse?.length) ? ` · +${(rule.whenTrue?.length ?? 0) + (rule.whenFalse?.length ?? 0)}` : ""}</span>
-                      </button>
-                      {open ? (
-                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                          <label className="grid gap-1 text-sm text-muted">Label
-                            <input className={fieldClass()} value={rule.label} onChange={(e) => update((c) => { c.triggers![ti]!.label = e.target.value; })} />
-                          </label>
-                          <label className="grid gap-1 text-sm text-muted">Tag
-                            <select className={fieldClass()} value={tagOf(rule)} onChange={(e) => update((c) => fileItem(c, "triggers", rule.id, e.target.value))}>
-                              <option value="">Untagged</option>
-                              {tagNames(draft, "triggers").map((n) => <option key={n} value={n}>{n}</option>)}
-                            </select>
-                          </label>
-                          <label className="grid gap-1 text-sm text-muted">Trigger variable
-                            <select className={fieldClass()} value={rule.variable} onChange={(e) => update((c) => { c.triggers![ti]!.variable = e.target.value; })}>
-                              {draft.variables.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-                            </select>
-                          </label>
-                          <label className="grid gap-1 text-sm text-muted">When
-                            <select className={fieldClass()} value={rule.compare} onChange={(e) => update((c) => { c.triggers![ti]!.compare = e.target.value as typeof rule.compare; })}>
-                              <option value="eq">Equals</option>
-                              <option value="neq">Not equals</option>
-                              <option value="gt">Greater than</option>
-                              <option value="lt">Less than</option>
-                            </select>
-                          </label>
-                          <label className="grid gap-1 text-sm text-muted">Value
-                            <input className={fieldClass()} placeholder="on or {otherVar}" value={rule.equals} onChange={(e) => update((c) => { c.triggers![ti]!.equals = e.target.value; })} />
-                          </label>
-                          {(["whenTrue", "whenFalse"] as const).map((side) => (
-                            <div key={side} className="sm:col-span-2 grid gap-1">
-                              <p className="text-sm text-muted">{side === "whenTrue" ? "If that's true, also" : "If that's false, also"}</p>
-                              {(rule[side] ?? []).map((row, ri) => (
-                                <div key={ri} className="grid grid-cols-2 sm:grid-cols-[minmax(0,1fr)_5.5rem_minmax(0,1fr)_auto] gap-1">
-                                  <select className={fieldClass()} value={row.variable} onChange={(e) => update((c) => {
-                                    const next = [...(c.triggers![ti]![side] ?? [])];
-                                    next[ri] = { ...next[ri]!, variable: e.target.value };
-                                    c.triggers![ti]![side] = next;
-                                  })}>
-                                    {draft.variables.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-                                  </select>
-                                  <select className={fieldClass()} value={row.compare} onChange={(e) => update((c) => {
-                                    const next = [...(c.triggers![ti]![side] ?? [])];
-                                    next[ri] = { ...next[ri]!, compare: e.target.value as typeof row.compare };
-                                    c.triggers![ti]![side] = next;
-                                  })}>
-                                    <option value="eq">=</option>
-                                    <option value="neq">≠</option>
-                                    <option value="gt">{">"}</option>
-                                    <option value="lt">{"<"}</option>
-                                  </select>
-                                  <input className={fieldClass()} placeholder="on or {var}" value={row.equals} onChange={(e) => update((c) => {
-                                    const next = [...(c.triggers![ti]![side] ?? [])];
-                                    next[ri] = { ...next[ri]!, equals: e.target.value };
-                                    c.triggers![ti]![side] = next;
-                                  })} />
-                                  <Button size="sm" variant="ghost" onClick={() => update((c) => {
-                                    c.triggers![ti]![side] = (c.triggers![ti]![side] ?? []).filter((_, i) => i !== ri);
-                                  })}>×</Button>
-                                </div>
-                              ))}
-                              <Button size="sm" variant="secondary" onClick={() => update((c) => {
-                                const list = [...(c.triggers![ti]![side] ?? [])];
-                                if (list.length >= 8) return;
-                                list.push({ variable: c.variables[0]?.id ?? "", compare: "eq", equals: "" });
-                                c.triggers![ti]![side] = list;
-                              })}>Add check</Button>
-                            </div>
-                          ))}
-
-                          <label className="grid gap-1 text-sm text-muted">Fire
-                            <select className={fieldClass()} value={rule.mode} onChange={(e) => update((c) => { c.triggers![ti]!.mode = e.target.value as typeof rule.mode; })}>
-                              <option value="change">Only on change</option>
-                              <option value="interval">Every interval</option>
-                            </select>
-                          </label>
-                          {rule.mode === "interval" ? (
-                            <label className="grid gap-1 text-sm text-muted">Every (s)
-                              <InputNum min={1} value={rule.intervalSec} onNumber={(n) => update((c) => { if (n == null) return; c.triggers![ti]!.intervalSec = Math.max(1, n); })} />
-                            </label>
-                          ) : null}
-                          <label className="grid gap-1 text-sm text-muted">Must stay true (s)
-                            <InputNum min={0} value={rule.holdSec} onNumber={(n) => update((c) => { if (n == null) return; c.triggers![ti]!.holdSec = Math.max(0, n); })} />
-                            <span className="text-xs">0 = fire as soon as it matches. Vacancy: 600 = 10 min.</span>
-                          </label>
-                          <label className="grid gap-1 text-sm text-muted">Wait after that (s)
-                            <InputNum min={0} value={rule.delaySec} onNumber={(n) => update((c) => { if (n == null) return; c.triggers![ti]!.delaySec = Math.max(0, n); })} />
-                          </label>
-                          <label className="grid gap-1 text-sm text-muted">Macro if true
-                            <select className={fieldClass()} value={rule.macroId} onChange={(e) => update((c) => { c.triggers![ti]!.macroId = e.target.value; })}>
-                              {draft.macros.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-                            </select>
-                          </label>
-                          <label className="grid gap-1 text-sm text-muted">Macro if false
-                            <select className={fieldClass()} value={rule.falseMacroId ?? ""} onChange={(e) => update((c) => { c.triggers![ti]!.falseMacroId = e.target.value; })}>
-                              <option value="">None</option>
-                              {draft.macros.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-                            </select>
-                          </label>
-                          <label className="flex items-center gap-2 text-sm">
-                            <input type="checkbox" checked={rule.enabled} onChange={(e) => update((c) => { c.triggers![ti]!.enabled = e.target.checked; })} />
-                            Enabled
-                          </label>
-                          <Button size="sm" variant="danger" onClick={() => update((c) => { c.triggers = (c.triggers ?? []).filter((item) => item.id !== rule.id); })}>Delete</Button>
-                        </div>
-                      ) : null}
-                    </article>
-                  );
-                })}
-                <Button variant="secondary" onClick={() => update((c) => {
-                  c.triggers = c.triggers ?? [];
-                  c.triggers.push({ id: `trg-${Date.now().toString(36)}`, label: "New trigger", enabled: false, variable: c.variables[0]?.id ?? "", compare: "eq", equals: "on", whenTrue: [], whenFalse: [], mode: "change", intervalSec: 5, delaySec: 0, holdSec: 0, macroId: c.macros[0]?.id ?? "", falseMacroId: "", tag: currentTag(tagFilter.triggers) || null });
-                })}>Add trigger</Button>
-              </section>
+              <TriggersSection draft={draft} update={update} openLogic={openLogic} setOpenLogic={setOpenLogic} tagFilter={tagFilter} tagBarFor={tagBarFor} />
             ) : null}
           </div>
   );

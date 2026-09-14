@@ -12,7 +12,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
 import { isSecretKey } from "./secrets";
-import { withOccupancyVar, occupancyOf, OCCUPANCY_VAR_ID } from "./peer-payload";
+import { withOccupancyVar, occupancyOf, occupancyCode, OCCUPANCY_VAR_ID } from "./peer-payload";
 import { applyFoyerSession, fetchFoyerSession, withFoyerSessionVars, DEFAULT_FOYER_PEER_URL } from "./foyer-peer";
 import { peerKey } from "./peer-auth";
 import { resolveRoomTheme } from "@/lib/theme";
@@ -344,7 +344,7 @@ export async function loadPersisted(): Promise<Memory> {
       }
       mem.state = saved.state ?? defaultDeviceState();
       mem.vars = seedVars(mem.config, saved.vars);
-      mem.vars[OCCUPANCY_VAR_ID] = occupancyOf(mem.config.room);
+      mem.vars[OCCUPANCY_VAR_ID] = occupancyCode(occupancyOf(mem.config.room));
       mem.latches = saved.latches ?? {};
       mem.sessions = fromDisk.sessions ?? {};
       const nextSessions: Memory["sessions"] = {};
@@ -485,7 +485,7 @@ export function snapshot(): RoomSnapshot {
   mem.drivers = mem.drivers ?? {};
   mem.library = mem.library ?? {};
   mem.vars = seedVars(mem.config, mem.vars);
-  mem.vars[OCCUPANCY_VAR_ID] = occupancyOf(mem.config.room);
+  mem.vars[OCCUPANCY_VAR_ID] = occupancyCode(occupancyOf(mem.config.room));
   return {
     config: mem.config,
     drivers: mem.drivers,

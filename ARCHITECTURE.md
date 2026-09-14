@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.8** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.9** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -220,7 +220,7 @@ Do not publish port 8081 to the public internet. HTTP only (issue #15).
 | `src/lib/control/vars.ts` | Variable seeding, clamping, template substitution, enable-when evaluation. |
 | `src/lib/control/schema.ts` | Driver validation and orphan bindings. |
 | `src/lib/control/peer-auth.ts` | HMAC sign/verify, replay cache, loopback GET. |
-| `src/lib/control/peer-payload.ts` | Occupancy field, baked `occupancy` var, `GET /api/peer` body. |
+| `src/lib/control/peer-payload.ts` | Occupancy field (Foyer strings), baked `occupancy` var `0`–`3`, `GET /api/peer` body. |
 | `src/lib/control/foyer-peer.ts` | Loopback poll of Foyer session into `foyer.*` vars. See [`FOYER-RELAY.md`](FOYER-RELAY.md). |
 | `src/lib/control/pins.ts` | Weak PIN list. |
 | `src/lib/control/schedule.ts` | Next enabled schedule occurrence for the schedule widget. |

@@ -11,7 +11,7 @@ Change both trees in the same train. If this file and the code disagree, **the c
 |---|---|
 | Contract | 1 |
 | Date | 2026-09-14 |
-| Relay | **0.9.8** (`v0.9.8`) |
+| Relay | **0.9.9** (`v0.9.9`) |
 | Foyer | **0.2.2** (`v0.2.2`) |
 
 Relay [`FOYER-ROADMAP.md`](https://github.com/richardosseweijer/Relay-AV-Room-Control-/blob/main/FOYER-ROADMAP.md) is implementation history. This file is the live wire.
@@ -92,25 +92,23 @@ Relay is the occupancy **writer**. Foyer never POSTs occupancy. Relay never POST
 
 ### 4.1 Relay values
 
-Canonical field `room.occupancy`, also baked list var `occupancy`:
+Canonical field `room.occupancy` (what Foyer GET reads). Relay’s baked var `occupancy` is `0`–`3`:
 
-| Value | Meaning |
-|---|---|
-| `available` | Free (default) |
-| `in-session` | In use |
-| `busy` | Occupied / private |
-| `do-not-disturb` | DND |
-| `closed` | Closed |
+| Var | Foyer `occupancy` | Meaning |
+|---|---|---|
+| `0` | `closed` | Closed |
+| `1` | `available` | Open (default) |
+| `2` | `in-session` | In session (`busy` writes this too) |
+| `3` | `do-not-disturb` | DND |
 
 Set from:
 
-- Configurator → Room → Occupancy, then **Save all**
-- Host commands `occupancy.available` / `occupancy.in-session` / `occupancy.busy` / `occupancy.do-not-disturb` / `occupancy.closed`
-- Macro / `var.set` on baked `occupancy`
+- Occupancy variable (`0` / `1` / `2` / `3`) or macro **Set variable**
+- Host commands `occupancy.closed` / `occupancy.open` / `occupancy.in-session` / `occupancy.do-not-disturb` (`occupancy.available` and `occupancy.busy` still map to open / in-session)
 
-Feedback id `occupancy.state`. Persist on successful command.
+There is no Room-tab occupancy dropdown (it fought the live var on Save). Feedback id `occupancy.state` is `0`–`3`. Persist on successful command.
 
-Aliases Relay accepts when writing the field: `free`/`idle`/`0`/`false` → `available`; `insession`/`occupied`/`1`/`true`/`on` → `in-session`; `off` → `closed`; `dnd` → `do-not-disturb`.
+Aliases Relay accepts when writing: `open`/`free`/`idle`/`false` → open; `insession`/`occupied`/`true`/`on`/`busy` → in-session; `off` → closed; `dnd` → do-not-disturb. Foyer still reads the **string** `occupancy` field, not the var.
 
 ### 4.2 Request (Foyer → Relay)
 
@@ -145,7 +143,7 @@ HMAC GET (Relay-to-Relay, or loopback with headers) still returns the fat object
   "room": { "id": "<relay-room-id>", "name": "<relay-room-name>" },
   "host": { "dim": false, "locked": false, "pageId": null },
   "occupancy": "available",
-  "vars": { "occupancy": { "name": "Occupancy", "value": "available" } },
+  "vars": { "occupancy": { "name": "Occupancy", "value": "1" } },
   "macros": {}
 }
 ```
@@ -317,7 +315,7 @@ After **Update from GitHub** on both apps:
    - Relay URL `http://127.0.0.1:8081`
    - Peer secret may stay blank
 2. **Relay Configurator → Room → Occupancy / Foyer**
-   - Occupancy list; **Save all** (or fire Occupancy commands on the panel)
+   - Set occupancy with the Occupancy var (`0`–`3`) or a Relay Occupancy command / macro
    - Foyer URL `http://127.0.0.1:8080`
    - Within a few seconds the card shows `now`/`next` plus title and times, or “No session from Foyer yet.”
 

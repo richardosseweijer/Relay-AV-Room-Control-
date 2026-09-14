@@ -1,21 +1,38 @@
 import type { Occupancy, RoomConfig, RoomVariable } from "./types";
 
 export const OCCUPANCY_VAR_ID = "occupancy";
+/** Baked var codes: 0 closed, 1 open, 2 in session, 3 do not disturb. */
+export const OCCUPANCY_CODES = ["0", "1", "2", "3"] as const;
+/** Foyer GET still uses these strings. `busy` is accepted and stored as in-session. */
 export const OCCUPANCY_VALUES: Occupancy[] = ["available", "in-session", "busy", "do-not-disturb", "closed"];
+
+const CODE_TO_OCC: Record<string, Occupancy> = {
+  "0": "closed",
+  "1": "available",
+  "2": "in-session",
+  "3": "do-not-disturb",
+};
+
+const OCC_TO_CODE: Record<Occupancy, typeof OCCUPANCY_CODES[number]> = {
+  closed: "0",
+  available: "1",
+  "in-session": "2",
+  busy: "2",
+  "do-not-disturb": "3",
+};
 
 const VAR_ALIASES: Record<string, Occupancy> = {
   available: "available",
+  open: "available",
   free: "available",
   idle: "available",
-  "0": "available",
   false: "available",
   "in-session": "in-session",
   insession: "in-session",
   occupied: "in-session",
-  "1": "in-session",
   true: "in-session",
   on: "in-session",
-  busy: "busy",
+  busy: "in-session",
   closed: "closed",
   off: "closed",
   "do-not-disturb": "do-not-disturb",
@@ -25,8 +42,13 @@ const VAR_ALIASES: Record<string, Occupancy> = {
 export function occupancyFromVarValue(raw: string | number | boolean | undefined): Occupancy | null {
   const key = String(raw ?? "").trim().toLowerCase();
   if (!key) return null;
-  if (OCCUPANCY_VALUES.includes(key as Occupancy)) return key as Occupancy;
+  if (CODE_TO_OCC[key]) return CODE_TO_OCC[key];
+  if (OCCUPANCY_VALUES.includes(key as Occupancy)) return key === "busy" ? "in-session" : key as Occupancy;
   return VAR_ALIASES[key] ?? null;
+}
+
+export function occupancyCode(occ: Occupancy): typeof OCCUPANCY_CODES[number] {
+  return OCC_TO_CODE[occ] ?? "1";
 }
 
 export function occupancyVarSpec(): RoomVariable {
@@ -34,8 +56,8 @@ export function occupancyVarSpec(): RoomVariable {
     id: OCCUPANCY_VAR_ID,
     label: "Occupancy",
     kind: "enum",
-    values: [...OCCUPANCY_VALUES],
-    default: "available",
+    values: [...OCCUPANCY_CODES],
+    default: "1",
   };
 }
 
@@ -64,8 +86,8 @@ export function applyOccupancy(
   const next = occupancyFromVarValue(value);
   if (!next) return { ok: false, message: "Bad occupancy" };
   config.room.occupancy = next;
-  vars[OCCUPANCY_VAR_ID] = next;
-  return { ok: true, message: next };
+  vars[OCCUPANCY_VAR_ID] = occupancyCode(next);
+  return { ok: true, message: occupancyCode(next) };
 }
 
 export function buildPeerOccupancyGet(opts: {

@@ -6,7 +6,7 @@ import { NONE_MACRO_ID } from "./types";
 import { clampVar, driverInUse, seedVars } from "./vars";
 import { isWeakPin, isHashedPin } from "./pins";
 import { actionPermitted } from "./control-policy";
-import { applyOccupancy, occupancyOf, OCCUPANCY_VAR_ID } from "./peer-payload";
+import { applyOccupancy, occupancyCode, occupancyOf, OCCUPANCY_VAR_ID } from "./peer-payload";
 
 async function S() {
   return import("./session.server");
@@ -177,12 +177,11 @@ export const saveConfig = createServerFn({ method: "POST" })
       }
       return { ...device, auth };
     });
+    const liveOccupancy = occupancyOf(memory().config.room);
     const nextConfig: RoomConfig = { ...config, devices };
     memory().config = nextConfig;
     const vars = seedVars(nextConfig, memory().vars);
-    if (nextConfig.room.occupancy) {
-      applyOccupancy(nextConfig, vars, nextConfig.room.occupancy);
-    }
+    applyOccupancy(nextConfig, vars, liveOccupancy);
     memory().vars = vars;
     try {
       await persistNow();
@@ -283,7 +282,7 @@ export const fireCommand = createServerFn({ method: "POST" })
       mem.vars[data.variable] = def ? clampVar(def, data.value ?? def.default) : (data.value ?? "");
     }
     if (result.ok && data.commandId.startsWith("occupancy.")) {
-      mem.vars[OCCUPANCY_VAR_ID] = occupancyOf(mem.config.room);
+      mem.vars[OCCUPANCY_VAR_ID] = occupancyCode(occupancyOf(mem.config.room));
     } else if (result.ok && data.variable === OCCUPANCY_VAR_ID) {
       applyOccupancy(mem.config, mem.vars, String(mem.vars[OCCUPANCY_VAR_ID]));
     }
