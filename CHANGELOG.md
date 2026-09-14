@@ -2,6 +2,12 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.7 — 2026-09-14
+
+- Tag `v0.9.7`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Engine: `allowedLanHost`, `scrubSecret`, traces, `sleep` in `engine-policy.ts`. Payload tokens, `valueMap`, parse, and inventory JSON parse in `engine-payload.ts`. `engine.ts` remains the barrel (`sendLan`, TCP sessions, monitors, macros). Callers still import `engine.ts`.
+- Protocol adapter tests pin `sendLan` / `statusPlane` / `readMonitorValue` by function, not by the next neighbor.
+
 ## 0.9.6 — 2026-09-13
 
 - Tag `v0.9.6`.

@@ -3,6 +3,88 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+function namedFn(src, name) {
+  const start = src.search(new RegExp(String.raw`(?:export )?(?:async )?function ${name}\b`));
+  assert.ok(start >= 0, `missing ${name}`);
+  let i = src.indexOf("(", start);
+  let depth = 0;
+  for (; i < src.length; i++) {
+    if (src[i] === "(") depth++;
+    else if (src[i] === ")") {
+      depth--;
+      if (depth === 0) {
+        i++;
+        break;
+      }
+    }
+  }
+  while (i < src.length && src[i] !== "{") i++;
+  depth = 0;
+  let quote = null;
+  for (; i < src.length; i++) {
+    const c = src[i];
+    if (quote) {
+      if (c === "\\") {
+        i++;
+        continue;
+      }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      quote = c;
+      continue;
+    }
+    if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) return src.slice(start, i + 1);
+    }
+  }
+  throw new Error(`unclosed ${name}`);
+}
+
+test("engine-policy does not import the engine barrel", () => {
+  const src = fs.readFileSync("src/lib/control/engine-policy.ts", "utf8");
+  assert.equal(/from ["']\.\/engine["']/.test(src), false);
+  assert.equal(/from ["']\.\/engine\.ts["']/.test(src), false);
+  const payload = fs.readFileSync("src/lib/control/engine-payload.ts", "utf8");
+  assert.equal(/from ["']\.\/engine["']/.test(payload), false);
+  assert.equal(/from ["']\.\/engine\.ts["']/.test(payload), false);
+  const barrel = fs.readFileSync("src/lib/control/engine.ts", "utf8");
+  assert.match(barrel, /export \{ allowedLanHost, pushTrace, scrubSecret, traces \} from "\.\/engine-policy"/);
+  assert.match(barrel, /from "\.\/engine-payload"/);
+});
+
+test("policy RFC1918 and scrubSecret", async () => {
+  const { allowedLanHost, scrubSecret } = await import("../src/lib/control/engine-policy.ts");
+  assert.equal(allowedLanHost("10.0.0.1"), true);
+  assert.equal(allowedLanHost("192.168.1.8"), true);
+  assert.equal(allowedLanHost("172.16.0.1"), true);
+  assert.equal(allowedLanHost("8.8.8.8"), false);
+  assert.equal(allowedLanHost("127.0.0.1"), false);
+  assert.equal(allowedLanHost("127.0.0.1", { localOk: true }), true);
+  assert.equal(scrubSecret('{"token":"abc","password":"x"}').includes("abc"), false);
+});
+
+test("payload templates, guards, and parseFeedback", async () => {
+  const { renderPayload, guardOk, parseFeedback, parseInventoryItems, mapCommandValue, applySim } = await import("../src/lib/control/engine-payload.ts");
+  assert.equal(renderPayload("ka 01 {value:hex2}", 16), "ka 01 10");
+  assert.equal(renderPayload("/api/{auth.token}/x", undefined, { token: "abc" }), "/api/abc/x");
+  assert.equal(guardOk(["power.state=on"], { "power.state": "on" }), true);
+  assert.equal(guardOk(["power.state=on"], { "power.state": "off" }), false);
+  assert.equal(parseFeedback({ type: "contains", value: "ok" }, "status ok"), "ok");
+  assert.equal(parseFeedback({ type: "contains", value: "ok" }, "fail"), "");
+  const items = parseInventoryItems('{"lights":{"1":{"name":"A"}}}', { id: "lights", label: "Lights", parsePath: "lights", nameField: "name" });
+  assert.equal(items[0]?.id, "1");
+  assert.equal(items[0]?.name, "A");
+  const mapped = mapCommandValue({ id: "volume.set", label: "Vol", kind: "range", min: 0, max: 100, transport: "lan", payload: "", valueMap: { kind: "int", inMin: 0, inMax: 100, outMin: 0, outMax: 255 } }, 50);
+  assert.equal(mapped, 128);
+  const slot = {};
+  applySim({ id: "power.on", label: "On", kind: "action", transport: "lan", payload: "" }, undefined, slot);
+  assert.equal(slot["power.state"], "on");
+});
+
 test("shipped drivers keep distinct LAN protocols", () => {
   const dir = path.resolve("data/drivers");
   const got = {};
@@ -26,22 +108,23 @@ test("shipped drivers keep distinct LAN protocols", () => {
 
 test("engine sendLan still names http cast pjlink wol tcp websocket", () => {
   const src = fs.readFileSync("src/lib/control/engine.ts", "utf8");
+  const lan = namedFn(src, "sendLan");
   for (const needle of ['lan.protocol === "cast"', 'lan.protocol === "pjlink"', 'lan.protocol === "wol"', "tls-websocket", 'lan.protocol === "http"', 'lan.protocol === "osc"', 'lan.protocol === "sacn"', 'lan.protocol === "ipmidi"', 'lan.protocol === "rtp-midi"']) {
-    assert.ok(src.includes(needle), needle);
+    assert.ok(lan.includes(needle), needle);
   }
   assert.equal(src.includes("sendSamsungKey"), false);
   assert.equal(src.includes("samsung.remote.control"), false);
   assert.equal(src.includes("Accept Allow on the TV"), false);
   assert.equal(src.includes("ms.channel.connect"), false);
-  assert.ok(src.includes("Unknown protocol"));
+  assert.ok(lan.includes("Unknown protocol"));
 });
 
 test("usb-midi is local.kind midi and engine calls sendUsbMidi", () => {
   const spec = JSON.parse(fs.readFileSync("data/drivers/usb-midi.json", "utf8"));
   assert.equal(spec.transports.local.kind, "midi");
   const src = fs.readFileSync("src/lib/control/engine.ts", "utf8");
-  assert.ok(src.includes('kind === "midi"'));
-  assert.ok(src.includes("sendUsbMidi"));
+  assert.ok(namedFn(src, "sendLocal").includes('kind === "midi"'));
+  assert.ok(namedFn(src, "sendLocal").includes("sendUsbMidi"));
   assert.equal(src.includes("node-midi"), false);
 });
 
@@ -52,14 +135,13 @@ test("midiWatch is JSON matchers; no parse type midi", () => {
   const types = fs.readFileSync("src/lib/control/types.ts", "utf8");
   assert.ok(types.includes("midiWatch"));
   assert.match(types, /export type ParseType = "regex" \| "jsonpath" \| "contains" \| "exact" \| "map"/);
-  const engine = fs.readFileSync("src/lib/control/engine.ts", "utf8");
-  assert.ok(engine.includes("mtcSend"));
+  const src = fs.readFileSync("src/lib/control/engine.ts", "utf8");
+  assert.ok(namedFn(src, "executeCommand").includes("mtcSend"));
 });
-
 
 test("statusPlane uses only driver.status; Sonos poll stays on sendLan", () => {
   const src = fs.readFileSync("src/lib/control/engine.ts", "utf8");
-  const fn = src.slice(src.indexOf("function statusPlane"), src.indexOf("async function sendRpcShutdown"));
+  const fn = namedFn(src, "statusPlane");
   assert.equal(fn.includes("httpPath"), false);
   assert.equal(fn.includes("8001"), false);
   assert.equal(fn.includes("pairing"), false);
@@ -75,7 +157,7 @@ test("statusPlane uses only driver.status; Sonos poll stays on sendLan", () => {
 
 test("poll uses driver parse, not PowerState or displayName peeks", () => {
   const src = fs.readFileSync("src/lib/control/engine.ts", "utf8");
-  const poll = src.slice(src.indexOf("const statusUrl = statusPlane"), src.indexOf("export async function applyHost"));
+  const poll = namedFn(src, "readMonitorValue");
   assert.equal(poll.includes("device.PowerState"), false);
   assert.equal(poll.includes('feedbackId.includes("power")'), false);
   assert.equal(poll.includes('feedbackId.includes("app")'), false);
