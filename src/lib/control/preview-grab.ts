@@ -55,7 +55,7 @@ export function openPreviewStream(href: string, signal?: AbortSignal): Promise<R
     live = Math.max(0, live - 1);
   };
   return new Promise((resolve, reject) => {
-    const args = ["-hide_banner", "-nostdin", "-loglevel", "error", "-rw_timeout", "5000000"];
+    const args = ["-hide_banner", "-nostdin", "-loglevel", "error", "-timeout", "5000000"];
     if (href.startsWith("rtsp:")) args.push("-rtsp_transport", "tcp");
     args.push(
       "-fflags", "nobuffer",
