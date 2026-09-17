@@ -28,6 +28,13 @@ test("typed stream URL wins over device host", () => {
   if (hit.ok) assert.equal(hit.href, "rtsp://10.0.10.9:8554/main/av");
 });
 
+test("device host with a LAN port still builds :8554", () => {
+  const widget = { id: "p1", type: "preview", streamUrl: "", bind: { kind: "macro", device: "box" } };
+  const hit = previewUrlForWidget(widget, [{ id: "box", host: "10.0.25.40:80" }]);
+  assert.equal(hit.ok, true);
+  if (hit.ok) assert.equal(hit.href, "rtsp://10.0.25.40:8554/sub/av");
+});
+
 test("preview needs a URL or a device host", () => {
   const widget = { id: "p1", type: "preview", streamUrl: "", bind: { kind: "macro" } };
   assert.equal(previewUrlForWidget(widget, []).ok, false);

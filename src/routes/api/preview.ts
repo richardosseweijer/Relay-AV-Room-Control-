@@ -30,6 +30,7 @@ export const Route = createFileRoute("/api/preview")({
             headers: {
               "content-type": "video/mp4",
               "cache-control": "no-store",
+              "x-accel-buffering": "no",
             },
           });
         } catch (err) {

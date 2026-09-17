@@ -4,10 +4,12 @@ import type { Widget } from "@/lib/control/types";
 import { cn } from "@/lib/utils";
 
 const MIMES = [
-  'video/mp4; codecs="avc1.64001F"',
+  'video/mp4; codecs="avc1.42E01F"',
+  'video/mp4; codecs="avc1.42C01F"',
   'video/mp4; codecs="avc1.4D401F"',
-  'video/mp4; codecs="avc1.42E01E"',
+  'video/mp4; codecs="avc1.64001F"',
   'video/mp4; codecs="avc1.640028"',
+  'video/mp4; codecs="avc1.42E01E"',
 ];
 
 function mediaSourceType(): (new () => MediaSource) | undefined {
@@ -15,6 +17,19 @@ function mediaSourceType(): (new () => MediaSource) | undefined {
   if (typeof w.ManagedMediaSource === "function") return w.ManagedMediaSource;
   if (typeof MediaSource === "function") return MediaSource;
   return undefined;
+}
+
+/** Safari SourceBuffer wants whole ISO-BMFF boxes, not TCP fragments. */
+function takeBoxes(acc: Uint8Array): { emit: Uint8Array | null; rest: Uint8Array } {
+  let offset = 0;
+  while (offset + 8 <= acc.length) {
+    const size = (acc[offset]! << 24) | (acc[offset + 1]! << 16) | (acc[offset + 2]! << 8) | acc[offset + 3]!;
+    if (size < 8 || size > 4 * 1024 * 1024) break;
+    if (offset + size > acc.length) break;
+    offset += size;
+  }
+  if (!offset) return { emit: null, rest: acc };
+  return { emit: acc.subarray(0, offset), rest: acc.subarray(offset) };
 }
 
 function playStream(video: HTMLVideoElement, widgetId: string, token: string, setErr: (msg: string) => void): () => void {
@@ -36,17 +51,16 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
     objectUrl = URL.createObjectURL(ms);
     video.disableRemotePlayback = true;
     video.src = objectUrl;
-    const queue: Uint8Array[] = [];
-    let sb: SourceBuffer | null = null;
     await new Promise<void>((resolve, reject) => {
       ms.addEventListener("sourceopen", () => resolve(), { once: true });
       ms.addEventListener("error", () => reject(new Error("mse")), { once: true });
     });
     if (ac.signal.aborted) return;
-    sb = ms.addSourceBuffer(chosenMime);
+    const sb = ms.addSourceBuffer(chosenMime);
     sb.mode = "sequence";
+    const queue: Uint8Array[] = [];
     const pump = () => {
-      if (!sb || sb.updating || !queue.length) return;
+      if (sb.updating || !queue.length) return;
       const chunk = queue.shift()!;
       const copy = new Uint8Array(chunk.byteLength);
       copy.set(chunk);
@@ -58,7 +72,7 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
       }
     };
     sb.addEventListener("updateend", () => {
-      if (!sb || ac.signal.aborted) return;
+      if (ac.signal.aborted) return;
       if (video.buffered.length) {
         const end = video.buffered.end(video.buffered.length - 1);
         if (end - video.currentTime > 2) video.currentTime = Math.max(0, end - 0.25);
@@ -79,16 +93,29 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
       signal: ac.signal,
     });
     if (!res.ok || !res.body) {
-      setErr(res.status === 503 ? "ffmpeg?" : "no signal");
+      let msg = res.status === 503 ? "ffmpeg?" : "no signal";
+      try {
+        const body = await res.json() as { message?: string };
+        if (res.status === 429) return;
+        if (body?.message && body.message.length <= 40) msg = body.message === "ffmpeg missing" ? "ffmpeg?" : body.message;
+      } catch { /* keep msg */ }
+      setErr(msg);
       return;
     }
     setErr("");
     const reader = res.body.getReader();
+    let acc = new Uint8Array(0);
     while (!ac.signal.aborted) {
       const { done, value } = await reader.read();
       if (done) break;
-      if (value?.length) {
-        queue.push(value);
+      if (!value?.length) continue;
+      const next = new Uint8Array(acc.length + value.length);
+      next.set(acc);
+      next.set(value, acc.length);
+      const split = takeBoxes(next);
+      acc = new Uint8Array(split.rest);
+      if (split.emit) {
+        queue.push(new Uint8Array(split.emit));
         pump();
       }
     }

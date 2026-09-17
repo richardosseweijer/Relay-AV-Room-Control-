@@ -3,12 +3,13 @@
  *  pages-editor Preview fields, control-panel PreviewTile branch,
  *  scripts/preview-url.test.mjs (and its package.json test entry). */
 import { spawn } from "node:child_process";
-import { Readable } from "node:stream";
+import { PassThrough, Readable } from "node:stream";
 import { allowedLanHost } from "./engine-policy.ts";
 import type { DeviceInstance, Widget } from "./types";
 
 const MAX_URL = 320;
 const MAX_LIVE = 4;
+const FIRST_BYTE_MS = 8000;
 let live = 0;
 
 export function parsePreviewUrl(raw: string): { ok: true; href: string } | { ok: false; message: string } {
@@ -37,12 +38,26 @@ export function parsePreviewUrl(raw: string): { ok: true; href: string } | { ok:
   return { ok: true, href: parsed.href };
 }
 
+function deviceLanIp(host: string): string {
+  const raw = String(host ?? "").trim().split("/")[0];
+  const m = raw.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?::\d+)?$/);
+  return m ? m[1] : raw;
+}
+
 export function previewUrlForWidget(widget: Widget, devices: DeviceInstance[]): { ok: true; href: string } | { ok: false; message: string } {
   const typed = String(widget.streamUrl ?? "").trim();
   if (typed) return parsePreviewUrl(typed);
   const device = devices.find((row) => row.id === widget.bind.device);
   if (!device?.host) return { ok: false, message: "Set stream URL or bind a device" };
-  return parsePreviewUrl(`rtsp://${device.host}:8554/sub/av`);
+  return parsePreviewUrl(`rtsp://${deviceLanIp(device.host)}:8554/sub/av`);
+}
+
+function ffmpegHint(chunks: Buffer[]): string {
+  const text = Buffer.concat(chunks).toString("utf8").slice(0, 240);
+  if (/Error opening input|Connection refused|timed out|401 Unauthorized|404 Not Found|Immediate exit/i.test(text)) return "no signal";
+  if (/Option .* not found/i.test(text)) return "ffmpeg flags";
+  if (/Invalid data found/i.test(text)) return "bad codec";
+  return "no signal";
 }
 
 export function openPreviewStream(href: string, signal?: AbortSignal): Promise<ReadableStream<Uint8Array>> {
@@ -55,7 +70,8 @@ export function openPreviewStream(href: string, signal?: AbortSignal): Promise<R
     live = Math.max(0, live - 1);
   };
   return new Promise((resolve, reject) => {
-    const args = ["-hide_banner", "-nostdin", "-loglevel", "error", "-timeout", "5000000"];
+    // No -timeout / -rw_timeout / -stimeout: those flags differ by ffmpeg version and abort the remux.
+    const args = ["-hide_banner", "-nostdin", "-loglevel", "error"];
     if (href.startsWith("rtsp:")) args.push("-rtsp_transport", "tcp");
     args.push(
       "-fflags", "nobuffer",
@@ -63,15 +79,17 @@ export function openPreviewStream(href: string, signal?: AbortSignal): Promise<R
       "-an",
       "-c:v", "copy",
       "-f", "mp4",
-      "-movflags", "frag_keyframe+empty_moov+default_base_moof",
+      "-movflags", "frag_keyframe+empty_moov+default_base_moof+separate_moof",
       "-reset_timestamps", "1",
       "pipe:1",
     );
     let handed = false;
+    const errChunks: Buffer[] = [];
     const child = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
     const fail = (err: Error) => {
       if (handed) return;
       handed = true;
+      clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
       child.kill("SIGKILL");
       release();
@@ -79,25 +97,32 @@ export function openPreviewStream(href: string, signal?: AbortSignal): Promise<R
     };
     const onAbort = () => child.kill("SIGKILL");
     signal?.addEventListener("abort", onAbort);
-    child.stderr?.resume();
+    const timer = setTimeout(() => fail(new Error("no signal")), FIRST_BYTE_MS);
+    child.stderr?.on("data", (buf: Buffer) => {
+      if (errChunks.length < 8) errChunks.push(buf);
+    });
     child.stdout?.on("error", () => child.kill("SIGKILL"));
     child.on("error", (err: NodeJS.ErrnoException) => {
       fail(err.code === "ENOENT" ? new Error("ffmpeg missing") : err);
     });
-    child.on("spawn", () => {
-      if (handed || !child.stdout) {
-        fail(new Error("no frame"));
-        return;
-      }
+    child.stdout?.on("readable", function onReadable() {
+      const buf = child.stdout?.read() as Buffer | null;
+      if (!buf || handed) return;
       handed = true;
+      clearTimeout(timer);
+      child.stdout?.off("readable", onReadable);
+      const out = new PassThrough();
+      out.write(buf);
+      child.stdout?.pipe(out);
       child.on("close", () => {
         signal?.removeEventListener("abort", onAbort);
+        out.end();
         release();
       });
-      resolve(Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>);
+      resolve(Readable.toWeb(out) as ReadableStream<Uint8Array>);
     });
     child.on("close", () => {
-      if (!handed) fail(new Error("no frame"));
+      if (!handed) fail(new Error(ffmpegHint(errChunks)));
     });
   });
 }
