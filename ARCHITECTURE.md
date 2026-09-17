@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.10** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.9** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -232,6 +232,9 @@ Do not publish port 8081 to the public internet. HTTP only (issue #15).
 | File | Responsibility |
 |---|---|
 | `src/components/panel/control-panel.tsx` | Operator grid, overlays, wake lock, fullscreen. |
+| `src/components/panel/preview-tile.tsx` | Optional 720p RTSP preview (`<video>` + MSE). |
+| `src/lib/control/preview-grab.ts` | Preview URL allowlist + ffmpeg H.264 remux to fMP4. |
+| `src/routes/api/preview.ts` | `GET /api/preview?widget=` streams fMP4 (panel/config session). |
 | `src/components/panel/widget-face.tsx` | Visual treatment of tiles. |
 | `src/components/config/config-app.tsx` | Configurator shell: PIN, Save all, draft, tab switch. |
 | `src/components/config/*-tab.tsx` | One file per tab (room, security, devices, interfaces, macros, logic, drivers, log). |

@@ -64,6 +64,7 @@ sudo apt-get install -y gpiod i2c-tools cec-utils lirc samba-common-bin
 | IR | `ir-ctl` / `irsend` | `lirc` |
 | Serial | `/dev/tty*` / `/dev/serial0` | kernel |
 | PC RPC shutdown | `net rpc shutdown` | `samba-common-bin` |
+| Preview tile | `ffmpeg` RTSP remux | `ffmpeg` |
 
 On Raspberry Pi OS: `sudo raspi-config` → Interface Options → enable I2C / Serial / SPI as needed → reboot.
 

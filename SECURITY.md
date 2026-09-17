@@ -32,6 +32,7 @@ They are easy to confuse. They are not the same control.
 - Configurator writes need a config session. Host restart/update/reboot also ask for the PIN again.
 - Forget deletes the server session row. The tablet drops `relay-panel-token` when `/api/room` reports `sessionValid: false`.
 - `/api/room` without a Bearer token omits IPs, drivers, and the action log. Rate-limited per client.
+- `/api/preview` needs a panel or config session. The RTSP/HTTP URL comes from the widget, not the query string, and must pass `allowedLanHost`.
 
 ## Room-to-room
 

@@ -15,6 +15,7 @@ import { Route as ApiConfigUnlockRouteImport } from './routes/api/config-unlock'
 import { Route as ApiPanelUnlockRouteImport } from './routes/api/panel-unlock'
 import { Route as ApiPeerRouteImport } from './routes/api/peer'
 import { Route as ApiPingRouteImport } from './routes/api/ping'
+import { Route as ApiPreviewRouteImport } from './routes/api/preview'
 import { Route as ApiRoomRouteImport } from './routes/api/room'
 import { Route as ApiVarsRouteImport } from './routes/api/vars'
 
@@ -48,6 +49,11 @@ const ApiPingRoute = ApiPingRouteImport.update({
   path: '/api/ping',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPreviewRoute = ApiPreviewRouteImport.update({
+  id: '/api/preview',
+  path: '/api/preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRoomRoute = ApiRoomRouteImport.update({
   id: '/api/room',
   path: '/api/room',
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/api/panel-unlock': typeof ApiPanelUnlockRoute
   '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
+  '/api/preview': typeof ApiPreviewRoute
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
 }
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/api/panel-unlock': typeof ApiPanelUnlockRoute
   '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
+  '/api/preview': typeof ApiPreviewRoute
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
 }
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/api/panel-unlock': typeof ApiPanelUnlockRoute
   '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
+  '/api/preview': typeof ApiPreviewRoute
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
 }
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/api/panel-unlock'
     | '/api/peer'
     | '/api/ping'
+    | '/api/preview'
     | '/api/room'
     | '/api/vars'
   fileRoutesByTo: FileRoutesByTo
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/api/panel-unlock'
     | '/api/peer'
     | '/api/ping'
+    | '/api/preview'
     | '/api/room'
     | '/api/vars'
   id:
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/api/panel-unlock'
     | '/api/peer'
     | '/api/ping'
+    | '/api/preview'
     | '/api/room'
     | '/api/vars'
   fileRoutesById: FileRoutesById
@@ -130,6 +142,7 @@ export interface RootRouteChildren {
   ApiPanelUnlockRoute: typeof ApiPanelUnlockRoute
   ApiPeerRoute: typeof ApiPeerRoute
   ApiPingRoute: typeof ApiPingRoute
+  ApiPreviewRoute: typeof ApiPreviewRoute
   ApiRoomRoute: typeof ApiRoomRoute
   ApiVarsRoute: typeof ApiVarsRoute
 }
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/preview': {
+      id: '/api/preview'
+      path: '/api/preview'
+      fullPath: '/api/preview'
+      preLoaderRoute: typeof ApiPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/room': {
       id: '/api/room'
       path: '/api/room'
@@ -202,6 +222,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPanelUnlockRoute: ApiPanelUnlockRoute,
   ApiPeerRoute: ApiPeerRoute,
   ApiPingRoute: ApiPingRoute,
+  ApiPreviewRoute: ApiPreviewRoute,
   ApiRoomRoute: ApiRoomRoute,
   ApiVarsRoute: ApiVarsRoute,
 }

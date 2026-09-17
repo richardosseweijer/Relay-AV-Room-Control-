@@ -3,10 +3,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Maximize2, Settings2, Sun } from "lucide-react";
 import type { RoomSnapshot, Widget } from "@/lib/control/types";
+import { NONE_MACRO_ID } from "@/lib/control/types";
 import { resolveBoundNumber } from "@/lib/control/vars";
 import { nextScheduled } from "@/lib/control/schedule";
 import { Button } from "@/components/ui/button";
 import { WidgetShell } from "./widget-face";
+import { PreviewTile } from "./preview-tile";
 import { applyRoomSession, clearPanelToken, PANEL_TOKEN_KEY } from "@/lib/control/panel-token";
 import { applyRoomTheme } from "@/lib/theme";
 
@@ -358,6 +360,7 @@ export function ControlPanel() {
       return;
     }
     if (widget.type === "status" || widget.type === "label" || widget.type === "schedule") return;
+    if (widget.type === "preview" && !(widget.bind.kind === "macro" && widget.bind.id && widget.bind.id !== NONE_MACRO_ID)) return;
     if (!enabled(snap, widget)) return;
     if (widget.confirm && confirm?.id !== widget.id) {
       setConfirm(widget);
@@ -600,7 +603,7 @@ export function ControlPanel() {
             : readFeedback(snap, widget.bind.device, widget.bind.feedback);
           const lit = widgetActive(snap, widget, confirm?.id === widget.id);
           const waiting = busyId === widget.id;
-          const wide = widget.type === "slider" || widget.type === "schedule" || widget.type === "label" || widget.w >= page.grid.cols;
+          const wide = widget.type === "slider" || widget.type === "schedule" || widget.type === "label" || widget.type === "preview" || widget.w >= page.grid.cols;
           if (widget.type === "slider") {
             const num = Number(value || 0);
             const min = resolveBoundNumber(widget.min, snap.vars ?? {}, 0, snap.config.variables);
@@ -667,6 +670,19 @@ export function ControlPanel() {
                     <span className="text-xl font-medium">Nothing scheduled</span>
                   )}
                 </WidgetShell>
+              </div>
+            );
+          }
+          if (widget.type === "preview") {
+            return (
+              <div
+                key={widget.id}
+                data-wide={wide}
+                data-type={widget.type}
+                className="grid min-h-0 min-w-0 h-full"
+                style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
+              >
+                <PreviewTile widget={widget} token={session} disabled={!on} onClick={() => run(widget)} />
               </div>
             );
           }

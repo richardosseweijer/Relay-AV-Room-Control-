@@ -166,6 +166,13 @@ export function PagesEditor({
               } else if (type === "schedule") {
                 w.label = w.label === "Button" || w.label === "Next" || !w.label ? "Next scheduled task" : w.label;
                 w.bind = { kind: "macro" };
+              } else if (type === "preview") {
+                // Optional 720p RTSP tile. Drop this branch + the Preview fields below to remove.
+                w.label = w.label === "Button" || !w.label ? "Preview" : w.label;
+                w.w = Math.max(w.w, 3);
+                w.h = Math.max(w.h, 2);
+                w.streamUrl = w.streamUrl || "";
+                w.bind = { kind: "macro", id: w.bind.id ?? NONE_MACRO_ID, device: w.bind.device ?? draft.devices[0]?.id, gotoPage: null };
               }
             })}
           >
@@ -174,6 +181,7 @@ export function PagesEditor({
             <option value="status">Status</option>
             <option value="label">Label</option>
             <option value="schedule">Next schedule</option>
+            <option value="preview">Preview</option>
           </select>
           </label>
           {selected.type === "button" ? (
@@ -257,6 +265,39 @@ export function PagesEditor({
             <select className={fieldClass()} value={selected.bind.variable ?? ""} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.bind = { kind: "variable", variable: e.target.value }; })}>
               {draft.variables.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
             </select>
+          ) : null}
+          {selected.type === "preview" ? (
+            <>
+              <label className="grid gap-1 text-sm text-muted">Stream URL
+                <input
+                  className={fieldClass()}
+                  placeholder="rtsp://10.0.10.40:8554/sub/av"
+                  value={selected.streamUrl ?? ""}
+                  onChange={(e) => update((c) => {
+                    const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
+                    if (w) w.streamUrl = e.target.value;
+                  })}
+                />
+              </label>
+              <label className="grid gap-1 text-sm text-muted">Device (empty URL → rtsp://IP:8554/sub/av, 720p)
+                <select className={fieldClass()} value={selected.bind.device ?? ""} onChange={(e) => update((c) => {
+                  const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
+                  if (w) w.bind.device = e.target.value;
+                })}>
+                  <option value="">None</option>
+                  {draft.devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-sm text-muted">Tap macro (optional)
+                <select className={fieldClass()} value={selected.bind.id ?? NONE_MACRO_ID} onChange={(e) => update((c) => {
+                  const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
+                  if (w) { w.bind.kind = "macro"; w.bind.id = e.target.value; }
+                })}>
+                  <option value={NONE_MACRO_ID}>None</option>
+                  {draft.macros.filter((m) => m.id !== NONE_MACRO_ID).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                </select>
+              </label>
+            </>
           ) : null}
           <div className="flex flex-wrap gap-1">
             {colors.map((color) => (
