@@ -1,6 +1,6 @@
 # Relay
 
-Relay **0.9.9** (beta). Room controller for local AV devices. Private LAN only. Tag `v0.9.9` is a snapshot of this tree; install and update from **`main`**. After Update, Configurator → Room shows `0.9.9 (<git sha>)`. Versions are three-part from this release.
+Relay **0.9.10** (beta). Room controller for local AV devices. Private LAN only. Tag `v0.9.10` is a snapshot of this tree; install and update from **`main`**. After Update, Configurator → Room shows `0.9.10 (<git sha>)`. Versions are three-part from this release.
 
 Clone is unused until you start it. First boot writes `data/relay-room.json` and `data/relay-secrets.json` on the host. Those files are not in git.
 

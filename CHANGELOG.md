@@ -2,6 +2,12 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.10 — 2026-09-17
+
+- Tag `v0.9.10`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Library: `zowietek-zowiebox.json` (HTTP :80 ZowieAPI). Encoder control, internet publish 0–3, record USB/SD/NAS, tally, HDMI output presets, digital zoom, PTZ on an attached camera. Local RTSP is not toggled. Encode bitrate POST omitted (it replaces the whole venc blob).
+
+
 ## 0.9.9 — 2026-09-14
 
 - Tag `v0.9.9`. Same Foyer pair (`v0.2.2`). Occupancy GET strings unchanged.

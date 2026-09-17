@@ -1,0 +1,660 @@
+{
+  "specVersion": "2",
+  "device": {
+    "manufacturer": "Zowietek",
+    "model": "ZowieBox",
+    "type": "source",
+    "notes": "HTTP :80 ZowieAPI (Companion POST bodies). Encoder XOR decoder. Local RTSP is always on: rtsp://IP:8554/main/av and /sub/av. NDI encode on often drops internet RTMP/SRT. Stream 0–3 are existing Internet publish slots. Record tasks: usb1_0, sdcard_0, nas1_0. Output format commands also set HDMI audio on and loop-out on (API requires all three). PTZ talks to a camera attached to the box (Visca). NDI decode needs the source name in the ndi field. Digital zoom 100–1200. No session cookie. Not a USB capture card. Encode bitrate/profile omitted — that POST replaces the whole venc array."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "http",
+      "port": 80,
+      "timeoutMs": 3000,
+      "http": {
+        "method": "POST",
+        "path": "/video?option=getinfo&login_check_flag=1",
+        "contentType": "application/json"
+      }
+    }
+  },
+  "auth": {
+    "type": "none",
+    "instanceFields": ["ndi", "preset"],
+    "pairing": {
+      "kind": "none",
+      "ports": [80],
+      "discoverPath": "/",
+      "userPrompt": "AV-LAN IPv4. Port 80. Optional: ndi = NDI source name for decode; preset = PTZ preset id."
+    }
+  },
+  "pacing": {
+    "minIntervalMs": 150
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": "",
+    "success": {
+      "type": "contains",
+      "value": ""
+    }
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "audio.on",
+      "label": "Audio On",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/audio?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"audio\",\"opt\":\"set_audio_switch\",\"data\":{\"switch\":1}}"
+    },
+    {
+      "id": "audio.off",
+      "label": "Audio Off",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/audio?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"audio\",\"opt\":\"set_audio_switch\",\"data\":{\"switch\":0}}"
+    },
+    {
+      "id": "ndi.on",
+      "label": "NDI Encode On",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/video?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ndi\",\"opt\":\"ndi_switch\",\"data\":{\"switch_value\":1}}"
+    },
+    {
+      "id": "ndi.off",
+      "label": "NDI Encode Off",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/video?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ndi\",\"opt\":\"ndi_switch\",\"data\":{\"switch_value\":0}}"
+    },
+    {
+      "id": "ndi.find",
+      "label": "NDI Find Sources",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/streamplay?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"streamplay_ndi\",\"opt\":\"ndi_find\"}"
+    },
+    {
+      "id": "ndi.decode.on",
+      "label": "NDI Decode On",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/streamplay?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"streamplay_ndi\",\"opt\":\"ndi_recv\",\"data\":{\"ndi_name\":\"{auth.ndi}\"}}"
+    },
+    {
+      "id": "ndi.decode.off",
+      "label": "NDI Decode Off",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/streamplay?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"streamplay_ndi\",\"opt\":\"ndi_close\"}"
+    },
+    {
+      "id": "stream.0.on",
+      "label": "Internet Stream 0 On",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/streamplay?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"publish\",\"opt\":\"update_publish_switch\",\"data\":{\"index\":0,\"switch\":1}}"
+    },
+    {
+      "id": "stream.0.off",
+      "label": "Internet Stream 0 Off",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/streamplay?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"publish\",\"opt\":\"update_publish_switch\",\"data\":{\"index\":0,\"switch\":0}}"
+    },
+    {
+      "id": "stream.1.on",
+      "label": "Internet Stream 1 On",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/streamplay?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"publish\",\"opt\":\"update_publish_switch\",\"data\":{\"index\":1,\"switch\":1}}"
+    },
+    {
+      "id": "stream.1.off",
+      "label": "Internet Stream 1 Off",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/streamplay?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"publish\",\"opt\":\"update_publish_switch\",\"data\":{\"index\":1,\"switch\":0}}"
+    },
+    {
+      "id": "stream.2.on",
+      "label": "Internet Stream 2 On",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/streamplay?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"publish\",\"opt\":\"update_publish_switch\",\"data\":{\"index\":2,\"switch\":1}}"
+    },
+    {
+      "id": "stream.2.off",
+      "label": "Internet Stream 2 Off",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/streamplay?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"publish\",\"opt\":\"update_publish_switch\",\"data\":{\"index\":2,\"switch\":0}}"
+    },
+    {
+      "id": "stream.3.on",
+      "label": "Internet Stream 3 On",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/streamplay?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"publish\",\"opt\":\"update_publish_switch\",\"data\":{\"index\":3,\"switch\":1}}"
+    },
+    {
+      "id": "stream.3.off",
+      "label": "Internet Stream 3 Off",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/streamplay?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"publish\",\"opt\":\"update_publish_switch\",\"data\":{\"index\":3,\"switch\":0}}"
+    },
+    {
+      "id": "stream.0.delete",
+      "label": "Delete Internet Stream 0",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/streamplay?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"publish\",\"opt\":\"del_publish_info\",\"data\":{\"index\":0}}"
+    },
+    {
+      "id": "record.usb.start",
+      "label": "Record USB Start",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/record?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"record\",\"opt\":\"set_task_enable\",\"data\":{\"index\":\"usb1_0\",\"enable\":1}}"
+    },
+    {
+      "id": "record.usb.stop",
+      "label": "Record USB Stop",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/record?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"record\",\"opt\":\"set_task_enable\",\"data\":{\"index\":\"usb1_0\",\"enable\":0}}"
+    },
+    {
+      "id": "record.usb.pause",
+      "label": "Record USB Pause",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/record?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"record\",\"opt\":\"set_task_enable\",\"data\":{\"index\":\"usb1_0\",\"enable\":2}}"
+    },
+    {
+      "id": "record.usb.resume",
+      "label": "Record USB Resume",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/record?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"record\",\"opt\":\"set_task_enable\",\"data\":{\"index\":\"usb1_0\",\"enable\":3}}"
+    },
+    {
+      "id": "record.sd.start",
+      "label": "Record SD Start",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/record?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"record\",\"opt\":\"set_task_enable\",\"data\":{\"index\":\"sdcard_0\",\"enable\":1}}"
+    },
+    {
+      "id": "record.sd.stop",
+      "label": "Record SD Stop",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/record?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"record\",\"opt\":\"set_task_enable\",\"data\":{\"index\":\"sdcard_0\",\"enable\":0}}"
+    },
+    {
+      "id": "record.nas.start",
+      "label": "Record NAS Start",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/record?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"record\",\"opt\":\"set_task_enable\",\"data\":{\"index\":\"nas1_0\",\"enable\":1}}"
+    },
+    {
+      "id": "record.nas.stop",
+      "label": "Record NAS Stop",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/record?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"record\",\"opt\":\"set_task_enable\",\"data\":{\"index\":\"nas1_0\",\"enable\":0}}"
+    },
+    {
+      "id": "tally.on",
+      "label": "Tally On",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/system?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"tally_led\",\"opt\":\"set_tally_led_switch\",\"data\":{\"switch\":1}}"
+    },
+    {
+      "id": "tally.off",
+      "label": "Tally Off",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/system?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"tally_led\",\"opt\":\"set_tally_led_switch\",\"data\":{\"switch\":0}}"
+    },
+    {
+      "id": "tally.auto",
+      "label": "Tally Auto",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/system?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"tally_led\",\"opt\":\"set_tally_led_info\",\"data\":{\"mode_id\":0,\"color_id\":0}}"
+    },
+    {
+      "id": "tally.red",
+      "label": "Tally Red",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/system?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"tally_led\",\"opt\":\"set_tally_led_info\",\"data\":{\"mode_id\":1,\"color_id\":1}}"
+    },
+    {
+      "id": "tally.green",
+      "label": "Tally Green",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/system?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"tally_led\",\"opt\":\"set_tally_led_info\",\"data\":{\"mode_id\":1,\"color_id\":2}}"
+    },
+    {
+      "id": "tally.blue",
+      "label": "Tally Blue",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/system?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"tally_led\",\"opt\":\"set_tally_led_info\",\"data\":{\"mode_id\":1,\"color_id\":3}}"
+    },
+    {
+      "id": "output.2160p30",
+      "label": "Output 2160p30",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/video?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"hdmi\",\"opt\":\"set_output_info\",\"data\":{\"format\":\"2160p30\",\"audio_switch\":1,\"loop_out_switch\":1}}"
+    },
+    {
+      "id": "output.1080p60",
+      "label": "Output 1080p60",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/video?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"hdmi\",\"opt\":\"set_output_info\",\"data\":{\"format\":\"1080p60\",\"audio_switch\":1,\"loop_out_switch\":1}}"
+    },
+    {
+      "id": "output.1080p30",
+      "label": "Output 1080p30",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/video?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"hdmi\",\"opt\":\"set_output_info\",\"data\":{\"format\":\"1080p30\",\"audio_switch\":1,\"loop_out_switch\":1}}"
+    },
+    {
+      "id": "output.720p60",
+      "label": "Output 720p60",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/video?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"hdmi\",\"opt\":\"set_output_info\",\"data\":{\"format\":\"720p60\",\"audio_switch\":1,\"loop_out_switch\":1}}"
+    },
+    {
+      "id": "digital.zoom",
+      "label": "Digital Zoom",
+      "kind": "range",
+      "min": 100,
+      "max": 1200,
+      "step": 10,
+      "unit": "%",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/video?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"digital_zoom\",\"digital_zoom\":{value},\"digital_zoom_enable\":1}"
+    },
+    {
+      "id": "digital.zoom.off",
+      "label": "Digital Zoom Off",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/video?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"digital_zoom\",\"digital_zoom\":100,\"digital_zoom_enable\":0}"
+    },
+    {
+      "id": "ptz.left",
+      "label": "PTZ Left",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":1}"
+    },
+    {
+      "id": "ptz.right",
+      "label": "PTZ Right",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":3}"
+    },
+    {
+      "id": "ptz.up",
+      "label": "PTZ Up",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":7}"
+    },
+    {
+      "id": "ptz.down",
+      "label": "PTZ Down",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":9}"
+    },
+    {
+      "id": "ptz.focus.near",
+      "label": "Focus Near",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":19}"
+    },
+    {
+      "id": "ptz.focus.far",
+      "label": "Focus Far",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":21}"
+    },
+    {
+      "id": "ptz.focus.onepush",
+      "label": "One-Push Focus",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":25}"
+    },
+    {
+      "id": "ptz.focus.auto",
+      "label": "Focus Auto",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"set_focus_mode\",\"data\":{\"focusmode\":0}}"
+    },
+    {
+      "id": "ptz.focus.manual",
+      "label": "Focus Manual",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"set_focus_mode\",\"data\":{\"focusmode\":1}}"
+    },
+    {
+      "id": "ptz.af.lock",
+      "label": "AF Lock",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"set_af_lock_status\",\"data\":{\"af_lock_status\":1}}"
+    },
+    {
+      "id": "ptz.af.unlock",
+      "label": "AF Unlock",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"set_af_lock_status\",\"data\":{\"af_lock_status\":0}}"
+    },
+    {
+      "id": "ptz.preset.1",
+      "label": "PTZ Preset 1",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":29,\"data\":{\"id\":1}}"
+    },
+    {
+      "id": "ptz.preset.2",
+      "label": "PTZ Preset 2",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":29,\"data\":{\"id\":2}}"
+    },
+    {
+      "id": "ptz.preset.3",
+      "label": "PTZ Preset 3",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":29,\"data\":{\"id\":3}}"
+    },
+    {
+      "id": "ptz.preset.4",
+      "label": "PTZ Preset 4",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":29,\"data\":{\"id\":4}}"
+    },
+    {
+      "id": "ptz.preset.save.1",
+      "label": "Save PTZ Preset 1",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":26,\"data\":{\"id\":1,\"desc\":\"1\"}}"
+    },
+    {
+      "id": "ptz.preset.save.2",
+      "label": "Save PTZ Preset 2",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":26,\"data\":{\"id\":2,\"desc\":\"2\"}}"
+    },
+    {
+      "id": "ptz.preset.save.3",
+      "label": "Save PTZ Preset 3",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":26,\"data\":{\"id\":3,\"desc\":\"3\"}}"
+    },
+    {
+      "id": "ptz.preset.save.4",
+      "label": "Save PTZ Preset 4",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":26,\"data\":{\"id\":4,\"desc\":\"4\"}}"
+    },
+    {
+      "id": "ptz.preset.call",
+      "label": "Call PTZ Preset",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/ptz?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"ptz\",\"opt\":\"control\",\"opid\":29,\"data\":{\"id\":{auth.preset}}}"
+    },
+    {
+      "id": "reboot",
+      "label": "Reboot",
+      "kind": "action",
+      "transport": "lan",
+      "httpMethod": "POST",
+      "httpPath": "/system?option=setinfo&login_check_flag=1",
+      "payload": "{\"group\":\"syscontrol\",\"opt\":\"set_reboot_info\",\"data\":{\"command\":\"reboot\"}}"
+    }
+  ],
+  "feedback": [
+    {
+      "id": "tally.state",
+      "label": "Tally",
+      "kind": "enum",
+      "values": ["off", "on"],
+      "transport": "lan",
+      "mode": "poll",
+      "httpMethod": "POST",
+      "httpPath": "/system?option=getinfo&login_check_flag=1",
+      "query": "{\"group\":\"tally_led\",\"opt\":\"get_tally_led_info\"}",
+      "pollMs": 4000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "data.switch",
+        "map": { "0": "off", "1": "on" }
+      }
+    },
+    {
+      "id": "tally.color",
+      "label": "Tally Color",
+      "kind": "enum",
+      "values": ["off", "red", "green", "blue"],
+      "transport": "lan",
+      "mode": "poll",
+      "httpMethod": "POST",
+      "httpPath": "/system?option=getinfo&login_check_flag=1",
+      "query": "{\"group\":\"tally_led\",\"opt\":\"get_tally_led_info\"}",
+      "pollMs": 4000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "data.color_id",
+        "map": { "0": "off", "1": "red", "2": "green", "3": "blue" }
+      }
+    },
+    {
+      "id": "output.format",
+      "label": "Output",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "httpMethod": "POST",
+      "httpPath": "/video?option=getinfo&login_check_flag=1",
+      "query": "{\"group\":\"hdmi\",\"opt\":\"get_output_info\"}",
+      "pollMs": 8000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "data.format"
+      }
+    },
+    {
+      "id": "input.status",
+      "label": "HDMI In",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "httpMethod": "POST",
+      "httpPath": "/video?option=getinfo&login_check_flag=1",
+      "query": "{\"group\":\"hdmi\",\"opt\":\"get_input_info\"}",
+      "pollMs": 4000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "status"
+      }
+    },
+    {
+      "id": "record.status",
+      "label": "Record",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "httpMethod": "POST",
+      "httpPath": "/record?option=getinfo&login_check_flag=1",
+      "query": "{\"group\":\"record\",\"opt\":\"get_status\"}",
+      "pollMs": 4000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "status"
+      }
+    },
+    {
+      "id": "api.status",
+      "label": "API",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "httpMethod": "POST",
+      "httpPath": "/system?option=getinfo&login_check_flag=1",
+      "query": "{\"group\":\"systime\",\"opt\":\"get_systime_info\"}",
+      "pollMs": 8000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "status"
+      }
+    }
+  ]
+}

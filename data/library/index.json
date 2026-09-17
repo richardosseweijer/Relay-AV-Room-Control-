@@ -198,5 +198,12 @@
     "model": "PC (WOL + LAN shutdown)",
     "type": "other",
     "notes": "Wake uses the NIC MAC (enable WOL in BIOS). Shutdown: Windows RPC (user/password; Linux host needs samba-common-bin) or HTTP GET to auth.path on this device’s Port (small helper on the PC)."
+  },
+  "zowietek-zowiebox.json": {
+    "filename": "zowietek-zowiebox.json",
+    "manufacturer": "Zowietek",
+    "model": "ZowieBox",
+    "type": "source",
+    "notes": "HTTP :80 ZowieAPI (Companion POST bodies). Encoder XOR decoder. Local RTSP is always on: rtsp://IP:8554/main/av and /sub/av. NDI encode on often drops internet RTMP/SRT. Stream 0–3 are existing Internet publish slots. Record tasks: usb1_0, sdcard_0, nas1_0. Output format commands also set HDMI audio on and loop-out on (API requires all three). PTZ talks to a camera attached to the box (Visca). NDI decode needs the source name in the ndi field. Digital zoom 100–1200. No session cookie. Not a USB capture card. Encode bitrate/profile omitted — that POST replaces the whole venc array."
   }
 }

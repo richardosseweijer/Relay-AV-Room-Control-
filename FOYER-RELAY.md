@@ -11,7 +11,7 @@ Change both trees in the same train. If this file and the code disagree, **the c
 |---|---|
 | Contract | 1 |
 | Date | 2026-09-14 |
-| Relay | **0.9.9** (`v0.9.9`) |
+| Relay | **0.9.10** (`v0.9.10`) |
 | Foyer | **0.2.2** (`v0.2.2`) |
 
 Relay [`FOYER-ROADMAP.md`](https://github.com/richardosseweijer/Relay-AV-Room-Control-/blob/main/FOYER-ROADMAP.md) is implementation history. This file is the live wire.
@@ -362,7 +362,7 @@ Relay-to-Relay HMAC macros stay allowed on Relay `:8081`; they are a different A
 
 ## 10. Source (do not cross-import)
 
-**Relay 0.9.9**
+**Relay 0.9.10**
 
 | Piece | File |
 |---|---|
