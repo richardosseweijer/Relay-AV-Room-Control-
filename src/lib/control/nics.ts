@@ -1,5 +1,6 @@
 import os from "node:os";
 import type { RoomConfig } from "./types";
+import { allowedLanHost } from "./engine-policy.ts";
 
 /** Phase 0 inventory (bind later): udp.ts, wol.ts, engine tcp/session/ping, pjlink.ts, ws.ts (net+tls), rtp-midi.ts, http-client.ts, cast.ts tls.connect. listHostInterfaces = serial/GPIO/MIDI, not NICs. */
 
@@ -7,6 +8,7 @@ export type LanNic = {
   index: number;
   name: string;
   ipv4: string | null;
+  cidr?: string | null;
   label: string;
 };
 
@@ -14,6 +16,7 @@ export type NicAddr = {
   address?: string;
   family?: string | number;
   internal?: boolean;
+  cidr?: string | null;
 };
 
 export type NicPick = {
@@ -42,10 +45,12 @@ export function listLanNicsFrom(ifaces: Record<string, NicAddr[] | undefined>): 
     const addrs = ifaces[name] ?? [];
     const v4 = addrs.find((addr) => isIpv4(addr) && !isInternal(addr));
     const ipv4 = v4?.address?.trim() || null;
+    const cidr = v4?.cidr?.trim() || null;
     return {
       index,
       name,
       ipv4,
+      cidr,
       label: `${index} ${EM} ${name} (${ipv4 ?? "no IPv4"})`,
     };
   });
@@ -103,3 +108,61 @@ export function roomOutboundBind(config?: RoomConfig): { ok: true; localAddress?
   if (!config) return { ok: true };
   return avLanBind(listLanNics(), { name: config.room.outboundNicName, index: config.room.outboundNicIndex ?? null });
 }
+
+export function cidrContains(ip: string, cidr: string): boolean {
+  const [base, bitsRaw] = cidr.split("/");
+  const bits = Number(bitsRaw);
+  if (!base || !Number.isInteger(bits) || bits < 0 || bits > 32) return false;
+  const toInt = (text: string) => {
+    const oct = text.split(".").map(Number);
+    if (oct.length !== 4 || oct.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null;
+    return (((oct[0]! << 24) | (oct[1]! << 16) | (oct[2]! << 8) | oct[3]!) >>> 0);
+  };
+  const host = toInt(ip);
+  const net = toInt(base);
+  if (host == null || net == null) return false;
+  const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0;
+  return (host & mask) === (net & mask);
+}
+
+function nicHolds(nic: LanNic | null | undefined, ip: string): boolean {
+  if (!nic?.ipv4) return false;
+  if (nic.cidr) return cidrContains(ip, nic.cidr);
+  return nic.ipv4 === ip;
+}
+
+/** Dest IPv4 is on a host NIC subnet (public NIC included) or RFC1918. */
+export function hostLanContains(ip: string, nics = listLanNics()): boolean {
+  if (allowedLanHost(ip)) return true;
+  return nics.some((nic) => nicHolds(nic, ip));
+}
+
+/** AV-LAN bind first when the dest is on that subnet; else the other adapter; else both then kernel default. */
+export function previewBindAddrsFrom(
+  nics: LanNic[],
+  destIp: string,
+  av: NicPick,
+  outbound: NicPick,
+): Array<string | undefined> {
+  const avNic = resolveNic(nics, av);
+  const outNic = resolveNic(nics, outbound);
+  if (nicHolds(avNic, destIp) && avNic?.ipv4) return [avNic.ipv4];
+  if (nicHolds(outNic, destIp) && outNic?.ipv4) return [outNic.ipv4];
+  const tries: Array<string | undefined> = [];
+  if (avNic?.ipv4) tries.push(avNic.ipv4);
+  if (outNic?.ipv4 && outNic.ipv4 !== avNic?.ipv4) tries.push(outNic.ipv4);
+  tries.push(undefined);
+  return tries;
+}
+
+export function previewBindAddrs(destIp: string, config?: RoomConfig): Array<string | undefined> {
+  const nics = listLanNics();
+  if (!config) return [undefined];
+  return previewBindAddrsFrom(
+    nics,
+    destIp,
+    { name: config.room.avLanNicName, index: config.room.avLanNicIndex ?? null },
+    { name: config.room.outboundNicName, index: config.room.outboundNicIndex ?? null },
+  );
+}
+

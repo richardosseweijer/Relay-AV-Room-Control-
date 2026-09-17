@@ -6,7 +6,7 @@ Format: date, then bullets. Older work lives in `git log`.
 
 - Tag `v0.9.10`. Same Foyer pair (`v0.2.2`). Wire unchanged.
 - Library: `zowietek-zowiebox.json` (HTTP :80 ZowieAPI). Encoder control, internet publish 0–3, record USB/SD/NAS, tally, HDMI output presets, digital zoom, PTZ on an attached camera. Local RTSP is not toggled. Encode bitrate POST omitted (it replaces the whole venc blob).
-- Optional Preview widget: host `ffmpeg` remuxes RTSP (ZowieBox `rtsp://IP:8554/sub/av`, 720p H.264, `-c:v copy`) to fMP4 for a panel `<video>` tile. No extra npm. Missing ffmpeg shows `ffmpeg?`. Cap four streams. Drop the files listed at the top of `src/lib/control/preview-grab.ts` to remove it. No ffmpeg timeout flag (those differ by version and yielded 0 bytes). Wait for the first remux byte before HTTP 200. Tile shows the API error (e.g. `Bad stream URL`) instead of a blank `no signal`.
+- Optional Preview widget: host `ffmpeg` remuxes RTSP (ZowieBox `rtsp://IP:8554/sub/av`, 720p H.264, `-c:v copy`) to fMP4 for a panel `<video>` tile. No extra npm. Missing ffmpeg shows `ffmpeg?`. Cap four streams. Drop the files listed at the top of `src/lib/control/preview-grab.ts` to remove it. No ffmpeg timeout flag (those differ by version and yielded 0 bytes). Wait for the first remux byte before HTTP 200. Tile shows the API error (e.g. `Bad stream URL`) instead of a blank `no signal`. ffmpeg binds AV-LAN (`-localaddr`) when the dest is on that subnet, else the other adapter.
 
 ## 0.9.9 — 2026-09-14
 

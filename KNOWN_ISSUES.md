@@ -33,7 +33,7 @@
 - ipMIDI is raw MIDI hex over UDP multicast 225.0.0.37:21928 TTL 1. Not MIDI-TCP (tcp+hex) and not Apple RTP-MIDI. Put it on the AV VLAN. Host on the card is unused unless `lan.multicast` is false.
 - RTP-MIDI is a unicast AppleMIDI session on 5004/5005. No Bonjour — type the desk IPv4. Idle drop (default 60s) sends BY. Session dies if the desk sleeps. Incoming MIDI on the data port is unwrapped after the session is up.
 - MTC needs all eight quarter-frames (`F1 0n`…`F1 7n`) before `mtc.time` is written. USB MIDI read is Linux (`amidi -d` or `/dev/snd/midiC*D*`). No Windows in. MIDI-TCP stays send-only.
-- Preview tiles (`type: preview`) remux the widget RTSP (ZowieBox `rtsp://IP:8554/sub/av`, 720p H.264) to fMP4 via host `ffmpeg` (`-c:v copy`). Browsers cannot play `rtsp://`. Missing ffmpeg shows `ffmpeg?` (`apt install ffmpeg`). Main-stream H.265 will not play. URL must be a room-LAN IPv4. Cap is four concurrent streams.
+- Preview tiles (`type: preview`) remux the widget RTSP (ZowieBox `rtsp://IP:8554/sub/av`, 720p H.264) to fMP4 via host `ffmpeg` (`-c:v copy`). Browsers cannot play `rtsp://`. Missing ffmpeg shows `ffmpeg?` (`apt install ffmpeg`). Main-stream H.265 will not play. URL host must be an IPv4 on RFC1918 **or** on a subnet of this PC’s NICs (AV-LAN first, then the other adapter). No DNS names, no `user:pass@`, no `?query`. Cap is four concurrent streams.
 
 
 ## Config / engine

@@ -1,6 +1,7 @@
 /** Optional. Delete this route to drop the 720p preview stream. */
 import { createFileRoute } from "@tanstack/react-router";
 import { openPreviewStream, previewUrlForWidget } from "@/lib/control/preview-grab";
+import { previewBindAddrs } from "@/lib/control/nics";
 import { ensureLoaded, memory } from "@/lib/control/store.server";
 import { validToken } from "@/lib/control/session.server";
 
@@ -25,7 +26,8 @@ export const Route = createFileRoute("/api/preview")({
         const parsed = previewUrlForWidget(widget, mem.config.devices);
         if (!parsed.ok) return Response.json({ ok: false, message: parsed.message }, { status: 400 });
         try {
-          const body = await openPreviewStream(parsed.href, request.signal);
+          const dest = new URL(parsed.href).hostname;
+          const body = await openPreviewStream(parsed.href, request.signal, previewBindAddrs(dest, mem.config));
           return new Response(body, {
             headers: {
               "content-type": "video/mp4",

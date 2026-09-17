@@ -4,7 +4,7 @@
  *  scripts/preview-url.test.mjs (and its package.json test entry). */
 import { spawn } from "node:child_process";
 import { PassThrough, Readable } from "node:stream";
-import { allowedLanHost } from "./engine-policy.ts";
+import { hostLanContains } from "./nics.ts";
 import type { DeviceInstance, Widget } from "./types";
 
 const MAX_URL = 320;
@@ -31,7 +31,7 @@ export function parsePreviewUrl(raw: string): { ok: true; href: string } | { ok:
     const port = Number(parsed.port);
     if (!Number.isInteger(port) || port < 1 || port > 65535) return { ok: false, message: "Bad port" };
   }
-  if (!allowedLanHost(parsed.hostname)) return { ok: false, message: "Host not on room LAN" };
+  if (!hostLanContains(parsed.hostname)) return { ok: false, message: "Host not on room LAN" };
   if (!/^\/[A-Za-z0-9/_.-]*$/.test(parsed.pathname) || parsed.pathname.length > 128 || parsed.pathname.includes("..")) {
     return { ok: false, message: "Bad path" };
   }
@@ -60,19 +60,16 @@ function ffmpegHint(chunks: Buffer[]): string {
   return "no signal";
 }
 
-export function openPreviewStream(href: string, signal?: AbortSignal): Promise<ReadableStream<Uint8Array>> {
-  if (live >= MAX_LIVE) return Promise.reject(new Error("busy"));
-  live += 1;
-  let released = false;
-  const release = () => {
-    if (released) return;
-    released = true;
-    live = Math.max(0, live - 1);
-  };
+function spawnFfmpeg(
+  href: string,
+  signal: AbortSignal | undefined,
+  localaddr: string | undefined,
+  waitMs: number,
+): Promise<ReadableStream<Uint8Array>> {
   return new Promise((resolve, reject) => {
-    // No -timeout / -rw_timeout / -stimeout: those flags differ by ffmpeg version and abort the remux.
     const args = ["-hide_banner", "-nostdin", "-loglevel", "error"];
     if (href.startsWith("rtsp:")) args.push("-rtsp_transport", "tcp");
+    if (localaddr) args.push("-localaddr", localaddr);
     args.push(
       "-fflags", "nobuffer",
       "-i", href,
@@ -92,12 +89,11 @@ export function openPreviewStream(href: string, signal?: AbortSignal): Promise<R
       clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
       child.kill("SIGKILL");
-      release();
       reject(err);
     };
     const onAbort = () => child.kill("SIGKILL");
     signal?.addEventListener("abort", onAbort);
-    const timer = setTimeout(() => fail(new Error("no signal")), FIRST_BYTE_MS);
+    const timer = setTimeout(() => fail(new Error("no signal")), waitMs);
     child.stderr?.on("data", (buf: Buffer) => {
       if (errChunks.length < 8) errChunks.push(buf);
     });
@@ -117,7 +113,6 @@ export function openPreviewStream(href: string, signal?: AbortSignal): Promise<R
       child.on("close", () => {
         signal?.removeEventListener("abort", onAbort);
         out.end();
-        release();
       });
       resolve(Readable.toWeb(out) as ReadableStream<Uint8Array>);
     });
@@ -125,4 +120,53 @@ export function openPreviewStream(href: string, signal?: AbortSignal): Promise<R
       if (!handed) fail(new Error(ffmpegHint(errChunks)));
     });
   });
+}
+
+export async function openPreviewStream(
+  href: string,
+  signal?: AbortSignal,
+  localAddrs?: Array<string | undefined>,
+): Promise<ReadableStream<Uint8Array>> {
+  if (live >= MAX_LIVE) return Promise.reject(new Error("busy"));
+  live += 1;
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    live = Math.max(0, live - 1);
+  };
+  const tries = localAddrs?.length ? localAddrs : [undefined];
+  const waitMs = tries.length > 1 ? 4000 : FIRST_BYTE_MS;
+  let last: Error = new Error("no signal");
+  try {
+    for (const addr of tries) {
+      if (signal?.aborted) throw new Error("no signal");
+      try {
+        const body = await spawnFfmpeg(href, signal, addr, waitMs);
+        const reader = body.getReader();
+        return new ReadableStream<Uint8Array>({
+          async pull(controller) {
+            const { done, value } = await reader.read();
+            if (done) {
+              release();
+              controller.close();
+              return;
+            }
+            if (value) controller.enqueue(value);
+          },
+          cancel() {
+            release();
+            return reader.cancel();
+          },
+        });
+      } catch (err) {
+        last = err instanceof Error ? err : new Error("no signal");
+        if (last.message === "ffmpeg missing") throw last;
+      }
+    }
+    throw last;
+  } catch (err) {
+    release();
+    throw err;
+  }
 }

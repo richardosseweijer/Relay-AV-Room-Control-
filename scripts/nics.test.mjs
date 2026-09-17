@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { listLanNicsFrom, resolveNic, outboundAddress } from "../src/lib/control/nics.ts";
+import { listLanNicsFrom, resolveNic, outboundAddress, cidrContains, previewBindAddrsFrom, hostLanContains } from "../src/lib/control/nics.ts";
 
 const EM = "\u2014";
 
@@ -9,9 +9,9 @@ const fixture = {
     { address: "127.0.0.1", family: "IPv4", internal: true },
     { address: "::1", family: "IPv6", internal: true },
   ],
-  enp2s0: [{ address: "192.168.1.40", family: "IPv4", internal: false }],
-  enp1s0: [{ address: "10.0.25.10", family: 4, internal: false }],
-  docker0: [{ address: "172.17.0.1", family: "IPv4", internal: false }],
+  enp2s0: [{ address: "192.168.1.40", family: "IPv4", internal: false, cidr: "192.168.1.40/24" }],
+  enp1s0: [{ address: "10.0.25.10", family: 4, internal: false, cidr: "10.0.25.10/24" }],
+  docker0: [{ address: "172.17.0.1", family: "IPv4", internal: false, cidr: "172.17.0.1/16" }],
 };
 
 test("listLanNicsFrom skips lo, sorts A-Z, 0-based, keeps docker0, em dash", () => {
@@ -72,4 +72,29 @@ test("outboundAddress missing name is fail closed", () => {
   const nics = listLanNicsFrom(fixture);
   const res = outboundAddress(nics, { name: "missing0" });
   assert.equal(res.ok, false);
+});
+
+test("cidrContains /24 and /16", () => {
+  assert.equal(cidrContains("10.0.25.40", "10.0.25.10/24"), true);
+  assert.equal(cidrContains("10.0.26.40", "10.0.25.10/24"), false);
+  assert.equal(cidrContains("192.168.1.8", "192.168.1.40/24"), true);
+  assert.equal(cidrContains("8.8.8.8", "10.0.25.10/24"), false);
+});
+
+test("hostLanContains: RFC1918 or this host's NIC subnet", () => {
+  const nics = listLanNicsFrom({
+    wan: [{ address: "203.0.113.5", family: "IPv4", internal: false, cidr: "203.0.113.5/24" }],
+  });
+  assert.equal(hostLanContains("10.0.10.40", nics), true);
+  assert.equal(hostLanContains("203.0.113.80", nics), true);
+  assert.equal(hostLanContains("8.8.8.8", nics), false);
+});
+
+test("previewBindAddrsFrom uses AV NIC when dest is on it, else the other", () => {
+  const nics = listLanNicsFrom(fixture);
+  const av = { name: "enp1s0" };
+  const out = { name: "enp2s0" };
+  assert.deepEqual(previewBindAddrsFrom(nics, "10.0.25.40", av, out), ["10.0.25.10"]);
+  assert.deepEqual(previewBindAddrsFrom(nics, "192.168.1.8", av, out), ["192.168.1.40"]);
+  assert.deepEqual(previewBindAddrsFrom(nics, "8.8.8.8", av, out), ["10.0.25.10", "192.168.1.40", undefined]);
 });
