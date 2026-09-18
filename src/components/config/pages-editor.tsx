@@ -167,10 +167,8 @@ export function PagesEditor({
                 w.label = w.label === "Button" || w.label === "Next" || !w.label ? "Next scheduled task" : w.label;
                 w.bind = { kind: "macro" };
               } else if (type === "preview") {
-                // Optional 720p RTSP tile. Drop this branch + the Preview fields below to remove.
+                // Optional RTSP tile. Drop this branch + the Preview fields below to remove.
                 w.label = w.label === "Button" || !w.label ? "Preview" : w.label;
-                w.w = Math.max(w.w, 3);
-                w.h = Math.max(w.h, 2);
                 w.streamUrl = w.streamUrl || "";
                 w.bind = { kind: "macro", id: w.bind.id ?? NONE_MACRO_ID, device: w.bind.device ?? draft.devices[0]?.id, gotoPage: null };
               }

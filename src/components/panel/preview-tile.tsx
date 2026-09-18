@@ -191,7 +191,7 @@ export function PreviewTile({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "relative flex h-full min-h-0 min-w-0 w-full overflow-hidden rounded-2xl border border-border bg-raised text-left",
+        "relative flex h-full min-h-0 min-w-0 w-full overflow-hidden rounded-2xl border border-border bg-black text-left",
         disabled && "opacity-50",
       )}
     >
@@ -202,7 +202,7 @@ export function PreviewTile({
         playsInline
         onPlaying={() => { setPlaying(true); setErr(""); }}
         onPause={() => setPlaying(false)}
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        className="pointer-events-none absolute inset-0 h-full w-full object-contain object-center"
       />
       <span className="relative z-10 m-2 rounded-md bg-bg/70 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-fg">
         {widget.label || "Preview"}
