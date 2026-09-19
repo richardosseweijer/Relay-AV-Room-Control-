@@ -1,8 +1,10 @@
 # Relay — agent contract
 
-This is the only instruction file that matters.
-`AGENTS.project.md` points here. Ignore any older App Builder copy of this
-filename if you still have it in context.
+This is the only **rules** file that matters.
+Where-to-look is [`CONTEXT.md`](CONTEXT.md). Read that first on a fresh clone or
+new chat. `AGENTS.project.md` points here. Ignore any older App Builder copy of
+this filename if you still have it in context. Do not reconstruct product
+history from a Grok Build thread.
 
 You are finishing an existing LAN AV room controller. Raise correctness.
 Do not add features. Do not rewrite the product. Do not invent a second app.
@@ -17,7 +19,7 @@ admin commands.
 
 - No new features, transports, drivers, UI tabs, or polish-for-its-own-sake.
 - No new markdown except factual edits to `README.md`, `SECURITY.md`,
-  `KNOWN_ISSUES.md`, `CHANGELOG.md`, `ARCHITECTURE.md`.
+  `KNOWN_ISSUES.md`, `CHANGELOG.md`, `ARCHITECTURE.md`, `CONTEXT.md`.
 - No drive-by refactors outside the current phase allow-list.
 - No new dependencies unless a phase requires one and `npm ci` still works.
 - Do not invent TLS, a second process, a cloud API, or a language rewrite.
@@ -37,7 +39,7 @@ admin commands.
 ## Two runtimes (read this once)
 
 **A. Local / Grok CLI / any coding agent on a git clone**  
-This file is the whole law. Product path wins. You may remove unused factory
+`CONTEXT.md` + this file are the whole law. Product path wins. You may remove unused factory
 chrome in Phase 1 after gates pass.
 
 **B. App Builder sandbox / chat preview**  
@@ -68,7 +70,7 @@ PRODUCT (phases may change):
 `scripts/write-atomic.mjs`, `scripts/room-smoke.mjs`,
 `scripts/control-security.test.mjs`, `LINUX.md`, `WINDOWS.md`, `README.md`,
 `SECURITY.md`, `KNOWN_ISSUES.md`, `CHANGELOG.md`, `ARCHITECTURE.md` (facts),
-`.gitignore`, product scripts in `package.json`.
+`CONTEXT.md`, `.gitignore`, product scripts in `package.json`.
 
 PLATFORM (touch only to keep boot working):  
 `vite.config.ts` contracts, `tsconfig.json`, `scripts/with-app-env.mjs`,
@@ -229,13 +231,28 @@ No extra work.
 
 # How you work
 
+- On a new chat or clone: read `CONTEXT.md` first, then this file. Do not
+  scrape `ARCHITECTURE.md` or `CHANGELOG.md` for orientation.
 - Read a file before you patch it.
 - Prefer extract-function over copy-paste.
 - One retry on the same error, then stop and ask.
 - One phase per turn unless the operator names two consecutive already-green
   phases.
+- If `CONTEXT.md` is stale for the file you just touched, fix that one line
+  in the same turn.
 
-# Kickoff (operator pastes one line)
+# Kickoff (operator pastes one block)
+
+Fresh agent / new Build chat:
+
+```text
+Read CONTEXT.md only, then the files it lists for this job.
+Do not open ARCHITECTURE.md, CHANGELOG.md, or package-lock.json.
+Do not grep the repo. If you need another file, stop and ask.
+Job: …
+```
+
+Legacy phase kickoffs (only if you are still closing the original hardening list):
 
 ```text
 Execute Phase 0 only. Inventory. No file writes. Then wait.
