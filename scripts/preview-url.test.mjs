@@ -55,6 +55,9 @@ test("stream reports ffmpeg missing when binary is off PATH", async () => {
 test("ffmpeg args stay on flags every static build has", () => {
   const args = previewFfmpegArgs("rtsp://10.0.25.242:554/sub/av", "udp").join(" ");
   assert.ok(args.includes("-rtsp_transport udp"));
+  assert.ok(args.includes("-probesize 32768"));
+  assert.ok(args.includes("-muxdelay 0"));
+  assert.ok(args.includes("-flush_packets 1"));
   assert.equal(args.includes("separate_moof"), false);
   assert.equal(args.includes("reset_timestamps"), false);
   assert.equal(args.includes("-nostdin"), false);

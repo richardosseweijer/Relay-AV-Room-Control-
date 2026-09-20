@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.15 — 2026-09-20
+
+- Tag `v0.9.15`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Preview latency: smaller ffmpeg probe (`32 KiB` / `0.5 s`), `muxdelay 0`, flush each packet. Tile keeps ~120 ms of MSE buffer instead of 2 s. Copy remux still waits on the next keyframe (GOP), no extra encode.
+
 ## 0.9.14 — 2026-09-20
 
 - Tag `v0.9.14`. Same Foyer pair (`v0.2.2`). Wire unchanged.

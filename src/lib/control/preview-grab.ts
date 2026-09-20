@@ -119,10 +119,16 @@ export function previewFfmpegArgs(href: string, transport?: "tcp" | "udp", local
   if (href.startsWith("rtsp:") && transport) args.push("-rtsp_transport", transport);
   if (localaddr) args.push("-localaddr", localaddr);
   args.push(
-    "-fflags", "nobuffer",
+    "-fflags", "nobuffer+discardcorrupt",
+    "-flags", "low_delay",
+    "-probesize", "32768",
+    "-analyzeduration", "500000",
     "-i", href,
     "-an",
     "-c:v", "copy",
+    "-muxdelay", "0",
+    "-muxpreload", "0",
+    "-flush_packets", "1",
     "-f", "mp4",
     "-movflags", "frag_keyframe+empty_moov+default_base_moof",
     "pipe:1",
