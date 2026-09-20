@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.17 — 2026-09-20
+
+- Tag `v0.9.17`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Preview: drop the 0.9.16 `libx264` ultrafast encode. Back to `-c:v copy` plus the 0.9.15 probe/muxdelay/120 ms tile buffer.
+
 ## 0.9.16 — 2026-09-20
 
 - Tag `v0.9.16`. Same Foyer pair (`v0.2.2`). Wire unchanged.

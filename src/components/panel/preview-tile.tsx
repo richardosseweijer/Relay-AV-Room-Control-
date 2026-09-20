@@ -77,7 +77,7 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
       if (ac.signal.aborted) return;
       if (video.buffered.length) {
         const end = video.buffered.end(video.buffered.length - 1);
-        if (end - video.currentTime > 0.18) video.currentTime = Math.max(0, end - 0.08);
+        if (end - video.currentTime > 0.4) video.currentTime = Math.max(0, end - 0.12);
         const start = video.buffered.start(0);
         if (video.currentTime - start > 8 && !sb.updating) {
           try {

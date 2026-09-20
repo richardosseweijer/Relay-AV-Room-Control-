@@ -12,7 +12,7 @@ const MAX_URL = 320;
 const MAX_LIVE = 4;
 const FIRST_BYTE_MS = 12000;
 let live = 0;
-let ffmpegCaps: { version: string; localaddr: boolean; libx264: boolean } | null = null;
+let ffmpegCaps: { version: string; localaddr: boolean } | null = null;
 
 export class PreviewError extends Error {
   steps: string[];
@@ -74,13 +74,7 @@ export function readFfmpegCaps() {
   const version = blob.split("\n").find((line) => /ffmpeg version/i.test(line))?.replace(/^ffmpeg version /i, "").split(/\s+/)[0] || "ok";
   const help = spawnSync("ffmpeg", ["-hide_banner", "-h", "demuxer=rtsp"], { encoding: "utf8", timeout: 5000 });
   const text = `${help.stdout || ""}\n${help.stderr || ""}`;
-  const enc = spawnSync("ffmpeg", ["-hide_banner", "-h", "encoder=libx264"], { encoding: "utf8", timeout: 5000 });
-  const encText = `${enc.stdout || ""}\n${enc.stderr || ""}`;
-  ffmpegCaps = {
-    version: version.slice(0, 24),
-    localaddr: text.includes("-localaddr"),
-    libx264: /libx264/.test(encText) && !/Unknown encoder/i.test(encText),
-  };
+  ffmpegCaps = { version: version.slice(0, 24), localaddr: text.includes("-localaddr") };
   return ffmpegCaps;
 }
 
@@ -120,35 +114,18 @@ function ffmpegHint(chunks: Buffer[]): string {
   return "no signal";
 }
 
-export function previewFfmpegArgs(href: string, transport?: "tcp" | "udp", localaddr?: string, encode = false) {
+export function previewFfmpegArgs(href: string, transport?: "tcp" | "udp", localaddr?: string) {
   const args = ["-hide_banner", "-loglevel", "error"];
   if (href.startsWith("rtsp:") && transport) args.push("-rtsp_transport", transport);
   if (localaddr) args.push("-localaddr", localaddr);
   args.push(
     "-fflags", "nobuffer+discardcorrupt",
     "-flags", "low_delay",
-    "-probesize", "16384",
-    "-analyzeduration", "200000",
+    "-probesize", "32768",
+    "-analyzeduration", "500000",
     "-i", href,
     "-an",
-  );
-  if (encode) {
-    args.push(
-      "-c:v", "libx264",
-      "-preset", "ultrafast",
-      "-tune", "zerolatency",
-      "-profile:v", "baseline",
-      "-pix_fmt", "yuv420p",
-      "-g", "10",
-      "-bf", "0",
-      "-b:v", "1200k",
-      "-maxrate", "1500k",
-      "-bufsize", "250k",
-    );
-  } else {
-    args.push("-c:v", "copy");
-  }
-  args.push(
+    "-c:v", "copy",
     "-muxdelay", "0",
     "-muxpreload", "0",
     "-flush_packets", "1",
@@ -165,10 +142,9 @@ function spawnFfmpeg(
   localaddr: string | undefined,
   waitMs: number,
   transport?: "tcp" | "udp",
-  encode = false,
 ): Promise<ReadableStream<Uint8Array>> {
   return new Promise((resolve, reject) => {
-    const args = previewFfmpegArgs(href, transport, localaddr, encode);
+    const args = previewFfmpegArgs(href, transport, localaddr);
     let handed = false;
     const errChunks: Buffer[] = [];
     const child = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
@@ -241,7 +217,7 @@ export async function openPreviewStream(
     }
     const binds = caps.localaddr && localAddrs?.length ? localAddrs : [undefined];
     if (!caps.localaddr) steps.push("bind kernel (no -localaddr)");
-    steps.push(caps.libx264 ? "encode ultrafast g10" : "copy (no libx264)");
+    steps.push("copy");
     const transports: Array<"tcp" | "udp" | undefined> = href.startsWith("rtsp:") ? ["udp", "tcp"] : [undefined];
     const waitMs = binds.length * transports.length > 2 ? 5000 : FIRST_BYTE_MS;
     let last = "no signal";
@@ -250,7 +226,7 @@ export async function openPreviewStream(
         if (signal?.aborted) throw new PreviewError("no signal", steps);
         const label = [transport || "in", addr || "kernel"].join("@");
         try {
-          const body = await spawnFfmpeg(href, signal, caps.localaddr ? addr : undefined, waitMs, transport, caps.libx264);
+          const body = await spawnFfmpeg(href, signal, caps.localaddr ? addr : undefined, waitMs, transport);
           const reader = body.getReader();
           return new ReadableStream<Uint8Array>({
             async pull(controller) {
