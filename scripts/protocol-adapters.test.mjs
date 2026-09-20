@@ -193,4 +193,12 @@ test("MPS 602 polls ESC 0LS CR and parses input signal bits", () => {
   const sig1 = mps.feedback.find((f) => f.id === "signal.1");
   assert.equal("ok".match(new RegExp(sig1.parse.pattern)), null);
   assert.equal("E10]".match(new RegExp(sig1.parse.pattern)), null);
+  const micVol = mps.commands.find((c) => c.id === "mic.volume.set");
+  assert.equal(micVol.payload, "16*{value}G");
+  assert.equal(micVol.min, 0);
+  assert.equal(micVol.max, 60);
+  assert.equal(mps.commands.find((c) => c.id === "mic.mute.on").payload, "1M");
+  assert.equal(mps.commands.find((c) => c.id === "mic.mute.off").payload, "0M");
+  assert.equal(mps.feedback.find((f) => f.id === "mic.volume.level").query, "16G");
+  assert.equal(mps.feedback.find((f) => f.id === "mic.mute.state").query, "M");
 });

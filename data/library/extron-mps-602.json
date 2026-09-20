@@ -4,7 +4,7 @@
     "manufacturer": "Extron",
     "model": "MPS 602",
     "type": "switcher",
-    "notes": "No Ethernet on the switcher. SIS is RS-232 9600 8N1 on the rear captive-screw port (or USB Config). Behind an IPL, bind this device to the IPL COM slot (TCP 2001/2002). Simple commands (! V Z B) are literal. Tagged commands: manual E is ESC (0x1B), } is CR. Inputs: 1-2 VGA, 3-5 HDMI, 6 DTP. Volume 0-100. 1Z mutes program audio (not mic). Signal presence: ESC 0LS CR, reply Sig in1..in6 * rgb hdmi."
+    "notes": "No Ethernet on the switcher. SIS is RS-232 9600 8N1 on the rear captive-screw port (or USB Config). Behind an IPL, bind this device to the IPL COM slot (TCP 2001/2002). Simple commands (! V Z B M) are literal. Tagged commands: manual E is ESC (0x1B), } is CR. Inputs: 1-2 VGA, 3-5 HDMI, 6 DTP. Program volume 0-100 ({n}V). 1Z mutes program (not mic). Mic gain 0-60 dB is 16*{n}G; 1M/0M mute mic. Signal presence: ESC 0LS CR, reply Sig in1..in6 * rgb hdmi."
   },
   "transports": {
     "lan": {
@@ -39,6 +39,9 @@
     { "id": "volume.down", "label": "Volume down", "kind": "action", "transport": "lan", "payload": "-V" },
     { "id": "mute.on", "label": "Mute program", "kind": "action", "transport": "lan", "payload": "1Z" },
     { "id": "mute.off", "label": "Unmute program", "kind": "action", "transport": "lan", "payload": "0Z" },
+    { "id": "mic.volume.set", "label": "Mic volume", "kind": "range", "min": 0, "max": 60, "step": 1, "transport": "lan", "payload": "16*{value}G" },
+    { "id": "mic.mute.on", "label": "Mute mic", "kind": "action", "transport": "lan", "payload": "1M" },
+    { "id": "mic.mute.off", "label": "Unmute mic", "kind": "action", "transport": "lan", "payload": "0M" },
     { "id": "video.mute.on", "label": "Video mute", "kind": "action", "transport": "lan", "payload": "1B" },
     { "id": "video.mute.off", "label": "Video unmute", "kind": "action", "transport": "lan", "payload": "0B" },
     { "id": "auto.off", "label": "Auto-switch off", "kind": "action", "transport": "lan", "payload": "\u001b0AUSW\r" },
@@ -51,6 +54,8 @@
     { "id": "input.source", "label": "Input source", "kind": "string", "transport": "lan", "mode": "poll", "query": "!", "pollMs": 3000, "parse": { "type": "regex", "pattern": "In(\\d+)", "map": { "0": "off", "1": "VGA 1", "2": "VGA 2", "3": "HDMI 3", "4": "HDMI 4", "5": "HDMI 5", "6": "DTP 6" } } },
     { "id": "volume.level", "label": "Volume", "kind": "range", "min": 0, "max": 100, "transport": "lan", "mode": "poll", "query": "V", "pollMs": 4000, "parse": { "type": "regex", "pattern": "(\\d+)" } },
     { "id": "mute.state", "label": "Mute", "kind": "enum", "values": ["0", "1"], "transport": "lan", "mode": "poll", "query": "Z", "pollMs": 4000, "parse": { "type": "regex", "pattern": "([01])" } },
+    { "id": "mic.volume.level", "label": "Mic volume", "kind": "range", "min": -18, "max": 60, "transport": "lan", "mode": "poll", "query": "16G", "pollMs": 4000, "parse": { "type": "regex", "pattern": "(-?\\d+)" } },
+    { "id": "mic.mute.state", "label": "Mic mute", "kind": "enum", "values": ["0", "1"], "transport": "lan", "mode": "poll", "query": "M", "pollMs": 4000, "parse": { "type": "regex", "pattern": "([01])" } },
     { "id": "signal.1", "label": "VGA 1 signal", "kind": "enum", "values": ["off", "on"], "transport": "lan", "mode": "poll", "query": "\u001b0LS\r", "pollMs": 4000, "parse": { "type": "regex", "pattern": "Sig\\s*([01])", "map": { "0": "off", "1": "on" } } },
     { "id": "signal.2", "label": "VGA 2 signal", "kind": "enum", "values": ["off", "on"], "transport": "lan", "mode": "poll", "query": "\u001b0LS\r", "pollMs": 4000, "parse": { "type": "regex", "pattern": "Sig\\s*[01][\\s*]*([01])", "map": { "0": "off", "1": "on" } } },
     { "id": "signal.3", "label": "HDMI 3 signal", "kind": "enum", "values": ["off", "on"], "transport": "lan", "mode": "poll", "query": "\u001b0LS\r", "pollMs": 4000, "parse": { "type": "regex", "pattern": "Sig\\s*(?:[01][\\s*]*){2}([01])", "map": { "0": "off", "1": "on" } } },

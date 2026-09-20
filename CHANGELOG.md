@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.32 — 2026-09-20
+
+- Tag `v0.9.32`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- MPS 602 library: Mic volume (`16*{n}G`, 0–60 dB), mute/unmute mic (`1M` / `0M`), plus poll `16G` / `M`. Program `{n}V` / `Z` unchanged. Re-apply the driver from the library on rooms that already have an MPS copy.
+
 ## 0.9.31 — 2026-09-20
 
 - Tag `v0.9.31`. Same Foyer pair (`v0.2.2`). Wire unchanged.

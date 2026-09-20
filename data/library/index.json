@@ -18,7 +18,7 @@
     "manufacturer": "Extron",
     "model": "MPS 602",
     "type": "switcher",
-    "notes": "No Ethernet on the switcher. SIS is RS-232 9600 8N1 on the rear captive-screw port (or USB Config). Behind an IPL, bind this device to the IPL COM slot (TCP 2001/2002). Simple commands (! V Z B) are literal. Tagged commands: manual E is ESC (0x1B), } is CR. Inputs: 1-2 VGA, 3-5 HDMI, 6 DTP. Volume 0-100. 1Z mutes program audio (not mic). Signal presence: ESC 0LS CR, reply Sig in1..in6 * rgb hdmi."
+    "notes": "No Ethernet on the switcher. SIS is RS-232 9600 8N1 on the rear captive-screw port (or USB Config). Behind an IPL, bind this device to the IPL COM slot (TCP 2001/2002). Simple commands (! V Z B M) are literal. Tagged commands: manual E is ESC (0x1B), } is CR. Inputs: 1-2 VGA, 3-5 HDMI, 6 DTP. Program volume 0-100. 1Z mutes program. Mic gain 0-60 dB (16*{n}G); 1M/0M mute mic. Signal presence: ESC 0LS CR, reply Sig in1..in6 * rgb hdmi."
   },
   "extron-xpa-1002.json": {
     "filename": "extron-xpa-1002.json",
