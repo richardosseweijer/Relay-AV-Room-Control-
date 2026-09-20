@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.27 — 2026-09-20
+
+- Tag `v0.9.27`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Slider is a thin bar + small dot, with a hairline that travels across the tile. Travel stays inset (~22px) so 0 and max are not on the edge.
+
 ## 0.9.26 — 2026-09-20
 
 - Tag `v0.9.26`. Same Foyer pair (`v0.2.2`). Wire unchanged.

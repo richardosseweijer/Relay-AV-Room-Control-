@@ -16,7 +16,7 @@ const TONE: Record<WidgetColor, string> = {
   rose: "border-rose/40 bg-rose/15",
 };
 
-const FILL: Record<WidgetColor, string> = {
+const MARK: Record<WidgetColor, string> = {
   steel: "bg-steel",
   sage: "bg-sage",
   clay: "bg-clay",
@@ -29,6 +29,9 @@ const FILL: Record<WidgetColor, string> = {
   slate: "bg-slate",
   rose: "bg-rose",
 };
+
+/** Keep 0 / 100 off the tile edge. */
+const PAD = 22;
 
 function snap(min: number, max: number, value: number) {
   const n = Math.min(max, Math.max(min, value));
@@ -59,9 +62,9 @@ export function PanelSlider({
   function fromPoint(clientX: number, clientY: number) {
     const box = rail.current?.getBoundingClientRect();
     if (!box || span <= 0) return value;
-    const t = vertical
-      ? 1 - (clientY - box.top) / Math.max(1, box.height)
-      : (clientX - box.left) / Math.max(1, box.width);
+    const start = vertical ? box.top + PAD : box.left + PAD;
+    const size = Math.max(1, (vertical ? box.height : box.width) - PAD * 2);
+    const t = vertical ? 1 - (clientY - start) / size : (clientX - start) / size;
     return snap(min, max, min + Math.min(1, Math.max(0, t)) * span);
   }
 
@@ -80,23 +83,17 @@ export function PanelSlider({
     if (e.key === "End") { e.preventDefault(); onSlide(max, true); }
   }
 
+  const travel = `calc(${PAD}px + (100% - ${PAD * 2}px) * ${pct / 100})`;
+  const cross = vertical ? { top: `calc(100% - ${travel})` } : { left: travel };
+
   return (
     <div
       className={cn(
-        "flex min-h-0 min-w-0 h-full rounded-2xl border px-3 py-3",
-        vertical ? "flex-col items-center gap-2" : "flex-col justify-between gap-3 px-4",
+        "relative flex min-h-0 min-w-0 h-full overflow-hidden rounded-2xl border",
         TONE[widget.color],
         disabled && "opacity-45",
       )}
     >
-      {vertical ? (
-        <span className="text-2xl font-medium tabular-nums tracking-tight">{value}</span>
-      ) : (
-        <div className="flex w-full items-baseline justify-between gap-2">
-          <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span>
-          <span className="text-2xl font-medium tabular-nums tracking-tight">{value}</span>
-        </div>
-      )}
       <div
         ref={rail}
         role="slider"
@@ -112,30 +109,38 @@ export function PanelSlider({
         onPointerUp={(e) => pointer(e, true)}
         onPointerCancel={(e) => pointer(e, true)}
         onKeyDown={key}
-        className={cn(
-          "relative min-h-0 touch-none select-none",
-          vertical ? "w-12 flex-1 cursor-ns-resize" : "h-12 w-full cursor-ew-resize",
-        )}
+        className={cn("absolute inset-0 touch-none select-none", vertical ? "cursor-ns-resize" : "cursor-ew-resize")}
       >
         <div
-          className={cn(
-            "absolute rounded-full bg-bg/55 shadow-[inset_0_1px_4px_rgb(0_0_0_/_0.45)]",
-            vertical ? "inset-y-1 left-1/2 w-2.5 -translate-x-1/2" : "inset-x-1 top-1/2 h-2.5 -translate-y-1/2",
-          )}
-        >
-          <div
-            className={cn("rounded-full", FILL[widget.color])}
-            style={vertical ? { position: "absolute", left: 0, right: 0, bottom: 0, height: `${pct}%` } : { height: "100%", width: `${pct}%` }}
-          />
-        </div>
-        <div
-          className="absolute size-[1.7rem] rounded-full bg-fg shadow-[0_2px_14px_rgb(0_0_0_/_0.45)] ring-2 ring-bg"
+          className="absolute rounded-full bg-fg/25"
           style={vertical
-            ? { left: "50%", top: `${100 - pct}%`, transform: "translate(-50%, -50%)" }
-            : { top: "50%", left: `${pct}%`, transform: "translate(-50%, -50%)" }}
+            ? { top: PAD, bottom: PAD, left: "50%", width: 2, transform: "translateX(-50%)" }
+            : { left: PAD, right: PAD, top: "50%", height: 2, transform: "translateY(-50%)" }}
+        />
+        <div
+          className={cn("absolute bg-fg/35", vertical ? "left-4 right-4 h-px" : "top-4 bottom-4 w-px")}
+          style={cross}
+        />
+        <div
+          className={cn("absolute size-2.5 rounded-full shadow-[0_0_0_3px_rgb(0_0_0_/_0.25)]", MARK[widget.color])}
+          style={vertical
+            ? { left: "50%", top: `calc(100% - ${travel})`, transform: "translate(-50%, -50%)" }
+            : { top: "50%", left: travel, transform: "translate(-50%, -50%)" }}
         />
       </div>
-      {vertical ? <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span> : null}
+      <div className="pointer-events-none relative z-[1] flex h-full w-full flex-col justify-between px-3 py-2.5">
+        {vertical ? (
+          <>
+            <span className="self-center text-xl font-medium tabular-nums tracking-tight">{value}</span>
+            <span className="self-center text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span>
+          </>
+        ) : (
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span>
+            <span className="text-xl font-medium tabular-nums tracking-tight">{value}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
