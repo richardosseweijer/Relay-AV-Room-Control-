@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.31 — 2026-09-20
+
+- Tag `v0.9.31`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Slider knob is the same size as the bar. 0 / max are when the knob edges meet the capsule ends.
+
 ## 0.9.30 — 2026-09-20
 
 - Tag `v0.9.30`. Same Foyer pair (`v0.2.2`). Wire unchanged.

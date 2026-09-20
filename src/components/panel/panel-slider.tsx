@@ -54,29 +54,40 @@ export function PanelSlider({
   const rail = useRef<HTMLDivElement>(null);
   const face = useRef<HTMLDivElement>(null);
   const [autoVert, setAutoVert] = useState(widget.h > widget.w);
+  const [dim, setDim] = useState({ w: 0, h: 0 });
   useLayoutEffect(() => {
-    if (widget.sliderDir === "vertical") { setAutoVert(true); return; }
-    if (widget.sliderDir === "horizontal") { setAutoVert(false); return; }
-    const el = face.current;
-    if (!el) return;
-    const read = () => setAutoVert(el.clientHeight > el.clientWidth);
+    const faceEl = face.current;
+    const railEl = rail.current;
+    const read = () => {
+      if (widget.sliderDir === "vertical") setAutoVert(true);
+      else if (widget.sliderDir === "horizontal") setAutoVert(false);
+      else if (faceEl) setAutoVert(faceEl.clientHeight > faceEl.clientWidth);
+      if (railEl) {
+        const box = railEl.getBoundingClientRect();
+        setDim({ w: box.width, h: box.height });
+      }
+    };
     read();
     const ro = new ResizeObserver(read);
-    ro.observe(el);
+    if (faceEl) ro.observe(faceEl);
+    if (railEl) ro.observe(railEl);
     return () => ro.disconnect();
   }, [widget.sliderDir, widget.h, widget.w]);
   const vertical = widget.sliderDir === "vertical" || (widget.sliderDir !== "horizontal" && autoVert);
   const span = max - min;
   const pct = span <= 0 ? 0 : ((value - min) / span) * 100;
-  const filled = Math.max(pct, 0.001);
-  const rest = Math.max(100 - pct, 0.001);
+  const thick = vertical ? dim.w : dim.h;
+  const travel = Math.max(0, (vertical ? dim.h : dim.w) - thick);
+  const offset = (pct / 100) * travel;
+  const fill = offset + thick;
 
   function fromPoint(clientX: number, clientY: number) {
     const box = rail.current?.getBoundingClientRect();
     if (!box || span <= 0) return value;
-    const t = vertical
-      ? 1 - (clientY - box.top) / Math.max(1, box.height)
-      : (clientX - box.left) / Math.max(1, box.width);
+    const inset = (vertical ? box.width : box.height) / 2;
+    const start = (vertical ? box.top : box.left) + inset;
+    const size = Math.max(1, (vertical ? box.height : box.width) - inset * 2);
+    const t = vertical ? 1 - (clientY - start) / size : (clientX - start) / size;
     return snap(min, max, min + Math.min(1, Math.max(0, t)) * span);
   }
 
@@ -144,33 +155,23 @@ export function PanelSlider({
           vertical ? "w-11 flex-1 cursor-ns-resize" : "h-11 w-full cursor-ew-resize",
         )}
       >
-        <div
-          className={cn(
-            "absolute inset-0 overflow-hidden rounded-full border-2 border-fg/75 bg-[#2a2a32] [transform:translateZ(0)]",
-            vertical ? "flex flex-col" : "flex",
-          )}
-        >
-          {vertical ? (
-            <>
-              <div className="min-h-0 bg-[#2a2a32]" style={{ flexGrow: rest, flexBasis: 0 }} />
-              <div className={cn("min-h-0", FILL[widget.color])} style={{ flexGrow: filled, flexBasis: 0 }} />
-            </>
-          ) : (
-            <>
-              <div className={cn("min-w-0", FILL[widget.color])} style={{ flexGrow: filled, flexBasis: 0 }} />
-              <div className="min-w-0 bg-[#2a2a32]" style={{ flexGrow: rest, flexBasis: 0 }} />
-            </>
-          )}
+        <div className="absolute inset-0 overflow-hidden rounded-full border-2 border-fg/75 bg-[#2a2a32] [transform:translateZ(0)]">
+          <div
+            className={cn("absolute", FILL[widget.color])}
+            style={vertical
+              ? { left: 0, right: 0, bottom: 0, height: fill }
+              : { top: 0, bottom: 0, left: 0, width: fill }}
+          />
           <div
             className="pointer-events-none absolute inset-0 rounded-full"
             style={{ background: "linear-gradient(to bottom, rgb(255 255 255 / 0.22), transparent 42%, rgb(0 0 0 / 0.14))" }}
           />
         </div>
         <div
-          className="pointer-events-none absolute size-8 rounded-full bg-fg shadow-[0_1px_5px_rgb(0_0_0_/_0.45)] [transform:translate(-50%,-50%)]"
+          className="pointer-events-none absolute rounded-full bg-fg shadow-[0_1px_5px_rgb(0_0_0_/_0.45)]"
           style={vertical
-            ? { left: "50%", top: `${100 - pct}%` }
-            : { top: "50%", left: `${pct}%` }}
+            ? { left: 0, width: thick, height: thick, top: Math.max(0, dim.h - thick - offset) }
+            : { top: 0, width: thick, height: thick, left: offset }}
         />
       </div>
       {vertical ? <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span> : null}
