@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.19 — 2026-09-20
+
+- Tag `v0.9.19`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Preview: restart ffmpeg when the picture stalls (no first frame in 15 s, or no progress for 5 s) or the decoder errors. Changing ZowieBox stream settings used to leave the old RTSP session running (black / stuck).
+
 ## 0.9.18 — 2026-09-20
 
 - Tag `v0.9.18`. Same Foyer pair (`v0.2.2`). Wire unchanged.

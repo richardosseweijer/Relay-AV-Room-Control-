@@ -60,10 +60,38 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
     return () => undefined;
   }
   const Source = Ctor;
-  const ac = new AbortController();
+  const stop = new AbortController();
   let objectUrl = "";
 
   async function attempt() {
+    const ac = new AbortController();
+    const onStop = () => ac.abort();
+    stop.signal.addEventListener("abort", onStop);
+    const started = Date.now();
+    let lastProgress = Date.now();
+    let gotPlaying = false;
+    const onPlaying = () => {
+      gotPlaying = true;
+      lastProgress = Date.now();
+    };
+    const onTime = () => { lastProgress = Date.now(); };
+    const onFail = () => ac.abort();
+    video.addEventListener("playing", onPlaying);
+    video.addEventListener("timeupdate", onTime);
+    video.addEventListener("error", onFail);
+    const stall = setInterval(() => {
+      if (ac.signal.aborted) return;
+      if (!gotPlaying && Date.now() - started > 15000) ac.abort();
+      if (gotPlaying && Date.now() - lastProgress > 5000) ac.abort();
+    }, 1000);
+    const cleanup = () => {
+      clearInterval(stall);
+      stop.signal.removeEventListener("abort", onStop);
+      video.removeEventListener("playing", onPlaying);
+      video.removeEventListener("timeupdate", onTime);
+      video.removeEventListener("error", onFail);
+    };
+    try {
     const ms = new Source();
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     objectUrl = URL.createObjectURL(ms);
@@ -84,12 +112,12 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
       try {
         sb.appendBuffer(copy as BufferSource);
       } catch {
-        setErr("no signal");
         ac.abort();
       }
     };
     function onUpdateEnd() {
       if (ac.signal.aborted || !sb) return;
+      lastProgress = Date.now();
       if (video.buffered.length) {
         const end = video.buffered.end(video.buffered.length - 1);
         // Copy remux can only decode from an IDR. GOP 30 @ 30fps = 1s — seeking
@@ -118,6 +146,7 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
       sb = ms.addSourceBuffer(mime);
       sb.mode = "sequence";
       sb.addEventListener("updateend", onUpdateEnd);
+      sb.addEventListener("error", onFail);
       return true;
     }
     const res = await fetch(`/api/preview?widget=${encodeURIComponent(widgetId)}`, {
@@ -143,6 +172,7 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
       const { done, value } = await reader.read();
       if (done) break;
       if (!value?.length) continue;
+      lastProgress = Date.now();
       const next = new Uint8Array(acc.length + value.length);
       next.set(acc);
       next.set(value, acc.length);
@@ -154,23 +184,26 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
         pump();
       }
     }
+    } finally {
+      cleanup();
+    }
   }
 
   void (async () => {
-    while (!ac.signal.aborted) {
+    while (!stop.signal.aborted) {
       try {
         await attempt();
       } catch (err) {
-        if (ac.signal.aborted) break;
-        setErr(err instanceof Error && err.name === "AbortError" ? "" : "no signal");
+        if (stop.signal.aborted) break;
+        if (!(err instanceof Error && err.name === "AbortError")) setErr("no signal");
       }
-      if (ac.signal.aborted) break;
-      await new Promise((r) => setTimeout(r, 2000));
+      if (stop.signal.aborted) break;
+      await new Promise((r) => setTimeout(r, 1500));
     }
   })();
 
   return () => {
-    ac.abort();
+    stop.abort();
     video.removeAttribute("src");
     video.load();
     if (objectUrl) URL.revokeObjectURL(objectUrl);
