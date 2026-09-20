@@ -137,7 +137,7 @@ export function hostLanContains(ip: string, nics = listLanNics()): boolean {
   return nics.some((nic) => nicHolds(nic, ip));
 }
 
-/** AV-LAN bind first when the dest is on that subnet; else the other adapter; else both then kernel default. */
+/** Bind the NIC that holds dest. Routed RFC1918 uses the kernel. Public dest tries AV, then the other NIC. */
 export function previewBindAddrsFrom(
   nics: LanNic[],
   destIp: string,
@@ -148,6 +148,7 @@ export function previewBindAddrsFrom(
   const outNic = resolveNic(nics, outbound);
   if (nicHolds(avNic, destIp) && avNic?.ipv4) return [avNic.ipv4];
   if (nicHolds(outNic, destIp) && outNic?.ipv4) return [outNic.ipv4];
+  if (allowedLanHost(destIp)) return [undefined];
   const tries: Array<string | undefined> = [];
   if (avNic?.ipv4) tries.push(avNic.ipv4);
   if (outNic?.ipv4 && outNic.ipv4 !== avNic?.ipv4) tries.push(outNic.ipv4);

@@ -96,5 +96,6 @@ test("previewBindAddrsFrom uses AV NIC when dest is on it, else the other", () =
   const out = { name: "enp2s0" };
   assert.deepEqual(previewBindAddrsFrom(nics, "10.0.25.40", av, out), ["10.0.25.10"]);
   assert.deepEqual(previewBindAddrsFrom(nics, "192.168.1.8", av, out), ["192.168.1.40"]);
+  assert.deepEqual(previewBindAddrsFrom(nics, "10.0.10.5", av, out), [undefined]);
   assert.deepEqual(previewBindAddrsFrom(nics, "8.8.8.8", av, out), ["10.0.25.10", "192.168.1.40", undefined]);
 });

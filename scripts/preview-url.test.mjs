@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { openPreviewStream, parsePreviewUrl, previewUrlForWidget } from "../src/lib/control/preview-grab.ts";
 
 test("preview URL allowlist", () => {
   assert.equal(parsePreviewUrl("rtsp://10.0.10.40:8554/sub/av").ok, true);
+  assert.equal(parsePreviewUrl("rtsp://10.0.25.242:554/sub/av").ok, true);
   assert.equal(parsePreviewUrl("rtsp://192.168.1.8:8554/main/av").ok, true);
   assert.equal(parsePreviewUrl("http://10.0.10.40/snap.jpg").ok, true);
   assert.equal(parsePreviewUrl("rtsp://8.8.8.8:8554/sub/av").ok, false);
@@ -48,4 +50,10 @@ test("stream reports ffmpeg missing when binary is off PATH", async () => {
   } finally {
     process.env.PATH = orig;
   }
+});
+
+test("rtsp uses prefer_tcp so UDP can follow, not TCP-only", () => {
+  const src = fs.readFileSync("src/lib/control/preview-grab.ts", "utf8");
+  assert.ok(src.includes("prefer_tcp"));
+  assert.equal(src.includes("-rtsp_transport"), false);
 });

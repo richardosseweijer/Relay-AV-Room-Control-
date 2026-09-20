@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.12 — 2026-09-20
+
+- Tag `v0.9.12`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Preview: RTSP uses `prefer_tcp` (UDP fallback) instead of TCP-only — VLC-ok streams on `:554` that do not interleave RTP over TCP were showing `no signal`. Tile SourceBuffer codec is High-profile first so Main/High H.264 paints. Routed RFC1918 no longer pins the wrong NIC for 4s.
+
 ## 0.9.11 — 2026-09-20
 
 - Tag `v0.9.11`. Same Foyer pair (`v0.2.2`). Wire unchanged.

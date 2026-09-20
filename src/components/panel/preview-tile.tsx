@@ -4,12 +4,14 @@ import type { Widget } from "@/lib/control/types";
 import { cn } from "@/lib/utils";
 
 const MIMES = [
-  'video/mp4; codecs="avc1.42E01F"',
-  'video/mp4; codecs="avc1.42C01F"',
-  'video/mp4; codecs="avc1.4D401F"',
-  'video/mp4; codecs="avc1.64001F"',
+  'video/mp4; codecs="avc1.640032"',
   'video/mp4; codecs="avc1.640028"',
+  'video/mp4; codecs="avc1.64001F"',
+  'video/mp4; codecs="avc1.4D401F"',
   'video/mp4; codecs="avc1.42E01E"',
+  'video/mp4; codecs="avc1.42C01F"',
+  'video/mp4; codecs="hvc1.1.6.L93.B0"',
+  'video/mp4; codecs="hev1.1.6.L93.B0"',
 ];
 
 function mediaSourceType(): (new () => MediaSource) | undefined {

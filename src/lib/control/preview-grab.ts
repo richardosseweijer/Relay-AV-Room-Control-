@@ -9,7 +9,7 @@ import type { DeviceInstance, Widget } from "./types";
 
 const MAX_URL = 320;
 const MAX_LIVE = 4;
-const FIRST_BYTE_MS = 8000;
+const FIRST_BYTE_MS = 12000;
 let live = 0;
 
 export function parsePreviewUrl(raw: string): { ok: true; href: string } | { ok: false; message: string } {
@@ -54,9 +54,11 @@ export function previewUrlForWidget(widget: Widget, devices: DeviceInstance[]): 
 
 function ffmpegHint(chunks: Buffer[]): string {
   const text = Buffer.concat(chunks).toString("utf8").slice(0, 240);
-  if (/Error opening input|Connection refused|timed out|401 Unauthorized|404 Not Found|Immediate exit/i.test(text)) return "no signal";
+  if (/401 Unauthorized/i.test(text)) return "auth";
+  if (/404 Not Found/i.test(text)) return "404";
+  if (/Connection refused/i.test(text)) return "refused";
+  if (/Protocol not found|Invalid data found/i.test(text)) return "bad codec";
   if (/Option .* not found/i.test(text)) return "ffmpeg flags";
-  if (/Invalid data found/i.test(text)) return "bad codec";
   return "no signal";
 }
 
@@ -68,10 +70,14 @@ function spawnFfmpeg(
 ): Promise<ReadableStream<Uint8Array>> {
   return new Promise((resolve, reject) => {
     const args = ["-hide_banner", "-nostdin", "-loglevel", "error"];
-    if (href.startsWith("rtsp:")) args.push("-rtsp_transport", "tcp");
+    if (href.startsWith("rtsp:")) {
+      // VLC uses UDP RTP. Forcing TCP-only hangs on boxes that don't interleave (ZowieBox :554).
+      args.push("-rtsp_flags", "prefer_tcp", "-allowed_media_types", "video");
+    }
     if (localaddr) args.push("-localaddr", localaddr);
     args.push(
       "-fflags", "nobuffer",
+      "-flags", "low_delay",
       "-i", href,
       "-an",
       "-c:v", "copy",
@@ -93,7 +99,7 @@ function spawnFfmpeg(
     };
     const onAbort = () => child.kill("SIGKILL");
     signal?.addEventListener("abort", onAbort);
-    const timer = setTimeout(() => fail(new Error("no signal")), waitMs);
+    const timer = setTimeout(() => fail(new Error("no keyframe")), waitMs);
     child.stderr?.on("data", (buf: Buffer) => {
       if (errChunks.length < 8) errChunks.push(buf);
     });
@@ -136,7 +142,7 @@ export async function openPreviewStream(
     live = Math.max(0, live - 1);
   };
   const tries = localAddrs?.length ? localAddrs : [undefined];
-  const waitMs = tries.length > 1 ? 4000 : FIRST_BYTE_MS;
+  const waitMs = tries.length > 1 ? 6000 : FIRST_BYTE_MS;
   let last: Error = new Error("no signal");
   try {
     for (const addr of tries) {
