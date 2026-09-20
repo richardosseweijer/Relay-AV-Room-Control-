@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.29 — 2026-09-20
+
+- Tag `v0.9.29`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Capsule slider: fill via flex (no `%` calc), knob not clipped by `overflow`, touch handlers for Android Chrome.
+
 ## 0.9.28 — 2026-09-20
 
 - Tag `v0.9.28`. Same Foyer pair (`v0.2.2`). Wire unchanged.

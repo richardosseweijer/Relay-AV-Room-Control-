@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent, type PointerEvent } from "react";
+import { useRef, type KeyboardEvent, type PointerEvent, type TouchEvent } from "react";
 import type { Widget, WidgetColor } from "@/lib/control/types";
 import { cn } from "@/lib/utils";
 
@@ -30,8 +30,6 @@ const FILL: Record<WidgetColor, string> = {
   rose: "bg-rose",
 };
 
-const KNOB = 28;
-
 function snap(min: number, max: number, value: number) {
   const n = Math.min(max, Math.max(min, value));
   if (Number.isInteger(min) && Number.isInteger(max)) return Math.round(n);
@@ -57,14 +55,15 @@ export function PanelSlider({
   const vertical = widget.sliderDir === "vertical";
   const span = max - min;
   const pct = span <= 0 ? 0 : ((value - min) / span) * 100;
+  const filled = Math.max(pct, 0.001);
+  const rest = Math.max(100 - pct, 0.001);
 
   function fromPoint(clientX: number, clientY: number) {
     const box = rail.current?.getBoundingClientRect();
     if (!box || span <= 0) return value;
-    const inset = KNOB / 2;
-    const start = vertical ? box.top + inset : box.left + inset;
-    const size = Math.max(1, (vertical ? box.height : box.width) - KNOB);
-    const t = vertical ? 1 - (clientY - start) / size : (clientX - start) / size;
+    const t = vertical
+      ? 1 - (clientY - box.top) / Math.max(1, box.height)
+      : (clientX - box.left) / Math.max(1, box.width);
     return snap(min, max, min + Math.min(1, Math.max(0, t)) * span);
   }
 
@@ -72,6 +71,14 @@ export function PanelSlider({
     if (disabled) return;
     if (e.type === "pointerdown") e.currentTarget.setPointerCapture(e.pointerId);
     onSlide(fromPoint(e.clientX, e.clientY), flush);
+  }
+
+  function touch(e: TouchEvent<HTMLDivElement>, flush: boolean) {
+    if (disabled) return;
+    const point = e.changedTouches[0] ?? e.touches[0];
+    if (!point) return;
+    e.preventDefault();
+    onSlide(fromPoint(point.clientX, point.clientY), flush);
   }
 
   function key(e: KeyboardEvent) {
@@ -82,8 +89,6 @@ export function PanelSlider({
     if (e.key === "Home") { e.preventDefault(); onSlide(min, true); }
     if (e.key === "End") { e.preventDefault(); onSlide(max, true); }
   }
-
-  const fill = `calc(${KNOB / 2}px + (100% - ${KNOB}px) * ${pct / 100})`;
 
   return (
     <div
@@ -116,27 +121,42 @@ export function PanelSlider({
         onPointerMove={(e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) pointer(e, false); }}
         onPointerUp={(e) => pointer(e, true)}
         onPointerCancel={(e) => pointer(e, true)}
+        onTouchStart={(e) => touch(e, false)}
+        onTouchMove={(e) => touch(e, false)}
+        onTouchEnd={(e) => touch(e, true)}
         onKeyDown={key}
         className={cn(
-          "relative min-h-0 touch-none select-none overflow-hidden rounded-full border-2 border-fg/80 bg-[#2a2a32] shadow-[inset_0_1px_3px_rgb(0_0_0_/_0.45)]",
-          vertical ? "w-9 flex-1 cursor-ns-resize" : "mx-1 h-9 w-[calc(100%-0.5rem)] cursor-ew-resize",
+          "relative min-h-0 touch-none select-none",
+          vertical ? "w-11 flex-1 cursor-ns-resize" : "h-11 w-full cursor-ew-resize",
         )}
       >
         <div
-          className={cn("absolute rounded-full", FILL[widget.color])}
-          style={vertical
-            ? { left: 0, right: 0, bottom: 0, height: fill }
-            : { top: 0, bottom: 0, left: 0, width: fill }}
-        />
+          className={cn(
+            "absolute inset-0 overflow-hidden rounded-full border-2 border-fg/75 bg-[#2a2a32] [transform:translateZ(0)]",
+            vertical ? "flex flex-col" : "flex",
+          )}
+        >
+          {vertical ? (
+            <>
+              <div className="min-h-0 bg-[#2a2a32]" style={{ flexGrow: rest, flexBasis: 0 }} />
+              <div className={cn("min-h-0", FILL[widget.color])} style={{ flexGrow: filled, flexBasis: 0 }} />
+            </>
+          ) : (
+            <>
+              <div className={cn("min-w-0", FILL[widget.color])} style={{ flexGrow: filled, flexBasis: 0 }} />
+              <div className="min-w-0 bg-[#2a2a32]" style={{ flexGrow: rest, flexBasis: 0 }} />
+            </>
+          )}
+          <div
+            className="pointer-events-none absolute inset-0 rounded-full"
+            style={{ background: "linear-gradient(to bottom, rgb(255 255 255 / 0.22), transparent 42%, rgb(0 0 0 / 0.14))" }}
+          />
+        </div>
         <div
-          className="pointer-events-none absolute inset-0 rounded-full"
-          style={{ background: "linear-gradient(to bottom, rgb(255 255 255 / 0.22), transparent 42%, rgb(0 0 0 / 0.12))" }}
-        />
-        <div
-          className="absolute rounded-full bg-fg shadow-[0_1px_4px_rgb(0_0_0_/_0.4)]"
+          className="pointer-events-none absolute size-8 rounded-full bg-fg shadow-[0_1px_5px_rgb(0_0_0_/_0.45)] [transform:translate(-50%,-50%)]"
           style={vertical
-            ? { left: "50%", width: KNOB, height: KNOB, top: `calc(100% - ${fill})`, transform: "translate(-50%, -50%)" }
-            : { top: "50%", width: KNOB, height: KNOB, left: fill, transform: "translate(-50%, -50%)" }}
+            ? { left: "50%", top: `${100 - pct}%` }
+            : { top: "50%", left: `${pct}%` }}
         />
       </div>
       {vertical ? <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span> : null}
