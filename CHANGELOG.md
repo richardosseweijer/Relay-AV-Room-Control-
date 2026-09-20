@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.23 — 2026-09-20
+
+- Tag `v0.9.23`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Hide scrollbars (still scroll with wheel / trackpad / touch).
+
 ## 0.9.22 — 2026-09-20
 
 - Tag `v0.9.22`. Same Foyer pair (`v0.2.2`). Wire unchanged.

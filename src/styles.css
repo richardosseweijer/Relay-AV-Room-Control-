@@ -184,6 +184,16 @@ html[data-theme="office"] .text-accent-fg {
 }
 .panel-slider:disabled { opacity: 0.35; }
 
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
