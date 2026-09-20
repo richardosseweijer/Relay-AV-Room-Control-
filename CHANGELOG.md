@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.18 — 2026-09-20
+
+- Tag `v0.9.18`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Preview black screen on ZowieBox Main Profile / I-frame 30: tile was seeking 120 ms behind live (mid-GOP). Catch-up is now 1.2 s behind, and only if more than 2.5 s late. SourceBuffer codec is read from `avcC`. SPS/PPS repeated on keyframes (`dump_extra`). Copy remux kept.
+
 ## 0.9.17 — 2026-09-20
 
 - Tag `v0.9.17`. Same Foyer pair (`v0.2.2`). Wire unchanged.

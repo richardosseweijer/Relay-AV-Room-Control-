@@ -4,14 +4,13 @@ import type { Widget } from "@/lib/control/types";
 import { cn } from "@/lib/utils";
 
 const MIMES = [
-  'video/mp4; codecs="avc1.640032"',
-  'video/mp4; codecs="avc1.640028"',
-  'video/mp4; codecs="avc1.64001F"',
   'video/mp4; codecs="avc1.4D401F"',
+  'video/mp4; codecs="avc1.4D4028"',
+  'video/mp4; codecs="avc1.64001F"',
+  'video/mp4; codecs="avc1.640028"',
   'video/mp4; codecs="avc1.42E01E"',
   'video/mp4; codecs="avc1.42C01F"',
   'video/mp4; codecs="hvc1.1.6.L93.B0"',
-  'video/mp4; codecs="hev1.1.6.L93.B0"',
 ];
 
 function mediaSourceType(): (new () => MediaSource) | undefined {
@@ -34,16 +33,33 @@ function takeBoxes(acc: Uint8Array): { emit: Uint8Array | null; rest: Uint8Array
   return { emit: acc.subarray(0, offset), rest: acc.subarray(offset) };
 }
 
+function hex2(n: number) {
+  return n.toString(16).padStart(2, "0");
+}
+
+/** avcC in the init segment → actual H.264 mime (Main vs High vs Baseline). */
+function codecFromInit(bytes: Uint8Array): string | undefined {
+  for (let i = 0; i + 8 < bytes.length; i++) {
+    if (bytes[i] === 0x61 && bytes[i + 1] === 0x76 && bytes[i + 2] === 0x63 && bytes[i + 3] === 0x43) {
+      const profile = bytes[i + 5]!;
+      const compat = bytes[i + 6]!;
+      const level = bytes[i + 7]!;
+      return `video/mp4; codecs="avc1.${hex2(profile)}${hex2(compat)}${hex2(level)}"`;
+    }
+    if (bytes[i] === 0x68 && bytes[i + 1] === 0x76 && bytes[i + 2] === 0x63 && bytes[i + 3] === 0x43) {
+      return 'video/mp4; codecs="hvc1.1.6.L93.B0"';
+    }
+  }
+}
+
 function playStream(video: HTMLVideoElement, widgetId: string, token: string, setErr: (msg: string) => void): () => void {
   const Ctor = mediaSourceType();
   const isTypeSupported = (Ctor as typeof MediaSource | undefined)?.isTypeSupported?.bind(Ctor) ?? MediaSource.isTypeSupported?.bind(MediaSource);
-  const mime = MIMES.find((row) => isTypeSupported?.(row));
-  if (!Ctor || !mime) {
+  if (!Ctor || !MIMES.some((row) => isTypeSupported?.(row))) {
     setErr(Ctor ? "codec" : "no mse");
     return () => undefined;
   }
   const Source = Ctor;
-  const chosenMime = mime;
   const ac = new AbortController();
   let objectUrl = "";
 
@@ -58,11 +74,10 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
       ms.addEventListener("error", () => reject(new Error("mse")), { once: true });
     });
     if (ac.signal.aborted) return;
-    const sb = ms.addSourceBuffer(chosenMime);
-    sb.mode = "sequence";
+    let sb: SourceBuffer | undefined;
     const queue: Uint8Array[] = [];
     const pump = () => {
-      if (sb.updating || !queue.length) return;
+      if (!sb || sb.updating || !queue.length) return;
       const chunk = queue.shift()!;
       const copy = new Uint8Array(chunk.byteLength);
       copy.set(chunk);
@@ -73,11 +88,13 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
         ac.abort();
       }
     };
-    sb.addEventListener("updateend", () => {
-      if (ac.signal.aborted) return;
+    function onUpdateEnd() {
+      if (ac.signal.aborted || !sb) return;
       if (video.buffered.length) {
         const end = video.buffered.end(video.buffered.length - 1);
-        if (end - video.currentTime > 0.4) video.currentTime = Math.max(0, end - 0.12);
+        // Copy remux can only decode from an IDR. GOP 30 @ 30fps = 1s — seeking
+        // 120ms behind live is mid-GOP and paints black.
+        if (end - video.currentTime > 2.5) video.currentTime = Math.max(0, end - 1.2);
         const start = video.buffered.start(0);
         if (video.currentTime - start > 8 && !sb.updating) {
           try {
@@ -88,7 +105,21 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
       }
       void video.play().catch(() => undefined);
       pump();
-    });
+    }
+    function ensureSb(init: Uint8Array) {
+      if (sb) return true;
+      const parsed = codecFromInit(init);
+      const mime = [parsed, ...MIMES].filter((row): row is string => Boolean(row)).find((row) => isTypeSupported?.(row));
+      if (!mime) {
+        setErr("codec");
+        ac.abort();
+        return false;
+      }
+      sb = ms.addSourceBuffer(mime);
+      sb.mode = "sequence";
+      sb.addEventListener("updateend", onUpdateEnd);
+      return true;
+    }
     const res = await fetch(`/api/preview?widget=${encodeURIComponent(widgetId)}`, {
       cache: "no-store",
       headers: { Authorization: `Bearer ${token}` },
@@ -118,6 +149,7 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
       const split = takeBoxes(next);
       acc = new Uint8Array(split.rest);
       if (split.emit) {
+        if (!ensureSb(split.emit)) return;
         queue.push(new Uint8Array(split.emit));
         pump();
       }

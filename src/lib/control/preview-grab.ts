@@ -126,6 +126,7 @@ export function previewFfmpegArgs(href: string, transport?: "tcp" | "udp", local
     "-i", href,
     "-an",
     "-c:v", "copy",
+    "-bsf:v", "dump_extra",
     "-muxdelay", "0",
     "-muxpreload", "0",
     "-flush_packets", "1",
