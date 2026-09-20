@@ -27,7 +27,7 @@ export const Route = createFileRoute("/api/preview")({
         if (!parsed.ok) return Response.json({ ok: false, message: parsed.message, steps: [parsed.message] }, { status: 400 });
         try {
           const dest = new URL(parsed.href).hostname;
-          const body = await openPreviewStream(parsed.href, request.signal, previewBindAddrs(dest, mem.config));
+          const body = await openPreviewStream(parsed.href, request.signal, previewBindAddrs(dest, mem.config), widget);
           return new Response(body, {
             headers: {
               "content-type": "video/mp4",

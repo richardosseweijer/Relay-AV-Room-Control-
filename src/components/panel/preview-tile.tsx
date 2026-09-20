@@ -52,7 +52,13 @@ function codecFromInit(bytes: Uint8Array): string | undefined {
   }
 }
 
-function playStream(video: HTMLVideoElement, widgetId: string, token: string, setErr: (msg: string) => void): () => void {
+function delayOf(widget: Widget) {
+  const n = Number(widget.previewDelay);
+  if (!Number.isFinite(n)) return 1.2;
+  return Math.min(4, Math.max(0.4, n));
+}
+
+function playStream(video: HTMLVideoElement, widgetId: string, token: string, setErr: (msg: string) => void, delay: number): () => void {
   const Ctor = mediaSourceType();
   const isTypeSupported = (Ctor as typeof MediaSource | undefined)?.isTypeSupported?.bind(Ctor) ?? MediaSource.isTypeSupported?.bind(MediaSource);
   if (!Ctor || !MIMES.some((row) => isTypeSupported?.(row))) {
@@ -122,7 +128,7 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
         const end = video.buffered.end(video.buffered.length - 1);
         // Copy remux can only decode from an IDR. GOP 30 @ 30fps = 1s — seeking
         // 120ms behind live is mid-GOP and paints black.
-        if (end - video.currentTime > 2.5) video.currentTime = Math.max(0, end - 1.2);
+        if (end - video.currentTime > delay * 2) video.currentTime = Math.max(0, end - delay);
         const start = video.buffered.start(0);
         if (video.currentTime - start > 8 && !sb.updating) {
           try {
@@ -237,7 +243,7 @@ export function PreviewTile({
       if (!videoRef.current) return;
       setPlaying(false);
       stop();
-      stop = playStream(videoRef.current, widget.id, token, setErr);
+      stop = playStream(videoRef.current, widget.id, token, setErr, delayOf(widget));
     }
     function onVis() {
       if (document.visibilityState === "hidden") {
@@ -251,7 +257,7 @@ export function PreviewTile({
       document.removeEventListener("visibilitychange", onVis);
       stop();
     };
-  }, [widget.id, token]);
+  }, [widget.id, widget.previewDelay, widget.previewTransport, token]);
 
   return (
     <button
@@ -270,7 +276,10 @@ export function PreviewTile({
         playsInline
         onPlaying={() => { setPlaying(true); setErr(""); }}
         onPause={() => setPlaying(false)}
-        className="pointer-events-none absolute inset-0 h-full w-full object-contain object-center"
+        className={cn(
+          "pointer-events-none absolute inset-0 h-full w-full object-center",
+          widget.previewFit === "cover" ? "object-cover" : "object-contain",
+        )}
       />
       <span className="relative z-10 m-2 rounded-md bg-bg/70 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-fg">
         {widget.label || "Preview"}

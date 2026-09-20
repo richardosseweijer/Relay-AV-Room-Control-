@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.21 — 2026-09-20
+
+- Tag `v0.9.21`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Preview tile settings: RTSP transport (auto / UDP / TCP), behind-live seconds (default 1.2, match I-frame interval), fit vs fill. Still copy remux. Old rooms keep the previous defaults.
+
 ## 0.9.20 — 2026-09-20
 
 - Tag `v0.9.20`. Same Foyer pair (`v0.2.2`). Wire unchanged.

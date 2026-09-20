@@ -66,6 +66,13 @@ export function previewUrlForWidget(widget: Widget, devices: DeviceInstance[]): 
   return parsePreviewUrl(`rtsp://${deviceLanIp(device.host)}:554/sub/av`);
 }
 
+export function previewRtspTransports(widget?: Widget): Array<"tcp" | "udp"> {
+  const raw = widget?.previewTransport;
+  if (raw === "tcp") return ["tcp"];
+  if (raw === "udp") return ["udp"];
+  return ["udp", "tcp"];
+}
+
 export function readFfmpegCaps() {
   if (ffmpegCaps) return ffmpegCaps;
   const ver = spawnSync("ffmpeg", ["-version"], { encoding: "utf8", timeout: 5000 });
@@ -195,6 +202,7 @@ export async function openPreviewStream(
   href: string,
   signal?: AbortSignal,
   localAddrs?: Array<string | undefined>,
+  widget?: Widget,
 ): Promise<ReadableStream<Uint8Array>> {
   if (live >= MAX_LIVE) return Promise.reject(new PreviewError("busy", ["busy"]));
   live += 1;
@@ -219,7 +227,8 @@ export async function openPreviewStream(
     const binds = caps.localaddr && localAddrs?.length ? localAddrs : [undefined];
     if (!caps.localaddr) steps.push("bind kernel (no -localaddr)");
     steps.push("copy");
-    const transports: Array<"tcp" | "udp" | undefined> = href.startsWith("rtsp:") ? ["udp", "tcp"] : [undefined];
+    const transports: Array<"tcp" | "udp" | undefined> = href.startsWith("rtsp:") ? previewRtspTransports(widget) : [undefined];
+    steps.push(`transport ${transports.filter(Boolean).join(">") || "in"}`);
     const waitMs = binds.length * transports.length > 2 ? 5000 : FIRST_BYTE_MS;
     let last = "no signal";
     for (const addr of binds) {

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { openPreviewStream, parsePreviewUrl, previewFfmpegArgs, previewUrlForWidget } from "../src/lib/control/preview-grab.ts";
+import { openPreviewStream, parsePreviewUrl, previewFfmpegArgs, previewRtspTransports, previewUrlForWidget } from "../src/lib/control/preview-grab.ts";
 
 test("preview URL allowlist", () => {
   assert.equal(parsePreviewUrl("rtsp://10.0.10.40:8554/sub/av").ok, true);
@@ -40,6 +40,12 @@ test("device host with a LAN port still builds :554", () => {
 test("preview needs a URL or a device host", () => {
   const widget = { id: "p1", type: "preview", streamUrl: "", bind: { kind: "macro" } };
   assert.equal(previewUrlForWidget(widget, []).ok, false);
+});
+
+test("preview transport auto is UDP then TCP", () => {
+  assert.deepEqual(previewRtspTransports({ bind: { kind: "macro" } }), ["udp", "tcp"]);
+  assert.deepEqual(previewRtspTransports({ bind: { kind: "macro" }, previewTransport: "tcp" }), ["tcp"]);
+  assert.deepEqual(previewRtspTransports({ bind: { kind: "macro" }, previewTransport: "udp" }), ["udp"]);
 });
 
 test("stream reports ffmpeg missing when binary is off PATH", async () => {

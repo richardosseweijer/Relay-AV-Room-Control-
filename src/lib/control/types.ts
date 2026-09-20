@@ -272,6 +272,12 @@ export type Widget = {
   max?: number | string;
   /** Optional. Only used by type "preview". */
   streamUrl?: string;
+  /** Optional. Preview RTSP: auto tries UDP then TCP. */
+  previewTransport?: "auto" | "udp" | "tcp";
+  /** Optional. Seconds behind live (copy remux). Default 1.2. Match I-frame interval. */
+  previewDelay?: number | string;
+  /** Optional. How the picture fills the tile. */
+  previewFit?: "contain" | "cover";
   bind: WidgetBind;
 };
 
