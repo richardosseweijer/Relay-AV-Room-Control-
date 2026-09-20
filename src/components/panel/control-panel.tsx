@@ -342,11 +342,20 @@ export function ControlPanel() {
   const page = useMemo(() => snap?.config?.pages?.find((p) => p.id === pageId) ?? snap?.config?.pages?.[0], [snap, pageId]);
   const [portrait, setPortrait] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia("(orientation: portrait)");
-    const sync = () => setPortrait(mq.matches);
+    const sync = () => setPortrait(window.innerHeight > window.innerWidth);
     sync();
+    window.addEventListener("resize", sync);
+    window.addEventListener("orientationchange", sync);
+    const mq = window.matchMedia("(orientation: portrait)");
     mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
+    const delayed = () => window.setTimeout(sync, 250);
+    window.addEventListener("orientationchange", delayed);
+    return () => {
+      window.removeEventListener("resize", sync);
+      window.removeEventListener("orientationchange", sync);
+      window.removeEventListener("orientationchange", delayed);
+      mq.removeEventListener("change", sync);
+    };
   }, []);
   const grid = page ? pageGrid(page, portrait) : { cols: 6, rows: 8 };
   const tiles = page ? widgetsOn(page, portrait) : [];

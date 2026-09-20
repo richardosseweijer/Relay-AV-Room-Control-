@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.20 — 2026-09-20
+
+- Tag `v0.9.20`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Panel face follows the window (`innerHeight > innerWidth`), not CSS `orientation` — iPad was showing the landscape page in portrait and the reverse.
+
 ## 0.9.19 — 2026-09-20
 
 - Tag `v0.9.19`. Same Foyer pair (`v0.2.2`). Wire unchanged.
