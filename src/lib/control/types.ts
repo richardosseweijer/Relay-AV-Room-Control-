@@ -270,7 +270,7 @@ export type Widget = {
   enableWhen?: EnableWhen | null;
   min?: number | string;
   max?: number | string;
-  /** Optional. Slider: upright fader. Missing = horizontal. */
+  /** Optional. Slider: missing = auto (upright when the tile is taller than wide). */
   sliderDir?: "horizontal" | "vertical";
   /** Optional. Only used by type "preview". */
   streamUrl?: string;

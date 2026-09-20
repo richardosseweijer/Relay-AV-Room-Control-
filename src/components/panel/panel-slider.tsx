@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent, type PointerEvent, type TouchEvent } from "react";
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type TouchEvent } from "react";
 import type { Widget, WidgetColor } from "@/lib/control/types";
 import { cn } from "@/lib/utils";
 
@@ -52,7 +52,20 @@ export function PanelSlider({
   onSlide: (value: number, flush?: boolean) => void;
 }) {
   const rail = useRef<HTMLDivElement>(null);
-  const vertical = widget.sliderDir === "vertical";
+  const face = useRef<HTMLDivElement>(null);
+  const [autoVert, setAutoVert] = useState(widget.h > widget.w);
+  useLayoutEffect(() => {
+    if (widget.sliderDir === "vertical") { setAutoVert(true); return; }
+    if (widget.sliderDir === "horizontal") { setAutoVert(false); return; }
+    const el = face.current;
+    if (!el) return;
+    const read = () => setAutoVert(el.clientHeight > el.clientWidth);
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [widget.sliderDir, widget.h, widget.w]);
+  const vertical = widget.sliderDir === "vertical" || (widget.sliderDir !== "horizontal" && autoVert);
   const span = max - min;
   const pct = span <= 0 ? 0 : ((value - min) / span) * 100;
   const filled = Math.max(pct, 0.001);
@@ -92,6 +105,7 @@ export function PanelSlider({
 
   return (
     <div
+      ref={face}
       className={cn(
         "flex min-h-0 min-w-0 h-full rounded-2xl border px-4 py-3",
         vertical ? "flex-col items-center gap-2" : "flex-col justify-between gap-3",

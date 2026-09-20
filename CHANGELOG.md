@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.30 — 2026-09-20
+
+- Tag `v0.9.30`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Slider Direction default Auto: upright when the tile is taller than wide. Horizontal / Upright still lock.
+
 ## 0.9.29 — 2026-09-20
 
 - Tag `v0.9.29`. Same Foyer pair (`v0.2.2`). Wire unchanged.

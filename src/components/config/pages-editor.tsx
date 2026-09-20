@@ -346,10 +346,12 @@ export function PagesEditor({
                 <input className={fieldClass()} inputMode="decimal" placeholder="max" value={selected.max == null ? "" : String(selected.max)} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.max = e.target.value; })} />
               </label>
               <label className="grid gap-1 text-sm text-muted">Direction
-                <select className={fieldClass()} value={selected.sliderDir === "vertical" ? "vertical" : "horizontal"} onChange={(e) => update((c) => {
+                <select className={fieldClass()} value={selected.sliderDir ?? "auto"} onChange={(e) => update((c) => {
                   const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
-                  if (w) w.sliderDir = e.target.value === "vertical" ? "vertical" : "horizontal";
+                  if (!w) return;
+                  w.sliderDir = e.target.value === "vertical" || e.target.value === "horizontal" ? e.target.value : undefined;
                 })}>
+                  <option value="auto">Auto (taller = upright)</option>
                   <option value="horizontal">Horizontal</option>
                   <option value="vertical">Upright</option>
                 </select>
