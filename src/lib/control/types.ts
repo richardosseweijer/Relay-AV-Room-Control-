@@ -259,6 +259,8 @@ export type Widget = {
   y: number;
   w: number;
   h: number;
+  /** Opt-in portrait cell. Missing = hidden on the portrait face. */
+  portrait?: { x: number; y: number; w: number; h: number };
   label: string;
   color: WidgetColor;
   highlight?: WidgetHighlight;
@@ -361,6 +363,8 @@ export type Page = {
   id: string;
   label: string;
   grid: { cols: number; rows: number };
+  /** Portrait face. Missing = use landscape (old rooms). */
+  portraitGrid?: { cols: number; rows: number };
   widgets: Widget[];
 };
 

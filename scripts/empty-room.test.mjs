@@ -10,6 +10,7 @@ test("empty room is Relay host only", () => {
   assert.equal(cfg.devices[0].driver, HOST_DRIVER);
   assert.equal(cfg.devices[0].host, "localhost");
   assert.equal(cfg.pages[0].widgets.length, 0);
+  assert.deepEqual(cfg.pages[0].portraitGrid, { cols: 4, rows: 10 });
   assert.equal(cfg.macros.length, 0);
   assert.equal(cfg.room.name, "New room");
   assert.deepEqual(defaultDeviceState(), {});

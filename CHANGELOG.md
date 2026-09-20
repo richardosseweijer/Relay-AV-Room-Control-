@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.11 — 2026-09-20
+
+- Tag `v0.9.11`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Each UI page has a landscape grid and an optional portrait grid. Same widgets (bind, label, preview URL). Portrait cell is `widget.portrait`; missing = hidden on that face. Old rooms without `portraitGrid` still show landscape on a phone. Pages editor: Landscape / Portrait toggle, Copy from landscape.
+
 ## 0.9.10 — 2026-09-17
 
 - Tag `v0.9.10`. Same Foyer pair (`v0.2.2`). Wire unchanged.

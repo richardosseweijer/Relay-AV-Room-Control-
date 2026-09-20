@@ -4,6 +4,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Maximize2, Settings2, Sun } from "lucide-react";
 import type { RoomSnapshot, Widget } from "@/lib/control/types";
 import { NONE_MACRO_ID } from "@/lib/control/types";
+import { gridStyle, pageGrid, widgetsOn } from "@/lib/control/page-layout";
 import { resolveBoundNumber } from "@/lib/control/vars";
 import { nextScheduled } from "@/lib/control/schedule";
 import { Button } from "@/components/ui/button";
@@ -339,6 +340,16 @@ export function ControlPanel() {
   }, [snap?.config?.room?.idleDimSeconds]);
 
   const page = useMemo(() => snap?.config?.pages?.find((p) => p.id === pageId) ?? snap?.config?.pages?.[0], [snap, pageId]);
+  const [portrait, setPortrait] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(orientation: portrait)");
+    const sync = () => setPortrait(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  const grid = page ? pageGrid(page, portrait) : { cols: 6, rows: 8 };
+  const tiles = page ? widgetsOn(page, portrait) : [];
 
   function applyHostPreview(commandId?: string, value?: string | number) {
     if (!commandId) return;
@@ -558,7 +569,7 @@ export function ControlPanel() {
         setDim(false);
       }}
     >
-      <header className="mx-auto mb-3 flex w-full max-w-3xl shrink-0 items-end justify-between gap-3">
+      <header className={`mx-auto mb-3 flex w-full shrink-0 items-end justify-between gap-3 ${portrait ? "max-w-none" : "max-w-3xl"}`}>
         <div>
           <p className="text-[11px] tracking-[0.22em] uppercase text-subtle">
             {clock.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -585,13 +596,13 @@ export function ControlPanel() {
       ) : null}
 
       <section
-        className="panel-grid mx-auto grid min-h-0 w-full max-w-3xl flex-1 gap-3 overflow-auto"
+        className={`panel-grid mx-auto grid min-h-0 w-full flex-1 gap-3 overflow-auto ${portrait ? "max-w-none" : "max-w-3xl"}`}
         style={{
-          gridTemplateColumns: `repeat(${page.grid.cols}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${page.grid.rows}, minmax(0, 1fr))`,
+          gridTemplateColumns: `repeat(${grid.cols}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${grid.rows}, minmax(0, 1fr))`,
         }}
       >
-        {[...page.widgets].sort((a, b) => a.y - b.y || a.x - b.x).map((widget) => {
+        {tiles.map((widget) => {
           const on = enabled(snap, widget);
           const varId = sliderVariable(snap, widget);
           const value = varId
@@ -603,7 +614,7 @@ export function ControlPanel() {
             : readFeedback(snap, widget.bind.device, widget.bind.feedback);
           const lit = widgetActive(snap, widget, confirm?.id === widget.id);
           const waiting = busyId === widget.id;
-          const wide = widget.type === "slider" || widget.type === "schedule" || widget.type === "label" || widget.type === "preview" || widget.w >= page.grid.cols;
+          const wide = widget.type === "slider" || widget.type === "schedule" || widget.type === "label" || widget.type === "preview" || widget.w >= grid.cols;
           if (widget.type === "slider") {
             const num = Number(value || 0);
             const min = resolveBoundNumber(widget.min, snap.vars ?? {}, 0, snap.config.variables);
@@ -617,7 +628,7 @@ export function ControlPanel() {
                 data-wide={wide}
                 data-type={widget.type}
                 className="flex min-h-0 min-w-0 h-full flex-col justify-between gap-3 rounded-2xl border border-border/70 bg-surface/80 px-4 py-3"
-                style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
+                style={gridStyle(widget)}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 [overflow-wrap:anywhere]">
                   <span className="text-[11px] tracking-[0.16em] uppercase text-muted">{widget.label}</span>
@@ -644,7 +655,7 @@ export function ControlPanel() {
                 data-wide={wide}
                 data-type={widget.type}
                 className="flex min-w-0 items-center [overflow-wrap:anywhere] rounded-lg px-3 text-sm text-muted"
-                style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
+                style={gridStyle(widget)}
               >
                 {widget.label}
               </div>
@@ -658,7 +669,7 @@ export function ControlPanel() {
                 data-wide={wide}
                 data-type={widget.type}
                 className="grid min-h-0 min-w-0 h-full"
-                style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
+                style={gridStyle(widget)}
               >
                 <WidgetShell widget={{ ...widget, label: widget.label === "Next" || widget.label === "Button" || !widget.label ? "Next scheduled task:" : widget.label }}>
                   {upcoming ? (
@@ -680,7 +691,7 @@ export function ControlPanel() {
                 data-wide={wide}
                 data-type={widget.type}
                 className="grid min-h-0 min-w-0 h-full"
-                style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
+                style={gridStyle(widget)}
               >
                 <PreviewTile widget={widget} token={session} disabled={!on} onClick={() => run(widget)} />
               </div>
@@ -692,7 +703,7 @@ export function ControlPanel() {
               data-wide={wide}
               data-type={widget.type}
               className="grid min-h-0 min-w-0 h-full"
-              style={{ gridColumn: `${widget.x + 1} / span ${widget.w}`, gridRow: `${widget.y + 1} / span ${widget.h}` }}
+              style={gridStyle(widget)}
             >
               <WidgetShell
                 widget={widget}

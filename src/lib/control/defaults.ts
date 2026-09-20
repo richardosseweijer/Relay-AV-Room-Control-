@@ -99,7 +99,7 @@ export function emptyRoomConfig(pin = DEFAULT_CONFIG_PIN): RoomConfig {
     devices: [
       { id: "host", name: "Relay", driver: "relay-host.json", transport: "lan", host: "localhost", auth: {}, enabledFeatures: [], simulate: false },
     ],
-    pages: [{ id: "home", label: "Home", grid: { cols: 6, rows: 8 }, widgets: [] }],
+    pages: [{ id: "home", label: "Home", grid: { cols: 6, rows: 8 }, portraitGrid: { cols: 4, rows: 10 }, widgets: [] }],
     macros: [],
     variables: [{ id: "occupancy", label: "Occupancy", kind: "enum", default: "1", values: ["0", "1", "2", "3"] }],
     schedules: [],
