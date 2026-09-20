@@ -49,7 +49,7 @@ export function previewUrlForWidget(widget: Widget, devices: DeviceInstance[]): 
   if (typed) return parsePreviewUrl(typed);
   const device = devices.find((row) => row.id === widget.bind.device);
   if (!device?.host) return { ok: false, message: "Set stream URL or bind a device" };
-  return parsePreviewUrl(`rtsp://${deviceLanIp(device.host)}:8554/sub/av`);
+  return parsePreviewUrl(`rtsp://${deviceLanIp(device.host)}:554/sub/av`);
 }
 
 function ffmpegHint(chunks: Buffer[]): string {
@@ -67,17 +67,14 @@ function spawnFfmpeg(
   signal: AbortSignal | undefined,
   localaddr: string | undefined,
   waitMs: number,
+  transport?: "tcp" | "udp",
 ): Promise<ReadableStream<Uint8Array>> {
   return new Promise((resolve, reject) => {
     const args = ["-hide_banner", "-nostdin", "-loglevel", "error"];
-    if (href.startsWith("rtsp:")) {
-      // VLC uses UDP RTP. Forcing TCP-only hangs on boxes that don't interleave (ZowieBox :554).
-      args.push("-rtsp_flags", "prefer_tcp", "-allowed_media_types", "video");
-    }
+    if (href.startsWith("rtsp:") && transport) args.push("-rtsp_transport", transport);
     if (localaddr) args.push("-localaddr", localaddr);
     args.push(
       "-fflags", "nobuffer",
-      "-flags", "low_delay",
       "-i", href,
       "-an",
       "-c:v", "copy",
@@ -141,14 +138,16 @@ export async function openPreviewStream(
     released = true;
     live = Math.max(0, live - 1);
   };
-  const tries = localAddrs?.length ? localAddrs : [undefined];
-  const waitMs = tries.length > 1 ? 6000 : FIRST_BYTE_MS;
+  const binds = localAddrs?.length ? localAddrs : [undefined];
+  const transports: Array<"tcp" | "udp" | undefined> = href.startsWith("rtsp:") ? ["udp", "tcp"] : [undefined];
+  const waitMs = binds.length * transports.length > 2 ? 5000 : FIRST_BYTE_MS;
   let last: Error = new Error("no signal");
   try {
-    for (const addr of tries) {
-      if (signal?.aborted) throw new Error("no signal");
-      try {
-        const body = await spawnFfmpeg(href, signal, addr, waitMs);
+    for (const addr of binds) {
+      for (const transport of transports) {
+        if (signal?.aborted) throw new Error("no signal");
+        try {
+          const body = await spawnFfmpeg(href, signal, addr, waitMs, transport);
         const reader = body.getReader();
         return new ReadableStream<Uint8Array>({
           async pull(controller) {
@@ -168,6 +167,7 @@ export async function openPreviewStream(
       } catch (err) {
         last = err instanceof Error ? err : new Error("no signal");
         if (last.message === "ffmpeg missing") throw last;
+      }
       }
     }
     throw last;

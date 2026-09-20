@@ -360,7 +360,7 @@ export function PagesEditor({
               <label className="grid gap-1 text-sm text-muted">Stream URL
                 <input
                   className={fieldClass()}
-                  placeholder="rtsp://10.0.10.40:8554/sub/av"
+                  placeholder="rtsp://10.0.10.40:554/sub/av"
                   value={selected.streamUrl ?? ""}
                   onChange={(e) => update((c) => {
                     const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
@@ -368,7 +368,7 @@ export function PagesEditor({
                   })}
                 />
               </label>
-              <label className="grid gap-1 text-sm text-muted">Device (empty URL → rtsp://IP:8554/sub/av, 720p)
+              <label className="grid gap-1 text-sm text-muted">Device (empty URL → rtsp://IP:554/sub/av)
                 <select className={fieldClass()} value={selected.bind.device ?? ""} onChange={(e) => update((c) => {
                   const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
                   if (w) w.bind.device = e.target.value;

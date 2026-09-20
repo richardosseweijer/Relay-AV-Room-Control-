@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.13 — 2026-09-20
+
+- Tag `v0.9.13`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Preview: bound ZowieBox uses `rtsp://IP:554/sub/av` (the box’s own URL), not :8554. ffmpeg drops `prefer_tcp` / `allowed_media_types` (those printed `ffmpeg flags` on the Pi). Tries UDP then TCP with `-rtsp_transport` only.
+
 ## 0.9.12 — 2026-09-20
 
 - Tag `v0.9.12`. Same Foyer pair (`v0.2.2`). Wire unchanged.
