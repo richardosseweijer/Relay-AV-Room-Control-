@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.22 — 2026-09-20
+
+- Tag `v0.9.22`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Pages inspector: Preview fields sit in a Stream box at the top of the side panel (sticky, scrollable). Header shows `Configurator · 0.9.22` so a stale Config tab is obvious.
+
 ## 0.9.21 — 2026-09-20
 
 - Tag `v0.9.21`. Same Foyer pair (`v0.2.2`). Wire unchanged.

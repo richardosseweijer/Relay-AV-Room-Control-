@@ -43,7 +43,7 @@ export function PagesEditor({
   const unplaced = portrait ? page.widgets.filter((w) => !w.portrait) : [];
   const selectedBox = selected ? widgetBox(selected, portrait) : null;
   return (
-    <section className="grid gap-4 lg:grid-cols-[1fr_20rem]">
+    <section className="grid gap-4 lg:grid-cols-[1fr_22rem]">
       <div>
         <div className="mb-2 flex flex-wrap items-center gap-2">
           {draft.pages.map((p) => (
@@ -209,8 +209,8 @@ export function PagesEditor({
         ) : null}
       </div>
       {selected ? (
-        <aside className="grid gap-2 rounded-xl border border-border bg-surface p-4">
-          <p className="text-xs uppercase tracking-[0.16em] text-subtle">Button setup</p>
+        <aside className="order-first grid max-h-[70dvh] gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-4 lg:order-none lg:sticky lg:top-20 lg:max-h-[calc(100dvh-8rem)]">
+          <p className="text-xs uppercase tracking-[0.16em] text-subtle">{selected.type === "preview" ? "Preview setup" : "Button setup"}</p>
           <label className="grid gap-1 text-sm text-muted">Label
             <input className={fieldClass()} value={selected.label} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.label = e.target.value; })} />
           </label>
@@ -356,7 +356,8 @@ export function PagesEditor({
             </select>
           ) : null}
           {selected.type === "preview" ? (
-            <>
+            <div className="grid gap-2 rounded-lg border border-accent/40 bg-accent/5 p-3">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Stream</p>
               <label className="grid gap-1 text-sm text-muted">Stream URL
                 <input
                   className={fieldClass()}
@@ -418,7 +419,7 @@ export function PagesEditor({
                   {draft.macros.filter((m) => m.id !== NONE_MACRO_ID).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                 </select>
               </label>
-            </>
+            </div>
           ) : null}
           <div className="flex flex-wrap gap-1">
             {colors.map((color) => (
