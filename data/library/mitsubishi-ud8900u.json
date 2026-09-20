@@ -1,0 +1,84 @@
+{
+  "specVersion": "2",
+  "device": {
+    "manufacturer": "Mitsubishi",
+    "model": "UD8900U",
+    "type": "projector",
+    "notes": "PJLink Class 1 on TCP 4352 (NETWORK menu). Default password admin — put it in Secret if the unit answers PJLINK 1. Dual 350 W lamps. Inputs: Computer 1/2, Video, S-Video, HDMI, DVI, SDI. Same PJLink map on UD8850U except SDI. Warm-up/cool-down are POWR 3/2. Serial is a different 9600 8N1 dialect (00! / 00\") — this card is LAN PJLink only."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "pjlink",
+      "port": 4352,
+      "timeoutMs": 4000
+    }
+  },
+  "auth": {
+    "type": "password",
+    "instanceFields": ["password"]
+  },
+  "pacing": { "minIntervalMs": 250, "powerOnDelayMs": 8000 },
+  "probe": {
+    "transport": "lan",
+    "payload": "%1POWR ?",
+    "success": { "type": "contains", "value": "POWR" }
+  },
+  "helpers": { "checksum": "none" },
+  "commands": [
+    { "id": "power.on", "label": "Power On", "kind": "action", "transport": "lan", "payload": "%1POWR 1" },
+    { "id": "power.off", "label": "Power Off", "kind": "action", "transport": "lan", "payload": "%1POWR 0" },
+    { "id": "mute.on", "label": "AV Mute", "kind": "action", "transport": "lan", "payload": "%1AVMT 31" },
+    { "id": "mute.off", "label": "AV Mute Off", "kind": "action", "transport": "lan", "payload": "%1AVMT 30" },
+    { "id": "input.computer1", "label": "Computer 1", "kind": "action", "transport": "lan", "payload": "%1INPT 11" },
+    { "id": "input.computer2", "label": "Computer 2", "kind": "action", "transport": "lan", "payload": "%1INPT 12" },
+    { "id": "input.video", "label": "Video", "kind": "action", "transport": "lan", "payload": "%1INPT 21" },
+    { "id": "input.svideo", "label": "S-Video", "kind": "action", "transport": "lan", "payload": "%1INPT 22" },
+    { "id": "input.hdmi", "label": "HDMI", "kind": "action", "transport": "lan", "payload": "%1INPT 31" },
+    { "id": "input.dvi", "label": "DVI", "kind": "action", "transport": "lan", "payload": "%1INPT 32" },
+    { "id": "input.sdi", "label": "SDI", "kind": "action", "transport": "lan", "payload": "%1INPT 33" }
+  ],
+  "feedback": [
+    {
+      "id": "power.state",
+      "label": "Power",
+      "kind": "enum",
+      "values": ["off", "on", "cooling", "warmup"],
+      "transport": "lan",
+      "mode": "poll",
+      "query": "%1POWR ?",
+      "pollMs": 4000,
+      "parse": { "type": "regex", "pattern": "POWR=([0-3])", "map": { "0": "off", "1": "on", "2": "cooling", "3": "warmup" } }
+    },
+    {
+      "id": "input.current",
+      "label": "Input",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "%1INPT ?",
+      "pollMs": 4000,
+      "parse": { "type": "regex", "pattern": "INPT=(\\d+)", "map": { "11": "Computer 1", "12": "Computer 2", "21": "Video", "22": "S-Video", "31": "HDMI", "32": "DVI", "33": "SDI" } }
+    },
+    {
+      "id": "mute.state",
+      "label": "AV Mute",
+      "kind": "enum",
+      "values": ["off", "on"],
+      "transport": "lan",
+      "mode": "poll",
+      "query": "%1AVMT ?",
+      "pollMs": 4000,
+      "parse": { "type": "regex", "pattern": "AVMT=(3[01])", "map": { "30": "off", "31": "on" } }
+    },
+    {
+      "id": "lamp1.hours",
+      "label": "Lamp 1 hours",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "%1LAMP ?",
+      "pollMs": 30000,
+      "parse": { "type": "regex", "pattern": "LAMP=(\\d+)" }
+    }
+  ]
+}

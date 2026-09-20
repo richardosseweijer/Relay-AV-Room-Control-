@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.34 — 2026-09-20
+
+- Tag `v0.9.34`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Library: Mitsubishi UD8900U PJLink Class 1 (TCP 4352). Inputs Computer 1/2, Video, S-Video, HDMI, DVI, SDI. Default password `admin`.
+
 ## 0.9.33 — 2026-09-20
 
 - Tag `v0.9.33`. Same Foyer pair (`v0.2.2`). Wire unchanged.

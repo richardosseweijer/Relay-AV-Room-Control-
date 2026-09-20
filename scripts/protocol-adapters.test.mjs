@@ -103,6 +103,7 @@ test("shipped drivers keep distinct LAN protocols", () => {
   assert.ok(got.ipmidi?.includes("ipmidi.json"));
   assert.ok(got["rtp-midi"]?.includes("rtp-midi.json"));
   assert.ok(got.pjlink?.includes("pjlink-projector.json"));
+  assert.ok(got.pjlink?.includes("mitsubishi-ud8900u.json"));
   assert.equal(got.cast?.includes("samsung-qe50q65t.json") || false, false);
 });
 
@@ -201,4 +202,19 @@ test("MPS 602 polls ESC 0LS CR and parses input signal bits", () => {
   assert.equal(mps.commands.find((c) => c.id === "mic.mute.off").payload, "0M");
   assert.equal(mps.feedback.find((f) => f.id === "mic.volume.level").query, "16G");
   assert.equal(mps.feedback.find((f) => f.id === "mic.mute.state").query, "M");
+});
+
+test("Mitsubishi UD8900U is PJLink Class 1 with the manual input map", () => {
+  const spec = JSON.parse(fs.readFileSync("data/library/mitsubishi-ud8900u.json", "utf8"));
+  assert.equal(spec.transports.lan.protocol, "pjlink");
+  assert.equal(spec.transports.lan.port, 4352);
+  assert.equal(spec.commands.find((c) => c.id === "power.on").payload, "%1POWR 1");
+  assert.equal(spec.commands.find((c) => c.id === "input.hdmi").payload, "%1INPT 31");
+  assert.equal(spec.commands.find((c) => c.id === "input.dvi").payload, "%1INPT 32");
+  assert.equal(spec.commands.find((c) => c.id === "input.sdi").payload, "%1INPT 33");
+  const input = spec.feedback.find((f) => f.id === "input.current");
+  assert.equal("11 12 21 22 31 32 33".split(" ").every((code) => input.parse.map[code]), true);
+  const power = spec.feedback.find((f) => f.id === "power.state");
+  assert.equal("%1POWR=1".match(new RegExp(power.parse.pattern))?.[1], "1");
+  assert.equal(power.parse.map["1"], "on");
 });

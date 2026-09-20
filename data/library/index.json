@@ -69,6 +69,13 @@
     "type": "other",
     "notes": "Set Interface to COM1 / /dev/ttyUSB0."
   },
+  "mitsubishi-ud8900u.json": {
+    "filename": "mitsubishi-ud8900u.json",
+    "manufacturer": "Mitsubishi",
+    "model": "UD8900U",
+    "type": "projector",
+    "notes": "PJLink Class 1 on TCP 4352. Default password admin if PJLINK 1. Inputs: Computer 1/2, Video, S-Video, HDMI, DVI, SDI. UD8850U is the same minus SDI."
+  },
   "osc-udp.json": {
     "filename": "osc-udp.json",
     "manufacturer": "Generic",
