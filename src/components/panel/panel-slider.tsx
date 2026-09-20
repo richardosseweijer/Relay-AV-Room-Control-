@@ -3,25 +3,25 @@ import type { Widget, WidgetColor } from "@/lib/control/types";
 import { cn } from "@/lib/utils";
 
 const TONE: Record<WidgetColor, string> = {
-  steel: "border-steel/40 bg-steel/15",
-  sage: "border-sage/40 bg-sage/15",
-  clay: "border-clay/40 bg-clay/15",
+  steel: "border-steel/40 bg-steel/12",
+  sage: "border-sage/40 bg-sage/12",
+  clay: "border-clay/40 bg-clay/12",
   fog: "border-fog/35 bg-fog/10",
   ink: "border-border bg-raised/80",
-  ocean: "border-ocean/40 bg-ocean/15",
-  pine: "border-pine/40 bg-pine/15",
-  rust: "border-rust/40 bg-rust/15",
-  sand: "border-sand/40 bg-sand/15",
-  slate: "border-slate/40 bg-slate/15",
-  rose: "border-rose/40 bg-rose/15",
+  ocean: "border-ocean/40 bg-ocean/12",
+  pine: "border-pine/40 bg-pine/12",
+  rust: "border-rust/40 bg-rust/12",
+  sand: "border-sand/40 bg-sand/12",
+  slate: "border-slate/40 bg-slate/12",
+  rose: "border-rose/40 bg-rose/12",
 };
 
-const MARK: Record<WidgetColor, string> = {
+const FILL: Record<WidgetColor, string> = {
   steel: "bg-steel",
   sage: "bg-sage",
   clay: "bg-clay",
   fog: "bg-fog",
-  ink: "bg-fg",
+  ink: "bg-fg/80",
   ocean: "bg-ocean",
   pine: "bg-pine",
   rust: "bg-rust",
@@ -30,8 +30,7 @@ const MARK: Record<WidgetColor, string> = {
   rose: "bg-rose",
 };
 
-/** Keep 0 / 100 off the tile edge. */
-const PAD = 22;
+const KNOB = 28;
 
 function snap(min: number, max: number, value: number) {
   const n = Math.min(max, Math.max(min, value));
@@ -62,8 +61,9 @@ export function PanelSlider({
   function fromPoint(clientX: number, clientY: number) {
     const box = rail.current?.getBoundingClientRect();
     if (!box || span <= 0) return value;
-    const start = vertical ? box.top + PAD : box.left + PAD;
-    const size = Math.max(1, (vertical ? box.height : box.width) - PAD * 2);
+    const inset = KNOB / 2;
+    const start = vertical ? box.top + inset : box.left + inset;
+    const size = Math.max(1, (vertical ? box.height : box.width) - KNOB);
     const t = vertical ? 1 - (clientY - start) / size : (clientX - start) / size;
     return snap(min, max, min + Math.min(1, Math.max(0, t)) * span);
   }
@@ -83,17 +83,25 @@ export function PanelSlider({
     if (e.key === "End") { e.preventDefault(); onSlide(max, true); }
   }
 
-  const travel = `calc(${PAD}px + (100% - ${PAD * 2}px) * ${pct / 100})`;
-  const cross = vertical ? { top: `calc(100% - ${travel})` } : { left: travel };
+  const fill = `calc(${KNOB / 2}px + (100% - ${KNOB}px) * ${pct / 100})`;
 
   return (
     <div
       className={cn(
-        "relative flex min-h-0 min-w-0 h-full overflow-hidden rounded-2xl border",
+        "flex min-h-0 min-w-0 h-full rounded-2xl border px-4 py-3",
+        vertical ? "flex-col items-center gap-2" : "flex-col justify-between gap-3",
         TONE[widget.color],
         disabled && "opacity-45",
       )}
     >
+      {vertical ? (
+        <span className="text-xl font-medium tabular-nums tracking-tight">{value}</span>
+      ) : (
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span>
+          <span className="text-xl font-medium tabular-nums tracking-tight">{value}</span>
+        </div>
+      )}
       <div
         ref={rail}
         role="slider"
@@ -109,38 +117,29 @@ export function PanelSlider({
         onPointerUp={(e) => pointer(e, true)}
         onPointerCancel={(e) => pointer(e, true)}
         onKeyDown={key}
-        className={cn("absolute inset-0 touch-none select-none", vertical ? "cursor-ns-resize" : "cursor-ew-resize")}
+        className={cn(
+          "relative min-h-0 touch-none select-none overflow-hidden rounded-full border-2 border-fg/80 bg-[#2a2a32] shadow-[inset_0_1px_3px_rgb(0_0_0_/_0.45)]",
+          vertical ? "w-9 flex-1 cursor-ns-resize" : "mx-1 h-9 w-[calc(100%-0.5rem)] cursor-ew-resize",
+        )}
       >
         <div
-          className="absolute rounded-full bg-fg/25"
+          className={cn("absolute rounded-full", FILL[widget.color])}
           style={vertical
-            ? { top: PAD, bottom: PAD, left: "50%", width: 2, transform: "translateX(-50%)" }
-            : { left: PAD, right: PAD, top: "50%", height: 2, transform: "translateY(-50%)" }}
+            ? { left: 0, right: 0, bottom: 0, height: fill }
+            : { top: 0, bottom: 0, left: 0, width: fill }}
         />
         <div
-          className={cn("absolute bg-fg/35", vertical ? "left-4 right-4 h-px" : "top-4 bottom-4 w-px")}
-          style={cross}
+          className="pointer-events-none absolute inset-0 rounded-full"
+          style={{ background: "linear-gradient(to bottom, rgb(255 255 255 / 0.22), transparent 42%, rgb(0 0 0 / 0.12))" }}
         />
         <div
-          className={cn("absolute size-2.5 rounded-full shadow-[0_0_0_3px_rgb(0_0_0_/_0.25)]", MARK[widget.color])}
+          className="absolute rounded-full bg-fg shadow-[0_1px_4px_rgb(0_0_0_/_0.4)]"
           style={vertical
-            ? { left: "50%", top: `calc(100% - ${travel})`, transform: "translate(-50%, -50%)" }
-            : { top: "50%", left: travel, transform: "translate(-50%, -50%)" }}
+            ? { left: "50%", width: KNOB, height: KNOB, top: `calc(100% - ${fill})`, transform: "translate(-50%, -50%)" }
+            : { top: "50%", width: KNOB, height: KNOB, left: fill, transform: "translate(-50%, -50%)" }}
         />
       </div>
-      <div className="pointer-events-none relative z-[1] flex h-full w-full flex-col justify-between px-3 py-2.5">
-        {vertical ? (
-          <>
-            <span className="self-center text-xl font-medium tabular-nums tracking-tight">{value}</span>
-            <span className="self-center text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span>
-          </>
-        ) : (
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span>
-            <span className="text-xl font-medium tabular-nums tracking-tight">{value}</span>
-          </div>
-        )}
-      </div>
+      {vertical ? <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span> : null}
     </div>
   );
 }

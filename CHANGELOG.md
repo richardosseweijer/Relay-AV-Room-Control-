@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.28 — 2026-09-20
+
+- Tag `v0.9.28`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Slider is a capsule bar: widget-colour fill, dark remainder, white knob. Inset on the tile; knob stays inside the pill at 0 and max. Upright is the same capsule stood on end.
+
 ## 0.9.27 — 2026-09-20
 
 - Tag `v0.9.27`. Same Foyer pair (`v0.2.2`). Wire unchanged.
