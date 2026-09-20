@@ -345,6 +345,15 @@ export function PagesEditor({
               <label className="grid gap-1 text-xs text-muted">Max
                 <input className={fieldClass()} inputMode="decimal" placeholder="max" value={selected.max == null ? "" : String(selected.max)} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.max = e.target.value; })} />
               </label>
+              <label className="grid gap-1 text-sm text-muted">Direction
+                <select className={fieldClass()} value={selected.sliderDir === "vertical" ? "vertical" : "horizontal"} onChange={(e) => update((c) => {
+                  const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
+                  if (w) w.sliderDir = e.target.value === "vertical" ? "vertical" : "horizontal";
+                })}>
+                  <option value="horizontal">Horizontal</option>
+                  <option value="vertical">Upright</option>
+                </select>
+              </label>
               <label className="grid gap-1 text-sm text-muted">Follow highlight group
                 <input className={fieldClass()} placeholder="scene" value={selected.latchGroup ?? ""} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.latchGroup = e.target.value || null; })} />
               </label>

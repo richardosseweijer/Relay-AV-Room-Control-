@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.25 — 2026-09-20
+
+- Tag `v0.9.25`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Slider tiles: filled track in the widget colour, round knob. Pages inspector **Direction**: Horizontal or Upright (mixer fader). Old rooms stay horizontal.
+
 ## 0.9.24 — 2026-09-20
 
 - Tag `v0.9.24`. Same Foyer pair (`v0.2.2`). Wire unchanged.

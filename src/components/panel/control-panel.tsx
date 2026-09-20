@@ -10,6 +10,7 @@ import { nextScheduled } from "@/lib/control/schedule";
 import { Button } from "@/components/ui/button";
 import { WidgetShell } from "./widget-face";
 import { PreviewTile } from "./preview-tile";
+import { PanelSlider } from "./panel-slider";
 import { applyRoomSession, clearPanelToken, PANEL_TOKEN_KEY } from "@/lib/control/panel-token";
 import { applyRoomTheme } from "@/lib/theme";
 
@@ -623,7 +624,9 @@ export function ControlPanel() {
             : readFeedback(snap, widget.bind.device, widget.bind.feedback);
           const lit = widgetActive(snap, widget, confirm?.id === widget.id);
           const waiting = busyId === widget.id;
-          const wide = widget.type === "slider" || widget.type === "schedule" || widget.type === "label" || widget.type === "preview" || widget.w >= grid.cols;
+          const wide = (widget.type === "slider" && widget.sliderDir === "vertical")
+            ? widget.w >= grid.cols
+            : widget.type === "slider" || widget.type === "schedule" || widget.type === "label" || widget.type === "preview" || widget.w >= grid.cols;
           if (widget.type === "slider") {
             const num = Number(value || 0);
             const min = resolveBoundNumber(widget.min, snap.vars ?? {}, 0, snap.config.variables);
@@ -636,23 +639,16 @@ export function ControlPanel() {
                 key={widget.id}
                 data-wide={wide}
                 data-type={widget.type}
-                className="flex min-h-0 min-w-0 h-full flex-col justify-between gap-3 rounded-2xl border border-border/70 bg-surface/80 px-4 py-3"
+                className="min-h-0 min-w-0 h-full"
                 style={gridStyle(widget)}
               >
-                <div className="flex flex-wrap items-center justify-between gap-2 [overflow-wrap:anywhere]">
-                  <span className="text-[11px] tracking-[0.16em] uppercase text-muted">{widget.label}</span>
-                  <span className="text-2xl font-medium tabular-nums tracking-tight">{clamped}</span>
-                </div>
-                <input
-                  type="range"
-                  disabled={!on}
+                <PanelSlider
+                  widget={widget}
                   min={min}
                   max={max}
                   value={clamped}
-                  onChange={(e) => slide(widget, Number(e.target.value))}
-                  onPointerUp={(e) => slide(widget, Number((e.target as HTMLInputElement).value), true)}
-                  onPointerCancel={(e) => slide(widget, Number((e.target as HTMLInputElement).value), true)}
-                  className="panel-slider w-full shrink-0"
+                  disabled={!on}
+                  onSlide={(next, flush) => slide(widget, next, flush)}
                 />
               </div>
             );
