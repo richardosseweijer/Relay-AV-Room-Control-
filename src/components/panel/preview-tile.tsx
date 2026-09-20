@@ -97,9 +97,10 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
     if (!res.ok || !res.body) {
       let msg = res.status === 503 ? "ffmpeg?" : "no signal";
       try {
-        const body = await res.json() as { message?: string };
+        const body = await res.json() as { message?: string; steps?: string[] };
         if (res.status === 429) return;
-        if (body?.message && body.message.length <= 40) msg = body.message === "ffmpeg missing" ? "ffmpeg?" : body.message;
+        if (body?.steps?.length) msg = body.steps.join("\n");
+        else if (body?.message) msg = body.message === "ffmpeg missing" ? "ffmpeg?" : body.message;
       } catch { /* keep msg */ }
       setErr(msg);
       return;
@@ -210,7 +211,7 @@ export function PreviewTile({
         {widget.label || "Preview"}
       </span>
       {err && !playing ? (
-        <span className="absolute inset-0 z-10 flex items-center justify-center text-sm text-muted">{err}</span>
+        <span className="absolute inset-0 z-10 flex items-center justify-center whitespace-pre-wrap px-3 text-center text-[11px] leading-snug text-muted">{err}</span>
       ) : null}
     </button>
   );

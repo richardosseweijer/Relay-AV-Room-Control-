@@ -1,6 +1,6 @@
 /** Optional. Delete this route to drop the 720p preview stream. */
 import { createFileRoute } from "@tanstack/react-router";
-import { openPreviewStream, previewUrlForWidget } from "@/lib/control/preview-grab";
+import { openPreviewStream, previewStepsOf, previewUrlForWidget } from "@/lib/control/preview-grab";
 import { previewBindAddrs } from "@/lib/control/nics";
 import { ensureLoaded, memory } from "@/lib/control/store.server";
 import { validToken } from "@/lib/control/session.server";
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/api/preview")({
           return Response.json({ ok: false, message: "Not a preview" }, { status: 404 });
         }
         const parsed = previewUrlForWidget(widget, mem.config.devices);
-        if (!parsed.ok) return Response.json({ ok: false, message: parsed.message }, { status: 400 });
+        if (!parsed.ok) return Response.json({ ok: false, message: parsed.message, steps: [parsed.message] }, { status: 400 });
         try {
           const dest = new URL(parsed.href).hostname;
           const body = await openPreviewStream(parsed.href, request.signal, previewBindAddrs(dest, mem.config));
@@ -37,8 +37,9 @@ export const Route = createFileRoute("/api/preview")({
           });
         } catch (err) {
           const message = err instanceof Error ? err.message : "grab failed";
+          const steps = previewStepsOf(err);
           const status = message === "ffmpeg missing" ? 503 : message === "busy" ? 429 : 502;
-          return Response.json({ ok: false, message }, { status });
+          return Response.json({ ok: false, message, steps }, { status });
         }
       },
     },

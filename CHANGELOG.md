@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.14 — 2026-09-20
+
+- Tag `v0.9.14`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Preview: drop `-localaddr` unless that ffmpeg lists it, drop `separate_moof` / `reset_timestamps` / `-nostdin` (those were `ffmpeg flags` on the Pi). Tile lists steps: url, ffmpeg version, encoder host:port open/closed, each UDP/TCP try with the rejected option name.
+
 ## 0.9.13 — 2026-09-20
 
 - Tag `v0.9.13`. Same Foyer pair (`v0.2.2`). Wire unchanged.

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { openPreviewStream, parsePreviewUrl, previewUrlForWidget } from "../src/lib/control/preview-grab.ts";
+import { openPreviewStream, parsePreviewUrl, previewFfmpegArgs, previewUrlForWidget } from "../src/lib/control/preview-grab.ts";
 
 test("preview URL allowlist", () => {
   assert.equal(parsePreviewUrl("rtsp://10.0.10.40:8554/sub/av").ok, true);
@@ -52,10 +52,13 @@ test("stream reports ffmpeg missing when binary is off PATH", async () => {
   }
 });
 
-test("rtsp tries UDP then TCP; no prefer_tcp extras", () => {
-  const src = fs.readFileSync("src/lib/control/preview-grab.ts", "utf8");
-  assert.ok(src.includes('["udp", "tcp"]'));
-  assert.ok(src.includes("-rtsp_transport"));
-  assert.equal(src.includes("prefer_tcp"), false);
-  assert.equal(src.includes("allowed_media_types"), false);
+test("ffmpeg args stay on flags every static build has", () => {
+  const args = previewFfmpegArgs("rtsp://10.0.25.242:554/sub/av", "udp").join(" ");
+  assert.ok(args.includes("-rtsp_transport udp"));
+  assert.equal(args.includes("separate_moof"), false);
+  assert.equal(args.includes("reset_timestamps"), false);
+  assert.equal(args.includes("-nostdin"), false);
+  assert.equal(args.includes("-localaddr"), false);
+  const bound = previewFfmpegArgs("rtsp://10.0.25.242:554/sub/av", "tcp", "10.0.25.10").join(" ");
+  assert.ok(bound.includes("-localaddr 10.0.25.10"));
 });
