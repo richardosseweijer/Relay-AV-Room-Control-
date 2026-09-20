@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.16 — 2026-09-20
+
+- Tag `v0.9.16`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Preview: if `libx264` is present, remux is now `ultrafast` / `zerolatency` / GOP 10 (~0.3 s at 30 fps) at 1.2 Mbps. Copy if that encoder is missing. Tile keeps ~80 ms. Still four streams max. i3 + LAN has the CPU; this is the remaining delay that copy could not cut.
+
 ## 0.9.15 — 2026-09-20
 
 - Tag `v0.9.15`. Same Foyer pair (`v0.2.2`). Wire unchanged.
