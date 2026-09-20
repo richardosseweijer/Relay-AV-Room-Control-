@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type TouchEvent } from "react";
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { Widget, WidgetColor } from "@/lib/control/types";
 import { cn } from "@/lib/utils";
 
@@ -64,7 +64,7 @@ export function PanelSlider({
       else if (faceEl) setAutoVert(faceEl.clientHeight > faceEl.clientWidth);
       if (railEl) {
         const box = railEl.getBoundingClientRect();
-        setDim({ w: box.width, h: box.height });
+        setDim((prev) => (prev.w === box.width && prev.h === box.height ? prev : { w: box.width, h: box.height }));
       }
     };
     read();
@@ -79,7 +79,7 @@ export function PanelSlider({
   const thick = vertical ? dim.w : dim.h;
   const travel = Math.max(0, (vertical ? dim.h : dim.w) - thick);
   const offset = (pct / 100) * travel;
-  const fill = offset + thick;
+  const fill = offset + thick / 2;
 
   function fromPoint(clientX: number, clientY: number) {
     const box = rail.current?.getBoundingClientRect();
@@ -93,16 +93,9 @@ export function PanelSlider({
 
   function pointer(e: PointerEvent<HTMLDivElement>, flush: boolean) {
     if (disabled) return;
+    e.preventDefault();
     if (e.type === "pointerdown") e.currentTarget.setPointerCapture(e.pointerId);
     onSlide(fromPoint(e.clientX, e.clientY), flush);
-  }
-
-  function touch(e: TouchEvent<HTMLDivElement>, flush: boolean) {
-    if (disabled) return;
-    const point = e.changedTouches[0] ?? e.touches[0];
-    if (!point) return;
-    e.preventDefault();
-    onSlide(fromPoint(point.clientX, point.clientY), flush);
   }
 
   function key(e: KeyboardEvent) {
@@ -117,45 +110,39 @@ export function PanelSlider({
   return (
     <div
       ref={face}
+      role="slider"
+      tabIndex={disabled ? -1 : 0}
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={value}
+      aria-orientation={vertical ? "vertical" : "horizontal"}
+      aria-label={widget.label}
+      aria-disabled={disabled || undefined}
+      onPointerDown={(e) => pointer(e, false)}
+      onPointerMove={(e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) pointer(e, false); }}
+      onPointerUp={(e) => pointer(e, true)}
+      onPointerCancel={(e) => pointer(e, true)}
+      onKeyDown={key}
       className={cn(
-        "flex min-h-0 min-w-0 h-full rounded-2xl border px-4 py-3",
-        vertical ? "flex-col items-center gap-2" : "flex-col justify-between gap-3",
+        "flex min-h-0 min-w-0 h-full touch-none select-none rounded-2xl border px-4 py-3",
+        vertical ? "cursor-ns-resize flex-col items-center gap-2" : "cursor-ew-resize flex-col justify-between gap-3",
         TONE[widget.color],
         disabled && "opacity-45",
       )}
     >
       {vertical ? (
-        <span className="text-xl font-medium tabular-nums tracking-tight">{value}</span>
+        <span className="pointer-events-none text-xl font-medium tabular-nums tracking-tight">{value}</span>
       ) : (
-        <div className="flex items-baseline justify-between gap-2">
+        <div className="pointer-events-none flex items-baseline justify-between gap-2">
           <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span>
           <span className="text-xl font-medium tabular-nums tracking-tight">{value}</span>
         </div>
       )}
       <div
         ref={rail}
-        role="slider"
-        tabIndex={disabled ? -1 : 0}
-        aria-valuemin={min}
-        aria-valuemax={max}
-        aria-valuenow={value}
-        aria-orientation={vertical ? "vertical" : "horizontal"}
-        aria-label={widget.label}
-        aria-disabled={disabled || undefined}
-        onPointerDown={(e) => pointer(e, false)}
-        onPointerMove={(e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) pointer(e, false); }}
-        onPointerUp={(e) => pointer(e, true)}
-        onPointerCancel={(e) => pointer(e, true)}
-        onTouchStart={(e) => touch(e, false)}
-        onTouchMove={(e) => touch(e, false)}
-        onTouchEnd={(e) => touch(e, true)}
-        onKeyDown={key}
-        className={cn(
-          "relative min-h-0 touch-none select-none",
-          vertical ? "w-11 flex-1 cursor-ns-resize" : "h-11 w-full cursor-ew-resize",
-        )}
+        className={cn("pointer-events-none relative min-h-0", vertical ? "w-11 flex-1" : "h-11 w-full")}
       >
-        <div className="absolute inset-0 overflow-hidden rounded-full border-2 border-fg/75 bg-[#2a2a32] [transform:translateZ(0)]">
+        <div className="absolute inset-0 overflow-hidden rounded-full border-2 border-fg/75 bg-[#2a2a32]">
           <div
             className={cn("absolute", FILL[widget.color])}
             style={vertical
@@ -163,18 +150,18 @@ export function PanelSlider({
               : { top: 0, bottom: 0, left: 0, width: fill }}
           />
           <div
-            className="pointer-events-none absolute inset-0 rounded-full"
+            className="absolute inset-0 rounded-full"
             style={{ background: "linear-gradient(to bottom, rgb(255 255 255 / 0.22), transparent 42%, rgb(0 0 0 / 0.14))" }}
           />
         </div>
         <div
-          className="pointer-events-none absolute rounded-full bg-fg shadow-[0_1px_5px_rgb(0_0_0_/_0.45)]"
+          className="absolute rounded-full bg-fg shadow-[0_1px_5px_rgb(0_0_0_/_0.45)]"
           style={vertical
             ? { left: 0, width: thick, height: thick, top: Math.max(0, dim.h - thick - offset) }
             : { top: 0, width: thick, height: thick, left: offset }}
         />
       </div>
-      {vertical ? <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span> : null}
+      {vertical ? <span className="pointer-events-none text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span> : null}
     </div>
   );
 }

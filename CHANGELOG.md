@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.33 — 2026-09-20
+
+- Tag `v0.9.33`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Slider: drag on the whole tile again (capsule was the only hit target). Fill meets the knob centre, not the far edge. Pointer-only — no touch handlers fighting Chrome.
+
 ## 0.9.32 — 2026-09-20
 
 - Tag `v0.9.32`. Same Foyer pair (`v0.2.2`). Wire unchanged.
