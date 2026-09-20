@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.26 — 2026-09-20
+
+- Tag `v0.9.26`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Landscape panel uses the full window width (dropped `max-w-3xl` gutters).
+
 ## 0.9.25 — 2026-09-20
 
 - Tag `v0.9.25`. Same Foyer pair (`v0.2.2`). Wire unchanged.

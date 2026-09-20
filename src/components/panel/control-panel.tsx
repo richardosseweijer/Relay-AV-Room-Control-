@@ -579,7 +579,7 @@ export function ControlPanel() {
         setDim(false);
       }}
     >
-      <header className={`mx-auto mb-3 flex w-full shrink-0 items-end justify-between gap-3 ${portrait ? "max-w-none" : "max-w-3xl"}`}>
+      <header className="mb-3 flex w-full shrink-0 items-end justify-between gap-3">
         <div>
           <p className="text-[11px] tracking-[0.22em] uppercase text-subtle">
             {clock.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -606,7 +606,7 @@ export function ControlPanel() {
       ) : null}
 
       <section
-        className={`panel-grid mx-auto grid min-h-0 w-full flex-1 gap-3 overflow-auto ${portrait ? "max-w-none" : "max-w-3xl"}`}
+        className="panel-grid grid min-h-0 w-full flex-1 gap-3 overflow-auto"
         style={{
           gridTemplateColumns: `repeat(${grid.cols}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${grid.rows}, minmax(0, 1fr))`,
