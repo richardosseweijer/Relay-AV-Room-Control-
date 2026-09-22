@@ -223,7 +223,7 @@ export type DriverFeedback = {
 
 export type PanelAccess = "open" | "pin";
 /** "preview" is the optional 720p RTSP tile (ffmpeg remux). Drop it with the preview files. */
-export type WidgetType = "button" | "toggle" | "slider" | "label" | "status" | "schedule" | "preview";
+export type WidgetType = "button" | "slider" | "label" | "status" | "schedule" | "preview";
 export type BindKind = "command" | "feedback" | "macro" | "gotoPage" | "range" | "variable";
 export type FailKind = "macro" | "gotoPage" | "none";
 export type WidgetColor = "steel" | "sage" | "clay" | "fog" | "ink" | "ocean" | "pine" | "rust" | "sand" | "slate" | "rose";
