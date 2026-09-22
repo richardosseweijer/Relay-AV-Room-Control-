@@ -7,7 +7,7 @@ Keep this file short. If it grows past ~150 lines, cut history — do not append
 
 ## Product
 
-Relay **0.9.35** (beta). Single-process LAN AV room controller.
+Relay **0.9.38** (beta). Single-process LAN AV room controller.
 TanStack Start + Vite. Dev `0.0.0.0:8080` (`npm run dev`). Prod `0.0.0.0:8081` (`npm start`).
 Not a grok.me / Vercel host — those have no writable `data/`.
 
@@ -18,10 +18,10 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 
 | Job | Files |
 | --- | --- |
-| Send / parse / sockets | `src/lib/control/engine.ts` (barrel), `engine-policy.ts`, `engine-payload.ts` |
+| Send / parse / sockets | `engine.ts` (orchestration façade), `engine-wire.ts` (TCP/pace/encode), `engine-lan.ts` (LAN dispatch), `engine-host.ts` (local/host), `engine-policy.ts`, `engine-payload.ts` |
 | Protocol adapters | same folder: `ws.ts`, `cast.ts`, `pjlink.ts`, `wol.ts`, `osc.ts`, `sacn.ts`, `udp.ts`, `ipmidi.ts`, `rtp-midi.ts`, `midi.ts`, `midi-in.ts`, `http-client.ts`, `gateway.ts` |
 | Persist / boot / clocks | `src/lib/control/store.server.ts`, `scripts/write-atomic.mjs` |
-| Panel / config RPCs | `src/lib/control/actions.ts` |
+| Panel / config RPCs | `actions.ts` (barrel), `actions-auth.ts`, `actions-config.ts`, `actions-runtime.ts`, `actions-host.ts`, `actions-context.ts` (`loadControl`) |
 | Types / empty room | `types.ts`, `defaults.ts`, `schema.ts`, `vars.ts` |
 | PIN / session | `pins.ts`, `pins.server.ts`, `session.server.ts`, `session-expire.ts`, `panel-token.ts`, `panel-unlock-rule.ts` |
 | Occupancy / Foyer GET | `peer-payload.ts`, `peer-auth.ts`, `src/routes/api/peer.ts`, `FOYER-RELAY.md` |
@@ -44,7 +44,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 
 Do not grep the whole repo to “get context.” If the table above is missing a file, ask.
 
-## Live foot-guns (still true at 0.9.35)
+## Live foot-guns (still true at 0.9.38)
 
 - Occupancy var is `0` closed, `1` open, `2` in-session, `3` DND. Foyer GET still reads the **string** field. Save-all must not apply `draft.room.occupancy`.
 - Unsigned `GET /api/peer` is TCP loopback only (real `remoteAddress`, not `Host`). HMAC GET is the full snapshot.
@@ -65,7 +65,6 @@ Do not grep the whole repo to “get context.” If the table above is missing a
 | 14 | Secrets file holds peer secret, device tokens, session secrets |
 | 15 | No TLS; HTTP on `0.0.0.0` |
 | 16 | Config tab labels are raw ids |
-| 36 | `/api/room` rate-limit treats missing peer as loopback |
 | 37 | PIN lockout is process memory, one counter per gate |
 | 38 | Trigger engine still has false-path / hold / delay |
 | 39 | Occupancy dual-write leftover (`busy` alias, docs drift) |
