@@ -4,16 +4,19 @@
     "manufacturer": "Biamp",
     "model": "Nexia PM",
     "type": "mixer",
-    "notes": "NTP on Telnet TCP 23 (LF after each command). Static IP — no DHCP. In Nexia software set Instance ID Tags: MicIn = 4-ch mic/line block, LineIn = 12-ch stereo line block, LineOut = 6-ch stereo out block. Device ID 1. Levels are dB (−100 to +12). Preset recall uses the compiler preset number. RS-232 default 38400 8N1, same strings. Disable telnet echo if GET replies look doubled (IAC WON'T ECHO is sent on connect)."
+    "notes": "NTP Telnet TCP 23 or RS-232 38400 8N1; LF; same strings on both. Static IP. In Nexia software tag Instance IDs: MicIn = PM Input 4 Channel, LineIn = PM Stereo In 12 Channel, LineOut = PM Stereo Out 6 Channel. Device ID 1. Mic gain 0–66 dB step 6; line gain 0/6/12/18; levels −100 to +12 dB; out FS 0/6/12/18/24 dBu. Line 1–12 are the six RCA pairs (1L/1R…6L/6R). Presets are 1001+. GETD polls; parse takes the last number so telnet echo does not steal the channel index. Auto mixer / matrix / EQ are layout-specific — tag those blocks and ask for a follow-up. Omits CLEAR/RESET/REBOOT and SET IP."
   },
   "transports": {
     "lan": {
       "protocol": "tcp",
       "port": 23,
       "encoding": "ascii",
-      "lineEnding": "\n",
+      "lineEnding": "\\n",
       "timeoutMs": 2500,
-      "session": { "keepMs": 20000, "reply": "\u00ff\u00fe\u0001" }
+      "session": {
+        "keepMs": 20000,
+        "reply": "\u00ff\u00fe\u0001"
+      }
     },
     "rs232": {
       "baud": 38400,
@@ -21,79 +24,3174 @@
       "parity": "none",
       "stopBits": 1,
       "encoding": "ascii",
-      "lineEnding": "\n",
+      "lineEnding": "\\n",
       "timeoutMs": 2000
     }
   },
-  "auth": { "type": "none", "instanceFields": [] },
-  "pacing": { "minIntervalMs": 80 },
-  "probe": { "transport": "lan", "payload": "GET 0 IPADDR", "success": { "type": "regex", "pattern": "\\d+\\.\\d+\\.\\d+\\.\\d+" } },
-  "helpers": { "checksum": "none" },
+  "auth": {
+    "type": "none",
+    "instanceFields": []
+  },
+  "pacing": {
+    "minIntervalMs": 100
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": "GETD 0 IPADDR",
+    "success": {
+      "type": "regex",
+      "pattern": "\\d+\\.\\d+\\.\\d+\\.\\d+"
+    }
+  },
+  "helpers": {
+    "checksum": "none"
+  },
   "commands": [
-    { "id": "mic.1.level.set", "label": "Mic 1 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 INPLVL MicIn 1 {value}" },
-    { "id": "mic.2.level.set", "label": "Mic 2 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 INPLVL MicIn 2 {value}" },
-    { "id": "mic.3.level.set", "label": "Mic 3 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 INPLVL MicIn 3 {value}" },
-    { "id": "mic.4.level.set", "label": "Mic 4 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 INPLVL MicIn 4 {value}" },
-    { "id": "mic.1.mute.on", "label": "Mute mic 1", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTE MicIn 1 1" },
-    { "id": "mic.1.mute.off", "label": "Unmute mic 1", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTE MicIn 1 0" },
-    { "id": "mic.2.mute.on", "label": "Mute mic 2", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTE MicIn 2 1" },
-    { "id": "mic.2.mute.off", "label": "Unmute mic 2", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTE MicIn 2 0" },
-    { "id": "mic.3.mute.on", "label": "Mute mic 3", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTE MicIn 3 1" },
-    { "id": "mic.3.mute.off", "label": "Unmute mic 3", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTE MicIn 3 0" },
-    { "id": "mic.4.mute.on", "label": "Mute mic 4", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTE MicIn 4 1" },
-    { "id": "mic.4.mute.off", "label": "Unmute mic 4", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTE MicIn 4 0" },
-    { "id": "mic.1.phantom.on", "label": "Phantom 1 on", "kind": "action", "transport": "lan", "payload": "SET 1 PHPWR MicIn 1 1" },
-    { "id": "mic.1.phantom.off", "label": "Phantom 1 off", "kind": "action", "transport": "lan", "payload": "SET 1 PHPWR MicIn 1 0" },
-    { "id": "mic.2.phantom.on", "label": "Phantom 2 on", "kind": "action", "transport": "lan", "payload": "SET 1 PHPWR MicIn 2 1" },
-    { "id": "mic.2.phantom.off", "label": "Phantom 2 off", "kind": "action", "transport": "lan", "payload": "SET 1 PHPWR MicIn 2 0" },
-    { "id": "mic.3.phantom.on", "label": "Phantom 3 on", "kind": "action", "transport": "lan", "payload": "SET 1 PHPWR MicIn 3 1" },
-    { "id": "mic.3.phantom.off", "label": "Phantom 3 off", "kind": "action", "transport": "lan", "payload": "SET 1 PHPWR MicIn 3 0" },
-    { "id": "mic.4.phantom.on", "label": "Phantom 4 on", "kind": "action", "transport": "lan", "payload": "SET 1 PHPWR MicIn 4 1" },
-    { "id": "mic.4.phantom.off", "label": "Phantom 4 off", "kind": "action", "transport": "lan", "payload": "SET 1 PHPWR MicIn 4 0" },
-    { "id": "line.1.level.set", "label": "Line 1 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 INPLVLPML LineIn 1 {value}" },
-    { "id": "line.2.level.set", "label": "Line 2 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 INPLVLPML LineIn 2 {value}" },
-    { "id": "line.3.level.set", "label": "Line 3 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 INPLVLPML LineIn 3 {value}" },
-    { "id": "line.4.level.set", "label": "Line 4 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 INPLVLPML LineIn 4 {value}" },
-    { "id": "line.5.level.set", "label": "Line 5 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 INPLVLPML LineIn 5 {value}" },
-    { "id": "line.6.level.set", "label": "Line 6 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 INPLVLPML LineIn 6 {value}" },
-    { "id": "line.1.mute.on", "label": "Mute line 1", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTEPML LineIn 1 1" },
-    { "id": "line.1.mute.off", "label": "Unmute line 1", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTEPML LineIn 1 0" },
-    { "id": "line.2.mute.on", "label": "Mute line 2", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTEPML LineIn 2 1" },
-    { "id": "line.2.mute.off", "label": "Unmute line 2", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTEPML LineIn 2 0" },
-    { "id": "line.3.mute.on", "label": "Mute line 3", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTEPML LineIn 3 1" },
-    { "id": "line.3.mute.off", "label": "Unmute line 3", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTEPML LineIn 3 0" },
-    { "id": "line.4.mute.on", "label": "Mute line 4", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTEPML LineIn 4 1" },
-    { "id": "line.4.mute.off", "label": "Unmute line 4", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTEPML LineIn 4 0" },
-    { "id": "line.5.mute.on", "label": "Mute line 5", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTEPML LineIn 5 1" },
-    { "id": "line.5.mute.off", "label": "Unmute line 5", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTEPML LineIn 5 0" },
-    { "id": "line.6.mute.on", "label": "Mute line 6", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTEPML LineIn 6 1" },
-    { "id": "line.6.mute.off", "label": "Unmute line 6", "kind": "action", "transport": "lan", "payload": "SET 1 INPMUTEPML LineIn 6 0" },
-    { "id": "out.1.level.set", "label": "Out 1 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 OUTLVLPM LineOut 1 {value}" },
-    { "id": "out.2.level.set", "label": "Out 2 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 OUTLVLPM LineOut 2 {value}" },
-    { "id": "out.3.level.set", "label": "Out 3 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 OUTLVLPM LineOut 3 {value}" },
-    { "id": "out.4.level.set", "label": "Out 4 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 OUTLVLPM LineOut 4 {value}" },
-    { "id": "out.5.level.set", "label": "Out 5 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 OUTLVLPM LineOut 5 {value}" },
-    { "id": "out.6.level.set", "label": "Out 6 level", "kind": "range", "min": -100, "max": 12, "step": 0.5, "transport": "lan", "payload": "SET 1 OUTLVLPM LineOut 6 {value}" },
-    { "id": "out.1.mute.on", "label": "Mute out 1", "kind": "action", "transport": "lan", "payload": "SET 1 OUTMUTEPM LineOut 1 1" },
-    { "id": "out.1.mute.off", "label": "Unmute out 1", "kind": "action", "transport": "lan", "payload": "SET 1 OUTMUTEPM LineOut 1 0" },
-    { "id": "out.2.mute.on", "label": "Mute out 2", "kind": "action", "transport": "lan", "payload": "SET 1 OUTMUTEPM LineOut 2 1" },
-    { "id": "out.2.mute.off", "label": "Unmute out 2", "kind": "action", "transport": "lan", "payload": "SET 1 OUTMUTEPM LineOut 2 0" },
-    { "id": "out.3.mute.on", "label": "Mute out 3", "kind": "action", "transport": "lan", "payload": "SET 1 OUTMUTEPM LineOut 3 1" },
-    { "id": "out.3.mute.off", "label": "Unmute out 3", "kind": "action", "transport": "lan", "payload": "SET 1 OUTMUTEPM LineOut 3 0" },
-    { "id": "out.4.mute.on", "label": "Mute out 4", "kind": "action", "transport": "lan", "payload": "SET 1 OUTMUTEPM LineOut 4 1" },
-    { "id": "out.4.mute.off", "label": "Unmute out 4", "kind": "action", "transport": "lan", "payload": "SET 1 OUTMUTEPM LineOut 4 0" },
-    { "id": "out.5.mute.on", "label": "Mute out 5", "kind": "action", "transport": "lan", "payload": "SET 1 OUTMUTEPM LineOut 5 1" },
-    { "id": "out.5.mute.off", "label": "Unmute out 5", "kind": "action", "transport": "lan", "payload": "SET 1 OUTMUTEPM LineOut 5 0" },
-    { "id": "out.6.mute.on", "label": "Mute out 6", "kind": "action", "transport": "lan", "payload": "SET 1 OUTMUTEPM LineOut 6 1" },
-    { "id": "out.6.mute.off", "label": "Unmute out 6", "kind": "action", "transport": "lan", "payload": "SET 1 OUTMUTEPM LineOut 6 0" },
-    { "id": "preset.recall", "label": "Recall preset", "kind": "range", "min": 1, "max": 20, "step": 1, "transport": "lan", "payload": "RECALL 0 PRESET {value}" }
+    {
+      "id": "mic.1.gain.set",
+      "label": "Mic 1 gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAIN MicIn 1 {value}",
+      "min": 0,
+      "max": 66,
+      "step": 6
+    },
+    {
+      "id": "mic.1.level.set",
+      "label": "Mic 1 level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVL MicIn 1 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "mic.1.mute.on",
+      "label": "Mute mic 1",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTE MicIn 1 1"
+    },
+    {
+      "id": "mic.1.mute.off",
+      "label": "Unmute mic 1",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTE MicIn 1 0"
+    },
+    {
+      "id": "mic.1.phantom.on",
+      "label": "Phantom 1 on",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 PHPWR MicIn 1 1"
+    },
+    {
+      "id": "mic.1.phantom.off",
+      "label": "Phantom 1 off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 PHPWR MicIn 1 0"
+    },
+    {
+      "id": "mic.1.invert.on",
+      "label": "Invert mic 1",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRT MicIn 1 1"
+    },
+    {
+      "id": "mic.1.invert.off",
+      "label": "Normal mic 1",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRT MicIn 1 0"
+    },
+    {
+      "id": "mic.2.gain.set",
+      "label": "Mic 2 gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAIN MicIn 2 {value}",
+      "min": 0,
+      "max": 66,
+      "step": 6
+    },
+    {
+      "id": "mic.2.level.set",
+      "label": "Mic 2 level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVL MicIn 2 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "mic.2.mute.on",
+      "label": "Mute mic 2",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTE MicIn 2 1"
+    },
+    {
+      "id": "mic.2.mute.off",
+      "label": "Unmute mic 2",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTE MicIn 2 0"
+    },
+    {
+      "id": "mic.2.phantom.on",
+      "label": "Phantom 2 on",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 PHPWR MicIn 2 1"
+    },
+    {
+      "id": "mic.2.phantom.off",
+      "label": "Phantom 2 off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 PHPWR MicIn 2 0"
+    },
+    {
+      "id": "mic.2.invert.on",
+      "label": "Invert mic 2",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRT MicIn 2 1"
+    },
+    {
+      "id": "mic.2.invert.off",
+      "label": "Normal mic 2",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRT MicIn 2 0"
+    },
+    {
+      "id": "mic.3.gain.set",
+      "label": "Mic 3 gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAIN MicIn 3 {value}",
+      "min": 0,
+      "max": 66,
+      "step": 6
+    },
+    {
+      "id": "mic.3.level.set",
+      "label": "Mic 3 level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVL MicIn 3 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "mic.3.mute.on",
+      "label": "Mute mic 3",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTE MicIn 3 1"
+    },
+    {
+      "id": "mic.3.mute.off",
+      "label": "Unmute mic 3",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTE MicIn 3 0"
+    },
+    {
+      "id": "mic.3.phantom.on",
+      "label": "Phantom 3 on",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 PHPWR MicIn 3 1"
+    },
+    {
+      "id": "mic.3.phantom.off",
+      "label": "Phantom 3 off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 PHPWR MicIn 3 0"
+    },
+    {
+      "id": "mic.3.invert.on",
+      "label": "Invert mic 3",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRT MicIn 3 1"
+    },
+    {
+      "id": "mic.3.invert.off",
+      "label": "Normal mic 3",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRT MicIn 3 0"
+    },
+    {
+      "id": "mic.4.gain.set",
+      "label": "Mic 4 gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAIN MicIn 4 {value}",
+      "min": 0,
+      "max": 66,
+      "step": 6
+    },
+    {
+      "id": "mic.4.level.set",
+      "label": "Mic 4 level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVL MicIn 4 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "mic.4.mute.on",
+      "label": "Mute mic 4",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTE MicIn 4 1"
+    },
+    {
+      "id": "mic.4.mute.off",
+      "label": "Unmute mic 4",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTE MicIn 4 0"
+    },
+    {
+      "id": "mic.4.phantom.on",
+      "label": "Phantom 4 on",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 PHPWR MicIn 4 1"
+    },
+    {
+      "id": "mic.4.phantom.off",
+      "label": "Phantom 4 off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 PHPWR MicIn 4 0"
+    },
+    {
+      "id": "mic.4.invert.on",
+      "label": "Invert mic 4",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRT MicIn 4 1"
+    },
+    {
+      "id": "mic.4.invert.off",
+      "label": "Normal mic 4",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRT MicIn 4 0"
+    },
+    {
+      "id": "line.1.gain.set",
+      "label": "Line 1 L gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAINPML LineIn 1 {value}",
+      "min": 0,
+      "max": 18,
+      "step": 6
+    },
+    {
+      "id": "line.1.level.set",
+      "label": "Line 1 L level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVLPML LineIn 1 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "line.1.mute.on",
+      "label": "Mute Line 1 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 1 1"
+    },
+    {
+      "id": "line.1.mute.off",
+      "label": "Unmute Line 1 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 1 0"
+    },
+    {
+      "id": "line.1.invert.on",
+      "label": "Invert Line 1 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 1 1"
+    },
+    {
+      "id": "line.1.invert.off",
+      "label": "Normal Line 1 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 1 0"
+    },
+    {
+      "id": "line.2.gain.set",
+      "label": "Line 1 R gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAINPML LineIn 2 {value}",
+      "min": 0,
+      "max": 18,
+      "step": 6
+    },
+    {
+      "id": "line.2.level.set",
+      "label": "Line 1 R level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVLPML LineIn 2 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "line.2.mute.on",
+      "label": "Mute Line 1 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 2 1"
+    },
+    {
+      "id": "line.2.mute.off",
+      "label": "Unmute Line 1 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 2 0"
+    },
+    {
+      "id": "line.2.invert.on",
+      "label": "Invert Line 1 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 2 1"
+    },
+    {
+      "id": "line.2.invert.off",
+      "label": "Normal Line 1 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 2 0"
+    },
+    {
+      "id": "line.3.gain.set",
+      "label": "Line 2 L gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAINPML LineIn 3 {value}",
+      "min": 0,
+      "max": 18,
+      "step": 6
+    },
+    {
+      "id": "line.3.level.set",
+      "label": "Line 2 L level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVLPML LineIn 3 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "line.3.mute.on",
+      "label": "Mute Line 2 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 3 1"
+    },
+    {
+      "id": "line.3.mute.off",
+      "label": "Unmute Line 2 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 3 0"
+    },
+    {
+      "id": "line.3.invert.on",
+      "label": "Invert Line 2 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 3 1"
+    },
+    {
+      "id": "line.3.invert.off",
+      "label": "Normal Line 2 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 3 0"
+    },
+    {
+      "id": "line.4.gain.set",
+      "label": "Line 2 R gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAINPML LineIn 4 {value}",
+      "min": 0,
+      "max": 18,
+      "step": 6
+    },
+    {
+      "id": "line.4.level.set",
+      "label": "Line 2 R level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVLPML LineIn 4 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "line.4.mute.on",
+      "label": "Mute Line 2 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 4 1"
+    },
+    {
+      "id": "line.4.mute.off",
+      "label": "Unmute Line 2 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 4 0"
+    },
+    {
+      "id": "line.4.invert.on",
+      "label": "Invert Line 2 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 4 1"
+    },
+    {
+      "id": "line.4.invert.off",
+      "label": "Normal Line 2 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 4 0"
+    },
+    {
+      "id": "line.5.gain.set",
+      "label": "Line 3 L gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAINPML LineIn 5 {value}",
+      "min": 0,
+      "max": 18,
+      "step": 6
+    },
+    {
+      "id": "line.5.level.set",
+      "label": "Line 3 L level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVLPML LineIn 5 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "line.5.mute.on",
+      "label": "Mute Line 3 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 5 1"
+    },
+    {
+      "id": "line.5.mute.off",
+      "label": "Unmute Line 3 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 5 0"
+    },
+    {
+      "id": "line.5.invert.on",
+      "label": "Invert Line 3 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 5 1"
+    },
+    {
+      "id": "line.5.invert.off",
+      "label": "Normal Line 3 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 5 0"
+    },
+    {
+      "id": "line.6.gain.set",
+      "label": "Line 3 R gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAINPML LineIn 6 {value}",
+      "min": 0,
+      "max": 18,
+      "step": 6
+    },
+    {
+      "id": "line.6.level.set",
+      "label": "Line 3 R level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVLPML LineIn 6 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "line.6.mute.on",
+      "label": "Mute Line 3 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 6 1"
+    },
+    {
+      "id": "line.6.mute.off",
+      "label": "Unmute Line 3 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 6 0"
+    },
+    {
+      "id": "line.6.invert.on",
+      "label": "Invert Line 3 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 6 1"
+    },
+    {
+      "id": "line.6.invert.off",
+      "label": "Normal Line 3 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 6 0"
+    },
+    {
+      "id": "line.7.gain.set",
+      "label": "Line 4 L gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAINPML LineIn 7 {value}",
+      "min": 0,
+      "max": 18,
+      "step": 6
+    },
+    {
+      "id": "line.7.level.set",
+      "label": "Line 4 L level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVLPML LineIn 7 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "line.7.mute.on",
+      "label": "Mute Line 4 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 7 1"
+    },
+    {
+      "id": "line.7.mute.off",
+      "label": "Unmute Line 4 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 7 0"
+    },
+    {
+      "id": "line.7.invert.on",
+      "label": "Invert Line 4 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 7 1"
+    },
+    {
+      "id": "line.7.invert.off",
+      "label": "Normal Line 4 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 7 0"
+    },
+    {
+      "id": "line.8.gain.set",
+      "label": "Line 4 R gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAINPML LineIn 8 {value}",
+      "min": 0,
+      "max": 18,
+      "step": 6
+    },
+    {
+      "id": "line.8.level.set",
+      "label": "Line 4 R level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVLPML LineIn 8 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "line.8.mute.on",
+      "label": "Mute Line 4 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 8 1"
+    },
+    {
+      "id": "line.8.mute.off",
+      "label": "Unmute Line 4 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 8 0"
+    },
+    {
+      "id": "line.8.invert.on",
+      "label": "Invert Line 4 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 8 1"
+    },
+    {
+      "id": "line.8.invert.off",
+      "label": "Normal Line 4 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 8 0"
+    },
+    {
+      "id": "line.9.gain.set",
+      "label": "Line 5 L gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAINPML LineIn 9 {value}",
+      "min": 0,
+      "max": 18,
+      "step": 6
+    },
+    {
+      "id": "line.9.level.set",
+      "label": "Line 5 L level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVLPML LineIn 9 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "line.9.mute.on",
+      "label": "Mute Line 5 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 9 1"
+    },
+    {
+      "id": "line.9.mute.off",
+      "label": "Unmute Line 5 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 9 0"
+    },
+    {
+      "id": "line.9.invert.on",
+      "label": "Invert Line 5 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 9 1"
+    },
+    {
+      "id": "line.9.invert.off",
+      "label": "Normal Line 5 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 9 0"
+    },
+    {
+      "id": "line.10.gain.set",
+      "label": "Line 5 R gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAINPML LineIn 10 {value}",
+      "min": 0,
+      "max": 18,
+      "step": 6
+    },
+    {
+      "id": "line.10.level.set",
+      "label": "Line 5 R level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVLPML LineIn 10 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "line.10.mute.on",
+      "label": "Mute Line 5 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 10 1"
+    },
+    {
+      "id": "line.10.mute.off",
+      "label": "Unmute Line 5 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 10 0"
+    },
+    {
+      "id": "line.10.invert.on",
+      "label": "Invert Line 5 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 10 1"
+    },
+    {
+      "id": "line.10.invert.off",
+      "label": "Normal Line 5 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 10 0"
+    },
+    {
+      "id": "line.11.gain.set",
+      "label": "Line 6 L gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAINPML LineIn 11 {value}",
+      "min": 0,
+      "max": 18,
+      "step": 6
+    },
+    {
+      "id": "line.11.level.set",
+      "label": "Line 6 L level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVLPML LineIn 11 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "line.11.mute.on",
+      "label": "Mute Line 6 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 11 1"
+    },
+    {
+      "id": "line.11.mute.off",
+      "label": "Unmute Line 6 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 11 0"
+    },
+    {
+      "id": "line.11.invert.on",
+      "label": "Invert Line 6 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 11 1"
+    },
+    {
+      "id": "line.11.invert.off",
+      "label": "Normal Line 6 L",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 11 0"
+    },
+    {
+      "id": "line.12.gain.set",
+      "label": "Line 6 R gain",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPGAINPML LineIn 12 {value}",
+      "min": 0,
+      "max": 18,
+      "step": 6
+    },
+    {
+      "id": "line.12.level.set",
+      "label": "Line 6 R level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 INPLVLPML LineIn 12 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "line.12.mute.on",
+      "label": "Mute Line 6 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 12 1"
+    },
+    {
+      "id": "line.12.mute.off",
+      "label": "Unmute Line 6 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPMUTEPML LineIn 12 0"
+    },
+    {
+      "id": "line.12.invert.on",
+      "label": "Invert Line 6 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 12 1"
+    },
+    {
+      "id": "line.12.invert.off",
+      "label": "Normal Line 6 R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPINVRTPML LineIn 12 0"
+    },
+    {
+      "id": "line.1.gang.on",
+      "label": "Gang Line 1 L/R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPGANGPML LineIn 1 1"
+    },
+    {
+      "id": "line.1.gang.off",
+      "label": "Ungang Line 1 L/R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPGANGPML LineIn 1 0"
+    },
+    {
+      "id": "line.3.gang.on",
+      "label": "Gang Line 2 L/R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPGANGPML LineIn 3 1"
+    },
+    {
+      "id": "line.3.gang.off",
+      "label": "Ungang Line 2 L/R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPGANGPML LineIn 3 0"
+    },
+    {
+      "id": "line.5.gang.on",
+      "label": "Gang Line 3 L/R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPGANGPML LineIn 5 1"
+    },
+    {
+      "id": "line.5.gang.off",
+      "label": "Ungang Line 3 L/R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPGANGPML LineIn 5 0"
+    },
+    {
+      "id": "line.7.gang.on",
+      "label": "Gang Line 4 L/R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPGANGPML LineIn 7 1"
+    },
+    {
+      "id": "line.7.gang.off",
+      "label": "Ungang Line 4 L/R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPGANGPML LineIn 7 0"
+    },
+    {
+      "id": "line.9.gang.on",
+      "label": "Gang Line 5 L/R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPGANGPML LineIn 9 1"
+    },
+    {
+      "id": "line.9.gang.off",
+      "label": "Ungang Line 5 L/R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPGANGPML LineIn 9 0"
+    },
+    {
+      "id": "line.11.gang.on",
+      "label": "Gang Line 6 L/R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPGANGPML LineIn 11 1"
+    },
+    {
+      "id": "line.11.gang.off",
+      "label": "Ungang Line 6 L/R",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 INPGANGPML LineIn 11 0"
+    },
+    {
+      "id": "out.1.level.set",
+      "label": "Out 1 level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 OUTLVLPM LineOut 1 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "out.1.mute.on",
+      "label": "Mute out 1",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTMUTEPM LineOut 1 1"
+    },
+    {
+      "id": "out.1.mute.off",
+      "label": "Unmute out 1",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTMUTEPM LineOut 1 0"
+    },
+    {
+      "id": "out.1.invert.on",
+      "label": "Invert out 1",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTINVRTPM LineOut 1 1"
+    },
+    {
+      "id": "out.1.invert.off",
+      "label": "Normal out 1",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTINVRTPM LineOut 1 0"
+    },
+    {
+      "id": "out.1.fs.set",
+      "label": "Out 1 full scale",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 OUTFSPM LineOut 1 {value}",
+      "min": 0,
+      "max": 24,
+      "step": 6
+    },
+    {
+      "id": "out.2.level.set",
+      "label": "Out 2 level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 OUTLVLPM LineOut 2 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "out.2.mute.on",
+      "label": "Mute out 2",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTMUTEPM LineOut 2 1"
+    },
+    {
+      "id": "out.2.mute.off",
+      "label": "Unmute out 2",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTMUTEPM LineOut 2 0"
+    },
+    {
+      "id": "out.2.invert.on",
+      "label": "Invert out 2",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTINVRTPM LineOut 2 1"
+    },
+    {
+      "id": "out.2.invert.off",
+      "label": "Normal out 2",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTINVRTPM LineOut 2 0"
+    },
+    {
+      "id": "out.2.fs.set",
+      "label": "Out 2 full scale",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 OUTFSPM LineOut 2 {value}",
+      "min": 0,
+      "max": 24,
+      "step": 6
+    },
+    {
+      "id": "out.3.level.set",
+      "label": "Out 3 level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 OUTLVLPM LineOut 3 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "out.3.mute.on",
+      "label": "Mute out 3",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTMUTEPM LineOut 3 1"
+    },
+    {
+      "id": "out.3.mute.off",
+      "label": "Unmute out 3",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTMUTEPM LineOut 3 0"
+    },
+    {
+      "id": "out.3.invert.on",
+      "label": "Invert out 3",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTINVRTPM LineOut 3 1"
+    },
+    {
+      "id": "out.3.invert.off",
+      "label": "Normal out 3",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTINVRTPM LineOut 3 0"
+    },
+    {
+      "id": "out.3.fs.set",
+      "label": "Out 3 full scale",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 OUTFSPM LineOut 3 {value}",
+      "min": 0,
+      "max": 24,
+      "step": 6
+    },
+    {
+      "id": "out.4.level.set",
+      "label": "Out 4 level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 OUTLVLPM LineOut 4 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "out.4.mute.on",
+      "label": "Mute out 4",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTMUTEPM LineOut 4 1"
+    },
+    {
+      "id": "out.4.mute.off",
+      "label": "Unmute out 4",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTMUTEPM LineOut 4 0"
+    },
+    {
+      "id": "out.4.invert.on",
+      "label": "Invert out 4",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTINVRTPM LineOut 4 1"
+    },
+    {
+      "id": "out.4.invert.off",
+      "label": "Normal out 4",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTINVRTPM LineOut 4 0"
+    },
+    {
+      "id": "out.4.fs.set",
+      "label": "Out 4 full scale",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 OUTFSPM LineOut 4 {value}",
+      "min": 0,
+      "max": 24,
+      "step": 6
+    },
+    {
+      "id": "out.5.level.set",
+      "label": "Out 5 level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 OUTLVLPM LineOut 5 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "out.5.mute.on",
+      "label": "Mute out 5",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTMUTEPM LineOut 5 1"
+    },
+    {
+      "id": "out.5.mute.off",
+      "label": "Unmute out 5",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTMUTEPM LineOut 5 0"
+    },
+    {
+      "id": "out.5.invert.on",
+      "label": "Invert out 5",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTINVRTPM LineOut 5 1"
+    },
+    {
+      "id": "out.5.invert.off",
+      "label": "Normal out 5",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTINVRTPM LineOut 5 0"
+    },
+    {
+      "id": "out.5.fs.set",
+      "label": "Out 5 full scale",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 OUTFSPM LineOut 5 {value}",
+      "min": 0,
+      "max": 24,
+      "step": 6
+    },
+    {
+      "id": "out.6.level.set",
+      "label": "Out 6 level",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 OUTLVLPM LineOut 6 {value}",
+      "min": -100,
+      "max": 12,
+      "step": 0.5
+    },
+    {
+      "id": "out.6.mute.on",
+      "label": "Mute out 6",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTMUTEPM LineOut 6 1"
+    },
+    {
+      "id": "out.6.mute.off",
+      "label": "Unmute out 6",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTMUTEPM LineOut 6 0"
+    },
+    {
+      "id": "out.6.invert.on",
+      "label": "Invert out 6",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTINVRTPM LineOut 6 1"
+    },
+    {
+      "id": "out.6.invert.off",
+      "label": "Normal out 6",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTINVRTPM LineOut 6 0"
+    },
+    {
+      "id": "out.6.fs.set",
+      "label": "Out 6 full scale",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "SET 1 OUTFSPM LineOut 6 {value}",
+      "min": 0,
+      "max": 24,
+      "step": 6
+    },
+    {
+      "id": "out.1.gang.on",
+      "label": "Gang Out 1/2",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTGANGPM LineOut 1 1"
+    },
+    {
+      "id": "out.1.gang.off",
+      "label": "Ungang Out 1/2",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTGANGPM LineOut 1 0"
+    },
+    {
+      "id": "out.3.gang.on",
+      "label": "Gang Out 3/4",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTGANGPM LineOut 3 1"
+    },
+    {
+      "id": "out.3.gang.off",
+      "label": "Ungang Out 3/4",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTGANGPM LineOut 3 0"
+    },
+    {
+      "id": "out.5.gang.on",
+      "label": "Gang Out 5/6",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTGANGPM LineOut 5 1"
+    },
+    {
+      "id": "out.5.gang.off",
+      "label": "Ungang Out 5/6",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "SET 1 OUTGANGPM LineOut 5 0"
+    },
+    {
+      "id": "preset.recall",
+      "label": "Recall preset",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "RECALL 0 PRESET {value}",
+      "min": 1001,
+      "max": 1040,
+      "step": 1
+    }
   ],
   "feedback": [
-    { "id": "system.ip", "label": "IP", "kind": "string", "transport": "lan", "mode": "poll", "query": "GET 0 IPADDR", "pollMs": 30000, "parse": { "type": "regex", "pattern": "(\\d+\\.\\d+\\.\\d+\\.\\d+)" } },
-    { "id": "mic.1.level", "label": "Mic 1", "kind": "range", "min": -100, "max": 12, "transport": "lan", "mode": "poll", "query": "GET 1 INPLVL MicIn 1", "pollMs": 8000, "parse": { "type": "regex", "pattern": "(-?\\d+(?:\\.\\d+)?)" } },
-    { "id": "mic.2.level", "label": "Mic 2", "kind": "range", "min": -100, "max": 12, "transport": "lan", "mode": "poll", "query": "GET 1 INPLVL MicIn 2", "pollMs": 8000, "parse": { "type": "regex", "pattern": "(-?\\d+(?:\\.\\d+)?)" } },
-    { "id": "mic.3.level", "label": "Mic 3", "kind": "range", "min": -100, "max": 12, "transport": "lan", "mode": "poll", "query": "GET 1 INPLVL MicIn 3", "pollMs": 8000, "parse": { "type": "regex", "pattern": "(-?\\d+(?:\\.\\d+)?)" } },
-    { "id": "mic.4.level", "label": "Mic 4", "kind": "range", "min": -100, "max": 12, "transport": "lan", "mode": "poll", "query": "GET 1 INPLVL MicIn 4", "pollMs": 8000, "parse": { "type": "regex", "pattern": "(-?\\d+(?:\\.\\d+)?)" } },
-    { "id": "out.1.level", "label": "Out 1", "kind": "range", "min": -100, "max": 12, "transport": "lan", "mode": "poll", "query": "GET 1 OUTLVLPM LineOut 1", "pollMs": 8000, "parse": { "type": "regex", "pattern": "(-?\\d+(?:\\.\\d+)?)" } }
+    {
+      "id": "mic.1.gain",
+      "label": "Mic 1 gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAIN MicIn 1",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 66
+    },
+    {
+      "id": "mic.1.level",
+      "label": "Mic 1",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVL MicIn 1",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "mic.1.mute",
+      "label": "Mic 1 mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTE MicIn 1",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "mic.1.phantom",
+      "label": "Phantom 1",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 PHPWR MicIn 1",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "mic.1.invert",
+      "label": "Mic 1 invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRT MicIn 1",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "mic.2.gain",
+      "label": "Mic 2 gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAIN MicIn 2",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 66
+    },
+    {
+      "id": "mic.2.level",
+      "label": "Mic 2",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVL MicIn 2",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "mic.2.mute",
+      "label": "Mic 2 mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTE MicIn 2",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "mic.2.phantom",
+      "label": "Phantom 2",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 PHPWR MicIn 2",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "mic.2.invert",
+      "label": "Mic 2 invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRT MicIn 2",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "mic.3.gain",
+      "label": "Mic 3 gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAIN MicIn 3",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 66
+    },
+    {
+      "id": "mic.3.level",
+      "label": "Mic 3",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVL MicIn 3",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "mic.3.mute",
+      "label": "Mic 3 mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTE MicIn 3",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "mic.3.phantom",
+      "label": "Phantom 3",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 PHPWR MicIn 3",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "mic.3.invert",
+      "label": "Mic 3 invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRT MicIn 3",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "mic.4.gain",
+      "label": "Mic 4 gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAIN MicIn 4",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 66
+    },
+    {
+      "id": "mic.4.level",
+      "label": "Mic 4",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVL MicIn 4",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "mic.4.mute",
+      "label": "Mic 4 mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTE MicIn 4",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "mic.4.phantom",
+      "label": "Phantom 4",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 PHPWR MicIn 4",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "mic.4.invert",
+      "label": "Mic 4 invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRT MicIn 4",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.1.gain",
+      "label": "Line 1 L gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAINPML LineIn 1",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 18
+    },
+    {
+      "id": "line.1.level",
+      "label": "Line 1 L",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVLPML LineIn 1",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "line.1.mute",
+      "label": "Line 1 L mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTEPML LineIn 1",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.1.invert",
+      "label": "Line 1 L invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRTPML LineIn 1",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.2.gain",
+      "label": "Line 1 R gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAINPML LineIn 2",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 18
+    },
+    {
+      "id": "line.2.level",
+      "label": "Line 1 R",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVLPML LineIn 2",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "line.2.mute",
+      "label": "Line 1 R mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTEPML LineIn 2",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.2.invert",
+      "label": "Line 1 R invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRTPML LineIn 2",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.3.gain",
+      "label": "Line 2 L gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAINPML LineIn 3",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 18
+    },
+    {
+      "id": "line.3.level",
+      "label": "Line 2 L",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVLPML LineIn 3",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "line.3.mute",
+      "label": "Line 2 L mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTEPML LineIn 3",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.3.invert",
+      "label": "Line 2 L invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRTPML LineIn 3",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.4.gain",
+      "label": "Line 2 R gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAINPML LineIn 4",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 18
+    },
+    {
+      "id": "line.4.level",
+      "label": "Line 2 R",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVLPML LineIn 4",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "line.4.mute",
+      "label": "Line 2 R mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTEPML LineIn 4",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.4.invert",
+      "label": "Line 2 R invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRTPML LineIn 4",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.5.gain",
+      "label": "Line 3 L gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAINPML LineIn 5",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 18
+    },
+    {
+      "id": "line.5.level",
+      "label": "Line 3 L",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVLPML LineIn 5",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "line.5.mute",
+      "label": "Line 3 L mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTEPML LineIn 5",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.5.invert",
+      "label": "Line 3 L invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRTPML LineIn 5",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.6.gain",
+      "label": "Line 3 R gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAINPML LineIn 6",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 18
+    },
+    {
+      "id": "line.6.level",
+      "label": "Line 3 R",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVLPML LineIn 6",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "line.6.mute",
+      "label": "Line 3 R mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTEPML LineIn 6",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.6.invert",
+      "label": "Line 3 R invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRTPML LineIn 6",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.7.gain",
+      "label": "Line 4 L gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAINPML LineIn 7",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 18
+    },
+    {
+      "id": "line.7.level",
+      "label": "Line 4 L",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVLPML LineIn 7",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "line.7.mute",
+      "label": "Line 4 L mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTEPML LineIn 7",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.7.invert",
+      "label": "Line 4 L invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRTPML LineIn 7",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.8.gain",
+      "label": "Line 4 R gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAINPML LineIn 8",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 18
+    },
+    {
+      "id": "line.8.level",
+      "label": "Line 4 R",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVLPML LineIn 8",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "line.8.mute",
+      "label": "Line 4 R mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTEPML LineIn 8",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.8.invert",
+      "label": "Line 4 R invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRTPML LineIn 8",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.9.gain",
+      "label": "Line 5 L gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAINPML LineIn 9",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 18
+    },
+    {
+      "id": "line.9.level",
+      "label": "Line 5 L",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVLPML LineIn 9",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "line.9.mute",
+      "label": "Line 5 L mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTEPML LineIn 9",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.9.invert",
+      "label": "Line 5 L invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRTPML LineIn 9",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.10.gain",
+      "label": "Line 5 R gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAINPML LineIn 10",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 18
+    },
+    {
+      "id": "line.10.level",
+      "label": "Line 5 R",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVLPML LineIn 10",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "line.10.mute",
+      "label": "Line 5 R mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTEPML LineIn 10",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.10.invert",
+      "label": "Line 5 R invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRTPML LineIn 10",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.11.gain",
+      "label": "Line 6 L gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAINPML LineIn 11",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 18
+    },
+    {
+      "id": "line.11.level",
+      "label": "Line 6 L",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVLPML LineIn 11",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "line.11.mute",
+      "label": "Line 6 L mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTEPML LineIn 11",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.11.invert",
+      "label": "Line 6 L invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRTPML LineIn 11",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.12.gain",
+      "label": "Line 6 R gain",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGAINPML LineIn 12",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 18
+    },
+    {
+      "id": "line.12.level",
+      "label": "Line 6 R",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPLVLPML LineIn 12",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "line.12.mute",
+      "label": "Line 6 R mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPMUTEPML LineIn 12",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.12.invert",
+      "label": "Line 6 R invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPINVRTPML LineIn 12",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.1.gang",
+      "label": "Gang Line 1 L/R",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGANGPML LineIn 1",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.3.gang",
+      "label": "Gang Line 2 L/R",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGANGPML LineIn 3",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.5.gang",
+      "label": "Gang Line 3 L/R",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGANGPML LineIn 5",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.7.gang",
+      "label": "Gang Line 4 L/R",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGANGPML LineIn 7",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.9.gang",
+      "label": "Gang Line 5 L/R",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGANGPML LineIn 9",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "line.11.gang",
+      "label": "Gang Line 6 L/R",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 INPGANGPML LineIn 11",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.1.level",
+      "label": "Out 1",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTLVLPM LineOut 1",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "out.1.mute",
+      "label": "Out 1 mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTMUTEPM LineOut 1",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.1.invert",
+      "label": "Out 1 invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTINVRTPM LineOut 1",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.1.fs",
+      "label": "Out 1 FS",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTFSPM LineOut 1",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 24
+    },
+    {
+      "id": "out.2.level",
+      "label": "Out 2",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTLVLPM LineOut 2",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "out.2.mute",
+      "label": "Out 2 mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTMUTEPM LineOut 2",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.2.invert",
+      "label": "Out 2 invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTINVRTPM LineOut 2",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.2.fs",
+      "label": "Out 2 FS",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTFSPM LineOut 2",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 24
+    },
+    {
+      "id": "out.3.level",
+      "label": "Out 3",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTLVLPM LineOut 3",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "out.3.mute",
+      "label": "Out 3 mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTMUTEPM LineOut 3",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.3.invert",
+      "label": "Out 3 invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTINVRTPM LineOut 3",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.3.fs",
+      "label": "Out 3 FS",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTFSPM LineOut 3",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 24
+    },
+    {
+      "id": "out.4.level",
+      "label": "Out 4",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTLVLPM LineOut 4",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "out.4.mute",
+      "label": "Out 4 mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTMUTEPM LineOut 4",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.4.invert",
+      "label": "Out 4 invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTINVRTPM LineOut 4",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.4.fs",
+      "label": "Out 4 FS",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTFSPM LineOut 4",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 24
+    },
+    {
+      "id": "out.5.level",
+      "label": "Out 5",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTLVLPM LineOut 5",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "out.5.mute",
+      "label": "Out 5 mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTMUTEPM LineOut 5",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.5.invert",
+      "label": "Out 5 invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTINVRTPM LineOut 5",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.5.fs",
+      "label": "Out 5 FS",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTFSPM LineOut 5",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 24
+    },
+    {
+      "id": "out.6.level",
+      "label": "Out 6",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTLVLPM LineOut 6",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": -100,
+      "max": 12
+    },
+    {
+      "id": "out.6.mute",
+      "label": "Out 6 mute",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTMUTEPM LineOut 6",
+      "pollMs": 8000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.6.invert",
+      "label": "Out 6 invert",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTINVRTPM LineOut 6",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.6.fs",
+      "label": "Out 6 FS",
+      "kind": "range",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTFSPM LineOut 6",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      },
+      "min": 0,
+      "max": 24
+    },
+    {
+      "id": "out.1.gang",
+      "label": "Gang Out 1/2",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTGANGPM LineOut 1",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.3.gang",
+      "label": "Gang Out 3/4",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTGANGPM LineOut 3",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "out.5.gang",
+      "label": "Gang Out 5/6",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 1 OUTGANGPM LineOut 5",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "([01])\\s*$",
+        "map": {
+          "1": "on",
+          "0": "off"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "system.ip",
+      "label": "IP",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 0 IPADDR",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(\\d+\\.\\d+\\.\\d+\\.\\d+)\\s*$"
+      }
+    },
+    {
+      "id": "system.mac",
+      "label": "MAC",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 0 MACADDRESS",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "((?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2})\\s*$"
+      }
+    },
+    {
+      "id": "system.devid",
+      "label": "Device ID",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "GETD 0 DEVID",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "(-?\\d+(?:\\.\\d+)?)\\s*$"
+      }
+    }
   ]
 }

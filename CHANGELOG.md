@@ -6,6 +6,7 @@ Format: date, then bullets. Older work lives in `git log`.
 
 - Tag `v0.9.35`. Same Foyer pair (`v0.2.2`). Wire unchanged.
 - Library: Biamp Nexia PM (NTP Telnet :23). Mic 1–4, line 1–6, out 1–6, preset recall. Tag blocks MicIn / LineIn / LineOut in Nexia.
+- Library: Nexia PM expanded — 4 mic + 12 stereo-line (six RCA pairs) + 6 out, all NTP GETD/SET (gain, level, mute, phantom, invert, gang, output FS). Preset recall 1001–1040. System GET IP/MAC/DEVID. Line count was 6 (hardware is 12). Destructive CLEAR/RESET/IP SET omitted. Re-apply the driver from the library on rooms that already have a Nexia copy.
 
 ## 0.9.34 — 2026-09-20
 
