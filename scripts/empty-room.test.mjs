@@ -85,3 +85,18 @@ test("store.server re-exports persist leaf", () => {
   assert.match(leaf, /export const FILE_STORE/);
 });
 
+test("store.server re-exports normalize leaf", () => {
+  const src = fs.readFileSync("src/lib/control/store.server.ts", "utf8");
+  assert.match(src, /export \{\s*normalize,\s*normalizedConfig,\s*invalidateNormalizedConfig,\s*installRoomConfig,\s*\} from "\.\/store-normalize"/);
+  assert.equal(/export function normalize\(/.test(src), false);
+  assert.equal(/export function normalizedConfig\(/.test(src), false);
+  assert.equal(/export function invalidateNormalizedConfig\(/.test(src), false);
+  assert.equal(/export function installRoomConfig\(/.test(src), false);
+  const leaf = fs.readFileSync("src/lib/control/store-normalize.ts", "utf8");
+  assert.match(leaf, /export function normalize\s*\(/);
+  assert.match(leaf, /export function normalizedConfig\s*\(/);
+  assert.match(leaf, /export function invalidateNormalizedConfig\s*\(/);
+  assert.match(leaf, /export function installRoomConfig\s*\(/);
+  assert.match(leaf, /export function bindNormalizeInstallDeps\s*\(/);
+});
+
