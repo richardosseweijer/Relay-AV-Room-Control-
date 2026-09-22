@@ -5,9 +5,13 @@ import { test } from "node:test";
 test("fireMacro awaits the same drainQueuedTriggers schedule uses", () => {
   const runtime = fs.readFileSync("src/lib/control/actions-runtime.ts", "utf8");
   const store = fs.readFileSync("src/lib/control/store.server.ts", "utf8");
+  const leaf = fs.readFileSync("src/lib/control/store-schedules.ts", "utf8");
   const session = fs.readFileSync("src/lib/control/session.server.ts", "utf8");
-  assert.ok(store.includes("export async function drainQueuedTriggers"));
-  assert.ok(store.includes("await drainQueuedTriggers()"), "schedule path must call drainQueuedTriggers");
+  // Façade re-exports drain; schedule path lives on the schedules leaf (#85).
+  assert.match(store, /drainQueuedTriggers/);
+  assert.equal(/export async function drainQueuedTriggers\(/.test(store), false);
+  assert.match(leaf, /export async function drainQueuedTriggers\s*\(/);
+  assert.ok(leaf.includes("await drainQueuedTriggers()"), "schedule path must call drainQueuedTriggers");
   assert.ok(session.includes("drainQueuedTriggers"), "session re-exports drain for loadControl");
   assert.match(runtime, /drainQueuedTriggers/);
   assert.match(runtime, /await drainQueuedTriggers\(\)/);
