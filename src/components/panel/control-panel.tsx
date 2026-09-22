@@ -1,6 +1,6 @@
 import "./panel-layout.css";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { Maximize2, Settings2, Sun } from "lucide-react";
 import type { RoomSnapshot, Widget } from "@/lib/control/types";
 import { NONE_MACRO_ID } from "@/lib/control/types";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { WidgetShell } from "./widget-face";
 import { PreviewTile } from "./preview-tile";
 import { PanelSlider } from "./panel-slider";
+import { PanelPinGate } from "./panel-pin-gate";
 import { applyRoomSession, clearPanelToken, PANEL_TOKEN_KEY } from "@/lib/control/panel-token";
 import { applyRoomTheme } from "@/lib/theme";
 import { resolveStatusAppearance } from "@/lib/control/status-widget";
@@ -31,7 +32,6 @@ export function ControlPanel() {
   const navigate = useNavigate();
   const [snap, setSnap] = useState<RoomSnapshot | null>(null);
   const [pageId, setPageId] = useState("home");
-  const [pin, setPin] = useState("");
   const [locked, setLocked] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Widget | null>(null);
@@ -441,56 +441,21 @@ export function ControlPanel() {
   }
 
   if (gate === "pin" || !session) {
-    async function unlockRoom() {
-      setNote(null);
-      try {
-        const res = await fetch("/api/panel-unlock", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ pin: pin.trim() }),
-        });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; token?: string; message?: string };
-        if (data.ok && data.token) {
-          sessionStorage.setItem(PANEL_TOKEN_KEY, data.token);
-          localStorage.setItem(PANEL_TOKEN_KEY, data.token);
-          setSession(data.token);
+    return (
+      <PanelPinGate
+        roomName={snap?.config?.room?.name || "Room"}
+        loadErr={loadErr}
+        onUnlocked={async (token) => {
+          setSession(token);
           const next = await refresh();
           if (next?.config?.room) {
             setLocked(false);
             setGate("ok");
+            return true;
           }
-          else setNote(loadErr || "Room did not load");
-          return;
-        }
-        setNote(data.message || "Wrong PIN");
-      } catch (err) {
-        setNote(err instanceof Error ? err.message : "Unlock failed");
-      }
-    }
-    return (
-      <main className="relative z-20 mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-5 bg-bg px-6">
-        <p className="text-[11px] tracking-[0.28em] uppercase text-subtle">Relay</p>
-        <h1 className="text-4xl font-medium tracking-tight">{snap?.config?.room?.name || "Room"}</h1>
-        <p className="text-sm text-muted">PIN to open the room. First-run default is 1234.</p>
-        <input
-          type="password"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          autoComplete="one-time-code"
-          enterKeyHint="done"
-          value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-          onKeyDown={(e) => { if (e.key === "Enter") void unlockRoom(); }}
-          className="h-14 rounded-2xl border border-border bg-surface px-4 text-center text-2xl tracking-[0.5em]"
-          placeholder="••••"
-        />
-        {note ? <p className="text-center text-sm text-clay">{note}</p> : null}
-        {loadErr ? <p className="text-center text-xs text-muted">{loadErr}</p> : null}
-        <Button type="button" className="relative z-20 h-14 w-full text-base" onClick={() => void unlockRoom()}>
-          Unlock
-        </Button>
-        <Link to="/config" className="text-center text-sm text-muted underline-offset-4 hover:underline">Configurator</Link>
-      </main>
+          return false;
+        }}
+      />
     );
   }
 
