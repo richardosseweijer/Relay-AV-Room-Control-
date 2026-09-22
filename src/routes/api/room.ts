@@ -5,16 +5,8 @@ import { scrubSecret } from "@/lib/control/engine";
 
 import { redactAuth } from "@/lib/control/secrets";
 import { isLoopbackIp, tcpPeerAddress } from "@/lib/control/peer-auth";
+import { roomRateLimited } from "@/lib/control/room-rate-limit";
 
-const hits = new Map<string, number[]>();
-
-function limited(key: string) {
-  const now = Date.now();
-  const recent = (hits.get(key) ?? []).filter((at) => now - at < 10_000);
-  recent.push(now);
-  hits.set(key, recent);
-  return recent.length > 120;
-}
 
 function clientIp(request: Request) {
   if (process.env.RELAY_TRUST_PROXY === "1") {
@@ -33,7 +25,7 @@ export const Route = createFileRoute("/api/room")({
         try {
           const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
           const ip = clientIp(request);
-          if (!isLoopbackIp(ip) && limited(token || ip)) return Response.json({ error: "rate limited" }, { status: 429 });
+          if (!isLoopbackIp(ip) && roomRateLimited(token || ip)) return Response.json({ error: "rate limited" }, { status: 429 });
           await ensureLoaded();
           const snap = snapshot();
           const room = snap.config?.room;
