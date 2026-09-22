@@ -16,6 +16,7 @@ import { withOccupancyVar, occupancyOf, occupancyCode, OCCUPANCY_VAR_ID } from "
 import { applyFoyerSession, fetchFoyerSession, withFoyerSessionVars, DEFAULT_FOYER_PEER_URL } from "./foyer-peer";
 import { peerKey } from "./peer-auth";
 import { resolveRoomTheme } from "@/lib/theme";
+import { normalizeStatusFields } from "./status-widget";
 
 const FILE_STORE = path.join(process.cwd(), "data", "relay-room.json");
 const SECRET_STORE = process.env.RELAY_SECRETS_FILE || path.join(process.cwd(), "data", "relay-secrets.json");
@@ -266,6 +267,10 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
     interfaces: config.interfaces ?? [],
     tags: config.tags ?? (config as { folders?: RoomConfig["tags"] }).folders ?? {},
     macros: [noneMacro(), ...(config.macros ?? demo.macros).filter((m) => m.id !== NONE_MACRO_ID)].map(liftTag),
+    pages: (config.pages ?? demo.pages).map((page) => ({
+      ...page,
+      widgets: (page.widgets ?? []).map((widget) => normalizeStatusFields(widget)),
+    })),
   })));
 }
 

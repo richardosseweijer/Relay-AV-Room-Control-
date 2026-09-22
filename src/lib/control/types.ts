@@ -241,6 +241,21 @@ export type EnableClause = {
 
 export type EnableWhen = EnableClause & { all?: EnableClause[] };
 
+/** Status traffic-light rule: first exact equals match wins. */
+export type StatusColorWhen = {
+  equals: string;
+  color: WidgetColor;
+  label?: string;
+  macroId?: string | null;
+};
+
+/** Catch-all when no colorWhen row matches. Required color; label/macro optional. */
+export type StatusDefault = {
+  color: WidgetColor;
+  label?: string;
+  macroId?: string | null;
+};
+
 export type WidgetBind = {
   kind: BindKind;
   id?: string;
@@ -268,6 +283,10 @@ export type Widget = {
   icon?: string;
   confirm?: boolean;
   enableWhen?: EnableWhen | null;
+  /** Status only: ordered color/label/macro rules (exact string equals). */
+  colorWhen?: StatusColorWhen[];
+  /** Status only: catch-all when no colorWhen row matches. */
+  statusDefault?: StatusDefault | null;
   min?: number | string;
   max?: number | string;
   /** Optional. Slider: missing = auto (upright when the tile is taller than wide). */
