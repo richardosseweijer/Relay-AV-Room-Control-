@@ -1,14 +1,22 @@
 import type { CommandResult, DriverCommand, DriverSpec } from "./types";
-import { sleep } from "./engine-policy";
+import { sleep } from "./engine-policy.ts";
 
 const paceClock = ((globalThis as typeof globalThis & { __relayPace__?: Map<string, number> }).__relayPace__ ??= new Map());
+/** Per-device promise chain so concurrent paceDevice callers reserve slots one-at-a-time. */
+const paceTail = ((globalThis as typeof globalThis & { __relayPaceTail__?: Map<string, Promise<void>> }).__relayPaceTail__ ??= new Map());
 
 export async function paceDevice(id: string, minIntervalMs?: number) {
   const gap = Math.max(0, minIntervalMs ?? 0);
   if (!gap) return;
-  const wait = (paceClock.get(id) ?? 0) + gap - Date.now();
-  if (wait > 0) await sleep(wait);
-  paceClock.set(id, Date.now());
+  const prev = paceTail.get(id) ?? Promise.resolve();
+  const run = prev.then(async () => {
+    const wait = (paceClock.get(id) ?? 0) + gap - Date.now();
+    if (wait > 0) await sleep(wait);
+    paceClock.set(id, Date.now());
+  });
+  // Keep the chain alive for later callers even if this run rejects.
+  paceTail.set(id, run.catch(() => {}));
+  await run;
 }
 
 export function wireEncoding(driver: DriverSpec, command?: DriverCommand) {
