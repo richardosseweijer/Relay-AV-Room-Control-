@@ -64,9 +64,11 @@ test("F7 sessions without exp are dropped (fail closed)", () => {
 
 test("F8 validToken slides exp then may persist (throttled)", () => {
   const src = readFileSync(new URL("../src/lib/control/session.server.ts", import.meta.url), "utf8");
-  const fn = src.match(/export function validToken\([\s\S]*?\n\}/);
-  assert.ok(fn, "validToken present");
-  // Success path: slide exp, refresh tokenStore, then F2 throttled slide persist (not bare persist every poll).
+  assert.match(src, /export function validToken\(/);
+  assert.match(src, /return acceptToken\(token,\s*kind\)/);
+  // Shared acceptToken success path: slide exp, refresh tokenStore, then F2 throttled slide persist.
+  const fn = src.match(/function acceptToken\([\s\S]*?\n\}/);
+  assert.ok(fn, "acceptToken present");
   assert.match(
     fn[0],
     /row\.exp\s*=\s*Date\.now\(\)\s*\+\s*SESSION_TTL_MS;\s*\n\s*tokenStore\(\)\.set\(token,\s*row\);\s*\n(?:\s*\/\/[^\n]*\n)*\s*maybePersistSessionSlide\(token,\s*row\.exp\);\s*\n\s*return\s+true;/,
@@ -130,8 +132,26 @@ test("ping route uses validToken for config auth (rejects expired)", () => {
 
 test("room route uses validToken for session auth (no local hasSession)", () => {
   const src = readFileSync(new URL("../src/routes/api/room.ts", import.meta.url), "utf8");
-  assert.match(src, /validToken\(\s*token\s*,\s*["']panel["']\s*\)\s*\|\|\s*validToken\(\s*token\s*,\s*["']config["']\s*\)/);
+  // F4: single-path validTokenAny (panel OR config) — no double validToken(panel)||validToken(config).
+  assert.match(src, /validTokenAny\(\s*token\s*\)/);
+  assert.doesNotMatch(src, /validToken\(\s*token\s*,\s*["']panel["']\s*\)\s*\|\|\s*validToken\(\s*token\s*,\s*["']config["']\s*\)/);
   assert.doesNotMatch(src, /\bhasSession\b/);
   assert.doesNotMatch(src, /row\.exp\s*&&\s*row\.exp\s*<\s*Date\.now\(\)/);
   assert.match(src, /from\s+["']@\/lib\/control\/session\.server["']/);
+});
+
+test("F4 validTokenAny is single prune/lookup/slide path", () => {
+  const src = readFileSync(new URL("../src/lib/control/session.server.ts", import.meta.url), "utf8");
+  const anyFn = src.match(/export function validTokenAny\([\s\S]*?\n\}/);
+  assert.ok(anyFn, "validTokenAny present");
+  assert.match(anyFn[0], /return acceptToken\(token\)/);
+  // Must not re-enter kind-specific validToken (would double prune/slide on config tokens).
+  assert.doesNotMatch(anyFn[0], /validToken\(/);
+  const accept = src.match(/function acceptToken\([\s\S]*?\n\}/);
+  assert.ok(accept, "acceptToken present");
+  assert.equal((accept[0].match(/pruneExpiredSessions\(\)/g) || []).length, 1, "prune once");
+  assert.equal((accept[0].match(/findSessionBySecret\(/g) || []).length, 1, "lookup once");
+  assert.equal((accept[0].match(/maybePersistSessionSlide\(/g) || []).length, 1, "slide persist gate once");
+  // Auth semantics: omitted kind accepts panel OR config only.
+  assert.match(accept[0], /row\.kind !== "panel" && row\.kind !== "config"/);
 });
