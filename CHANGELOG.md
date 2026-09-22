@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.42 — 2026-09-23
+
+- Tag `v0.9.42`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- God-file splits (façade-preserving): store leaves drivers/secrets/persist/normalize/monitors/schedules (#96–#101); panel tiles/pin/locked/widget (#102–#105); pages status/preview/enable/bind (#106–#109). No behaviour change.
+
 ## 0.9.41 — 2026-09-23
 
 - Tag `v0.9.41`. Same Foyer pair (`v0.2.2`). Wire unchanged.
