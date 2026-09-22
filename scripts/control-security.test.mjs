@@ -5,7 +5,7 @@ import { hashPin, isHashedPin, verifyStoredPin, checkLockout, notePinFail, clear
 import { isWeakPin } from "../src/lib/control/pins.ts";
 import { signPeer, verifyPeerRequest, varsRequestAllowed } from "../src/lib/control/peer-auth.ts";
 import { serialPathOk, sendLocal } from "../src/lib/control/engine-host.ts";
-import { safeLanHttpUrl } from "../src/lib/control/engine-policy.ts";
+import { safeLanHttpUrl, allowedLanHost } from "../src/lib/control/engine-policy.ts";
 
 test("weak pins", () => {
   assert.equal(isWeakPin("1234"), true);
@@ -162,3 +162,60 @@ test("safeLanHttpUrl rejects authority rewrite via @ in path", () => {
   assert.equal(noSlash.ok, false);
 });
 
+
+function engineSrc() {
+  return readFileSync(new URL("../src/lib/control/engine.ts", import.meta.url), "utf8");
+}
+
+function sliceFn(src, name) {
+  const re = new RegExp(
+    `(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\s*\\([\\s\\S]*?\\n(?=(?:export\\s+)?(?:async\\s+)?function\\s|$)`,
+  );
+  const m = src.match(re);
+  assert.ok(m, `function ${name} not found`);
+  return m[0];
+}
+
+test("F3 allowedLanHost rejects non-LAN and loopback; accepts RFC1918", () => {
+  assert.equal(allowedLanHost("8.8.8.8"), false);
+  assert.equal(allowedLanHost("1.1.1.1"), false);
+  assert.equal(allowedLanHost("127.0.0.1"), false);
+  assert.equal(allowedLanHost("169.254.1.1"), false);
+  assert.equal(allowedLanHost("10.0.10.50"), true);
+  assert.equal(allowedLanHost("192.168.1.8"), true);
+  assert.equal(allowedLanHost("172.16.0.1"), true);
+});
+
+test("F3 authenticateDevice gates host with allowedLanHost before pairing fetch", () => {
+  const fn = sliceFn(engineSrc(), "authenticateDevice");
+  const gate = fn.indexOf("allowedLanHost(host");
+  const fetchAt = fn.indexOf("await fetch(");
+  const wsAt = fn.indexOf("sendControlSocket");
+  assert.ok(gate >= 0, "authenticateDevice must call allowedLanHost");
+  assert.match(fn, /Host not on room LAN/);
+  assert.ok(fetchAt < 0 || gate < fetchAt, "LAN gate before pairing fetch");
+  assert.ok(wsAt < 0 || gate < wsAt, "LAN gate before websocket pairing");
+});
+
+test("F3 syncInventory HTTP path gates with allowedLanHost before sendHttp", () => {
+  const fn = sliceFn(engineSrc(), "syncInventory");
+  const httpBranch = fn.slice(fn.indexOf("resource.httpPath"));
+  const gate = httpBranch.indexOf("allowedLanHost(device.host)");
+  const send = httpBranch.indexOf("sendHttp(");
+  assert.ok(gate >= 0, "inventory httpPath must call allowedLanHost");
+  assert.match(httpBranch, /Host not on room LAN/);
+  assert.ok(send >= 0 && gate < send, "LAN gate before sendHttp");
+});
+
+test("F3 signedPeerFetch gates peer host before network I/O", () => {
+  const fn = sliceFn(engineSrc(), "signedPeerFetch");
+  const gate = fn.indexOf("allowedLanHost(device.host)");
+  const fetchAt = fn.indexOf("fetchTextBounded");
+  assert.ok(gate >= 0, "signedPeerFetch must call allowedLanHost");
+  assert.match(fn, /Host not on room LAN/);
+  assert.ok(fetchAt >= 0 && gate < fetchAt, "LAN gate before fetchTextBounded");
+  // Callers that rely on signedPeerFetch for remote peers
+  const src = engineSrc();
+  assert.match(src, /signedPeerFetch\(device/);
+  assert.match(src, /callRelayPeer\(/);
+});
