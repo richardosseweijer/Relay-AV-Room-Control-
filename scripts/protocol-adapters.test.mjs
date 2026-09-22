@@ -116,6 +116,19 @@ test("shipped drivers keep distinct LAN protocols", () => {
   assert.equal(got.cast?.includes("samsung-qe50q65t.json") || false, false);
 });
 
+test("ChatGPT #3: sendLan OSC/sACN renderPayload uses value (not undefined→empty→0)", () => {
+  const lanSrc = fs.readFileSync("src/lib/control/engine-lan.ts", "utf8");
+  const lan = namedFn(lanSrc, "sendLan");
+  assert.match(lan, /value\?: string \| number/);
+  assert.match(lan, /values: \(command\?\.osc\?\.values \?\? \[\]\)\.map\(\(v\) => renderPayload\(String\(v \?\? ""\), value,/);
+  assert.match(lan, /value: command\?\.sacn \? renderPayload\(String\(command\.sacn\.value \?\? payload \?\? "0"\), value,/);
+  assert.equal(lan.includes('renderPayload(String(v ?? ""), undefined,'), false);
+  assert.equal(lan.includes('renderPayload(String(command.sacn.value ?? payload ?? "0"), undefined,'), false);
+  const barrel = fs.readFileSync("src/lib/control/engine.ts", "utf8");
+  const exec = namedFn(barrel, "executeCommand");
+  assert.match(exec, /sendLan\(driver, wired, payload, wiredCommand, opts\.config, value\)/);
+});
+
 test("engine-lan sendLan still names http cast pjlink wol tcp websocket", () => {
   const lanSrc = fs.readFileSync("src/lib/control/engine-lan.ts", "utf8");
   const lan = namedFn(lanSrc, "sendLan");
