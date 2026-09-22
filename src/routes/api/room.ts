@@ -4,6 +4,7 @@ import { pruneExpiredSessions } from "@/lib/control/session.server";
 import { scrubSecret } from "@/lib/control/engine";
 
 import { redactAuth } from "@/lib/control/secrets";
+import { isLoopbackIp, tcpPeerAddress } from "@/lib/control/peer-auth";
 
 const hits = new Map<string, number[]>();
 
@@ -15,18 +16,14 @@ function limited(key: string) {
   return recent.length > 120;
 }
 
-function isLoopback(ip: string) {
-  return !ip || ip === "local" || ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
-}
-
 function clientIp(request: Request) {
   if (process.env.RELAY_TRUST_PROXY === "1") {
     return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
       || request.headers.get("x-real-ip")
-      || "proxy";
+      || "unknown";
   }
-  const sock = (request as Request & { socket?: { remoteAddress?: string } }).socket?.remoteAddress;
-  return sock || "local";
+  // Same TCP peer path as peer-auth; missing peer must not look like loopback (#36).
+  return tcpPeerAddress(request) || "unknown";
 }
 
 function hasSession(token: string) {
@@ -48,7 +45,7 @@ export const Route = createFileRoute("/api/room")({
         try {
           const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
           const ip = clientIp(request);
-          if (!isLoopback(ip) && limited(token || ip)) return Response.json({ error: "rate limited" }, { status: 429 });
+          if (!isLoopbackIp(ip) && limited(token || ip)) return Response.json({ error: "rate limited" }, { status: 429 });
           await ensureLoaded();
           const snap = snapshot();
           const room = snap.config?.room;
