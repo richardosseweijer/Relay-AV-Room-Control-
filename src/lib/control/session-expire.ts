@@ -15,3 +15,17 @@ export function dropExpiredSessions<T extends { secret?: string; exp?: number }>
   }
   return { kept, dropped };
 }
+
+/** Min slid `exp` advance before dirtying disk again (F2). Crash may lose up to this window of slid TTL. */
+export const SESSION_SLIDE_PERSIST_ADVANCE_MS = 10 * 60 * 1000;
+
+/** True when nextExp advanced enough past last persisted slide to warrant persist(). */
+export function sessionSlideShouldPersist(
+  lastPersistedExp: number | undefined,
+  nextExp: number,
+  minAdvanceMs = SESSION_SLIDE_PERSIST_ADVANCE_MS,
+) {
+  const last =
+    typeof lastPersistedExp === "number" && Number.isFinite(lastPersistedExp) ? lastPersistedExp : 0;
+  return nextExp - last >= minAdvanceMs;
+}
