@@ -100,3 +100,24 @@ test("store.server re-exports normalize leaf", () => {
   assert.match(leaf, /export function bindNormalizeInstallDeps\s*\(/);
 });
 
+test("store.server re-exports monitors leaf", () => {
+  const src = fs.readFileSync("src/lib/control/store.server.ts", "utf8");
+  assert.match(src, /export \{\s*runDueMonitors,\s*applyDueMonitor,\s*pruneMonitorMaps\s*\}/);
+  assert.equal(/async function runDueMonitors\(/.test(src), false);
+  assert.equal(/async function applyDueMonitor\(/.test(src), false);
+  assert.equal(/function pruneMonitorMaps\(/.test(src), false);
+  assert.equal(/const lastMonitorRun = /.test(src), false);
+  assert.equal(/const goodPolls = /.test(src), false);
+  assert.equal(/let monitorsBusy = /.test(src), false);
+  assert.match(src, /pruneMonitorMaps\s*\(\s*config\s*\)/);
+  const leaf = fs.readFileSync("src/lib/control/store-monitors.ts", "utf8");
+  assert.match(leaf, /export async function runDueMonitors\s*\(/);
+  assert.match(leaf, /export async function applyDueMonitor\s*\(/);
+  assert.match(leaf, /export function pruneMonitorMaps\s*\(/);
+  assert.match(leaf, /const lastMonitorRun = new Map/);
+  assert.match(leaf, /const goodPolls = new Map/);
+  assert.match(leaf, /let monitorsBusy = false/);
+  assert.match(leaf, /from\s+[\"']\.\/monitor-pool[\"']/);
+  assert.match(leaf, /mapPool\s*\(\s*groups\s*,\s*MONITOR_DEVICE_CONCURRENCY/);
+});
+
