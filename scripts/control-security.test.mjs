@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { hashPin, isHashedPin, verifyStoredPin } from "../src/lib/control/pins.server.ts";
+import { hashPin, isHashedPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey } from "../src/lib/control/pins.server.ts";
 import { isWeakPin } from "../src/lib/control/pins.ts";
 import { signPeer, verifyPeerRequest, varsRequestAllowed } from "../src/lib/control/peer-auth.ts";
 
@@ -61,4 +61,32 @@ test("vars route uses varsRequestAllowed (peer key not ignored for open GET)", (
   assert.match(src, /varsRequestAllowed\s*\(/);
   assert.doesNotMatch(src, /if\s*\(\s*key\s*&&\s*sig\s*\)/);
   assert.match(src, /from\s+["']@\/lib\/control\/peer-auth["']/);
+});
+
+test("plaintext pin verify is timing-safe path (legacy until hash upgrade)", () => {
+  assert.equal(verifyStoredPin("8492", "8492"), true);
+  assert.equal(verifyStoredPin("8493", "8492"), false);
+  assert.equal(verifyStoredPin("849", "8492"), false);
+  assert.equal(verifyStoredPin("84920", "8492"), false);
+  assert.equal(verifyStoredPin("", "8492"), false);
+  assert.equal(verifyStoredPin("8492", ""), false);
+  assert.equal(verifyStoredPin("8492", null), false);
+  const src = readFileSync(new URL("../src/lib/control/pins.server.ts", import.meta.url), "utf8");
+  assert.match(src, /timingSafeStringEqual|timingSafeEqual/);
+  assert.doesNotMatch(src, /if\s*\(!isHashedPin\(value\)\)\s*return\s+String\(pin\)\s*===\s*value/);
+});
+
+test("pin lockout blocks after 5 fails then clears on success (process-global, not forever)", () => {
+  const key = lockoutKey("test-gate", `unit-${Date.now()}`);
+  clearPinFail(key);
+  for (let i = 0; i < 4; i++) {
+    const gate = notePinFail(key);
+    assert.equal(gate.blocked, false, `fail ${i + 1} should not lock yet`);
+  }
+  const locked = notePinFail(key);
+  assert.equal(locked.blocked, true);
+  assert.ok(locked.left > 0);
+  assert.equal(checkLockout(key).blocked, true);
+  clearPinFail(key);
+  assert.equal(checkLockout(key).blocked, false);
 });
