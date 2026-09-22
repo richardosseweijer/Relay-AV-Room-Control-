@@ -409,7 +409,10 @@ export async function readMonitorValue(opts: {
     const value = current === undefined || current === null ? "" : String(current);
     return { ok: true, value, message: value || "push" };
   }
-  const statusUrl = statusPlane(driver, device);
+  // Same interface mapping as executeCommand/sendRaw so gateway remaps host:port for polls.
+  const iface = opts.config.interfaces?.find((item) => item.id === device.interfaceId);
+  const wired = wireThroughInterface(device, iface);
+  const statusUrl = statusPlane(driver, wired);
   if (statusUrl) {
     const url = statusUrl;
     try {
@@ -426,7 +429,7 @@ export async function readMonitorValue(opts: {
     }
   }
   const payload = fb.query ?? driver.probe?.payload ?? '{"type":"GET_STATUS","requestId":1}';
-  const result = await sendLan(driver, device, payload, {
+  const result = await sendLan(driver, wired, payload, {
     id: fb.id,
     label: fb.label,
     kind: "action",
