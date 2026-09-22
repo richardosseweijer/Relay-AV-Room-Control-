@@ -581,10 +581,10 @@ export async function executeCommand(opts: {
     if (!wol.ok && !payload) return wol;
     await sleep(driver.pacing?.powerOnDelayMs ?? 2500);
   }
-  let result = usesLocalPort(iface) ? await sendLocal(driver, wired, payload) : await sendLan(driver, wired, payload, wiredCommand, opts.config);
+  let result = usesLocalPort(iface) ? await sendLocal(driver, wired, payload) : await sendLan(driver, wired, payload, wiredCommand, opts.config, value);
   if (!result.ok && command.wake?.protocol === "wol") {
     await sleep(2000);
-    result = usesLocalPort(iface) ? await sendLocal(driver, wired, payload) : await sendLan(driver, wired, payload, wiredCommand, opts.config);
+    result = usesLocalPort(iface) ? await sendLocal(driver, wired, payload) : await sendLan(driver, wired, payload, wiredCommand, opts.config, value);
   }
   if (result.ok) applySim(command, uiValue, slot);
   return result;
