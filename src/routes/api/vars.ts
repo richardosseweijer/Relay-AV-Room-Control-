@@ -1,14 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { peerKey, verifyPeerRequest } from "@/lib/control/peer-auth";
+import { peerKey, varsRequestAllowed } from "@/lib/control/peer-auth";
 import { ensureLoaded, memory, persist } from "@/lib/control/store.server";
 
 function allowed(request: Request, body: string) {
   const mem = memory();
-  const key = peerKey(mem.config.room);
-  const sig = request.headers.get("x-relay-auth") || "";
-  const ts = request.headers.get("x-relay-ts") || "";
-  if (key && sig) return verifyPeerRequest({ key, method: request.method, path: "/api/vars", ts, body, sig });
-  return mem.config.room.externalControl === true && request.method === "GET";
+  return varsRequestAllowed({
+    key: peerKey(mem.config.room),
+    method: request.method,
+    externalControl: mem.config.room.externalControl === true,
+    sig: request.headers.get("x-relay-auth") || "",
+    ts: request.headers.get("x-relay-ts") || "",
+    body,
+  });
 }
 
 export const Route = createFileRoute("/api/vars")({

@@ -23,6 +23,7 @@ They are easy to confuse. They are not the same control.
 
 - **Off by default.**
 - When on, `fireCommand` / `fireMacro` / `setVariable` accept calls with no Bearer token. Admin host commands still need a config session.
+- `GET /api/vars` is unsigned only when this switch is on **and** no peer secret is configured. If a peer secret is set, `/api/vars` requires the same HMAC headers as `/api/peer` (a configured key is never ignored for open GET).
 
 ## What the PIN actually does
 
