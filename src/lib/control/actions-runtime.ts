@@ -117,7 +117,7 @@ export const fireMacro = createServerFn({ method: "POST" })
   .validator((data: { macroId: string; token?: string }) => data)
   .handler(async ({ data }) => {
   const {
-    ensureLoaded, memory, persist, pushLog, allowLanControl
+    ensureLoaded, memory, persist, pushLog, allowLanControl, drainQueuedTriggers
   } = await loadControl();
     await ensureLoaded();
     if (!allowLanControl(data.token)) return { ok: false, message: "External control off" };
@@ -133,6 +133,7 @@ export const fireMacro = createServerFn({ method: "POST" })
     mem.lastError = result.ok ? null : result.message;
     pushLog({ kind: "macro", ok: result.ok, title: macro.label, detail: result.message });
     await persist();
+    await drainQueuedTriggers();
     return result;
   });
 
