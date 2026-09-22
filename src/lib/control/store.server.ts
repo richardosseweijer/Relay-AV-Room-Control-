@@ -5,6 +5,8 @@ import type { DeviceHealth, DeviceStateMap, DriverIndex, DriverSpec, LogEntry, M
 import { NONE_MACRO_ID, indexDriver, noneMacro } from "./types";
 import { applyMonitors, clampVar, resolveTemplate, seedVars, withMonitorVars, monitorVarId, type VarMap } from "./vars";
 import { scheduleShouldRun, TriggerReservations, triggerPathHit, triggerStep } from "./logic-policy";
+import { retainSacnCidKeys } from "./sacn";
+import { retainPaceDevices, pruneIdlePaceDevices } from "./engine-wire";
 import { persistPair, recoverPersistPair } from "../../../scripts/write-atomic.mjs";
 import { mkdir, readFile, writeFile, readdir, unlink, access, rename } from "node:fs/promises";
 import { readFileSync } from "node:fs";
@@ -309,11 +311,54 @@ export function normalizedConfig(config: RoomConfig): RoomConfig {
  * Replace live room config: bump generation, normalize once (unless alreadyNormalized), seed memo.
  * Use on load / save / import / clear — not for in-place PIN/occupancy tweaks.
  */
+
+/** F8: drop process-global map rows for removed devices / monitors / triggers / schedules. */
+function pruneRuntimeMaps(config: RoomConfig) {
+  const deviceIds = (config.devices ?? []).map((d) => d.id).filter(Boolean);
+  const paceKeep = [
+    ...deviceIds,
+    ...(config.interfaces ?? []).map((iface) => `gw:${iface.id}`),
+  ];
+  retainPaceDevices(paceKeep);
+  pruneIdlePaceDevices();
+  retainSacnCidKeys(deviceIds);
+
+  const triggerKeys = new Set<string>();
+  for (const rule of config.triggers ?? []) {
+    if (rule.macroId) triggerKeys.add(`${rule.id}:t`);
+    if (rule.falseMacroId) triggerKeys.add(`${rule.id}:f`);
+  }
+  for (const key of [...lastTriggerValue.keys()]) {
+    if (!triggerKeys.has(key)) {
+      lastTriggerValue.delete(key);
+      lastTriggerFire.delete(key);
+      lastTriggerHeld.delete(key);
+    }
+  }
+  const monitorIds = new Set((config.monitors ?? []).map((m) => m.id));
+  for (const id of [...lastMonitorRun.keys()]) {
+    if (!monitorIds.has(id)) lastMonitorRun.delete(id);
+  }
+  const deviceSet = new Set(deviceIds);
+  for (const id of [...goodPolls.keys()]) {
+    if (!deviceSet.has(id)) goodPolls.delete(id);
+  }
+  const scheduleKeep = new Set<string>();
+  for (const job of config.schedules ?? []) {
+    scheduleKeep.add(job.id);
+    scheduleKeep.add(`empty:${job.id}`);
+  }
+  for (const id of [...lastScheduleRun.keys()]) {
+    if (!scheduleKeep.has(id)) lastScheduleRun.delete(id);
+  }
+}
+
 export function installRoomConfig(config: RoomConfig, opts?: { alreadyNormalized?: boolean }) {
   configNormGeneration += 1;
   const next = opts?.alreadyNormalized ? config : normalize(config);
   memory().config = next;
   rememberNormalized(next);
+  pruneRuntimeMaps(next);
   return next;
 }
 
