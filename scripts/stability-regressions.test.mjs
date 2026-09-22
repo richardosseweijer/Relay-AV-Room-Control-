@@ -377,6 +377,7 @@ test("F8: installRoomConfig prunes runtime Maps (source contract)", () => {
   assert.match(src, /retainSacnCidKeys\s*\(/);
   assert.match(src, /pruneIdlePaceDevices\s*\(/);
   assert.match(src, /pruneMonitorMaps\s*\(\s*config\s*\)/);
+  assert.match(src, /pruneScheduleMaps\s*\(\s*config\s*\)/);
   assert.match(src, /bindNormalizeInstallDeps\s*\(\s*\{\s*memory,\s*pruneRuntimeMaps\s*\}\s*\)/);
   const leaf = fs.readFileSync(new URL("../src/lib/control/store-normalize.ts", import.meta.url), "utf8");
   const install = leaf.match(/export function installRoomConfig\([\s\S]*?\n\}/);
@@ -386,6 +387,10 @@ test("F8: installRoomConfig prunes runtime Maps (source contract)", () => {
   assert.match(monitors, /export function pruneMonitorMaps\s*\(/);
   assert.match(monitors, /lastMonitorRun\.delete/);
   assert.match(monitors, /goodPolls\.delete/);
+  const schedules = fs.readFileSync(new URL("../src/lib/control/store-schedules.ts", import.meta.url), "utf8");
+  assert.match(schedules, /export function pruneScheduleMaps\s*\(/);
+  assert.match(schedules, /lastTriggerValue\.delete/);
+  assert.match(schedules, /lastScheduleRun\.delete/);
 });
 
 test("F14: room route uses roomRateLimited helper (idle eviction)", () => {
