@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Panel `fireMacro` drains `triggerQueue` via the same `drainQueuedTriggers` hook schedule uses after a macro, so triggers parked while a panel macro runs are processed when it finishes.
+
 Format: date, then bullets. Older work lives in `git log`.
 
 ## 0.9.40 — 2026-09-22
