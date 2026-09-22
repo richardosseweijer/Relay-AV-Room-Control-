@@ -1,4 +1,5 @@
 import type { TraceLine } from "./types";
+import { isSecretKey } from "./secrets.ts";
 
 const g = globalThis as typeof globalThis & { __relayTraces__?: Record<string, TraceLine[]> };
 
@@ -20,11 +21,17 @@ export function allowedLanHost(host: string | undefined, opts?: { localOk?: bool
   return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
 }
 
+/** Scrub free-text logs/traces using the same key policy as redactAuth / isSecretKey. */
 export function scrubSecret(text: string) {
   return String(text ?? "")
-    .replace(/("(?:token|password|secret|username|user)"\s*:\s*")[^"]*/gi, "$1***")
+    .replace(/("([^"]+)"\s*:\s*")[^"]*/g, (match, prefix: string, key: string) =>
+      isSecretKey(key) ? `${prefix}***` : match,
+    )
     .replace(/\btoken\s+[A-Za-z0-9._+/=-]{3,}/gi, "token ***")
-    .replace(/((?:token|password|secret)=)[^&\s"]+/gi, "$1***");
+    .replace(/\bbearer\s+[A-Za-z0-9._+/=-]{3,}/gi, "Bearer ***")
+    .replace(/([A-Za-z0-9_.-]+)=([^&\s"]+)/gi, (match, key: string) =>
+      isSecretKey(key) ? `${key}=***` : match,
+    );
 }
 
 export function pushTrace(deviceId: string, dir: TraceLine["dir"], text: string) {
