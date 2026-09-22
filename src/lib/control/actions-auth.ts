@@ -7,9 +7,11 @@ export const verifyConfigPin = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
   const {
     ensureLoaded, memory, persist, hashPin, verifyStoredPin,
-    checkLockout, notePinFail, clearPinFail, lockoutKey, mint
+    checkLockout, notePinFail, clearPinFail, lockoutKey, mint,
+    reloadSecretsFromDisk
   } = await loadControl();
     await ensureLoaded();
+    await reloadSecretsFromDisk();
     const gate = checkLockout(lockoutKey("config"));
     if (gate.blocked) return { ok: false, token: null as string | null, mustChange: false, message: "Try again later" };
     const stored = memory().config.room.configPin;

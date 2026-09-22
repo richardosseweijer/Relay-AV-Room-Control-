@@ -219,3 +219,20 @@ test("F3 signedPeerFetch gates peer host before network I/O", () => {
   assert.match(src, /signedPeerFetch\(device/);
   assert.match(src, /callRelayPeer\(/);
 });
+
+
+test("F4 verifyConfigPin reloads secrets from disk before PIN verify (like config-unlock)", () => {
+  const auth = readFileSync(new URL("../src/lib/control/actions-auth.ts", import.meta.url), "utf8");
+  const unlock = readFileSync(new URL("../src/routes/api/config-unlock.ts", import.meta.url), "utf8");
+  const session = readFileSync(new URL("../src/lib/control/session.server.ts", import.meta.url), "utf8");
+  assert.match(unlock, /await\s+reloadSecretsFromDisk\s*\(/);
+  assert.match(session, /reloadSecretsFromDisk/);
+  const fnStart = auth.indexOf("export const verifyConfigPin");
+  const fnEnd = auth.indexOf("export const verifyPanelPin");
+  assert.ok(fnStart >= 0 && fnEnd > fnStart, "verifyConfigPin block bounds");
+  const fn = auth.slice(fnStart, fnEnd);
+  const reloadAt = fn.search(/await\s+reloadSecretsFromDisk\s*\(/);
+  const storedAt = fn.indexOf("memory().config.room.configPin");
+  assert.ok(reloadAt >= 0, "verifyConfigPin must await reloadSecretsFromDisk");
+  assert.ok(storedAt >= 0 && reloadAt < storedAt, "reload before reading configPin");
+});
