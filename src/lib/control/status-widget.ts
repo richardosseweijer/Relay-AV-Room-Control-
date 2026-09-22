@@ -76,6 +76,14 @@ function cleanDefault(row: StatusDefault | null | undefined): StatusDefault | un
   return out;
 }
 
+/** F11: legacy WidgetType "toggle" was never in the pages-editor palette; panel fell through to button. */
+export function coerceLegacyWidgetType<T extends Widget>(widget: T): T {
+  if ((widget as { type?: string }).type === "toggle") {
+    return { ...widget, type: "button" } as T;
+  }
+  return widget;
+}
+
 /** Normalize/migrate Status fields: missing OK; drop invalid rows. */
 export function normalizeStatusFields<T extends Widget>(widget: T): T {
   const hasRules = "colorWhen" in widget && widget.colorWhen != null;

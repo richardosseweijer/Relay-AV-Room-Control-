@@ -387,3 +387,40 @@ test("F14: room route uses roomRateLimited helper (idle eviction)", () => {
   assert.match(src, /from\s+[\"']@\/lib\/control\/room-rate-limit[\"']/);
   assert.doesNotMatch(src, /const hits = new Map/);
 });
+
+
+test("F11: WidgetType drops toggle; normalize coerces legacy toggle → button", () => {
+  const types = fs.readFileSync(new URL("../src/lib/control/types.ts", import.meta.url), "utf8");
+  const typeLine = types.match(/export type WidgetType = [^;]+;/);
+  assert.ok(typeLine, "WidgetType export");
+  assert.doesNotMatch(typeLine[0], /"toggle"/);
+  assert.match(typeLine[0], /"button"/);
+
+  const status = fs.readFileSync(new URL("../src/lib/control/status-widget.ts", import.meta.url), "utf8");
+  assert.match(status, /export function coerceLegacyWidgetType/);
+  assert.match(status, /type === "toggle"/);
+  assert.match(status, /type: "button"/);
+
+  const store = fs.readFileSync(new URL("../src/lib/control/store.server.ts", import.meta.url), "utf8");
+  assert.match(store, /normalizeStatusFields\s*\(\s*coerceLegacyWidgetType\s*\(\s*widget\s*\)\s*\)/);
+
+  const arch = fs.readFileSync(new URL("../ARCHITECTURE.md", import.meta.url), "utf8");
+  const widgetRow = arch.match(/\| Widget \|[^\n]+/);
+  assert.ok(widgetRow, "ARCHITECTURE Widget row");
+  assert.doesNotMatch(widgetRow[0], /`toggle`/);
+  assert.match(widgetRow[0], /`button`/);
+  assert.match(widgetRow[0], /`preview`/);
+});
+
+test("F15: ARCHITECTURE.md and CONTEXT.md match package.json version", () => {
+  const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  const ver = pkg.version;
+  assert.ok(ver, "package.json version");
+  const arch = fs.readFileSync(new URL("../ARCHITECTURE.md", import.meta.url), "utf8");
+  const ctx = fs.readFileSync(new URL("../CONTEXT.md", import.meta.url), "utf8");
+  assert.match(arch, new RegExp(`Relay \\*\\*${ver.replace(/\./g, "\\.")}\\*\\* \\(beta\\)`));
+  assert.match(ctx, new RegExp(`Relay \\*\\*${ver.replace(/\./g, "\\.")}\\*\\* \\(beta\\)`));
+  assert.match(ctx, new RegExp(`still true at ${ver.replace(/\./g, "\\.")}`));
+  assert.doesNotMatch(arch, /0\.9\.38/);
+  assert.doesNotMatch(ctx, /0\.9\.38/);
+});

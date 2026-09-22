@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { test } from "node:test";
-import { normalizeStatusFields, resolveStatusAppearance } from "../src/lib/control/status-widget.ts";
+import { coerceLegacyWidgetType, normalizeStatusFields, resolveStatusAppearance } from "../src/lib/control/status-widget.ts";
 
 function statusWidget(extra = {}) {
   return {
@@ -118,4 +118,28 @@ test("pages editor uses Status setup title and colorWhen editor", () => {
   assert.match(src, /colorWhen/);
   assert.match(src, /statusDefault/);
   assert.match(src, /Catch-all color/);
+});
+
+test("F11: coerceLegacyWidgetType maps legacy toggle → button", () => {
+  const toggled = coerceLegacyWidgetType({
+    id: "w1",
+    type: "toggle",
+    x: 0,
+    y: 0,
+    w: 1,
+    h: 1,
+    label: "Lock",
+    color: "steel",
+    bind: { kind: "macro" },
+  });
+  assert.equal(toggled.type, "button");
+  assert.equal(toggled.label, "Lock");
+  const same = statusWidget();
+  assert.equal(coerceLegacyWidgetType(same), same);
+});
+
+test("F11: pages-editor palette has no toggle option", () => {
+  const src = fs.readFileSync("src/components/config/pages-editor.tsx", "utf8");
+  assert.doesNotMatch(src, /option value="toggle"/);
+  assert.match(src, /option value="button"/);
 });
