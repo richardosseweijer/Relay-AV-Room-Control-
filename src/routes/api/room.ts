@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ensureLoaded, snapshot } from "@/lib/control/store.server";
-import { validToken } from "@/lib/control/session.server";
+import { validTokenAny } from "@/lib/control/session.server";
 import { scrubSecret } from "@/lib/control/engine";
 
 import { redactAuth } from "@/lib/control/secrets";
@@ -40,7 +40,7 @@ export const Route = createFileRoute("/api/room")({
           if (!room) return Response.json({ ...snap, traces: {}, drivers: {}, library: {} });
           // Same expiry + kind + sliding as /api/preview — local session lookup treated
           // missing exp as forever-authed for host/driver/log redaction (#audit).
-          const authed = validToken(token, "panel") || validToken(token, "config");
+          const authed = validTokenAny(token);
           const devices = (snap.config.devices ?? []).map((device) => ({
             ...device,
             host: authed ? device.host : "",
