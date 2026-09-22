@@ -81,6 +81,8 @@ export function validToken(token: string | undefined, kind: "config" | "panel") 
   row.lastSeen = Date.now();
   row.exp = Date.now() + SESSION_TTL_MS;
   tokenStore().set(token, row);
+  // Debounced persist so sliding exp survives restart without hammering disk.
+  persist();
   return true;
 }
 
