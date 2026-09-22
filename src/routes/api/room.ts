@@ -84,7 +84,7 @@ export const Route = createFileRoute("/api/room")({
               traces: {},
               monitorStatus: {},
               latches: {},
-              lastError: err instanceof Error ? err.message : "room unavailable",
+              lastError: scrubSecret(err instanceof Error ? err.message : "room unavailable"),
               runningMacro: null,
               activeScene: null,
               host: { dim: false, locked: false, toast: null, block: null, pageId: null },

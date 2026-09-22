@@ -309,3 +309,27 @@ test("F6 executeCommand remote host only peers macro.run; other cmds fail closed
   assert.doesNotMatch(remoteWindow, /callRelayPeer\([\s\S]*\{\s*command:/);
   assert.doesNotMatch(fn, /\{\s*command:\s*opts\.commandId/);
 });
+
+test("F8 /api/room catch lastError uses scrubSecret (not raw err.message)", () => {
+  const src = readFileSync(new URL("../src/routes/api/room.ts", import.meta.url), "utf8");
+  assert.match(src, /import\s*\{\s*scrubSecret\s*\}\s*from\s*["']@\/lib\/control\/engine["']/);
+  // Happy path already scrubs
+  assert.match(src, /lastError:\s*snap\.lastError\s*\?\s*scrubSecret\(snap\.lastError\)\s*:\s*null/);
+  const catchIdx = src.indexOf("catch (err)");
+  assert.ok(catchIdx >= 0, "outer catch (err) required");
+  const catchBlock = src.slice(catchIdx);
+  assert.match(catchBlock, /lastError:\s*scrubSecret\(/);
+  assert.doesNotMatch(catchBlock, /lastError:\s*err\s+instanceof\s+Error\s*\?\s*err\.message/);
+});
+
+test("F8 scrubSecret redacts secrets in exception-like lastError text", async () => {
+  const { scrubSecret } = await import("../src/lib/control/engine-policy.ts");
+  const raw = 'load failed Authorization: Bearer eyJhbGciOi.abc token abc.def.ghi pin=9999';
+  const scrubbed = scrubSecret(raw);
+  assert.equal(scrubbed.includes("eyJhbGciOi"), false);
+  assert.equal(scrubbed.includes("abc.def.ghi"), false);
+  assert.equal(scrubbed.includes("9999"), false);
+  assert.match(scrubbed, /Bearer \*\*\*/);
+  assert.match(scrubbed, /token \*\*\*/);
+  assert.match(scrubbed, /pin=\*\*\*/);
+});
