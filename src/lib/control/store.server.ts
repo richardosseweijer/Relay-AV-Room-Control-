@@ -2,8 +2,8 @@ import { defaultDeviceState, emptyRoomConfig, hostDriverSeed, workingSetNames } 
 import { readMonitorValue, runMacro, traces, scrubSecret, socketStats } from "./engine";
 import { syncMidiWatchers } from "./midi-in";
 import type { DeviceHealth, DeviceStateMap, DriverIndex, DriverSpec, LogEntry, Macro, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
-import { NONE_MACRO_ID, indexDriver, noneMacro } from "./types";
-import { applyMonitors, clampVar, resolveTemplate, seedVars, withMonitorVars, monitorVarId, type VarMap } from "./vars";
+import { indexDriver } from "./types";
+import { applyMonitors, clampVar, resolveTemplate, seedVars, monitorVarId, type VarMap } from "./vars";
 import { scheduleShouldRun, TriggerReservations, triggerPathHit, triggerStep } from "./logic-policy";
 import { retainSacnCidKeys } from "./sacn";
 import { retainPaceDevices, pruneIdlePaceDevices } from "./engine-wire";
@@ -23,17 +23,22 @@ import {
   readSecretCandidate,
 } from "./store-secrets";
 import { FILE_STORE, persist, persistNow } from "./store-persist";
+import {
+  normalize,
+  normalizedConfig,
+  installRoomConfig,
+  rememberNormalized,
+  bindNormalizeInstallDeps,
+} from "./store-normalize";
 import { recoverPersistPair } from "../../../scripts/write-atomic.mjs";
 import { readFile, readdir, rename } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
-import { withOccupancyVar, occupancyOf, occupancyCode, OCCUPANCY_VAR_ID } from "./peer-payload";
-import { applyFoyerSession, fetchFoyerSession, withFoyerSessionVars, DEFAULT_FOYER_PEER_URL } from "./foyer-peer";
+import { occupancyOf, occupancyCode, OCCUPANCY_VAR_ID } from "./peer-payload";
+import { applyFoyerSession, fetchFoyerSession, DEFAULT_FOYER_PEER_URL } from "./foyer-peer";
 import { peerKey } from "./peer-auth";
-import { resolveRoomTheme } from "@/lib/theme";
-import { coerceLegacyWidgetType, normalizeStatusFields } from "./status-widget";
 
 export {
   safeDriverName,
@@ -47,6 +52,13 @@ export {
 
 export { reloadSecretsFromDisk } from "./store-secrets";
 export { persist, persistNow };
+
+export {
+  normalize,
+  normalizedConfig,
+  invalidateNormalizedConfig,
+  installRoomConfig,
+} from "./store-normalize";
 
 
 type Memory = {
@@ -87,96 +99,6 @@ const lastTriggerHeld = new Map<string, number>();
 const goodPolls = new Map<string, number>();
 const triggerQueue: { id: string; macroId: string; label: string; path: "t" | "f" }[] = [];
 const pendingTriggers = new TriggerReservations();
-
-function liftTag<T extends { tag?: string | null }>(item: T): T {
-  const legacy = (item as T & { folder?: string | null }).folder;
-  return { ...item, tag: item.tag || legacy || null };
-}
-
-export function normalize(config?: RoomConfig | null): RoomConfig {
-  const demo = emptyRoomConfig();
-  if (!config) return demo;
-  return withFoyerSessionVars(withOccupancyVar(withMonitorVars({
-    ...demo,
-    ...config,
-    room: {
-      ...demo.room,
-      ...(config.room ?? {}),
-      network: { ...demo.room.network, ...(config.room?.network ?? {}) },
-      grid: { ...demo.room.grid, ...(config.room?.grid ?? {}) },
-      externalControl: config.room?.externalControl === true,
-      panelAcceptsConfigPin: config.room?.panelAcceptsConfigPin === true,
-      theme: resolveRoomTheme(config.room?.theme),
-    },
-    variables: (config.variables ?? demo.variables).map(liftTag),
-    schedules: (config.schedules ?? demo.schedules).map(liftTag),
-    monitors: (config.monitors ?? demo.monitors).map(liftTag),
-    triggers: (config.triggers ?? []).map((rule) => {
-      const holdSec = rule.holdSec ?? Math.round((rule.holdMs || 0) / 1000);
-      const delaySec = rule.delaySec ?? Math.round((rule.delayMs || 0) / 1000);
-      const intervalSec = rule.intervalSec ?? Math.max(1, Math.round((rule.intervalMs || 5000) / 1000));
-      const clip = (rows: typeof rule.whenTrue) => (rows ?? []).slice(0, 8).map((row) => ({
-        variable: row.variable || "",
-        compare: row.compare || "eq",
-        equals: row.equals ?? "",
-      }));
-      return liftTag({
-        ...rule,
-        holdSec,
-        delaySec,
-        intervalSec,
-        holdMs: undefined,
-        delayMs: undefined,
-        intervalMs: undefined,
-        whenTrue: clip(rule.whenTrue),
-        whenFalse: clip(rule.whenFalse),
-        falseMacroId: rule.falseMacroId || "",
-      });
-    }),
-    interfaces: config.interfaces ?? [],
-    tags: config.tags ?? (config as { folders?: RoomConfig["tags"] }).folders ?? {},
-    macros: [noneMacro(), ...(config.macros ?? demo.macros).filter((m) => m.id !== NONE_MACRO_ID)].map(liftTag),
-    pages: (config.pages ?? demo.pages).map((page) => ({
-      ...page,
-      widgets: (page.widgets ?? []).map((widget) => normalizeStatusFields(coerceLegacyWidgetType(widget))),
-    })),
-  })));
-}
-
-/** Bumped when room config is replaced; in-place field tweaks on the live object keep the memo. */
-let configNormGeneration = 0;
-let memoNormGeneration = -1;
-let memoNormalized: RoomConfig | null = null;
-
-/** Invalidate memo so the next normalizedConfig()/install rebuilds (F1+F7). */
-export function invalidateNormalizedConfig() {
-  configNormGeneration += 1;
-  memoNormalized = null;
-  memoNormGeneration = -1;
-}
-
-function rememberNormalized(config: RoomConfig) {
-  memoNormalized = config;
-  memoNormGeneration = configNormGeneration;
-}
-
-/**
- * F1+F7: return normalize(config), memoized until generation changes or config identity differs.
- * Snapshot polls and persist reuse the same object when mem.config is already the memo.
- */
-export function normalizedConfig(config: RoomConfig): RoomConfig {
-  if (memoNormalized && memoNormGeneration === configNormGeneration && config === memoNormalized) {
-    return memoNormalized;
-  }
-  const next = normalize(config);
-  rememberNormalized(next);
-  return next;
-}
-
-/**
- * Replace live room config: bump generation, normalize once (unless alreadyNormalized), seed memo.
- * Use on load / save / import / clear — not for in-place PIN/occupancy tweaks.
- */
 
 /** F8: drop process-global map rows for removed devices / monitors / triggers / schedules. */
 function pruneRuntimeMaps(config: RoomConfig) {
@@ -219,15 +141,6 @@ function pruneRuntimeMaps(config: RoomConfig) {
   }
 }
 
-export function installRoomConfig(config: RoomConfig, opts?: { alreadyNormalized?: boolean }) {
-  configNormGeneration += 1;
-  const next = opts?.alreadyNormalized ? config : normalize(config);
-  memory().config = next;
-  rememberNormalized(next);
-  pruneRuntimeMaps(next);
-  return next;
-}
-
 function emptyMemory(): Memory {
   const config = normalize(emptyRoomConfig());
   rememberNormalized(config);
@@ -254,6 +167,9 @@ export function memory(): Memory {
   if (!g.__relayMemory__) g.__relayMemory__ = emptyMemory();
   return g.__relayMemory__;
 }
+
+// Sync wire for store-normalize installRoomConfig (scheduler/monitor prune stays here).
+bindNormalizeInstallDeps({ memory, pruneRuntimeMaps });
 
 export async function loadPersisted(): Promise<Memory> {
   const mem = memory();
