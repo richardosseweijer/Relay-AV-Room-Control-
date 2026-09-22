@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { peerKey, varsRequestAllowed } from "@/lib/control/peer-auth";
 import { ensureLoaded, memory, persist } from "@/lib/control/store.server";
+import { writeConfiguredVar } from "@/lib/control/vars";
 
 function allowed(request: Request, body: string) {
   const mem = memory();
@@ -34,7 +35,10 @@ export const Route = createFileRoute("/api/vars")({
         const body = (() => { try { return JSON.parse(raw) as { id?: string; value?: string | number }; } catch { return {}; } })();
         if (!body.id) return Response.json({ ok: false, message: "Missing id" }, { status: 400 });
         const mem = memory();
-        mem.vars[body.id] = body.value ?? "";
+        // F5: allowlist to configured variables only (same as setVariable); clamp bounds/enum.
+        const written = writeConfiguredVar(mem.config.variables, body.id, body.value);
+        if (!written.ok) return Response.json({ ok: false, message: written.message }, { status: 400 });
+        mem.vars[body.id] = written.value;
         await persist();
         return Response.json({ ok: true, id: body.id, value: mem.vars[body.id] });
       },

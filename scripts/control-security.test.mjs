@@ -236,3 +236,51 @@ test("F4 verifyConfigPin reloads secrets from disk before PIN verify (like confi
   assert.ok(reloadAt >= 0, "verifyConfigPin must await reloadSecretsFromDisk");
   assert.ok(storedAt >= 0 && reloadAt < storedAt, "reload before reading configPin");
 });
+
+test("F5 /api/vars PUT uses writeConfiguredVar (allowlist + clamp)", () => {
+  const src = readFileSync(new URL("../src/routes/api/vars.ts", import.meta.url), "utf8");
+  assert.match(src, /writeConfiguredVar\s*\(/);
+  assert.match(src, /from\s+["']@\/lib\/control\/vars["']/);
+  assert.doesNotMatch(src, /mem\.vars\[body\.id\]\s*=\s*body\.value/);
+});
+
+test("F5 writeConfiguredVar rejects unknown id; accepts and clamps known", async () => {
+  const { writeConfiguredVar } = await import("../src/lib/control/vars.ts");
+  const variables = [
+    { id: "vol", label: "Volume", kind: "number", default: 50, min: 0, max: 100 },
+    { id: "mode", label: "Mode", kind: "enum", default: "off", values: ["off", "on"] },
+    { id: "note", label: "Note", kind: "text", default: "" },
+  ];
+  const unknown = writeConfiguredVar(variables, "evil.payload", 1);
+  assert.equal(unknown.ok, false);
+  assert.equal(unknown.message, "Unknown variable");
+
+  const hi = writeConfiguredVar(variables, "vol", 150);
+  assert.equal(hi.ok, true);
+  assert.equal(hi.value, 100);
+
+  const lo = writeConfiguredVar(variables, "vol", -3);
+  assert.equal(lo.ok, true);
+  assert.equal(lo.value, 0);
+
+  const mid = writeConfiguredVar(variables, "vol", 42);
+  assert.equal(mid.ok, true);
+  assert.equal(mid.value, 42);
+
+  const okEnum = writeConfiguredVar(variables, "mode", "on");
+  assert.equal(okEnum.ok, true);
+  assert.equal(okEnum.value, "on");
+
+  const badEnum = writeConfiguredVar(variables, "mode", "hack");
+  assert.equal(badEnum.ok, true);
+  assert.equal(badEnum.value, "off");
+
+  const text = writeConfiguredVar(variables, "note", 7);
+  assert.equal(text.ok, true);
+  assert.equal(text.value, "7");
+
+  const missingVal = writeConfiguredVar(variables, "note", undefined);
+  assert.equal(missingVal.ok, true);
+  assert.equal(missingVal.value, "");
+});
+
