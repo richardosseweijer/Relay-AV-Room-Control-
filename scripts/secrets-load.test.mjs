@@ -7,13 +7,14 @@ import { test } from "node:test";
 import ts from "typescript";
 
 function extractFns(names) {
-  const file = new URL("../src/lib/control/store.server.ts", import.meta.url);
+  const file = new URL("../src/lib/control/store-secrets.ts", import.meta.url);
   const text = readFileSync(file, "utf8");
   const source = ts.createSourceFile(file.pathname, text, ts.ScriptTarget.Latest, true);
   const found = {};
   function visit(node) {
     if (ts.isFunctionDeclaration(node) && node.name && names.includes(node.name.text)) {
-      found[node.name.text] = node.getText(source);
+      // Leaf exports these; strip export so new Function() can eval the bodies.
+      found[node.name.text] = node.getText(source).replace(/^export\s+/, "");
     }
     ts.forEachChild(node, visit);
   }
@@ -60,8 +61,8 @@ test("readSecretFile corrupt JSON fails closed and does not wipe on-disk file", 
 });
 
 test("readSecretFile delegates to readSecretCandidate (no fail-open catch)", () => {
-  const src = readFileSync(new URL("../src/lib/control/store.server.ts", import.meta.url), "utf8");
-  const block = src.match(/async function readSecretFile\(\)[\s\S]*?\n\}/);
+  const src = readFileSync(new URL("../src/lib/control/store-secrets.ts", import.meta.url), "utf8");
+  const block = src.match(/(?:export\s+)?async function readSecretFile\(\)[\s\S]*?\n\}/);
   assert.ok(block, "readSecretFile present");
   assert.match(block[0], /readSecretCandidate\(\s*SECRET_STORE\s*\)/);
   assert.doesNotMatch(block[0], /catch\s*\{[^}]*return\s*\{\s*\}/);
