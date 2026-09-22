@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.9** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.38** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -26,7 +26,7 @@ One Node.js process serves three surfaces:
 | `/config` | Integrator | PIN-protected editor for room, devices, pages, macros, logic, drivers, interfaces, and the action log. |
 | `/api/room` | Both | JSON snapshot of configuration, variables, device state, health, traces, and recent log lines. |
 
-There is no separate device-gateway process. HTTP, TCP, TLS WebSocket, Cast, Wake-on-LAN, and local interfaces are opened from `src/lib/control/engine.ts` inside the same process. That file is the public barrel: `actions.ts`, `store.server.ts`, and the HTTP routes import it only. LAN allow-list and traces live in `engine-policy.ts`; payload tokens and reply parse live in `engine-payload.ts`. Those two files must not import `engine.ts`.
+There is no separate device-gateway process. Device I/O is opened from `src/lib/control/` inside the same process. Callers import the public façades `engine.ts` and `actions.ts` only. `engine.ts` is slim orchestration (pairing, inventory, monitors, macros, `executeCommand`); wire I/O lives in `engine-wire.ts`, LAN dispatch in `engine-lan.ts`, local/host plane in `engine-host.ts`. LAN allow-list and traces live in `engine-policy.ts`; payload tokens and reply parse live in `engine-payload.ts`. Policy/payload/wire/lan/host leaves must not import `engine.ts`. Panel/config RPCs are split under `actions-*.ts` with `actions.ts` as the barrel and `actions-context.ts` (`loadControl`) shared by those handlers.
 
 A second browser (wall tablet and desk tablet) may attach to the same origin. Both share one configuration and one variable store. Tablets belong on AV-LAN.
 
@@ -44,11 +44,16 @@ Operator browser          Integrator browser
           ┌───────────┴────────────┐
           ▼                        ▼
    store.server.ts            engine.ts
-   (memory, disk, clocks)     (barrel: sockets, macros)
-          │                   ├── engine-policy.ts
-          │                   │   (RFC1918, traces)
-          │                   └── engine-payload.ts
-          │                       (tokens, parse)
+   (memory, disk, clocks)     (orchestration façade)
+          │                   ├── engine-wire.ts   (TCP / pace / encode)
+          │                   ├── engine-lan.ts    (LAN protocols)
+          │                   ├── engine-host.ts   (local / host plane)
+          │                   ├── engine-policy.ts (RFC1918, scrub, traces)
+          │                   └── engine-payload.ts (tokens, parse)
+          │
+          │              actions.ts (RPC barrel)
+          │                   ├── actions-auth / config / runtime / host
+          │                   └── actions-context.ts (loadControl)
           ▼                        ▼
    data/relay-room.json      LAN / serial / GPIO
    data/relay-secrets.json   PINs and device tokens
@@ -73,9 +78,9 @@ Operator browser          Integrator browser
 ### 3.2 Operator action
 
 1. The panel widget identifies a macro, a command, or a variable write.
-2. The browser calls a server function in `actions.ts` (`fireMacro`, `fireCommand`, `setVariable`).
-3. The handler checks the optional LAN-control policy and, where required, a session token.
-4. `executeCommand` in `engine.ts` resolves the device instance and loads its driver. `engine-payload.ts` substitutes payload tokens and applies `valueMap`. `engine.ts` then sends on the selected transport (`sendLan`, `sendLocal`, or a host command).
+2. The browser calls a server function re-exported from `actions.ts` (`fireMacro`, `fireCommand`, `setVariable` live in `actions-runtime.ts`).
+3. The handler checks the optional LAN-control policy and, where required, a session token (`validToken` / `mint` via `loadControl()` → `session.server.ts`).
+4. `executeCommand` in `engine.ts` resolves the device instance and loads its driver. `engine-payload.ts` substitutes payload tokens and applies `valueMap`. Dispatch then goes to `sendLan` (`engine-lan.ts`), `sendLocal` / host commands (`engine-host.ts`), with TCP/pace helpers in `engine-wire.ts`.
 5. The reply is parsed in `engine-payload.ts` according to the command or feedback `parse` object. Device state and optional bound variables are updated. A log line is appended.
 6. Subsequent `/api/room` polls show the new values. The panel does not open sockets to the television or mixer itself.
 
@@ -115,12 +120,15 @@ Drivers exist in two layers. The **library** is the set of JSON files on disk. T
 
 ## 5. Transport engine
 
-Callers import `src/lib/control/engine.ts`. That barrel still owns sockets, TCP sessions, LAN/local dispatch, pairing, inventory fetch, monitors, macros, and host commands. A driver must not assume JavaScript, persistent TCP sessions beyond a single command (KNOWN_ISSUES #4), or tokens that are not listed below.
+Callers import `src/lib/control/engine.ts`. That façade orchestrates pairing, inventory fetch, monitors, macros, and `executeCommand`. Transport leaves own the sockets. A driver must not assume JavaScript, persistent TCP sessions beyond a single command (KNOWN_ISSUES #4), or tokens that are not listed below.
 
 | Module | Owns |
 |---|---|
-| `engine.ts` | Open / write / close on each transport. `sendLan`, `sendLocal`, TCP session map (`globalThis.__relayTcp__`), pairing, monitors, macros, `applyHost`. |
-| `engine-policy.ts` | RFC1918 (plus optional loopback) host allow, secret scrub, traces (`__relayTraces__`), `sleep`. Re-exported from the barrel. |
+| `engine.ts` | Orchestration façade: pairing, inventory, monitors, macros, `executeCommand`. Re-exports selected leaf APIs. |
+| `engine-wire.ts` | Wire encode/decode (`encodeWire`), TCP connect-write-close / session write, pacing (`paceDevice`), TCP pool. |
+| `engine-lan.ts` | `sendLan`, `sendHttp`, and LAN protocol adapters (UDP, WS, Cast, PJLink, WOL, OSC, sACN, MIDI variants). |
+| `engine-host.ts` | `sendLocal`, `applyHost`, host feedback, `listHostInterfaces` (serial / GPIO / local tools). |
+| `engine-policy.ts` | RFC1918 (plus optional loopback) host allow, `scrubSecret` (via `isSecretKey`), traces (`__relayTraces__`), `sleep`. Re-exported from the barrel. |
 | `engine-payload.ts` | `{value}` / `{auth.*}` substitution, `valueMap`, `requires` guard, simulated state, `parseFeedback`, inventory JSON parse. Not re-exported. |
 
 ### 5.1 LAN protocols
@@ -135,7 +143,7 @@ Serial, GPIO, I2C, SPI, IR, CEC, and USB MIDI are dispatched to host binaries (`
 
 ### 5.3 Encoding and substitution
 
-Payload encoding is taken from, in order, the command `payloadEncoding`, the transport `payloadEncoding`, then the transport `encoding`. Values `hex` and `ascii` are defined. An odd number of hex digits is rejected. When the transport encoding is `hex`, received buffers are returned as a lowercase hex dump so parse needles such as `b02601` can match. Encoding of the wire bytes is still in `engine.ts` (`encodeWire`). Token substitution is `renderPayload` in `engine-payload.ts`.
+Payload encoding is taken from, in order, the command `payloadEncoding`, the transport `payloadEncoding`, then the transport `encoding`. Values `hex` and `ascii` are defined. An odd number of hex digits is rejected. When the transport encoding is `hex`, received buffers are returned as a lowercase hex dump so parse needles such as `b02601` can match. Encoding of the wire bytes is in `engine-wire.ts` (`encodeWire`). Token substitution is `renderPayload` in `engine-payload.ts`.
 
 Substitution tokens recognised in payloads and paths:
 
@@ -212,11 +220,19 @@ Do not publish port 8081 to the public internet. HTTP only (issue #15).
 | File | Responsibility |
 |---|---|
 | `src/lib/control/types.ts` | TypeScript types for drivers, room configuration, widgets, snapshots, and logs. |
-| `src/lib/control/engine.ts` | Barrel. LAN and local transports, TCP sessions, pairing, inventory fetch, monitors, macros, host commands, process restart. Callers import this file. |
-| `src/lib/control/engine-policy.ts` | RFC1918 host allow, secret scrub, traces, sleep. |
+| `src/lib/control/engine.ts` | Orchestration façade. Pairing, inventory, monitors, macros, `executeCommand`. Callers import this file. |
+| `src/lib/control/engine-wire.ts` | TCP / pace / wire encode-decode. |
+| `src/lib/control/engine-lan.ts` | LAN protocol dispatch (`sendLan`, `sendHttp`). |
+| `src/lib/control/engine-host.ts` | Local interfaces and host commands (`sendLocal`, `applyHost`). |
+| `src/lib/control/engine-policy.ts` | RFC1918 host allow, secret scrub (`scrubSecret` ↔ `isSecretKey`), traces, sleep. |
 | `src/lib/control/engine-payload.ts` | Payload tokens, `valueMap`, requires-guard, simulated state, parse, inventory JSON parse. |
 | `src/lib/control/store.server.ts` | Process memory, file load/save, snapshot assembly, monitor/schedule/trigger timer. |
-| `src/lib/control/actions.ts` | TanStack server functions used by the panel and configurator. |
+| `src/lib/control/actions.ts` | Barrel of TanStack server functions used by the panel and configurator. |
+| `src/lib/control/actions-auth.ts` | PIN verify, session revoke. |
+| `src/lib/control/actions-config.ts` | Editor load/save/import/clear/driver library. |
+| `src/lib/control/actions-runtime.ts` | `fireMacro` / `fireCommand` / `setVariable` and related runtime RPCs. |
+| `src/lib/control/actions-host.ts` | Host restart/update/reboot, NIC/port list, debug. |
+| `src/lib/control/actions-context.ts` | Shared `loadControl()` → `session.server`. |
 | `src/lib/control/vars.ts` | Variable seeding, clamping, template substitution, enable-when evaluation. |
 | `src/lib/control/schema.ts` | Driver validation and orphan bindings. |
 | `src/lib/control/peer-auth.ts` | HMAC sign/verify, replay cache, loopback GET. |
@@ -303,7 +319,7 @@ Static mode validates manufacturer/model, command ids, parse types, and substitu
 
 **Additional room behaviour without a new driver.** Compose macros, variables, monitors, and triggers. Use `relay-host.json` for panel-side effects.
 
-**Engine change versus driver change.** A capability needed by many products (hex receive, Wake-on-LAN, inter-command pacing) belongs in the engine and must be reflected in DRIVER-PROMPT.md: transports and pacing in `engine.ts`, substitution tokens and parse types in `engine-payload.ts`. A quirk of one model belongs only in that model’s JSON.
+**Engine change versus driver change.** A capability needed by many products (hex receive, Wake-on-LAN, inter-command pacing) belongs in the engine and must be reflected in DRIVER-PROMPT.md: pacing/wire in `engine-wire.ts`, LAN transports in `engine-lan.ts`, local/host in `engine-host.ts`, substitution tokens and parse types in `engine-payload.ts`. A quirk of one model belongs only in that model’s JSON.
 
 ---
 
