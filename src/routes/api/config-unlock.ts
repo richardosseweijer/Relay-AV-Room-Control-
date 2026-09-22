@@ -26,9 +26,11 @@ export const Route = createFileRoute("/api/config-unlock")({
           return Response.json({ ok: false, message: "Wrong PIN" });
         }
         clearPinFail(lockoutKey("config"));
+        const weak = isWeakPin(pin) || (!isHashedPin(stored) && isWeakPin(stored));
         if (stored && !isHashedPin(stored)) {
           memory().config.room.configPin = hashPin(pin);
         }
+        if (weak) memory().pinChangeRequired = true;
         const id = randomHex(8);
         const secret = `config-${randomHex(18)}`;
         const row = { id, secret, kind: "config" as const, exp: Date.now() + 30 * 24 * 60 * 60 * 1000, created: Date.now(), lastSeen: Date.now(), label: "config" };
@@ -38,7 +40,7 @@ export const Route = createFileRoute("/api/config-unlock")({
         memory().sessions = memory().sessions ?? {};
         memory().sessions[id] = row;
         await persistNow();
-        return Response.json({ ok: true, token: secret, mustChange: isWeakPin(pin) });
+        return Response.json({ ok: true, token: secret, mustChange: weak || memory().pinChangeRequired === true });
       },
     },
   },
