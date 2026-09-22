@@ -1,10 +1,13 @@
 # Changelog
 
-## Unreleased
-
-- Panel `fireMacro` drains `triggerQueue` via the same `drainQueuedTriggers` hook schedule uses after a macro, so triggers parked while a panel macro runs are processed when it finishes.
-
 Format: date, then bullets. Older work lives in `git log`.
+
+## 0.9.41 — 2026-09-23
+
+- Tag `v0.9.41`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Anti-vibecode poll/persist/monitor hygiene after v0.9.40: dirty-bit clear-before-flush, session slide persist throttle, validTokenAny, normalize memo, panel snap fingerprint, Map eviction, toggle/docs, parallel monitors (#87–#94).
+- Status traffic-light `colorWhen` + `statusDefault` (#86).
+- Panel `fireMacro` drains `triggerQueue` after macro (#85).
 
 ## 0.9.40 — 2026-09-22
 
