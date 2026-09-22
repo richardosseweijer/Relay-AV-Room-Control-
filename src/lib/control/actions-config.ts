@@ -181,7 +181,7 @@ export const importBundle = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
   const {
     ensureLoaded, memory, persistNow, normalize, writeDriverFile,
-    safeDriverName, validToken
+    safeDriverName, validToken, randomHex
   } = await loadControl();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
@@ -194,6 +194,8 @@ export const importBundle = createServerFn({ method: "POST" })
     const panelPin = incoming.room.panelAccess === "pin"
       ? (incoming.room.panelPin?.trim() || current.room.panelPin)
       : null;
+    // Mirror saveConfig: blank/missing peerSecret (e.g. publicConfig export) keeps the live secret.
+    const peerSecret = incoming.room.peerSecret?.trim() || current.room.peerSecret || randomHex(24);
     const devices = (incoming.devices ?? []).map((device) => {
       const prev = current.devices.find((item) => item.id === device.id);
       const auth = { ...(prev?.auth ?? {}), ...(device.auth ?? {}) };
@@ -204,7 +206,7 @@ export const importBundle = createServerFn({ method: "POST" })
     });
     const config = normalize({
       ...incoming,
-      room: { ...incoming.room, configPin: pin, panelPin },
+      room: { ...incoming.room, configPin: pin, panelPin, peerSecret },
       devices,
       variables: incoming.variables ?? [],
       schedules: incoming.schedules ?? [],
