@@ -71,6 +71,19 @@ export function clampVar(def: RoomVariable, value: string | number): string | nu
   return n;
 }
 
+
+/** Peer/API var write: fail-closed to configured ids, then clampVar bounds/enum. */
+export function writeConfiguredVar(
+  variables: RoomVariable[],
+  id: string,
+  value: string | number | undefined,
+): { ok: true; value: string | number } | { ok: false; message: string } {
+  const def = variables.find((v) => v.id === id);
+  if (!def) return { ok: false, message: "Unknown variable" };
+  return { ok: true, value: clampVar(def, value ?? "") };
+}
+
+
 export function applyMonitors(
   config: RoomConfig,
   state: Record<string, Record<string, string | number | boolean>>,
