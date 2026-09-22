@@ -376,11 +376,16 @@ test("F8: installRoomConfig prunes runtime Maps (source contract)", () => {
   assert.match(src, /retainPaceDevices\s*\(/);
   assert.match(src, /retainSacnCidKeys\s*\(/);
   assert.match(src, /pruneIdlePaceDevices\s*\(/);
+  assert.match(src, /pruneMonitorMaps\s*\(\s*config\s*\)/);
   assert.match(src, /bindNormalizeInstallDeps\s*\(\s*\{\s*memory,\s*pruneRuntimeMaps\s*\}\s*\)/);
   const leaf = fs.readFileSync(new URL("../src/lib/control/store-normalize.ts", import.meta.url), "utf8");
   const install = leaf.match(/export function installRoomConfig\([\s\S]*?\n\}/);
   assert.ok(install, "installRoomConfig body");
   assert.match(install[0], /installDeps\.pruneRuntimeMaps\s*\(\s*next\s*\)/);
+  const monitors = fs.readFileSync(new URL("../src/lib/control/store-monitors.ts", import.meta.url), "utf8");
+  assert.match(monitors, /export function pruneMonitorMaps\s*\(/);
+  assert.match(monitors, /lastMonitorRun\.delete/);
+  assert.match(monitors, /goodPolls\.delete/);
 });
 
 test("F14: room route uses roomRateLimited helper (idle eviction)", () => {
@@ -428,12 +433,13 @@ test("F15: ARCHITECTURE.md and CONTEXT.md match package.json version", () => {
 });
 
 test("F6: runDueMonitors groups by device and uses bounded mapPool", () => {
-  const src = fs.readFileSync(new URL("../src/lib/control/store.server.ts", import.meta.url), "utf8");
-  const start = src.indexOf("async function runDueMonitors()");
-  assert.ok(start >= 0, "runDueMonitors present");
-  const end = src.indexOf("\nlet foyerBusy", start);
-  assert.ok(end > start, "runDueMonitors bounded before foyerBusy");
-  const body = src.slice(start, end);
+  const barrel = fs.readFileSync(new URL("../src/lib/control/store.server.ts", import.meta.url), "utf8");
+  assert.match(barrel, /export \{\s*runDueMonitors,\s*applyDueMonitor,\s*pruneMonitorMaps\s*\}/);
+  assert.equal(/async function runDueMonitors\(/.test(barrel), false);
+  const src = fs.readFileSync(new URL("../src/lib/control/store-monitors.ts", import.meta.url), "utf8");
+  const start = src.indexOf("export async function runDueMonitors()");
+  assert.ok(start >= 0, "runDueMonitors present on monitors leaf");
+  const body = src.slice(start);
   assert.match(body, /groupMonitorRulesByDevice\s*\(\s*due\s*\)/);
   assert.match(body, /mapPool\s*\(\s*groups\s*,\s*MONITOR_DEVICE_CONCURRENCY/);
   assert.match(body, /for\s*\(\s*const rule of rules\s*\)/);
