@@ -121,3 +121,34 @@ test("store.server re-exports monitors leaf", () => {
   assert.match(leaf, /mapPool\s*\(\s*groups\s*,\s*MONITOR_DEVICE_CONCURRENCY/);
 });
 
+
+test("store.server re-exports schedules leaf", () => {
+  const src = fs.readFileSync("src/lib/control/store.server.ts", "utf8");
+  assert.match(src, /export \{\s*scheduleStamps,\s*loadScheduleStamps,\s*pruneScheduleMaps,\s*runDueSchedules,\s*runDueTriggers,\s*drainQueuedTriggers,\s*\}/);
+  assert.equal(/async function runDueSchedules\(/.test(src), false);
+  assert.equal(/async function runDueTriggers\(/.test(src), false);
+  assert.equal(/async function drainQueuedTriggers\(/.test(src), false);
+  assert.equal(/async function runQueuedTrigger\(/.test(src), false);
+  assert.equal(/function parkTriggerBehindMacro\(/.test(src), false);
+  assert.equal(/const lastScheduleRun = /.test(src), false);
+  assert.equal(/const lastTriggerValue = /.test(src), false);
+  assert.equal(/const lastTriggerFire = /.test(src), false);
+  assert.equal(/const lastTriggerHeld = /.test(src), false);
+  assert.equal(/const triggerQueue:/.test(src), false);
+  assert.equal(/const pendingTriggers = /.test(src), false);
+  assert.equal(/let scheduleBusy = /.test(src), false);
+  assert.match(src, /pruneScheduleMaps\s*\(\s*config\s*\)/);
+  assert.match(src, /loadScheduleStamps\s*\(/);
+  const leaf = fs.readFileSync("src/lib/control/store-schedules.ts", "utf8");
+  assert.match(leaf, /export async function runDueSchedules\s*\(/);
+  assert.match(leaf, /export async function runDueTriggers\s*\(/);
+  assert.match(leaf, /export async function drainQueuedTriggers\s*\(/);
+  assert.match(leaf, /export function scheduleStamps\s*\(/);
+  assert.match(leaf, /export function loadScheduleStamps\s*\(/);
+  assert.match(leaf, /export function pruneScheduleMaps\s*\(/);
+  assert.match(leaf, /const lastScheduleRun = new Map/);
+  assert.match(leaf, /const lastTriggerValue = new Map/);
+  assert.match(leaf, /const triggerQueue/);
+  assert.match(leaf, /new TriggerReservations/);
+  assert.match(leaf, /await drainQueuedTriggers\(\)/);
+});
