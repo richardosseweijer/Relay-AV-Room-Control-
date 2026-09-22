@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { test } from "node:test";
 import { fetchTextBounded } from "../src/lib/control/http-client.ts";
 import { TriggerReservations } from "../src/lib/control/logic-policy.ts";
+import { paceDevice } from "../src/lib/control/engine-wire.ts";
 
 test("a delayed change trigger runs once for one edge", async () => {
   const reservations = new TriggerReservations();
@@ -77,4 +78,25 @@ test("large inventory and peer responses can opt into a 2 MiB limit", async (t) 
   );
   assert.equal(result.ok, true);
   assert.equal(result.text.length, body.length);
+});
+test("concurrent paceDevice callers reserve minIntervalMs slots sequentially", async () => {
+  const id = `pace-regression-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const gap = 60;
+  const n = 4;
+  const stamps = [];
+  await Promise.all(
+    Array.from({ length: n }, async () => {
+      await paceDevice(id, gap);
+      stamps.push(Date.now());
+    }),
+  );
+  stamps.sort((a, b) => a - b);
+  assert.equal(stamps.length, n);
+  for (let i = 1; i < stamps.length; i++) {
+    const delta = stamps[i] - stamps[i - 1];
+    // Timer jitter: allow a few ms short of gap; without the mutex deltas are ~0.
+    assert.ok(delta >= gap - 8, `slot ${i} delta ${delta}ms < ${gap - 8}ms`);
+  }
+  const span = stamps[n - 1] - stamps[0];
+  assert.ok(span >= (n - 1) * gap - 20, `span ${span}ms too short for ${n} paced sends`);
 });
