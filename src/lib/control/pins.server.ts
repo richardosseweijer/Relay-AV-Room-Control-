@@ -11,10 +11,25 @@ export function hashPin(pin: string) {
   return `scrypt$${salt}$${hash}`;
 }
 
+/** Constant-time string compare for legacy plaintext PINs (length still leaks). */
+function timingSafeStringEqual(a: string, b: string) {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  if (left.length !== right.length) {
+    // Burn a same-buffer compare so wrong-length attempts are not trivially
+    // cheaper than equal-length mismatches. Length remains observable.
+    timingSafeEqual(left, left);
+    return false;
+  }
+  return timingSafeEqual(left, right);
+}
+
 export function verifyStoredPin(pin: string, stored: string | null | undefined) {
   const value = String(stored ?? "");
   if (!value) return false;
-  if (!isHashedPin(value)) return String(pin) === value;
+  // Legacy plaintext (pre-hash migration): still verify timing-safely; unlock
+  // paths hash on success so this branch is brief for normal rooms.
+  if (!isHashedPin(value)) return timingSafeStringEqual(String(pin), value);
   const parts = value.split("$");
   const salt = parts[1];
   const hash = parts[2];
