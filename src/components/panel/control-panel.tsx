@@ -13,6 +13,7 @@ import { PreviewTile } from "./preview-tile";
 import { PanelSlider } from "./panel-slider";
 import { applyRoomSession, clearPanelToken, PANEL_TOKEN_KEY } from "@/lib/control/panel-token";
 import { applyRoomTheme } from "@/lib/theme";
+import { resolveStatusAppearance } from "@/lib/control/status-widget";
 
 async function rpc() {
   return import("@/lib/control/actions");
@@ -380,9 +381,20 @@ export function ControlPanel() {
       setDim(false);
       return;
     }
-    if (widget.type === "status" || widget.type === "label" || widget.type === "schedule") return;
+    if (widget.type === "label" || widget.type === "schedule") return;
     if (widget.type === "preview" && !(widget.bind.kind === "macro" && widget.bind.id && widget.bind.id !== NONE_MACRO_ID)) return;
     if (!enabled(snap, widget)) return;
+
+    // Status: press runs matched (or catch-all) macro; no macro → no-op.
+    let statusMacroId: string | undefined;
+    if (widget.type === "status") {
+      const raw = String(snap.vars[widget.bind.variable ?? ""] ?? "");
+      const appearance = resolveStatusAppearance(widget, raw);
+      const mid = appearance.macroId;
+      if (!mid || mid === NONE_MACRO_ID) return;
+      statusMacroId = mid;
+    }
+
     if (widget.confirm && confirm?.id !== widget.id) {
       setConfirm(widget);
       return;
@@ -391,8 +403,9 @@ export function ControlPanel() {
     setBusyId(widget.id);
     setNote(null);
     if (widget.bind.kind === "command") applyHostPreview(widget.bind.command, widget.bind.value);
-    if (widget.bind.kind === "macro" && widget.bind.id) {
-      const macro = snap.config.macros.find((m) => m.id === widget.bind.id);
+    const previewMacroId = statusMacroId ?? (widget.bind.kind === "macro" ? widget.bind.id : undefined);
+    if (previewMacroId) {
+      const macro = snap.config.macros.find((m) => m.id === previewMacroId);
       for (const step of macro?.steps ?? []) {
         const dev = snap.config.devices.find((d) => d.id === step.device);
         if (dev?.driver !== "relay-host.json") continue;
@@ -407,12 +420,13 @@ export function ControlPanel() {
         setPageId(widget.bind.id);
         return;
       }
-      if (widget.bind.kind === "macro" && widget.bind.id) {
+      const fireMacroId = statusMacroId ?? (widget.bind.kind === "macro" ? widget.bind.id : undefined);
+      if (fireMacroId) {
         const { fireMacro } = await rpc();
-        const res = await fireMacro({ data: { macroId: widget.bind.id, token: session } });
+        const res = await fireMacro({ data: { macroId: fireMacroId, token: session } });
         ok = res.ok;
         if (!res.ok) setNote(friendlyError(res.message, snap));
-        const fail = snap.config.macros.find((m) => m.id === widget.bind.id)?.onFail;
+        const fail = snap.config.macros.find((m) => m.id === fireMacroId)?.onFail;
         if (!res.ok && fail?.kind === "gotoPage" && fail.id) setPageId(fail.id);
       }
       if ((widget.bind.kind === "command" || widget.bind.kind === "range") && widget.bind.device && widget.bind.command) {
@@ -702,6 +716,31 @@ export function ControlPanel() {
               </div>
             );
           }
+          if (widget.type === "status") {
+            const appearance = resolveStatusAppearance(
+              widget,
+              String(snap.vars[widget.bind.variable ?? ""] ?? widget.bind.value ?? ""),
+            );
+            const traffic = Boolean(widget.colorWhen?.length || widget.statusDefault?.color);
+            return (
+              <div
+                key={widget.id}
+                data-wide={wide}
+                data-type={widget.type}
+                className="grid min-h-0 min-w-0 h-full"
+                style={gridStyle(widget)}
+              >
+                <WidgetShell
+                  widget={{ ...widget, color: appearance.color }}
+                  disabled={!on}
+                  active={traffic || lit || waiting}
+                  onClick={() => run(widget)}
+                >
+                  {appearance.text}
+                </WidgetShell>
+              </div>
+            );
+          }
           return (
             <div
               key={widget.id}
@@ -716,13 +755,11 @@ export function ControlPanel() {
                 active={lit || waiting}
                 onClick={() => run(widget)}
               >
-                {widget.type === "status"
-                  ? String(value)
-                  : confirm?.id === widget.id
-                    ? "Confirm?"
-                    : waiting
-                      ? "…"
-                      : ""}
+                {confirm?.id === widget.id
+                  ? "Confirm?"
+                  : waiting
+                    ? "…"
+                    : ""}
               </WidgetShell>
             </div>
           );
