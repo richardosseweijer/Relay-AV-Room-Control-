@@ -12,6 +12,7 @@ import { WidgetShell } from "./widget-face";
 import { PreviewTile } from "./preview-tile";
 import { PanelSlider } from "./panel-slider";
 import { PanelPinGate } from "./panel-pin-gate";
+import { PanelLockedOverlay } from "./panel-locked-overlay";
 import { applyRoomSession, clearPanelToken, PANEL_TOKEN_KEY } from "@/lib/control/panel-token";
 import { applyRoomTheme } from "@/lib/theme";
 import { resolveStatusAppearance } from "@/lib/control/status-widget";
@@ -659,38 +660,28 @@ export function ControlPanel() {
       </section>
 
       {snap.host?.locked ? (
-        <div className="fixed inset-0 z-[68] flex flex-col items-center justify-center gap-5 bg-bg px-8 text-center">
-          <p className="text-4xl font-medium">Room locked</p>
-          <Button
-            type="button"
-            className="h-14 w-full max-w-sm text-base"
-            onClick={async () => {
-              const hostId = snap.config.devices.find((d) => d.driver === "relay-host.json")?.id;
-              if (hostId) {
-                const { fireCommand } = await rpc();
-                await fireCommand({ data: { deviceId: hostId, commandId: "panel.unlock", token: session } }).catch(() => undefined);
-              }
-              setSnap((cur) => {
-                if (!cur) return cur;
-                const next = {
-                  ...cur,
-                  host: {
-                    dim: cur.host?.dim ?? false,
-                    locked: false,
-                    toast: cur.host?.toast ?? null,
-                    block: cur.host?.block ?? null,
-                    pageId: cur.host?.pageId ?? null,
-                  },
-                };
-                snapFp.current = panelSnapFingerprint(next);
-                return next;
-              });
-              setLocked(false);
-            }}
-          >
-            Unlock
-          </Button>
-        </div>
+        <PanelLockedOverlay
+          session={session}
+          hostDeviceId={snap.config.devices.find((d) => d.driver === "relay-host.json")?.id}
+          onUnlocked={() => {
+            setSnap((cur) => {
+              if (!cur) return cur;
+              const next = {
+                ...cur,
+                host: {
+                  dim: cur.host?.dim ?? false,
+                  locked: false,
+                  toast: cur.host?.toast ?? null,
+                  block: cur.host?.block ?? null,
+                  pageId: cur.host?.pageId ?? null,
+                },
+              };
+              snapFp.current = panelSnapFingerprint(next);
+              return next;
+            });
+            setLocked(false);
+          }}
+        />
       ) : null}
       {dim ? (
         <button
