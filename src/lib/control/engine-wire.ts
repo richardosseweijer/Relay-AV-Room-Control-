@@ -5,9 +5,13 @@ const paceClock = ((globalThis as typeof globalThis & { __relayPace__?: Map<stri
 /** Per-device promise chain so concurrent paceDevice callers reserve slots one-at-a-time. */
 const paceTail = ((globalThis as typeof globalThis & { __relayPaceTail__?: Map<string, Promise<void>> }).__relayPaceTail__ ??= new Map());
 
+/** Idle pace rows (removed devices / abandoned gw host:port) older than this are dropped. */
+const PACE_IDLE_MS = 30 * 60_000;
+
 export async function paceDevice(id: string, minIntervalMs?: number) {
   const gap = Math.max(0, minIntervalMs ?? 0);
   if (!gap) return;
+  if (paceClock.size > 64) pruneIdlePaceDevices();
   const prev = paceTail.get(id) ?? Promise.resolve();
   const run = prev.then(async () => {
     const wait = (paceClock.get(id) ?? 0) + gap - Date.now();
@@ -17,6 +21,34 @@ export async function paceDevice(id: string, minIntervalMs?: number) {
   // Keep the chain alive for later callers even if this run rejects.
   paceTail.set(id, run.catch(() => {}));
   await run;
+}
+
+export function forgetPaceDevice(id: string) {
+  paceClock.delete(id);
+  paceTail.delete(id);
+}
+
+/** Keep pace rows for live device ids and gw:<ifaceId>; drop the rest. */
+export function retainPaceDevices(keep: Iterable<string>) {
+  const set = new Set([...keep].map(String).filter(Boolean));
+  for (const id of [...paceClock.keys()]) {
+    if (!set.has(id)) forgetPaceDevice(id);
+  }
+  for (const id of [...paceTail.keys()]) {
+    if (!set.has(id)) forgetPaceDevice(id);
+  }
+}
+
+/** Drop pace rows whose last send is older than idle TTL (does not touch active devices). */
+export function pruneIdlePaceDevices(now = Date.now(), idleMs = PACE_IDLE_MS) {
+  for (const [id, at] of paceClock) {
+    if (now - at >= idleMs) forgetPaceDevice(id);
+  }
+}
+
+/** Test helper */
+export function paceMapSizes() {
+  return { clock: paceClock.size, tail: paceTail.size };
 }
 
 export function wireEncoding(driver: DriverSpec, command?: DriverCommand) {
