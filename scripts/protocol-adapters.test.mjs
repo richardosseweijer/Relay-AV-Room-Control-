@@ -146,6 +146,28 @@ test("usb-midi is local.kind midi and engine-host sendLocal calls sendUsbMidi", 
   assert.equal(/from ["']\.\/engine["']/.test(hostSrc), false);
 });
 
+test("engine barrel stays slim orchestration after host/lan/wire leaves", () => {
+  const barrel = fs.readFileSync("src/lib/control/engine.ts", "utf8");
+  // Dead imports from pre-split leftovers must stay gone.
+  assert.equal(/\bapplyMonitors\b/.test(barrel), false);
+  assert.equal(/\bDriverCommand\b/.test(barrel), false);
+  // Internal-only helpers: keep module-private (zero external callers).
+  assert.match(barrel, /(?:^|\n)function wireThroughInterface\(/);
+  assert.match(barrel, /(?:^|\n)async function sendGatewayRaw\(/);
+  assert.match(barrel, /(?:^|\n)function isLocalRelayHost\(/);
+  assert.equal(/export function wireThroughInterface\(/.test(barrel), false);
+  assert.equal(/export async function sendGatewayRaw\(/.test(barrel), false);
+  assert.equal(/export function isLocalRelayHost\(/.test(barrel), false);
+  // Public façade re-exports remain stable.
+  assert.match(barrel, /export \{ allowedLanHost, pushTrace, scrubSecret, traces \} from "\.\/engine-policy"/);
+  assert.match(barrel, /export \{ sendHttp \} from ["']\.\/engine-lan["']/);
+  assert.match(barrel, /export \{ applyHost, listHostInterfaces, type HostPort \} from ["']\.\/engine-host["']/);
+  // Orchestration entrypoints stay on the barrel.
+  for (const name of ["executeCommand", "runMacro", "syncInventory", "readMonitorValue", "sendRaw", "socketStats"]) {
+    assert.match(barrel, new RegExp(`export (?:async )?function ${name}\\(`));
+  }
+});
+
 test("midiWatch is JSON matchers; no parse type midi", () => {
   const usb = JSON.parse(fs.readFileSync("data/library/usb-midi.json", "utf8"));
   assert.ok(usb.midiWatch.some((w) => w.kind === "cc" && w.feedback === "level.value"));
