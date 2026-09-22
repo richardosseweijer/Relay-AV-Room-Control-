@@ -50,3 +50,11 @@ test("ping route uses validToken for config auth (rejects expired)", () => {
   assert.doesNotMatch(src, /memory\(\)\.sessions/);
   assert.match(src, /from\s+["']@\/lib\/control\/session\.server["']/);
 });
+
+test("room route uses validToken for session auth (no local hasSession)", () => {
+  const src = readFileSync(new URL("../src/routes/api/room.ts", import.meta.url), "utf8");
+  assert.match(src, /validToken\(\s*token\s*,\s*["']panel["']\s*\)\s*\|\|\s*validToken\(\s*token\s*,\s*["']config["']\s*\)/);
+  assert.doesNotMatch(src, /\bhasSession\b/);
+  assert.doesNotMatch(src, /row\.exp\s*&&\s*row\.exp\s*<\s*Date\.now\(\)/);
+  assert.match(src, /from\s+["']@\/lib\/control\/session\.server["']/);
+});
