@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.38 — 2026-09-22
+
+- Tag `v0.9.38`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Control plane Track B: engine split into wire/LAN/host leaves (#62–#64); slim orchestration façade (#65). No behaviour change.
+
 ## 0.9.37 — 2026-09-22
 
 - Tag `v0.9.37`. Same Foyer pair (`v0.2.2`). Wire unchanged.
