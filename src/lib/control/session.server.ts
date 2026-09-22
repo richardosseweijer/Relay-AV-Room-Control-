@@ -92,12 +92,14 @@ export function pruneExpiredSessions(now = Date.now()) {
   return true;
 }
 
-export function validToken(token: string | undefined, kind: "config" | "panel") {
+/** Accept session if kind matches `kind`, or either panel|config when kind is omitted (F4). */
+function acceptToken(token: string | undefined, kind?: "config" | "panel") {
   if (!token) return false;
   pruneExpiredSessions();
   const mem = memory();
   const row = findSessionBySecret(token);
-  if (!row || row.kind !== kind) return false;
+  if (!row) return false;
+  if (kind ? row.kind !== kind : row.kind !== "panel" && row.kind !== "config") return false;
   if (!row.exp) row.exp = Date.now() + SESSION_TTL_MS;
   if (row.exp < Date.now()) {
     tokenStore().delete(token);
@@ -116,11 +118,20 @@ export function validToken(token: string | undefined, kind: "config" | "panel") 
   return true;
 }
 
+export function validToken(token: string | undefined, kind: "config" | "panel") {
+  return acceptToken(token, kind);
+}
+
+/** Panel OR config in one prune/lookup/slide — room poll must not double work (F4). */
+export function validTokenAny(token: string | undefined) {
+  return acceptToken(token);
+}
+
 export { redactAuth } from "./secrets.ts";
 
 export function allowLanControl(token?: string) {
   if (memory().config.room.externalControl === true) return true;
-  return validToken(token, "panel") || validToken(token, "config");
+  return validTokenAny(token);
 }
 
 export function sessionKind(token?: string | null) {
