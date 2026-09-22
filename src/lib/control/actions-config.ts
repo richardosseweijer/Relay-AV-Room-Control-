@@ -11,11 +11,11 @@ export const getEditorConfig = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
   .handler(async ({ data }) => {
   const {
-    ensureLoaded, memory, normalize, validToken, processStatus
+    ensureLoaded, memory, normalizedConfig, validToken, processStatus
   } = await loadControl();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false as const, config: null };
-    const config = normalize(memory().config);
+    const config = normalizedConfig(memory().config);
     const paired = Object.values(memory().sessions ?? {})
       .filter((row) => row.kind === "panel" && row.secret)
       .map((row) => ({
@@ -38,7 +38,7 @@ export const saveConfig = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
   const {
     ensureLoaded, memory, persistNow, hashPin, verifyStoredPin,
-    validToken, randomHex
+    validToken, randomHex, installRoomConfig
   } = await loadControl();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
@@ -82,9 +82,10 @@ export const saveConfig = createServerFn({ method: "POST" })
     });
     const liveOccupancy = occupancyOf(memory().config.room);
     const nextConfig: RoomConfig = { ...config, devices };
-    memory().config = nextConfig;
-    const vars = seedVars(nextConfig, memory().vars);
-    applyOccupancy(nextConfig, vars, liveOccupancy);
+    installRoomConfig(nextConfig);
+    const installed = memory().config;
+    const vars = seedVars(installed, memory().vars);
+    applyOccupancy(installed, vars, liveOccupancy);
     memory().vars = vars;
     try {
       await persistNow();
@@ -154,14 +155,14 @@ export const clearConfig = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
   const {
     ensureLoaded, memory, persistNow, writeDriverFile, readLibrarySpec,
-    pruneRoomDrivers, verifyStoredPin, validToken
+    pruneRoomDrivers, verifyStoredPin, validToken, installRoomConfig
   } = await loadControl();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     if (!verifyStoredPin(data.pin, memory().config.room.configPin)) return { ok: false, message: "PIN did not match" };
     const { emptyRoomConfig, defaultDeviceState, hostDriverSeed, HOST_DRIVER } = await import("./defaults");
     const pin = memory().config.room.configPin;
-    memory().config = emptyRoomConfig(pin);
+    installRoomConfig(emptyRoomConfig(pin));
     const spec = (await readLibrarySpec(HOST_DRIVER)) ?? hostDriverSeed()[HOST_DRIVER]!;
     memory().drivers = { [HOST_DRIVER]: spec };
     await writeDriverFile(HOST_DRIVER, spec);
@@ -181,7 +182,7 @@ export const importBundle = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
   const {
     ensureLoaded, memory, persistNow, normalize, writeDriverFile,
-    safeDriverName, validToken, randomHex
+    safeDriverName, validToken, randomHex, installRoomConfig
   } = await loadControl();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
@@ -223,7 +224,7 @@ export const importBundle = createServerFn({ method: "POST" })
         await writeDriverFile(file, spec);
       }
     }
-    memory().config = config;
+    installRoomConfig(config, { alreadyNormalized: true });
     memory().vars = seedVars(config, memory().vars);
     await persistNow();
     return { ok: true, message: "Imported. Fill any blank device tokens." };
