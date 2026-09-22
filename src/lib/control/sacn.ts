@@ -5,6 +5,10 @@ const ACN_PID = Buffer.from("ASC-E1.17\0\0\0", "ascii");
 const seqByKey = new Map<string, number>();
 /** Retained DMX slots per source/universe/iface so channel writes merge instead of zero-filling. */
 const slotsByKey = new Map<string, Uint8Array>();
+/** Last write time per slots key — used for LRU bound (universe churn). */
+const slotsTouch = new Map<string, number>();
+/** Hard cap so abandoned universe/iface keys cannot grow without bound. */
+const MAX_SLOT_KEYS = 64;
 
 export function sacnGroup(universe: number): string {
   const u = universe & 0xffff;
@@ -22,6 +26,16 @@ function slotsKey(cidKey: string, universe: number, localAddress?: string): stri
   return `${cidKey}\0${universe}\0${localAddress ?? ""}`;
 }
 
+function evictOldestSlots(count: number) {
+  if (count <= 0) return;
+  const ranked = [...slotsTouch.entries()].sort((a, b) => a[1] - b[1]);
+  for (let i = 0; i < count && i < ranked.length; i++) {
+    const key = ranked[i]![0];
+    slotsByKey.delete(key);
+    slotsTouch.delete(key);
+  }
+}
+
 function getOrCreateSlots(cidKey: string, universe: number, localAddress?: string): Uint8Array {
   const key = slotsKey(cidKey, universe, localAddress);
   let slots = slotsByKey.get(key);
@@ -29,6 +43,8 @@ function getOrCreateSlots(cidKey: string, universe: number, localAddress?: strin
     slots = new Uint8Array(512);
     slotsByKey.set(key, slots);
   }
+  slotsTouch.set(key, Date.now());
+  if (slotsByKey.size > MAX_SLOT_KEYS) evictOldestSlots(slotsByKey.size - MAX_SLOT_KEYS);
   return slots;
 }
 
@@ -45,6 +61,27 @@ export function peekSacnSlots(opts: {
 /** Test helper: drop retained universe buffers (and leave sequence counters alone). */
 export function clearSacnSlotBuffers(): void {
   slotsByKey.clear();
+  slotsTouch.clear();
+}
+
+/** Drop seq + slot buffers for cidKeys not in keep (device removed). Live devices untouched. */
+export function retainSacnCidKeys(keep: Iterable<string>): void {
+  const set = new Set([...keep].map(String).filter(Boolean));
+  for (const cid of [...seqByKey.keys()]) {
+    if (!set.has(cid)) seqByKey.delete(cid);
+  }
+  for (const key of [...slotsByKey.keys()]) {
+    const cid = key.split("\0")[0] ?? "";
+    if (!set.has(cid)) {
+      slotsByKey.delete(key);
+      slotsTouch.delete(key);
+    }
+  }
+}
+
+/** Test helper */
+export function sacnMapSizes() {
+  return { seq: seqByKey.size, slots: slotsByKey.size };
 }
 
 export function encodeSacn(opts: {
