@@ -2,12 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ensureLoaded, memory, persistNow, reloadSecretsFromDisk } from "@/lib/control/store.server";
 import { hashPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey } from "@/lib/control/pins.server";
 import { isHashedPin, isWeakPin } from "@/lib/control/pins";
-
-function randomHex(bytes: number) {
-  const buf = new Uint8Array(bytes);
-  globalThis.crypto.getRandomValues(buf);
-  return Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
-}
+import { mint } from "@/lib/control/session.server";
 
 export const Route = createFileRoute("/api/config-unlock")({
   server: {
@@ -31,14 +26,7 @@ export const Route = createFileRoute("/api/config-unlock")({
           memory().config.room.configPin = hashPin(pin);
         }
         if (weak) memory().pinChangeRequired = true;
-        const id = randomHex(8);
-        const secret = `config-${randomHex(18)}`;
-        const row = { id, secret, kind: "config" as const, exp: Date.now() + 30 * 24 * 60 * 60 * 1000, created: Date.now(), lastSeen: Date.now(), label: "config" };
-        const g = globalThis as typeof globalThis & { __relayTokens__?: Map<string, typeof row> };
-        g.__relayTokens__ ??= new Map();
-        g.__relayTokens__.set(secret, row);
-        memory().sessions = memory().sessions ?? {};
-        memory().sessions[id] = row;
+        const secret = mint("config");
         await persistNow();
         return Response.json({ ok: true, token: secret, mustChange: weak || memory().pinChangeRequired === true });
       },
