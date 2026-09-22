@@ -58,3 +58,15 @@ test("store.server re-exports driver disk I/O leaf", () => {
   assert.equal(/export function safeDriverName\(/.test(src), false);
   assert.equal(/export async function loadDriverFiles\(/.test(src), false);
 });
+
+test("store.server re-exports secrets leaf", () => {
+  const src = fs.readFileSync("src/lib/control/store.server.ts", "utf8");
+  assert.match(src, /export \{\s*reloadSecretsFromDisk\s*\} from "\.\/store-secrets"/);
+  assert.equal(/export async function reloadSecretsFromDisk\(/.test(src), false);
+  assert.equal(/function pickSecrets\(/.test(src), false);
+  assert.equal(/async function readSecretCandidate\(/.test(src), false);
+  const leaf = fs.readFileSync("src/lib/control/store-secrets.ts", "utf8");
+  assert.match(leaf, /export async function reloadSecretsFromDisk\s*\(/);
+  assert.match(leaf, /export function pickSecrets\s*\(/);
+  assert.match(leaf, /export async function readSecretCandidate\s*\(/);
+});
