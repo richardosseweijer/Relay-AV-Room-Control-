@@ -70,3 +70,18 @@ test("store.server re-exports secrets leaf", () => {
   assert.match(leaf, /export function pickSecrets\s*\(/);
   assert.match(leaf, /export async function readSecretCandidate\s*\(/);
 });
+
+test("store.server re-exports persist leaf", () => {
+  const src = fs.readFileSync("src/lib/control/store.server.ts", "utf8");
+  assert.match(src, /export \{\s*persist,\s*persistNow\s*\}/);
+  assert.equal(/export async function persistNow\(/.test(src), false);
+  assert.equal(/export function persist\(/.test(src), false);
+  assert.equal(/async function flushPersist\(/.test(src), false);
+  assert.equal(/async function writeFileStore\(/.test(src), false);
+  const leaf = fs.readFileSync("src/lib/control/store-persist.ts", "utf8");
+  assert.match(leaf, /export async function persistNow\s*\(/);
+  assert.match(leaf, /export function persist\s*\(/);
+  assert.match(leaf, /async function flushPersist\s*\(/);
+  assert.match(leaf, /export const FILE_STORE/);
+});
+

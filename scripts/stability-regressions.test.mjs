@@ -103,7 +103,7 @@ test("concurrent paceDevice callers reserve minIntervalMs slots sequentially", a
 });
 
 test("F3: flushPersist clears dirty before await and loops while dirty", () => {
-  const src = fs.readFileSync(new URL("../src/lib/control/store.server.ts", import.meta.url), "utf8");
+  const src = fs.readFileSync(new URL("../src/lib/control/store-persist.ts", import.meta.url), "utf8");
   const start = src.indexOf("async function flushPersist()");
   assert.ok(start >= 0, "flushPersist present");
   const end = src.indexOf("\nexport async function persistNow", start);
@@ -168,7 +168,7 @@ test("F1: snapshot uses normalizedConfig memo (not bare normalize every poll)", 
 });
 
 test("F7: writeFileStore/persist reuses normalizedConfig (no second normalize)", () => {
-  const src = fs.readFileSync(new URL("../src/lib/control/store.server.ts", import.meta.url), "utf8");
+  const src = fs.readFileSync(new URL("../src/lib/control/store-persist.ts", import.meta.url), "utf8");
   // Persist body must publicConfig(normalizedConfig(...)), not publicConfig(normalize(...)).
   assert.match(src, /publicConfig\s*\(\s*normalizedConfig\s*\(\s*mem\.config\s*\)\s*\)/);
   assert.doesNotMatch(src, /publicConfig\s*\(\s*normalize\s*\(\s*mem\.config\s*\)\s*\)/);
