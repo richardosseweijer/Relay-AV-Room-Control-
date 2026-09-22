@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { createServer } from "node:http";
 import { test } from "node:test";
 import { fetchTextBounded } from "../src/lib/control/http-client.ts";
@@ -99,4 +100,59 @@ test("concurrent paceDevice callers reserve minIntervalMs slots sequentially", a
   }
   const span = stamps[n - 1] - stamps[0];
   assert.ok(span >= (n - 1) * gap - 20, `span ${span}ms too short for ${n} paced sends`);
+});
+
+test("F3: flushPersist clears dirty before await and loops while dirty", () => {
+  const src = fs.readFileSync(new URL("../src/lib/control/store.server.ts", import.meta.url), "utf8");
+  const start = src.indexOf("async function flushPersist()");
+  assert.ok(start >= 0, "flushPersist present");
+  const end = src.indexOf("\nexport async function persistNow", start);
+  assert.ok(end > start, "flushPersist bounded before persistNow");
+  const body = src.slice(start, end);
+  assert.match(body, /while\s*\(\s*persistDirty\s*\)/);
+  const clearIdx = body.indexOf("persistDirty = false");
+  const awaitIdx = body.indexOf("await writeFileStore");
+  assert.ok(clearIdx >= 0 && awaitIdx > clearIdx, "dirty must clear before await writeFileStore");
+  // Must not clear dirty only after the write (lost concurrent persist).
+  const afterAwait = body.slice(awaitIdx);
+  assert.equal(afterAwait.includes("persistDirty = false"), false, "must not clear dirty after await write");
+  assert.match(body, /catch\s*\([\s\S]*persistDirty\s*=\s*true/);
+});
+
+test("F3: dirty set during in-flight write is flushed again (protocol)", async () => {
+  let persistDirty = false;
+  const writes = [];
+  let value = 0;
+
+  async function writeFileStore(snapshot) {
+    await new Promise((r) => setTimeout(r, 30));
+    writes.push(snapshot);
+  }
+
+  async function flushPersist() {
+    while (persistDirty) {
+      persistDirty = false;
+      const snap = value;
+      try {
+        await writeFileStore(snap);
+      } catch (err) {
+        persistDirty = true;
+        throw err;
+      }
+    }
+  }
+
+  function persist() {
+    persistDirty = true;
+  }
+
+  persistDirty = true;
+  value = 1;
+  const flush = flushPersist();
+  await new Promise((r) => setTimeout(r, 5));
+  value = 2;
+  persist();
+  await flush;
+  assert.equal(persistDirty, false);
+  assert.deepEqual(writes, [1, 2], "mutation during flush must trigger a second durable write");
 });
