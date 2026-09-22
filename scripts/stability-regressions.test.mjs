@@ -175,7 +175,7 @@ test("F7: writeFileStore/persist reuses normalizedConfig (no second normalize)",
 });
 
 test("F1+F7: installRoomConfig bumps generation; memo hits on same identity", () => {
-  const src = fs.readFileSync(new URL("../src/lib/control/store.server.ts", import.meta.url), "utf8");
+  const src = fs.readFileSync(new URL("../src/lib/control/store-normalize.ts", import.meta.url), "utf8");
   assert.match(src, /export function installRoomConfig\s*\(/);
   assert.match(src, /export function normalizedConfig\s*\(/);
   assert.match(src, /export function invalidateNormalizedConfig\s*\(/);
@@ -376,9 +376,11 @@ test("F8: installRoomConfig prunes runtime Maps (source contract)", () => {
   assert.match(src, /retainPaceDevices\s*\(/);
   assert.match(src, /retainSacnCidKeys\s*\(/);
   assert.match(src, /pruneIdlePaceDevices\s*\(/);
-  const install = src.match(/export function installRoomConfig\([\s\S]*?\n\}/);
+  assert.match(src, /bindNormalizeInstallDeps\s*\(\s*\{\s*memory,\s*pruneRuntimeMaps\s*\}\s*\)/);
+  const leaf = fs.readFileSync(new URL("../src/lib/control/store-normalize.ts", import.meta.url), "utf8");
+  const install = leaf.match(/export function installRoomConfig\([\s\S]*?\n\}/);
   assert.ok(install, "installRoomConfig body");
-  assert.match(install[0], /pruneRuntimeMaps\s*\(\s*next\s*\)/);
+  assert.match(install[0], /installDeps\.pruneRuntimeMaps\s*\(\s*next\s*\)/);
 });
 
 test("F14: room route uses roomRateLimited helper (idle eviction)", () => {
@@ -401,7 +403,7 @@ test("F11: WidgetType drops toggle; normalize coerces legacy toggle → button",
   assert.match(status, /type === "toggle"/);
   assert.match(status, /type: "button"/);
 
-  const store = fs.readFileSync(new URL("../src/lib/control/store.server.ts", import.meta.url), "utf8");
+  const store = fs.readFileSync(new URL("../src/lib/control/store-normalize.ts", import.meta.url), "utf8");
   assert.match(store, /normalizeStatusFields\s*\(\s*coerceLegacyWidgetType\s*\(\s*widget\s*\)\s*\)/);
 
   const arch = fs.readFileSync(new URL("../ARCHITECTURE.md", import.meta.url), "utf8");
