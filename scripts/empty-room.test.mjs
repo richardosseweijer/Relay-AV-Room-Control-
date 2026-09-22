@@ -46,7 +46,15 @@ test("library index lists stock without command bodies", () => {
 
 test("boot load does not iterate saved.drivers keys", () => {
   const src = fs.readFileSync("src/lib/control/store.server.ts", "utf8");
+  const drivers = fs.readFileSync("src/lib/control/store-drivers.ts", "utf8");
   assert.ok(src.includes("workingSetNames(mem.config.devices, roomFiles)"));
   assert.equal(src.includes("Object.keys(saved.drivers)"), false);
-  assert.ok(src.includes("(await readLibrarySpec(HOST_DRIVER)) ?? seed[HOST_DRIVER]"));
+  assert.ok(drivers.includes("(await readLibrarySpec(HOST_DRIVER)) ?? seed[HOST_DRIVER]"));
+});
+
+test("store.server re-exports driver disk I/O leaf", () => {
+  const src = fs.readFileSync("src/lib/control/store.server.ts", "utf8");
+  assert.match(src, /export \{[\s\S]*safeDriverName[\s\S]*writeDriverFile[\s\S]*removeDriverFile[\s\S]*readLibrarySpec[\s\S]*loadLibraryIndex[\s\S]*loadDriverFiles[\s\S]*pruneRoomDrivers[\s\S]*\} from "\.\/store-drivers"/);
+  assert.equal(/export function safeDriverName\(/.test(src), false);
+  assert.equal(/export async function loadDriverFiles\(/.test(src), false);
 });
