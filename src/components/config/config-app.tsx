@@ -372,7 +372,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
               <ArrowLeft className="size-4" />
             </Link>
             <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-subtle">Configurator · 0.9.41</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-subtle">Configurator · 0.9.42</p>
               <h1 className="text-lg font-medium">{draft.room.name}</h1>
             </div>
           </div>
