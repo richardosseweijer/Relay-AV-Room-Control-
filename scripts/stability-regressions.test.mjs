@@ -424,3 +424,73 @@ test("F15: ARCHITECTURE.md and CONTEXT.md match package.json version", () => {
   assert.doesNotMatch(arch, /0\.9\.38/);
   assert.doesNotMatch(ctx, /0\.9\.38/);
 });
+
+test("F6: runDueMonitors groups by device and uses bounded mapPool", () => {
+  const src = fs.readFileSync(new URL("../src/lib/control/store.server.ts", import.meta.url), "utf8");
+  const start = src.indexOf("async function runDueMonitors()");
+  assert.ok(start >= 0, "runDueMonitors present");
+  const end = src.indexOf("\nlet foyerBusy", start);
+  assert.ok(end > start, "runDueMonitors bounded before foyerBusy");
+  const body = src.slice(start, end);
+  assert.match(body, /groupMonitorRulesByDevice\s*\(\s*due\s*\)/);
+  assert.match(body, /mapPool\s*\(\s*groups\s*,\s*MONITOR_DEVICE_CONCURRENCY/);
+  assert.match(body, /for\s*\(\s*const rule of rules\s*\)/);
+  assert.match(body, /applyDueMonitor/);
+  // I/O must not live in runDueMonitors itself (serial flat await); applyDueMonitor owns readMonitorValue.
+  assert.doesNotMatch(body, /readMonitorValue/);
+  assert.match(src, /from\s+[\"']\.\/monitor-pool[\"']/);
+  const pool = fs.readFileSync(new URL("../src/lib/control/monitor-pool.ts", import.meta.url), "utf8");
+  assert.match(pool, /MONITOR_DEVICE_CONCURRENCY\s*=\s*4/);
+  assert.match(pool, /export async function mapPool/);
+  assert.match(pool, /export function groupMonitorRulesByDevice/);
+});
+
+test("F6: group by device keeps same-device serial; mapPool bounds cross-device", async () => {
+  const { groupMonitorRulesByDevice, mapPool, MONITOR_DEVICE_CONCURRENCY, monitorDeviceKey } = await import(
+    "../src/lib/control/monitor-pool.ts"
+  );
+  assert.equal(MONITOR_DEVICE_CONCURRENCY, 4);
+  assert.equal(monitorDeviceKey({ id: "m1", device: "pj1" }), "pj1");
+  assert.equal(monitorDeviceKey({ id: "m2", device: "", interfaceId: "serial-a" }), "iface:serial-a");
+
+  const rules = [
+    { id: "a1", device: "A" },
+    { id: "b1", device: "B" },
+    { id: "a2", device: "A" },
+    { id: "c1", device: "C" },
+  ];
+  const groups = groupMonitorRulesByDevice(rules);
+  assert.equal(groups.length, 3);
+  const byDev = Object.fromEntries(groups.map((g) => [g[0].device, g.map((r) => r.id)]));
+  assert.deepEqual(byDev.A, ["a1", "a2"]);
+  assert.deepEqual(byDev.B, ["b1"]);
+  assert.deepEqual(byDev.C, ["c1"]);
+
+  // Protocol: same-device rules run strictly serial; distinct devices overlap under the pool.
+  const active = new Map();
+  const maxActiveByDevice = new Map();
+  let peakGlobal = 0;
+  let globalActive = 0;
+  const started = [];
+
+  await mapPool(groups, MONITOR_DEVICE_CONCURRENCY, async (group) => {
+    for (const rule of group) {
+      const dev = rule.device;
+      globalActive += 1;
+      peakGlobal = Math.max(peakGlobal, globalActive);
+      active.set(dev, (active.get(dev) ?? 0) + 1);
+      maxActiveByDevice.set(dev, Math.max(maxActiveByDevice.get(dev) ?? 0, active.get(dev)));
+      started.push(`${dev}:${rule.id}:${Date.now()}`);
+      await new Promise((r) => setTimeout(r, 40));
+      active.set(dev, active.get(dev) - 1);
+      globalActive -= 1;
+    }
+  });
+
+  assert.equal(maxActiveByDevice.get("A"), 1, "same-device must stay serial");
+  assert.equal(maxActiveByDevice.get("B"), 1);
+  assert.equal(maxActiveByDevice.get("C"), 1);
+  assert.ok(peakGlobal >= 2, `cross-device should overlap (peak=${peakGlobal})`);
+  assert.ok(peakGlobal <= MONITOR_DEVICE_CONCURRENCY, `peak ${peakGlobal} exceeds pool`);
+  assert.equal(started.length, 4);
+});
