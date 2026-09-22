@@ -116,17 +116,21 @@ test("shipped drivers keep distinct LAN protocols", () => {
   assert.equal(got.cast?.includes("samsung-qe50q65t.json") || false, false);
 });
 
-test("engine sendLan still names http cast pjlink wol tcp websocket", () => {
-  const src = fs.readFileSync("src/lib/control/engine.ts", "utf8");
-  const lan = namedFn(src, "sendLan");
+test("engine-lan sendLan still names http cast pjlink wol tcp websocket", () => {
+  const lanSrc = fs.readFileSync("src/lib/control/engine-lan.ts", "utf8");
+  const lan = namedFn(lanSrc, "sendLan");
   for (const needle of ['lan.protocol === "cast"', 'lan.protocol === "pjlink"', 'lan.protocol === "wol"', "tls-websocket", 'lan.protocol === "http"', 'lan.protocol === "osc"', 'lan.protocol === "sacn"', 'lan.protocol === "ipmidi"', 'lan.protocol === "rtp-midi"']) {
     assert.ok(lan.includes(needle), needle);
   }
-  assert.equal(src.includes("sendSamsungKey"), false);
-  assert.equal(src.includes("samsung.remote.control"), false);
-  assert.equal(src.includes("Accept Allow on the TV"), false);
-  assert.equal(src.includes("ms.channel.connect"), false);
+  assert.equal(lanSrc.includes("sendSamsungKey"), false);
+  assert.equal(lanSrc.includes("samsung.remote.control"), false);
+  assert.equal(lanSrc.includes("Accept Allow on the TV"), false);
+  assert.equal(lanSrc.includes("ms.channel.connect"), false);
   assert.ok(lan.includes("Unknown protocol"));
+  const barrel = fs.readFileSync("src/lib/control/engine.ts", "utf8");
+  assert.match(barrel, /from ["']\.\/engine-lan["']/);
+  assert.match(barrel, /export \{ sendHttp \} from ["']\.\/engine-lan["']/);
+  assert.equal(/from ["']\.\/engine["']/.test(lanSrc), false);
 });
 
 test("usb-midi is local.kind midi and engine calls sendUsbMidi", () => {
