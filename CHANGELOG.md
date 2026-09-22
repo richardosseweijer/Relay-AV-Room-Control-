@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.40 — 2026-09-22
+
+- Tag `v0.9.40`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- ChatGPT extras after v0.9.39: secret backup gitignore, peerSecret import keep, OSC/sACN slider value, sliding session persist, paced concurrent sends, gateway monitor mapping, sACN universe merge (#77–#83).
+
 ## 0.9.39 — 2026-09-22
 
 - Tag `v0.9.39`. Same Foyer pair (`v0.2.2`). Wire unchanged.
