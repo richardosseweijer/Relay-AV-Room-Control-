@@ -16,22 +16,19 @@ import { gatewayIoTemplate, gatewayProfile, gatewaySlot, isGatewayKind } from ".
 import { applyMonitors, clampVar, resolveTemplate, type VarMap } from "./vars";
 import { fetchTextBounded, requestHttpExact, DEFAULT_MAX_RESPONSE_BYTES } from "./http-client";
 import { wsPoolSize, sendControlSocket, buildWsTarget } from "./ws";
-import { sendPjlink } from "./pjlink";
-import { sendCast, castPoolSize } from "./cast";
+import { castPoolSize } from "./cast";
 import { sendWol } from "./wol";
-import { sendUdp } from "./udp";
-import { sendOscCommand } from "./osc";
-import { sendSacnCommand } from "./sacn";
 import { sendUsbMidi } from "./midi";
-import { sendIpmidi } from "./ipmidi";
-import { sendRtpMidiCommand, rtpMidiPoolSize } from "./rtp-midi";
+import { rtpMidiPoolSize } from "./rtp-midi";
 import { encodeMtcQf, encodeMtcSysex } from "./midi-in";
 import { roomLanBind } from "./nics";
 import { allowedLanHost, pushTrace, sleep } from "./engine-policy";
 import { applySim, guardOk, mapCommandValue, parseFeedback, parseInventoryItems, pickJsonField, renderPayload } from "./engine-payload";
-import { paceDevice, wireEncoding, encodeWire, tcpWrite, tcpSessionWrite, tcpPoolSize } from "./engine-wire";
+import { paceDevice, tcpSessionWrite, tcpPoolSize } from "./engine-wire";
+import { sendHttp, sendLan, wsQueryFromDriver } from "./engine-lan";
 
 export { allowedLanHost, pushTrace, scrubSecret, traces } from "./engine-policy";
+export { sendHttp } from "./engine-lan";
 
 export function socketStats() {
   return {
@@ -248,27 +245,6 @@ async function sendLocal(driver: DriverSpec, device: DeviceInstance, payload: st
   return runTool("spidev_test", ["-D", spiDev, "-p", spiData]);
 }
 
-export async function sendHttp(
-  url: string,
-  method: string,
-  body: string,
-  timeout: number,
-  limits: { maxBytes?: number; maxMessageChars?: number; headers?: Record<string, string>; localAddress?: string } = {},
-): Promise<CommandResult> {
-  try {
-    const verb = method.toUpperCase();
-    let target = url;
-    if ((verb === "GET" || verb === "HEAD") && body) {
-      target += (url.includes("?") ? "&" : "?") + body.replace(/^\?/, "");
-    }
-    const headers = limits.headers ?? { "content-type": "application/json" };
-    const res = await requestHttpExact(target, verb, verb === "GET" || verb === "HEAD" ? "" : body, headers, timeout, limits.maxBytes ?? DEFAULT_MAX_RESPONSE_BYTES, limits.localAddress);
-    return { ok: res.ok, message: res.text.slice(0, limits.maxMessageChars ?? 400) || String(res.status) };
-  } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "http failed" };
-  }
-}
-
 function statusPlane(driver: DriverSpec, device: DeviceInstance) {
   if (driver.transports.lan?.protocol === "cast") return null;
   const path = driver.status?.path;
@@ -276,152 +252,6 @@ function statusPlane(driver: DriverSpec, device: DeviceInstance) {
   if (!path || !port) return null;
   const proto = driver.status?.protocol ?? "http";
   return `${proto}://${device.host}:${port}${path.startsWith("/") ? path : `/${path}`}`;
-}
-
-async function sendRpcShutdown(host: string, user: string, password: string): Promise<CommandResult> {
-  if (!allowedLanHost(host)) return { ok: false, message: "Host not on room LAN" };
-  if (process.platform === "win32") {
-    return runTool("shutdown", ["/s", "/m", `\\\\${host}`, "/t", "0", "/f"], 8000);
-  }
-  if (!user) return { ok: false, message: "Set user and password (Windows RPC) or HTTP path" };
-  return runTool("net", ["rpc", "shutdown", "-I", host, "-U", `${user}%${password}`, "-f", "-t", "0"], 8000);
-}
-
-function wsQueryFromDriver(driver: DriverSpec, device: DeviceInstance): Record<string, string> | undefined {
-  const out: Record<string, string> = { ...(driver.transports.lan?.query ?? {}) };
-  const pairingQuery = driver.auth?.pairing?.query;
-  if (pairingQuery?.nameParam) {
-    const raw = pairingQuery.nameFrom === "auth.name" ? (device.auth?.name || "Relay") : "Relay";
-    out[pairingQuery.nameParam] = `{base64:${raw}}`;
-  }
-  if (pairingQuery?.tokenParam) out[pairingQuery.tokenParam] = "{token}";
-  return Object.keys(out).length ? out : undefined;
-}
-
-async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: string, command?: DriverCommand, config?: RoomConfig): Promise<CommandResult> {
-  const lan = driver.transports.lan;
-  if (!lan) return { ok: false, message: "No LAN transport on this driver" };
-  const proto = String(lan.protocol || "");
-  if (!proto || /[/\\:]/.test(proto)) return { ok: false, message: "Unknown protocol" };
-  const known = new Set(["tcp", "udp", "http", "https", "websocket", "tls-websocket", "pjlink", "cast", "wol", "osc", "sacn", "ipmidi", "rtp-midi"]);
-  if (!known.has(proto)) return { ok: false, message: "Unknown protocol" };
-  const bind = roomLanBind(config);
-  if (!bind.ok) return bind;
-  const localAddress = bind.localAddress;
-  const host = device.host;
-  const skipUnicastHost = proto === "sacn" || (proto === "ipmidi" && lan.multicast !== false);
-  if (!skipUnicastHost && !allowedLanHost(host, { localOk: device.driver === "relay-host.json" || driver.device.type === "host" })) {
-    return { ok: false, message: "Host not on room LAN" };
-  }
-  const port = device.port ?? lan.port;
-  const timeout = lan.timeoutMs ?? 3000;
-  const encoding = wireEncoding(driver, command);
-  await paceDevice(device.id, driver.pacing?.minIntervalMs);
-  pushTrace(device.id, "tx", `${command?.namespace ? command.namespace.split(".").pop() + " " : ""}${payload.slice(0, 160)}`);
-  let result: CommandResult;
-  const wire = encodeWire(payload, encoding, lan.lineEnding ?? (lan.protocol === "pjlink" ? "\r" : undefined));
-  if ("error" in wire) return { ok: false, message: wire.error };
-  if (command?.httpMethod === "RPC") result = await sendRpcShutdown(host, device.auth?.user || device.auth?.username || "", device.auth?.password || "");
-  else if (lan.protocol === "wol") result = await sendWol(device.auth?.mac || "", host, localAddress);
-  else if (lan.protocol === "cast") result = await sendCast(host, port, payload, timeout, command?.namespace, localAddress);
-  else if (lan.protocol === "http" || lan.protocol === "https") {
-    const auth = device.auth || {};
-    const ctx = { host, port, id: device.id };
-    const path = renderPayload(command?.httpPath || lan.http?.path || "/", undefined, auth, ctx);
-    const rawHeaders: Record<string, string> = {
-      "content-type": lan.http?.contentType || "application/json",
-      ...(lan.http?.headers ?? {}),
-      ...(command?.httpHeaders ?? {}),
-    };
-    const headers: Record<string, string> = {};
-    for (const [key, val] of Object.entries(rawHeaders)) {
-      headers[key] = renderPayload(String(val ?? ""), undefined, auth, ctx);
-    }
-    result = await sendHttp(`${lan.protocol}://${host}:${port}${path}`, command?.httpMethod || lan.http?.method || "GET", payload, timeout, {
-      maxMessageChars: lan.http?.contentType?.includes("xml") ? 64 * 1024 : undefined,
-      headers,
-      localAddress,
-    });
-  } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") {
-    if (/[/:]/.test(String(lan.protocol))) result = { ok: false, message: "Unknown protocol" };
-    else if (/^file:/i.test(lan.path || lan.http?.path || "")) result = { ok: false, message: "Invalid path" };
-    else {
-      const target = buildWsTarget({
-        path: lan.path || lan.http?.path,
-        query: wsQueryFromDriver(driver, device),
-        port: device.port ?? lan.port,
-        tls: lan.protocol === "tls-websocket",
-        token: device.auth?.token,
-      });
-      result = await sendControlSocket({
-        host,
-        ...target,
-        payload,
-        timeout: command?.waitContains ? Math.max(timeout, 20000) : timeout,
-        waitFor: command?.waitContains,
-        handshake: lan.handshake,
-        alsoSend: lan.alsoSend,
-        alsoSendRaw: command?.alsoSend,
-        localAddress,
-      });
-    }
-  }
-  else if (lan.protocol === "pjlink") result = await sendPjlink(host, port, payload, device.auth?.password || device.auth?.pin, timeout, localAddress);
-  else if (lan.protocol === "osc") {
-    const oscPort = Number(port || 9000);
-    const ctx = { host, port: oscPort, id: device.id };
-    const auth = device.auth || {};
-    result = await sendOscCommand({
-      host,
-      port: oscPort,
-      path: renderPayload(payload, undefined, auth, ctx),
-      types: command?.osc?.types,
-      values: (command?.osc?.values ?? []).map((v) => renderPayload(String(v ?? ""), undefined, auth, ctx)),
-      localAddress,
-    });
-  }
-  else if (lan.protocol === "sacn") {
-    const auth = device.auth || {};
-    const ctx = { host, port: 5568, id: device.id };
-    const universe = Number(auth.universe || 1);
-    result = await sendSacnCommand({
-      universe,
-      slot: command?.sacn?.slot,
-      value: command?.sacn ? renderPayload(String(command.sacn.value ?? payload ?? "0"), undefined, auth, ctx) : undefined,
-      cidKey: device.id || host || "relay",
-      localAddress,
-    });
-  }
-  else if (lan.protocol === "ipmidi") {
-    const midiWire = encoding === "hex" ? wire : encodeWire(payload, "hex");
-    if ("error" in midiWire) return { ok: false, message: midiWire.error };
-    result = await sendIpmidi({
-      buf: midiWire,
-      multicast: lan.multicast !== false,
-      host,
-      port: Number(port || 21928),
-      localAddress,
-    });
-  }
-  else if (lan.protocol === "rtp-midi") {
-    const midiWire = encoding === "hex" ? wire : encodeWire(payload, "hex");
-    if ("error" in midiWire) return { ok: false, message: midiWire.error };
-    const controlPort = Number(port || 5004);
-    result = await sendRtpMidiCommand({
-      host,
-      controlPort,
-      dataPort: lan.rtpMidi?.dataPort ?? controlPort + 1,
-      midi: midiWire,
-      keepMs: lan.session?.keepMs ?? 60_000,
-      timeoutMs: timeout,
-      localAddress,
-    });
-  }
-  else if (lan.protocol === "udp") result = await sendUdp(host, Number(port), wire, localAddress); else if (lan.session && encoding !== "hex") {
-    result = await tcpSessionWrite(device.id, host, port, wire, lan.session, device.auth || {}, timeout, localAddress);
-  } else result = await tcpWrite(host, port, wire, timeout, encoding, localAddress);
-  pushTrace(device.id, result.ok ? "rx" : "note", result.message);
-  return result;
 }
 
 export async function pingReachable(opts: { host: string; port?: number; path?: string; timeoutMs?: number }): Promise<CommandResult> {
