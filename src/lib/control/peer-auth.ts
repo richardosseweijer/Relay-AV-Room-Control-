@@ -70,6 +70,29 @@ export function verifyPeerRequest(opts: {
   }
 }
 
+
+/** /api/vars: peer HMAC when a key is set; unsigned GET only if externalControl and no key. */
+export function varsRequestAllowed(opts: {
+  key: string;
+  method: string;
+  externalControl: boolean;
+  sig: string;
+  ts: string;
+  body: string;
+}) {
+  if (opts.key) {
+    return verifyPeerRequest({
+      key: opts.key,
+      method: opts.method,
+      path: "/api/vars",
+      ts: opts.ts,
+      body: opts.body,
+      sig: opts.sig,
+    });
+  }
+  return opts.externalControl === true && opts.method.toUpperCase() === "GET";
+}
+
 /** Unsigned GET only if the TCP peer is loopback. HMAC, if sent, must match. POST still requires HMAC. */
 export function authorizePeerGet(opts: { key: string; request: Request; path?: string }) {
   const sig = opts.request.headers.get("x-relay-auth") || "";
