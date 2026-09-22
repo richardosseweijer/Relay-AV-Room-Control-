@@ -510,12 +510,15 @@ export async function executeCommand(opts: {
   if (!driver || !command) return { ok: false, message: "Unknown command" };
   if (driver.device.type === "host" || device.driver === "relay-host.json") {
     if (!isLocalRelayHost(device.host)) {
+      // Peers stay macro-only (/api/peer rejects raw commands). Only forward macro.run.
       if (opts.commandId === "macro.run") {
         const target = String(resolveTemplate(opts.value, opts.vars ?? {}, opts.config.variables) ?? "");
         return callRelayPeer(device, "POST", "/api/peer", { macroId: target });
       }
-      const resolved = resolveTemplate(opts.value, opts.vars ?? {}, opts.config.variables);
-      return callRelayPeer(device, "POST", "/api/peer", { command: opts.commandId, value: resolved });
+      return {
+        ok: false,
+        message: `Remote peer only accepts allow-listed macros (got ${opts.commandId}); use macro.run`,
+      };
     }
     if (opts.commandId === "macro.run") {
       const target = String(resolveTemplate(opts.value, opts.vars ?? {}, opts.config.variables) ?? "");

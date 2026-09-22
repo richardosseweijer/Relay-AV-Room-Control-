@@ -284,3 +284,28 @@ test("F5 writeConfiguredVar rejects unknown id; accepts and clamps known", async
   assert.equal(missingVal.value, "");
 });
 
+
+test("F6 peer POST stays macro-only (rejects raw command bodies)", () => {
+  const src = readFileSync(new URL("../src/routes/api/peer.ts", import.meta.url), "utf8");
+  assert.match(src, /Peers may only run allow-listed macros/);
+  assert.match(src, /if\s*\(\s*!body\.macroId\s*\)/);
+  assert.match(src, /peerMacroIds/);
+  // Must not grow a raw-command execution path on POST
+  assert.doesNotMatch(src, /executeCommand\s*\(/);
+  assert.doesNotMatch(src, /body\.command/);
+});
+
+test("F6 executeCommand remote host only peers macro.run; other cmds fail closed", () => {
+  const fn = sliceFn(engineSrc(), "executeCommand");
+  const remoteStart = fn.indexOf("if (!isLocalRelayHost(device.host))");
+  assert.ok(remoteStart >= 0, "remote host branch required");
+  const after = fn.slice(remoteStart);
+  // Cut before local occupancy handling so the window is the remote if + local macro.run header
+  const localHostMarker = after.indexOf('if (opts.commandId.startsWith("occupancy."))');
+  const remoteWindow = after.slice(0, localHostMarker > 0 ? localHostMarker : 1200);
+  assert.ok(remoteWindow.includes('opts.commandId === "macro.run"'), "remote branch must handle macro.run");
+  assert.match(remoteWindow, /callRelayPeer\([\s\S]*\{\s*macroId:/);
+  assert.match(remoteWindow, /Remote peer only accepts allow-listed macros/);
+  assert.doesNotMatch(remoteWindow, /callRelayPeer\([\s\S]*\{\s*command:/);
+  assert.doesNotMatch(fn, /\{\s*command:\s*opts\.commandId/);
+});
