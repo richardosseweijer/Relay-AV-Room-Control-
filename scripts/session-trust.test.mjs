@@ -44,6 +44,20 @@ test("expired token rejected", () => {
   assert.deepEqual(dropped, ["panel-dead"]);
 });
 
+test("F7 sessions without exp are dropped (fail closed)", () => {
+  const now = Date.now();
+  const sessions = {
+    live: { secret: "panel-live", kind: "panel", exp: now + 60_000 },
+    orphan: { secret: "panel-orphan", kind: "panel" },
+    invalid: { secret: "panel-invalid", kind: "panel", exp: Number.NaN },
+  };
+  const { kept, dropped } = dropExpiredSessions(sessions, now);
+  assert.equal(kept.live?.secret, "panel-live");
+  assert.equal(kept.orphan, undefined);
+  assert.equal(kept.invalid, undefined);
+  assert.deepEqual(dropped, ["panel-orphan", "panel-invalid"]);
+});
+
 test("ping route uses validToken for config auth (rejects expired)", () => {
   const src = readFileSync(new URL("../src/routes/api/ping.ts", import.meta.url), "utf8");
   assert.match(src, /validToken\(\s*token\s*,\s*["']config["']\s*\)/);
