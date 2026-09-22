@@ -561,17 +561,29 @@ async function runDueSchedules() {
     }
     mem.lastError = result.ok ? null : result.message;
     pushLog({ kind: "macro", ok: result.ok, title: `Schedule ${job.label}`, detail: result.message });
-    const queued = triggerQueue.shift();
-    if (queued) {
-      const nested = mem.config.macros.find((m) => m.id === queued.macroId);
-      if (nested) await runQueuedTrigger(queued, nested);
-    }
+    await drainQueuedTriggers();
   }
   } finally {
     scheduleBusy = false;
   }
 }
 
+
+/** Park a trigger while runningMacro is held (same push runDueTriggers uses). */
+function parkTriggerBehindMacro(job: { id: string; macroId: string; label: string; path: "t" | "f" }) {
+  triggerQueue.push(job);
+  pendingTriggers.reserve(`${job.id}:${job.path}`);
+}
+
+/** Same post-macro drain schedule uses — call after clearing runningMacro. */
+export async function drainQueuedTriggers() {
+  const mem = memory();
+  const queued = triggerQueue.shift();
+  if (queued) {
+    const nested = mem.config.macros.find((m) => m.id === queued.macroId);
+    if (nested) await runQueuedTrigger(queued, nested);
+  }
+}
 
 export async function runDueTriggers() {
   const mem = memory();
@@ -616,8 +628,7 @@ export async function runDueTriggers() {
       if (pendingTriggers.has(key) || triggerQueue.some((item) => item.id === rule.id && item.path === path)) continue;
       const job = { id: rule.id, macroId, label: rule.label, path };
       if (mem.runningMacro) {
-        triggerQueue.push(job);
-        pendingTriggers.reserve(key);
+        parkTriggerBehindMacro(job);
         lastTriggerValue.set(key, "true:");
         continue;
       }
