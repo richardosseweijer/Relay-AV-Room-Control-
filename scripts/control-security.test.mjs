@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { hashPin, isHashedPin, verifyStoredPin, checkLockout, notePinFail, clearPinFail, lockoutKey } from "../src/lib/control/pins.server.ts";
 import { isWeakPin } from "../src/lib/control/pins.ts";
 import { signPeer, verifyPeerRequest, varsRequestAllowed } from "../src/lib/control/peer-auth.ts";
+import { serialPathOk, sendLocal } from "../src/lib/control/engine-host.ts";
 
 test("weak pins", () => {
   assert.equal(isWeakPin("1234"), true);
@@ -89,4 +90,54 @@ test("pin lockout blocks after 5 fails then clears on success (process-global, n
   assert.equal(checkLockout(key).blocked, true);
   clearPinFail(key);
   assert.equal(checkLockout(key).blocked, false);
+});
+
+test("serialPathOk allowlists COM and /dev tty/serial nodes", () => {
+  assert.equal(serialPathOk("COM1"), true);
+  assert.equal(serialPathOk("COM12"), true);
+  assert.equal(serialPathOk("com3"), true);
+  assert.equal(serialPathOk("/dev/ttyUSB0"), true);
+  assert.equal(serialPathOk("/dev/ttyACM1"), true);
+  assert.equal(serialPathOk("/dev/ttyAMA0"), true);
+  assert.equal(serialPathOk("/dev/ttyS0"), true);
+  assert.equal(serialPathOk("/dev/serial0"), true);
+  assert.equal(serialPathOk("/dev/serial1"), true);
+});
+
+test("serialPathOk rejects filesystem escapes", () => {
+  assert.equal(serialPathOk("/etc/passwd"), false);
+  assert.equal(serialPathOk("../../etc/passwd"), false);
+  assert.equal(serialPathOk("/dev/../etc/passwd"), false);
+  assert.equal(serialPathOk("/dev/ttyUSB0/../../etc/passwd"), false);
+  assert.equal(serialPathOk("/home/user/secret"), false);
+  assert.equal(serialPathOk("/dev/sda"), false);
+  assert.equal(serialPathOk("/dev/serial/by-id/usb-foo"), false);
+  assert.equal(serialPathOk(""), false);
+  assert.equal(serialPathOk("C:\\Windows\\System32\\config\\SAM"), false);
+});
+
+test("sendLocal serial rejects bad path before open", async () => {
+  const driver = {
+    specVersion: "2",
+    device: { manufacturer: "T", model: "T", type: "serial" },
+    transports: { rs232: { baud: 9600 } },
+    commands: [],
+    feedback: [],
+  };
+  const base = {
+    id: "s1",
+    name: "Serial",
+    driver: "x.json",
+    transport: "rs232",
+    host: "",
+    auth: { ifaceKind: "serial" },
+    enabledFeatures: [],
+    simulate: false,
+  };
+  const bad = await sendLocal(driver, { ...base, interface: "/etc/passwd" }, "AT");
+  assert.equal(bad.ok, false);
+  assert.match(bad.message, /Serial path rejected/);
+  const traj = await sendLocal(driver, { ...base, interface: "../../etc/passwd" }, "AT");
+  assert.equal(traj.ok, false);
+  assert.match(traj.message, /Serial path rejected/);
 });
