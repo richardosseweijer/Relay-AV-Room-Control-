@@ -3,6 +3,8 @@ import { sendUdpMulticast } from "./udp.ts";
 
 const ACN_PID = Buffer.from("ASC-E1.17\0\0\0", "ascii");
 const seqByKey = new Map<string, number>();
+/** Retained DMX slots per source/universe/iface so channel writes merge instead of zero-filling. */
+const slotsByKey = new Map<string, Uint8Array>();
 
 export function sacnGroup(universe: number): string {
   const u = universe & 0xffff;
@@ -14,6 +16,35 @@ export function cidFrom(key: string): Buffer {
   const src = Buffer.from(String(key || "relay"), "utf8");
   for (let i = 0; i < 16; i++) out[i] = src[i % Math.max(1, src.length)]!;
   return out;
+}
+
+function slotsKey(cidKey: string, universe: number, localAddress?: string): string {
+  return `${cidKey}\0${universe}\0${localAddress ?? ""}`;
+}
+
+function getOrCreateSlots(cidKey: string, universe: number, localAddress?: string): Uint8Array {
+  const key = slotsKey(cidKey, universe, localAddress);
+  let slots = slotsByKey.get(key);
+  if (!slots) {
+    slots = new Uint8Array(512);
+    slotsByKey.set(key, slots);
+  }
+  return slots;
+}
+
+/** Test helper: copy of retained slots, or undefined if never written. */
+export function peekSacnSlots(opts: {
+  universe: number;
+  cidKey: string;
+  localAddress?: string;
+}): Uint8Array | undefined {
+  const slots = slotsByKey.get(slotsKey(opts.cidKey, opts.universe, opts.localAddress));
+  return slots ? Uint8Array.from(slots) : undefined;
+}
+
+/** Test helper: drop retained universe buffers (and leave sequence counters alone). */
+export function clearSacnSlotBuffers(): void {
+  slotsByKey.clear();
 }
 
 export function encodeSacn(opts: {
@@ -62,7 +93,7 @@ export async function sendSacnCommand(opts: {
   if (!Number.isInteger(universe) || universe < 1 || universe > 63999) {
     return { ok: false, message: "sACN universe 1–63999" };
   }
-  const slots = new Uint8Array(512);
+  const slots = getOrCreateSlots(opts.cidKey, universe, opts.localAddress);
   if (opts.slot !== undefined) {
     const slot = Number(opts.slot);
     if (!Number.isInteger(slot) || slot < 1 || slot > 512) return { ok: false, message: "sACN slot 1–512" };
