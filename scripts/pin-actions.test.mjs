@@ -43,11 +43,12 @@ function fixture(room) {
   } };
 }
 
-const actions = "../src/lib/control/actions.ts";
+const actionsAuth = "../src/lib/control/actions-auth.ts";
+const actionsConfig = "../src/lib/control/actions-config.ts";
 test("saveConfig rejects weak plaintext before hashing or persisting", async () => {
   for (const pin of ["1234", "0000", "12", "9876"]) {
     const f = fixture({ configPin: hashPin("8492"), panelAccess: "open" });
-    const run = handler(actions, "saveConfig", f.bindings);
+    const run = handler(actionsConfig, "saveConfig", f.bindings);
     const result = await run({ data: { token: "test-config-session", config: { room: { configPin: pin, panelAccess: "open" } } } });
     assert.equal(result.ok, false);
     assert.match(result.message, /Choose a PIN/);
@@ -58,7 +59,7 @@ test("saveConfig rejects weak plaintext before hashing or persisting", async () 
 
 test("clearConfig accepts correct plaintext against a stored hash and rejects wrong PIN", async () => {
   const f = fixture({ configPin: hashPin("8492") });
-  const run = handler(actions, "clearConfig", f.bindings);
+  const run = handler(actionsConfig, "clearConfig", f.bindings);
   assert.equal((await run({ data: { token: "test-config-session", pin: "7613" } })).ok, false);
   assert.equal(f.writes(), 0);
   assert.equal((await run({ data: { token: "test-config-session", pin: "8492" } })).ok, true);
@@ -69,7 +70,7 @@ test("clearConfig accepts correct plaintext against a stored hash and rejects wr
 for (const route of [false, true]) {
   test(`${route ? "HTTP" : "server function"} panel migration preserves panel PIN on config fallback`, async () => {
     const f = fixture({ panelAccess: "pin", panelPin: "8492", configPin: hashPin("7613"), panelAcceptsConfigPin: true });
-    const run = handler(route ? "../src/routes/api/panel-unlock.ts" : actions, route ? "POST" : "verifyPanelPin", f.bindings);
+    const run = handler(route ? "../src/routes/api/panel-unlock.ts" : actionsAuth, route ? "POST" : "verifyPanelPin", f.bindings);
     const response = await run(route ? { request: new Request("http://localhost/api/panel-unlock", { method: "POST", body: JSON.stringify({ pin: "7613" }) }) } : { data: { pin: "7613" } });
     const result = route ? await response.json() : response;
     assert.equal(result.ok, true);
@@ -88,7 +89,7 @@ test("API/export redaction removes PIN credentials without mutating device auth"
 
 test("weak unlock persists pinChangeRequired so getEditorConfig keeps mustChange after hash", async () => {
   const f = fixture({ configPin: "1234", panelAccess: "open" });
-  const unlock = handler(actions, "verifyConfigPin", f.bindings);
+  const unlock = handler(actionsAuth, "verifyConfigPin", f.bindings);
   const unlocked = await unlock({ data: { pin: "1234" } });
   assert.equal(unlocked.ok, true);
   assert.equal(unlocked.mustChange, true);
@@ -96,12 +97,12 @@ test("weak unlock persists pinChangeRequired so getEditorConfig keeps mustChange
   assert.equal(isHashedPin(f.mem.config.room.configPin), true);
   assert.equal(isWeakPin(f.mem.config.room.configPin), false, "hash must not look weak to isWeakPin");
 
-  const editor = handler(actions, "getEditorConfig", f.bindings);
+  const editor = handler(actionsConfig, "getEditorConfig", f.bindings);
   const ed = await editor({ data: { token: "test-config-session" } });
   assert.equal(ed.ok, true);
   assert.equal(ed.mustChange, true, "mustChange must survive reload after PIN is hashed");
 
-  const save = handler(actions, "saveConfig", f.bindings);
+  const save = handler(actionsConfig, "saveConfig", f.bindings);
   const saved = await save({ data: { token: "test-config-session", config: { room: { configPin: "8492", panelAccess: "open" }, devices: [], variables: [] } } });
   assert.equal(saved.ok, true);
   assert.equal(f.mem.pinChangeRequired, false);
