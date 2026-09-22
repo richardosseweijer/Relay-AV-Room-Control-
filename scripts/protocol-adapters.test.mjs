@@ -133,13 +133,17 @@ test("engine-lan sendLan still names http cast pjlink wol tcp websocket", () => 
   assert.equal(/from ["']\.\/engine["']/.test(lanSrc), false);
 });
 
-test("usb-midi is local.kind midi and engine calls sendUsbMidi", () => {
+test("usb-midi is local.kind midi and engine-host sendLocal calls sendUsbMidi", () => {
   const spec = JSON.parse(fs.readFileSync("data/library/usb-midi.json", "utf8"));
   assert.equal(spec.transports.local.kind, "midi");
-  const src = fs.readFileSync("src/lib/control/engine.ts", "utf8");
-  assert.ok(namedFn(src, "sendLocal").includes('kind === "midi"'));
-  assert.ok(namedFn(src, "sendLocal").includes("sendUsbMidi"));
-  assert.equal(src.includes("node-midi"), false);
+  const hostSrc = fs.readFileSync("src/lib/control/engine-host.ts", "utf8");
+  assert.ok(namedFn(hostSrc, "sendLocal").includes('kind === "midi"'));
+  assert.ok(namedFn(hostSrc, "sendLocal").includes("sendUsbMidi"));
+  assert.equal(hostSrc.includes("node-midi"), false);
+  const barrel = fs.readFileSync("src/lib/control/engine.ts", "utf8");
+  assert.match(barrel, /from ["']\.\/engine-host["']/);
+  assert.match(barrel, /export \{ applyHost, listHostInterfaces, type HostPort \} from ["']\.\/engine-host["']/);
+  assert.equal(/from ["']\.\/engine["']/.test(hostSrc), false);
 });
 
 test("midiWatch is JSON matchers; no parse type midi", () => {
