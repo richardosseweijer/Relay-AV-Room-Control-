@@ -172,3 +172,30 @@ test("HTTP unlock sources no longer hand-roll __relayTokens__", () => {
     assert.doesNotMatch(src, /function randomHex/);
   }
 });
+
+test("importBundle with blank peerSecret preserves prior secret", async () => {
+  const prior = "live-peer-hmac-secret-keep-me";
+  const f = fixture({
+    configPin: hashPin("8492"),
+    panelAccess: "open",
+    peerSecret: prior,
+  });
+  const run = handler(actionsConfig, "importBundle", {
+    ...f.bindings,
+    validateDriver: () => null,
+  });
+  const result = await run({
+    data: {
+      token: "test-config-session",
+      bundle: {
+        config: {
+          room: { name: "Imported", configPin: "", panelAccess: "open", peerSecret: "" },
+          pages: [],
+          devices: [],
+        },
+      },
+    },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(f.mem.config.room.peerSecret, prior);
+});
