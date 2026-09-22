@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { hashPin } from "../src/lib/control/pins.server.ts";
 import { panelUnlockAllowed } from "../src/lib/control/panel-unlock-rule.ts";
 import { applyRoomSession, PANEL_TOKEN_KEY } from "../src/lib/control/panel-token.ts";
+import { readFileSync } from "node:fs";
 import { dropExpiredSessions } from "../src/lib/control/session-expire.ts";
 
 test("Forget clears client key", () => {
@@ -41,4 +42,11 @@ test("expired token rejected", () => {
   assert.equal(kept.live?.secret, "panel-live");
   assert.equal(kept.dead, undefined);
   assert.deepEqual(dropped, ["panel-dead"]);
+});
+
+test("ping route uses validToken for config auth (rejects expired)", () => {
+  const src = readFileSync(new URL("../src/routes/api/ping.ts", import.meta.url), "utf8");
+  assert.match(src, /validToken\(\s*token\s*,\s*["']config["']\s*\)/);
+  assert.doesNotMatch(src, /memory\(\)\.sessions/);
+  assert.match(src, /from\s+["']@\/lib\/control\/session\.server["']/);
 });
