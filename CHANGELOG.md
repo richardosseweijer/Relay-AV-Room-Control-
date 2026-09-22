@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.37 — 2026-09-22
+
+- Tag `v0.9.37`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Control plane Track A: shared `loadControl()` (#59); `actions` split into auth/config/runtime/host modules with a barrel façade (#60). No behaviour change.
+
 ## 0.9.36 — 2026-09-22
 
 - Tag `v0.9.36`. Same Foyer pair (`v0.2.2`). Wire unchanged.
