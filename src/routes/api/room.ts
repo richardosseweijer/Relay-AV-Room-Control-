@@ -62,28 +62,15 @@ export const Route = createFileRoute("/api/room")({
           });
         } catch (err) {
           if (err instanceof Error && err.name === "AbortError") return new Response(null, { status: 204 });
-          try {
-            const { emptyRoomConfig, defaultDeviceState } = await import("@/lib/control/defaults");
-            const demo = emptyRoomConfig();
-            return Response.json({
-              config: { ...demo, room: { ...demo.room, configPin: "", panelPin: "" } },
-              drivers: {},
-              library: {},
-              state: defaultDeviceState(),
-              vars: Object.fromEntries(demo.variables.map((v) => [v.id, v.default])),
-              health: {},
-              log: [],
-              traces: {},
-              monitorStatus: {},
-              latches: {},
+          // F12: fail closed — do not return scrubbed empty/demo room (tablets treat 200 as healthy).
+          return Response.json(
+            {
+              ok: false,
+              error: "room unavailable",
               lastError: scrubSecret(err instanceof Error ? err.message : "room unavailable"),
-              runningMacro: null,
-              activeScene: null,
-              host: { dim: false, locked: false, toast: null, block: null, pageId: null },
-            });
-          } catch {
-            return Response.json({ error: "room unavailable" }, { status: 503 });
-          }
+            },
+            { status: 503 },
+          );
         }
       },
     },
