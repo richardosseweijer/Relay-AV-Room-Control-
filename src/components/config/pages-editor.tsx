@@ -19,6 +19,7 @@ import { fieldClass } from "./config-ui";
 import { InputNum } from "./config-fields";
 import { PagesStatusFields } from "./pages-status-fields";
 import { PagesPreviewFields } from "./pages-preview-fields";
+import { PagesEnableWhen } from "./pages-enable-when";
 
 export { overlaps };
 
@@ -399,57 +400,12 @@ export function PagesEditor({
               </button>
             ))}
           </div>
-          <div className="grid gap-2">
-            <p className="text-sm text-muted">Enable when</p>
-            {(selected.enableWhen?.all ?? (selected.enableWhen?.variable ? [{ variable: selected.enableWhen.variable, op: "eq" as const, equals: selected.enableWhen.equals }] : [])).map((row, ri) => (
-              <div key={ri} className="grid grid-cols-2 sm:grid-cols-[minmax(0,1fr)_4.5rem_minmax(0,1fr)_auto] gap-1">
-                <select className={fieldClass()} value={row.variable ?? ""} onChange={(e) => update((c) => {
-                  const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
-                  if (!w) return;
-                  const all = [...(w.enableWhen?.all ?? (w.enableWhen?.variable ? [{ variable: w.enableWhen.variable, op: "eq" as const, equals: w.enableWhen.equals }] : []))];
-                  all[ri] = { ...all[ri]!, variable: e.target.value, equals: all[ri]?.equals ?? "", op: all[ri]?.op ?? "eq" };
-                  w.enableWhen = { equals: all[0]?.equals ?? "", all };
-                })}>
-                  {draft.variables.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-                </select>
-                <select className={fieldClass()} value={row.op ?? "eq"} onChange={(e) => update((c) => {
-                  const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
-                  if (!w) return;
-                  const all = [...(w.enableWhen?.all ?? [])];
-                  if (!all.length && w.enableWhen?.variable) all.push({ variable: w.enableWhen.variable, op: "eq", equals: w.enableWhen.equals });
-                  all[ri] = { ...all[ri]!, op: e.target.value as "eq" | "neq" | "gt" | "lt" | "gte" | "lte" };
-                  w.enableWhen = { equals: all[0]?.equals ?? "", all };
-                })}>
-                  <option value="eq">=</option>
-                  <option value="neq">≠</option>
-                  <option value="gt">{">"}</option>
-                  <option value="lt">{"<"}</option>
-                  <option value="gte">≥</option>
-                  <option value="lte">≤</option>
-                </select>
-                <input className={fieldClass()} placeholder="value" value={row.equals} onChange={(e) => update((c) => {
-                  const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
-                  if (!w) return;
-                  const all = [...(w.enableWhen?.all ?? (w.enableWhen?.variable ? [{ variable: w.enableWhen.variable, op: "eq" as const, equals: w.enableWhen.equals }] : []))];
-                  all[ri] = { ...all[ri]!, equals: e.target.value };
-                  w.enableWhen = { equals: all[0]?.equals ?? "", all };
-                })} />
-                <Button size="sm" variant="ghost" onClick={() => update((c) => {
-                  const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
-                  if (!w) return;
-                  const all = [...(w.enableWhen?.all ?? [])].filter((_, i) => i !== ri);
-                  w.enableWhen = all.length ? { equals: all[0]?.equals ?? "", all } : null;
-                })}>×</Button>
-              </div>
-            ))}
-            <Button size="sm" variant="secondary" onClick={() => update((c) => {
-              const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
-              if (!w) return;
-              const all = [...(w.enableWhen?.all ?? (w.enableWhen?.variable ? [{ variable: w.enableWhen.variable, op: "eq" as const, equals: w.enableWhen.equals }] : []))];
-              all.push({ variable: c.variables[0]?.id ?? "", op: "eq", equals: "" });
-              w.enableWhen = { equals: all[0]?.equals ?? "", all };
-            })}>Add condition</Button>
-          </div>
+          <PagesEnableWhen
+            selected={selected}
+            pageId={page.id}
+            draft={draft}
+            update={update}
+          />
           <Button size="sm" variant="danger" onClick={() => update((c) => { const p = c.pages.find((item) => item.id === page.id); if (p) p.widgets = p.widgets.filter((w) => w.id !== selected.id); setSelectedId(null); })}>Delete</Button>
         </aside>
       ) : <p className="text-sm text-muted">Select a button</p>}
