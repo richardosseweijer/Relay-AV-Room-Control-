@@ -113,6 +113,9 @@ export async function authenticateDevice(opts: { config: RoomConfig; drivers: Re
   const driver = opts.drivers[device.driver];
   if (!driver) return { ok: false, message: "No driver" };
   const host = opts.host ?? device.host;
+  if (!allowedLanHost(host, { localOk: device.driver === "relay-host.json" || driver.device.type === "host" })) {
+    return { ok: false, message: "Host not on room LAN" };
+  }
   const steps = inferPairingSteps(driver.auth?.pairing);
   if (!steps.length) {
     const ping = await pingReachable({ host, port: device.port ?? driver.transports.lan?.port });
@@ -296,6 +299,7 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
       if (!res.ok) return { ok: false, message: res.message };
       raw = res.message;
     } else if (resource.httpPath) {
+      if (!allowedLanHost(device.host)) return { ok: false, message: "Host not on room LAN" };
       const path = renderPayload(resource.httpPath, undefined, device.auth, { host: device.host, port: device.port, id: device.id });
       const port = driver.status?.port ?? device.port ?? driver.transports.lan?.port ?? 80;
       const built = safeLanHttpUrl("http", device.host, port, path);
@@ -448,6 +452,9 @@ function relayPeerUrl(device: { host: string; port?: number }, path: string) {
 }
 
 async function signedPeerFetch(device: { host: string; port?: number; auth?: Record<string, string> }, method: string, path: string, body?: string) {
+  if (!allowedLanHost(device.host)) {
+    throw new Error("Host not on room LAN");
+  }
   const key = device.auth?.secret || device.auth?.pin || device.auth?.token || "";
   const payload = method === "GET" ? "" : (body ?? "");
   const ts = String(Date.now());
