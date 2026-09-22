@@ -240,3 +240,62 @@ test("F1+F7: config write paths installRoomConfig (not raw memory().config =)", 
   assert.match(src, /installRoomConfig\s*\(\s*config\s*,\s*\{\s*alreadyNormalized:\s*true\s*\}\s*\)/);
   assert.match(src, /normalizedConfig\s*\(\s*memory\(\)\.config\s*\)/);
 });
+
+test("F5: panel refresh skips setSnap when panel fingerprint unchanged", () => {
+  const src = fs.readFileSync(new URL("../src/components/panel/control-panel.tsx", import.meta.url), "utf8");
+  assert.match(src, /panelSnapFingerprint/);
+  assert.match(src, /snapFp\.current/);
+  assert.match(src, /if\s*\(\s*fp\s*!==\s*snapFp\.current\s*\)/);
+  // Must not unconditionally setSnap(next) on every poll anymore.
+  assert.doesNotMatch(src, /setLoadErr\(null\);\s*setSnap\(next\);/);
+});
+
+test("F5: panelSnapFingerprint ignores process/log noise; reacts to vars/host/config", async () => {
+  const { panelSnapFingerprint, samePanelSnap } = await import("../src/lib/control/panel-snap.ts");
+  const base = {
+    config: { room: { name: "A" }, pages: [], devices: [], macros: [], variables: [], schedules: [], monitors: [] },
+    drivers: {},
+    library: {},
+    state: {},
+    vars: { volume: 10 },
+    health: {},
+    log: [{ id: "1" }],
+    traces: {},
+    monitorStatus: {},
+    latches: {},
+    lastError: null,
+    runningMacro: null,
+    activeScene: null,
+    host: { dim: false, locked: false, toast: null, block: null, pageId: null },
+    process: { pid: 1, uptimeSec: 1 },
+  };
+  const noisy = {
+    ...base,
+    log: [{ id: "2" }, { id: "3" }],
+    process: { pid: 1, uptimeSec: 999 },
+    traces: { d: [{ at: 1 }] },
+    drivers: { x: {} },
+    version: "changed",
+  };
+  assert.equal(panelSnapFingerprint(base), panelSnapFingerprint(noisy), "poll noise must not change fingerprint");
+  assert.equal(samePanelSnap(base, noisy), true);
+
+  const varsChanged = { ...base, vars: { volume: 11 } };
+  assert.notEqual(panelSnapFingerprint(base), panelSnapFingerprint(varsChanged));
+  assert.equal(samePanelSnap(base, varsChanged), false);
+
+  const hostChanged = {
+    ...base,
+    host: { ...base.host, toast: "hi", toastAt: 1 },
+  };
+  assert.notEqual(panelSnapFingerprint(base), panelSnapFingerprint(hostChanged));
+
+  const pageChanged = {
+    ...base,
+    config: {
+      ...base.config,
+      pages: [{ id: "home", widgets: [{ id: "w1" }] }],
+    },
+  };
+  assert.notEqual(panelSnapFingerprint(base), panelSnapFingerprint(pageChanged));
+});
