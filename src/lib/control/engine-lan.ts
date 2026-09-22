@@ -16,7 +16,7 @@ import { sendSacnCommand } from "./sacn";
 import { sendIpmidi } from "./ipmidi";
 import { sendRtpMidiCommand } from "./rtp-midi";
 import { roomLanBind } from "./nics";
-import { allowedLanHost, pushTrace } from "./engine-policy";
+import { allowedLanHost, pushTrace, safeLanHttpUrl } from "./engine-policy";
 import { renderPayload } from "./engine-payload";
 import { paceDevice, wireEncoding, encodeWire, tcpWrite, tcpSessionWrite } from "./engine-wire";
 
@@ -114,7 +114,9 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
     for (const [key, val] of Object.entries(rawHeaders)) {
       headers[key] = renderPayload(String(val ?? ""), undefined, auth, ctx);
     }
-    result = await sendHttp(`${lan.protocol}://${host}:${port}${path}`, command?.httpMethod || lan.http?.method || "GET", payload, timeout, {
+    const built = safeLanHttpUrl(lan.protocol, host, port, path);
+    if (!built.ok) result = { ok: false, message: built.message };
+    else result = await sendHttp(built.url, command?.httpMethod || lan.http?.method || "GET", payload, timeout, {
       maxMessageChars: lan.http?.contentType?.includes("xml") ? 64 * 1024 : undefined,
       headers,
       localAddress,
