@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { encodeSacn, sacnGroup, cidFrom, sendSacnCommand } from "../src/lib/control/sacn.ts";
+import { encodeSacn, sacnGroup, cidFrom, sendSacnCommand, peekSacnSlots, clearSacnSlotBuffers } from "../src/lib/control/sacn.ts";
 
 test("sacnGroup universe 1 and 12", () => {
   assert.equal(sacnGroup(1), "239.255.0.1");
@@ -36,4 +36,36 @@ test("ChatGPT #3: sACN {value} template receives provided number (not empty→0)
   slots[0] = Math.max(0, Math.min(255, Math.trunc(n)));
   const buf = encodeSacn({ universe: 1, priority: 100, cid: cidFrom("t"), sequence: 1, slots });
   assert.equal(buf[126], 200);
+});
+
+test("ChatGPT #4: successive channel writes preserve prior slots in full frame", async () => {
+  clearSacnSlotBuffers();
+  const cidKey = "chatgpt4-universe-buffer";
+  const universe = 7;
+
+  const r1 = await sendSacnCommand({ universe, slot: 1, value: 255, cidKey });
+  assert.equal(r1.ok, true);
+  const afterCh1 = peekSacnSlots({ universe, cidKey });
+  assert.ok(afterCh1);
+  assert.equal(afterCh1[0], 255);
+  assert.equal(afterCh1[1], 0);
+
+  const r2 = await sendSacnCommand({ universe, slot: 2, value: 128, cidKey });
+  assert.equal(r2.ok, true);
+  const afterCh2 = peekSacnSlots({ universe, cidKey });
+  assert.ok(afterCh2);
+  assert.equal(afterCh2[0], 255);
+  assert.equal(afterCh2[1], 128);
+  assert.equal(afterCh2[2], 0);
+
+  const frame = encodeSacn({
+    universe,
+    priority: 100,
+    cid: cidFrom(cidKey),
+    sequence: 0,
+    slots: afterCh2,
+  });
+  assert.equal(frame[126], 255);
+  assert.equal(frame[127], 128);
+  assert.notEqual(frame[126], 0);
 });
