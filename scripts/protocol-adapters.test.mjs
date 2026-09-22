@@ -208,6 +208,50 @@ test("statusPlane uses only driver.status; Sonos poll stays on sendLan", () => {
   assert.ok(playback.httpPath.includes("AVTransport"));
 });
 
+test("readMonitorValue wires through interface like executeCommand (#5)", () => {
+  const src = fs.readFileSync("src/lib/control/engine.ts", "utf8");
+  // namedFn truncates on nested return-type braces; slice the full poll body instead.
+  const start = src.indexOf("export async function readMonitorValue");
+  const end = src.indexOf("\nfunction isLocalRelayHost", start);
+  assert.ok(start >= 0 && end > start, "readMonitorValue body");
+  const poll = src.slice(start, end);
+  const exec = namedFn(src, "executeCommand");
+  const send = namedFn(src, "sendRaw");
+  // Command + raw send already remap host:port via gateway interface.
+  assert.match(exec, /const wired = wireThroughInterface\(device, iface\)/);
+  assert.match(send, /const wired = wireThroughInterface\(device, iface\)/);
+  // Monitor status plane + sendLan must use the same wired device (not raw host).
+  assert.match(poll, /const wired = wireThroughInterface\(device, iface\)/);
+  assert.match(poll, /statusPlane\(driver,\s*wired\)/);
+  assert.match(poll, /sendLan\(driver,\s*wired/);
+  assert.equal(/statusPlane\(driver,\s*device\)/.test(poll), false);
+  assert.equal(/sendLan\(driver,\s*device\b/.test(poll), false);
+});
+
+test("gateway interface mapping yields same host:port for command and monitor (#5)", async () => {
+  const { gatewaySlot, gatewayProfile } = await import("../src/lib/control/gateway.ts");
+  const iface = {
+    id: "ipl",
+    label: "IPL",
+    kind: "gateway",
+    vendor: "extron-ipl-t-sfi244",
+    host: "192.168.10.50",
+    slot: "com1",
+  };
+  const device = { host: "", port: 23 };
+  const profile = gatewayProfile(iface.vendor);
+  const slot = gatewaySlot(iface.vendor, iface.slot);
+  // Mirrors wireThroughInterface gateway branch (engine.ts).
+  const wiredHost = iface.host || device.host;
+  const wiredPort = slot?.mapPort ?? iface.controlPort ?? profile?.controlPort ?? device.port;
+  assert.equal(wiredHost, "192.168.10.50");
+  assert.equal(wiredPort, 2001);
+  assert.equal(slot?.mapPort, 2001);
+  // Empty/original device host must not be the poll target after mapping.
+  assert.notEqual(device.host || "empty", wiredHost);
+  assert.notEqual(device.port, wiredPort);
+});
+
 test("poll uses driver parse, not PowerState or displayName peeks", () => {
   const src = fs.readFileSync("src/lib/control/engine.ts", "utf8");
   const poll = namedFn(src, "readMonitorValue");
