@@ -33,7 +33,12 @@ export const getEditorConfig = createServerFn({ method: "POST" })
         created: row.created ?? 0,
         lastSeen: row.lastSeen ?? 0,
       }));
-    return { ok: true as const, config, traces: traces(), mustChange: isWeakPin(config.room.configPin), paired, process: processStatus(), log: memory().log ?? [] };
+    const storedPin = config.room.configPin;
+    // Never call isWeakPin on a scrypt hash — it is always "strong" by shape.
+    // Durable mustChange comes from pinChangeRequired (set at unlock on weak plaintext).
+    const mustChange = memory().pinChangeRequired === true
+      || (!isHashedPin(storedPin) && isWeakPin(storedPin));
+    return { ok: true as const, config, traces: traces(), mustChange, paired, process: processStatus(), log: memory().log ?? [] };
   });
 
 export const revokeSession = createServerFn({ method: "POST" })
@@ -94,11 +99,13 @@ export const verifyConfigPin = createServerFn({ method: "POST" })
       return { ok: false, token: null as string | null, mustChange: false };
     }
     clearPinFail(lockoutKey("config"));
+    const weak = isWeakPin(data.pin) || (!isHashedPin(stored) && isWeakPin(stored));
     if (stored && !isHashedPin(stored)) {
       memory().config.room.configPin = hashPin(data.pin);
-      persist();
     }
-    return { ok: true, token: mint("config"), mustChange: isWeakPin(data.pin) || isWeakPin(stored) };
+    if (weak) memory().pinChangeRequired = true;
+    if ((stored && !isHashedPin(stored)) || weak) persist();
+    return { ok: true, token: mint("config"), mustChange: weak || memory().pinChangeRequired === true };
   });
 
 export const verifyPanelPin = createServerFn({ method: "POST" })
@@ -147,6 +154,9 @@ export const saveConfig = createServerFn({ method: "POST" })
     const nextPin = incomingPin || memory().config.room.configPin;
     if (!isHashedPin(nextPin) && isWeakPin(nextPin)) return { ok: false, message: "Choose a PIN that is not 1234, 0000, or a repeat/sequence" };
     const pin = isHashedPin(nextPin) ? nextPin : hashPin(nextPin);
+    if (incomingPin && !isHashedPin(incomingPin) && !isWeakPin(incomingPin)) {
+      memory().pinChangeRequired = false;
+    }
     const incomingPanel = data.config.room.panelAccess === "pin" ? data.config.room.panelPin?.trim() : null;
     let panelPin = data.config.room.panelAccess === "pin"
       ? (!incomingPanel || isHashedPin(incomingPanel) ? (incomingPanel || memory().config.room.panelPin) : hashPin(incomingPanel))
