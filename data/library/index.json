@@ -1,4 +1,11 @@
 {
+  "biamp-nexia-pm.json": {
+    "filename": "biamp-nexia-pm.json",
+    "manufacturer": "Biamp",
+    "model": "Nexia PM",
+    "type": "mixer",
+    "notes": "NTP Telnet TCP 23, LF. Tag I/O blocks MicIn / LineIn / LineOut. Device ID 1. Levels are dB. Static IP."
+  },
   "denon-dn-500av.json": {
     "filename": "denon-dn-500av.json",
     "manufacturer": "Denon",

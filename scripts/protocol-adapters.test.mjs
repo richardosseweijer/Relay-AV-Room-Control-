@@ -218,3 +218,16 @@ test("Mitsubishi UD8900U is PJLink Class 1 with the manual input map", () => {
   assert.equal("%1POWR=1".match(new RegExp(power.parse.pattern))?.[1], "1");
   assert.equal(power.parse.map["1"], "on");
 });
+
+test("Biamp Nexia PM is NTP telnet 23 with tagged I/O blocks", () => {
+  const spec = JSON.parse(fs.readFileSync("data/library/biamp-nexia-pm.json", "utf8"));
+  assert.equal(spec.transports.lan.protocol, "tcp");
+  assert.equal(spec.transports.lan.port, 23);
+  assert.equal(spec.transports.lan.lineEnding, "\n");
+  assert.equal(spec.transports.rs232.baud, 38400);
+  assert.equal(spec.commands.find((c) => c.id === "mic.1.level.set").payload, "SET 1 INPLVL MicIn 1 {value}");
+  assert.equal(spec.commands.find((c) => c.id === "line.1.mute.on").payload, "SET 1 INPMUTEPML LineIn 1 1");
+  assert.equal(spec.commands.find((c) => c.id === "out.1.level.set").payload, "SET 1 OUTLVLPM LineOut 1 {value}");
+  assert.equal(spec.commands.find((c) => c.id === "preset.recall").payload, "RECALL 0 PRESET {value}");
+  assert.equal(spec.probe.payload, "GET 0 IPADDR");
+});

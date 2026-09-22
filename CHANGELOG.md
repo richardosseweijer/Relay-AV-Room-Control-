@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.35 — 2026-09-22
+
+- Tag `v0.9.35`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Library: Biamp Nexia PM (NTP Telnet :23). Mic 1–4, line 1–6, out 1–6, preset recall. Tag blocks MicIn / LineIn / LineOut in Nexia.
+
 ## 0.9.34 — 2026-09-20
 
 - Tag `v0.9.34`. Same Foyer pair (`v0.2.2`). Wire unchanged.
