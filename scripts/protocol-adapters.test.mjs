@@ -65,6 +65,15 @@ test("policy RFC1918 and scrubSecret", async () => {
   assert.equal(allowedLanHost("127.0.0.1"), false);
   assert.equal(allowedLanHost("127.0.0.1", { localOk: true }), true);
   assert.equal(scrubSecret('{"token":"abc","password":"x"}').includes("abc"), false);
+  // Align with isSecretKey: key / pin / Bearer (and compound keys like apiKey)
+  const json = scrubSecret('{"key":"k1","pin":"1234","apiKey":"ak","label":"ok"}');
+  assert.equal(json.includes("k1"), false);
+  assert.equal(json.includes("1234"), false);
+  assert.equal(json.includes("ak"), false);
+  assert.equal(json.includes('"label":"ok"'), true);
+  assert.equal(scrubSecret("auth?key=secretval&pin=9999&host=10.0.0.1"), "auth?key=***&pin=***&host=10.0.0.1");
+  assert.equal(scrubSecret("Authorization: Bearer eyJhbGciOi.abc"), "Authorization: Bearer ***");
+  assert.equal(scrubSecret("token abc.def.ghi"), "token ***");
 });
 
 test("payload templates, guards, and parseFeedback", async () => {
