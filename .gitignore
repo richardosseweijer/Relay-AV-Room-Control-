@@ -13,6 +13,10 @@ data/relay-room.json
 data/relay-update.log
 data/*.tmp
 data/*.transaction
+# Last-good / corrupt backups from persistPair + loadPersisted (write-atomic).
+data/*.good
+data/*.bad
+data/*.transaction.bad
 attachments/
 artifacts/
 screenshots/app-builder-*
