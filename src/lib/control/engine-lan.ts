@@ -20,7 +20,7 @@ import { allowedLanHost, pushTrace } from "./engine-policy";
 import { renderPayload } from "./engine-payload";
 import { paceDevice, wireEncoding, encodeWire, tcpWrite, tcpSessionWrite } from "./engine-wire";
 
-/** Local spawn helper for RPC shutdown only (host local tools stay in engine.ts). */
+/** Local spawn helper for RPC shutdown only (host local tools live in engine-host.ts). */
 async function runTool(cmd: string, args: string[], timeout = 2000): Promise<CommandResult> {
   const { spawn } = await import("node:child_process");
   return new Promise((resolve) => {
