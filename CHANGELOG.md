@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.36 — 2026-09-22
+
+- Tag `v0.9.36`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Security hardening pass (backend foot-guns): expired config sessions rejected on `/api/ping`; durable weak-PIN force-change; unlock routes share `mint()`; `scrubSecret` aligned with `isSecretKey`; `/api/room` uses shared `validToken`; corrupt secrets JSON fails closed; `/api/vars` requires peer HMAC when a key is set; timing-safe plaintext PIN compare on the legacy path.
+
 ## 0.9.35 — 2026-09-22
 
 - Tag `v0.9.35`. Same Foyer pair (`v0.2.2`). Wire unchanged.
