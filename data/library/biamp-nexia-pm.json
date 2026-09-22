@@ -11,7 +11,7 @@
       "protocol": "tcp",
       "port": 23,
       "encoding": "ascii",
-      "lineEnding": "\\n",
+      "lineEnding": "\n",
       "timeoutMs": 2500,
       "session": {
         "keepMs": 20000,
@@ -24,7 +24,7 @@
       "parity": "none",
       "stopBits": 1,
       "encoding": "ascii",
-      "lineEnding": "\\n",
+      "lineEnding": "\n",
       "timeoutMs": 2000
     }
   },
