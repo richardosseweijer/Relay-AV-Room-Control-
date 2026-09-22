@@ -77,8 +77,8 @@ for (const route of [false, true]) {
 }
 
 test("API/export redaction removes PIN credentials without mutating device auth", () => {
-  const auth = { pin: "8492", pairingPIN: "7613", password: "test-password", token: "test-token", mac: "00:11:22:33:44:55" };
-  assert.deepEqual(redactAuth(auth), { pin: "", pairingPIN: "", password: "", token: "", mac: auth.mac });
+  const auth = { pin: "8492", pairingPIN: "7613", password: "test-password", token: "test-token", user: "ptz-admin", username: "wall", mac: "00:11:22:33:44:55" };
+  assert.deepEqual(redactAuth(auth), { pin: "", pairingPIN: "", password: "", token: "", user: "", username: "", mac: auth.mac });
   assert.equal(auth.pin, "8492");
   assert.deepEqual(redactAuth(), {});
 });

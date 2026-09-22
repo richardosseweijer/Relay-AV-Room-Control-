@@ -22,7 +22,7 @@ export function allowedLanHost(host: string | undefined, opts?: { localOk?: bool
 
 export function scrubSecret(text: string) {
   return String(text ?? "")
-    .replace(/("(?:token|password|secret|username)"\s*:\s*")[^"]*/gi, "$1***")
+    .replace(/("(?:token|password|secret|username|user)"\s*:\s*")[^"]*/gi, "$1***")
     .replace(/\btoken\s+[A-Za-z0-9._+/=-]{3,}/gi, "token ***")
     .replace(/((?:token|password|secret)=)[^&\s"]+/gi, "$1***");
 }
