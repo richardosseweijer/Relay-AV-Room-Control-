@@ -1,12 +1,13 @@
+import { posix as posixPath } from "node:path";
 import type {
   CommandResult,
   DeviceInstance,
   DriverSpec,
   HostInterface,
 } from "./types";
-import { isGatewayKind } from "./gateway";
-import { sendUsbMidi } from "./midi";
-import { pushTrace } from "./engine-policy";
+import { isGatewayKind } from "./gateway.ts";
+import { sendUsbMidi } from "./midi.ts";
+import { pushTrace } from "./engine-policy.ts";
 
 async function runToolStdin(cmd: string, args: string[], stdin: string, timeout = 2000): Promise<CommandResult> {
   const { spawn } = await import("node:child_process");
@@ -102,6 +103,19 @@ export async function listHostInterfaces(): Promise<{ ok: boolean; message: stri
   return { ok: true, message: ports.length ? `${ports.length} found` : "None found", ports };
 }
 
+/** Windows COM* and Unix /dev serial nodes already scanned by listHostInterfaces. */
+export function serialPathOk(raw: string): boolean {
+  const s = String(raw ?? "").trim();
+  if (!s || s.includes("\0")) return false;
+  if (/^COM\d+$/i.test(s)) return true;
+  if (!s.startsWith("/")) return false;
+  const resolved = posixPath.resolve(s);
+  if (!resolved.startsWith("/dev/")) return false;
+  const base = resolved.slice("/dev/".length);
+  if (!base || base.includes("/")) return false;
+  return /^(tty(USB|ACM|AMA|S)\d+|serial\d+)$/i.test(base);
+}
+
 export function usesLocalPort(iface?: HostInterface) {
   return Boolean(iface && !isGatewayKind(iface.kind));
 }
@@ -128,17 +142,19 @@ export async function sendLocal(driver: DriverSpec, device: DeviceInstance, payl
     return runTool("gpioset", [chip, `${line}=${level}`], local?.timeoutMs ?? 1500);
   }
   if (kind === "serial") {
+    if (!serialPathOk(path)) return { ok: false, message: "Serial path rejected" };
     try {
       const fs = await import("node:fs/promises");
       const { execFile } = await import("node:child_process");
       const { promisify } = await import("node:util");
       const exec = promisify(execFile);
       const baud = String(device.baud ?? serial?.baud ?? local?.baud ?? 9600);
-      const target = path.startsWith("COM") ? `\\\\.\\${path}` : path;
-      if (path.startsWith("COM")) {
-        await exec("mode", [`${path}:`, `baud=${baud}`, "parity=n", "data=8", "stop=1"]).catch(() => undefined);
+      const com = /^COM\d+$/i.test(path) ? path.toUpperCase() : null;
+      const target = com ? `\\\\.\\${com}` : posixPath.resolve(path);
+      if (com) {
+        await exec("mode", [`${com}:`, `baud=${baud}`, "parity=n", "data=8", "stop=1"]).catch(() => undefined);
       } else {
-        await exec("stty", ["-F", path, baud, "cs8", "-cstopb", "-parenb", "-echo"]).catch(() => undefined);
+        await exec("stty", ["-F", target, baud, "cs8", "-cstopb", "-parenb", "-echo"]).catch(() => undefined);
       }
       const fh = await fs.open(target, "r+");
       try {
