@@ -4,25 +4,19 @@ import { useNavigate } from "@tanstack/react-router";
 import { Maximize2, Settings2, Sun } from "lucide-react";
 import type { RoomSnapshot, Widget } from "@/lib/control/types";
 import { NONE_MACRO_ID } from "@/lib/control/types";
-import { gridStyle, pageGrid, widgetsOn } from "@/lib/control/page-layout";
-import { resolveBoundNumber } from "@/lib/control/vars";
-import { nextScheduled } from "@/lib/control/schedule";
+import { pageGrid, widgetsOn } from "@/lib/control/page-layout";
 import { Button } from "@/components/ui/button";
-import { WidgetShell } from "./widget-face";
-import { PreviewTile } from "./preview-tile";
-import { PanelSlider } from "./panel-slider";
 import { PanelPinGate } from "./panel-pin-gate";
 import { PanelLockedOverlay } from "./panel-locked-overlay";
+import { PanelTile } from "./panel-tile";
 import { applyRoomSession, clearPanelToken, PANEL_TOKEN_KEY } from "@/lib/control/panel-token";
 import { applyRoomTheme } from "@/lib/theme";
 import { resolveStatusAppearance } from "@/lib/control/status-widget";
 import { panelSnapFingerprint } from "@/lib/control/panel-snap";
 import {
-  readFeedback,
   enabled,
   friendlyError,
   sliderVariable,
-  widgetActive,
 } from "@/lib/control/panel-widget";
 
 async function rpc() {
@@ -519,144 +513,20 @@ export function ControlPanel() {
           gridTemplateRows: `repeat(${grid.rows}, minmax(0, 1fr))`,
         }}
       >
-        {tiles.map((widget) => {
-          const on = enabled(snap, widget);
-          const varId = sliderVariable(snap, widget);
-          const value = varId
-            ? String(snap.vars[varId] ?? widget.bind.value ?? "")
-            : widget.bind.variable
-            ? String(snap.vars[widget.bind.variable] ?? widget.bind.value ?? "")
-            : widget.bind.kind === "variable"
-              ? String(snap.vars[widget.bind.variable ?? ""] ?? "—")
-            : readFeedback(snap, widget.bind.device, widget.bind.feedback);
-          const lit = widgetActive(snap, widget, confirm?.id === widget.id);
-          const waiting = busyId === widget.id;
-          const wide = (widget.type === "slider" && widget.sliderDir === "vertical")
-            ? widget.w >= grid.cols
-            : widget.type === "slider" || widget.type === "schedule" || widget.type === "label" || widget.type === "preview" || widget.w >= grid.cols;
-          if (widget.type === "slider") {
-            const num = Number(value || 0);
-            const min = resolveBoundNumber(widget.min, snap.vars ?? {}, 0, snap.config.variables);
-            const max = resolveBoundNumber(widget.max, snap.vars ?? {}, 100, snap.config.variables);
-            const live = drag[widget.id];
-            const shown = live ?? (Number.isFinite(num) ? num : min);
-            const clamped = Math.min(max, Math.max(min, shown));
-            return (
-              <div
-                key={widget.id}
-                data-wide={wide}
-                data-type={widget.type}
-                className="min-h-0 min-w-0 h-full"
-                style={gridStyle(widget)}
-              >
-                <PanelSlider
-                  widget={widget}
-                  min={min}
-                  max={max}
-                  value={clamped}
-                  disabled={!on}
-                  onSlide={(next, flush) => slide(widget, next, flush)}
-                />
-              </div>
-            );
-          }
-          if (widget.type === "label") {
-            return (
-              <div
-                key={widget.id}
-                data-wide={wide}
-                data-type={widget.type}
-                className="flex min-w-0 items-center [overflow-wrap:anywhere] rounded-lg px-3 text-sm text-muted"
-                style={gridStyle(widget)}
-              >
-                {widget.label}
-              </div>
-            );
-          }
-          if (widget.type === "schedule") {
-            const upcoming = nextScheduled(snap.config.schedules, snap.config.room.network?.timezone);
-            return (
-              <div
-                key={widget.id}
-                data-wide={wide}
-                data-type={widget.type}
-                className="grid min-h-0 min-w-0 h-full"
-                style={gridStyle(widget)}
-              >
-                <WidgetShell widget={{ ...widget, label: widget.label === "Next" || widget.label === "Button" || !widget.label ? "Next scheduled task:" : widget.label }}>
-                  {upcoming ? (
-                    <span className="flex flex-col gap-1">
-                      <span className="text-xl font-medium leading-tight">{upcoming.label}</span>
-                      <span className="text-base text-muted">{upcoming.when}</span>
-                    </span>
-                  ) : (
-                    <span className="text-xl font-medium">Nothing scheduled</span>
-                  )}
-                </WidgetShell>
-              </div>
-            );
-          }
-          if (widget.type === "preview") {
-            return (
-              <div
-                key={widget.id}
-                data-wide={wide}
-                data-type={widget.type}
-                className="grid min-h-0 min-w-0 h-full"
-                style={gridStyle(widget)}
-              >
-                <PreviewTile widget={widget} token={session} disabled={!on} onClick={() => run(widget)} />
-              </div>
-            );
-          }
-          if (widget.type === "status") {
-            const appearance = resolveStatusAppearance(
-              widget,
-              String(snap.vars[widget.bind.variable ?? ""] ?? widget.bind.value ?? ""),
-            );
-            const traffic = Boolean(widget.colorWhen?.length || widget.statusDefault?.color);
-            return (
-              <div
-                key={widget.id}
-                data-wide={wide}
-                data-type={widget.type}
-                className="grid min-h-0 min-w-0 h-full"
-                style={gridStyle(widget)}
-              >
-                <WidgetShell
-                  widget={{ ...widget, color: appearance.color }}
-                  disabled={!on}
-                  active={traffic || lit || waiting}
-                  onClick={() => run(widget)}
-                >
-                  {appearance.text}
-                </WidgetShell>
-              </div>
-            );
-          }
-          return (
-            <div
-              key={widget.id}
-              data-wide={wide}
-              data-type={widget.type}
-              className="grid min-h-0 min-w-0 h-full"
-              style={gridStyle(widget)}
-            >
-              <WidgetShell
-                widget={widget}
-                disabled={!on}
-                active={lit || waiting}
-                onClick={() => run(widget)}
-              >
-                {confirm?.id === widget.id
-                  ? "Confirm?"
-                  : waiting
-                    ? "…"
-                    : ""}
-              </WidgetShell>
-            </div>
-          );
-        })}
+        {tiles.map((widget) => (
+          <PanelTile
+            key={widget.id}
+            widget={widget}
+            snap={snap}
+            gridCols={grid.cols}
+            dragValue={drag[widget.id]}
+            confirming={confirm?.id === widget.id}
+            waiting={busyId === widget.id}
+            session={session}
+            onSlide={(next, flush) => slide(widget, next, flush)}
+            onRun={() => run(widget)}
+          />
+        ))}
       </section>
 
       {snap.host?.locked ? (
