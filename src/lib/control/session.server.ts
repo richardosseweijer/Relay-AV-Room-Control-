@@ -6,6 +6,7 @@ export {
   memory,
   persist,
   persistNow,
+  reloadSecretsFromDisk,
   pushLog,
   clearLog,
   normalize,
