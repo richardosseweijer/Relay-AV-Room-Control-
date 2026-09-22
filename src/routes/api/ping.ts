@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { pingReachable } from "@/lib/control/engine";
-import { ensureLoaded, memory } from "@/lib/control/store.server";
+import { ensureLoaded } from "@/lib/control/store.server";
+import { validToken } from "@/lib/control/session.server";
 
 export const Route = createFileRoute("/api/ping")({
   server: {
@@ -10,8 +11,11 @@ export const Route = createFileRoute("/api/ping")({
           await ensureLoaded();
           const body = (await request.json().catch(() => ({}))) as { host?: string; port?: number; path?: string; token?: string };
           const token = body.token || request.headers.get("x-relay-token") || "";
-          const row = Object.values(memory().sessions ?? {}).find((item) => item.secret === token && item.kind === "config");
-          if (!row) return Response.json({ ok: false, message: "Config lock required" }, { status: 401 });
+          // Same expiry + kind gate as /api/preview and server actions — raw session
+          // lookup used to accept expired config tokens (#audit).
+          if (!validToken(token, "config")) {
+            return Response.json({ ok: false, message: "Config lock required" }, { status: 401 });
+          }
           const result = await pingReachable({
             host: body.host ?? "",
             port: body.port,
