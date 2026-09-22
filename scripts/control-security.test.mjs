@@ -333,3 +333,16 @@ test("F8 scrubSecret redacts secrets in exception-like lastError text", async ()
   assert.match(scrubbed, /token \*\*\*/);
   assert.match(scrubbed, /pin=\*\*\*/);
 });
+
+test("F12 /api/room catch fails closed (503 / ok:false), not empty demo room", () => {
+  const src = readFileSync(new URL("../src/routes/api/room.ts", import.meta.url), "utf8");
+  const catchIdx = src.indexOf("catch (err)");
+  assert.ok(catchIdx >= 0, "outer catch (err) required");
+  const catchBlock = src.slice(catchIdx);
+  assert.doesNotMatch(catchBlock, /emptyRoomConfig/);
+  assert.doesNotMatch(catchBlock, /defaultDeviceState/);
+  assert.match(catchBlock, /status:\s*503/);
+  assert.match(catchBlock, /ok:\s*false/);
+  assert.match(catchBlock, /error:\s*["']room unavailable["']/);
+  assert.match(catchBlock, /lastError:\s*scrubSecret\(/);
+});
