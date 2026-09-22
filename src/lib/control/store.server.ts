@@ -19,12 +19,12 @@ import {
 import {
   SECRET_STORE,
   pickSecrets,
-  publicConfig,
   applySecrets,
   readSecretCandidate,
 } from "./store-secrets";
-import { persistPair, recoverPersistPair } from "../../../scripts/write-atomic.mjs";
-import { mkdir, readFile, readdir, rename } from "node:fs/promises";
+import { FILE_STORE, persist, persistNow } from "./store-persist";
+import { recoverPersistPair } from "../../../scripts/write-atomic.mjs";
+import { readFile, readdir, rename } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -46,8 +46,8 @@ export {
 } from "./store-drivers";
 
 export { reloadSecretsFromDisk } from "./store-secrets";
+export { persist, persistNow };
 
-const FILE_STORE = path.join(process.cwd(), "data", "relay-room.json");
 
 type Memory = {
   config: RoomConfig;
@@ -75,6 +75,10 @@ const g = globalThis as typeof globalThis & {
   __relayFoyer__?: ReturnType<typeof setInterval>;
 };
 const lastScheduleRun = new Map<string, string>();
+/** Snapshot of schedule run stamps for durable persist (used by store-persist leaf). */
+export function scheduleStamps(): Record<string, string> {
+  return Object.fromEntries(lastScheduleRun);
+}
 let scheduleBusy = false;
 const lastMonitorRun = new Map<string, number>();
 const lastTriggerValue = new Map<string, string>();
@@ -323,54 +327,6 @@ export async function loadPersisted(): Promise<Memory> {
   return mem;
 }
 
-async function writeFileStore(mem: Memory) {
-  await mkdir(path.dirname(FILE_STORE), { recursive: true });
-  const secrets = pickSecrets(mem.config);
-  secrets.sessions = mem.sessions ?? {};
-  if (mem.pinChangeRequired) secrets.pinChangeRequired = true;
-  const body = JSON.stringify({
-    // F7: reuse memoized normalized config — do not normalize again on every persist.
-    config: publicConfig(normalizedConfig(mem.config)),
-    drivers: mem.drivers,
-    state: mem.state,
-    vars: mem.vars,
-    latches: mem.latches ?? {},
-    stamps: Object.fromEntries(lastScheduleRun),
-  });
-  persistPair(SECRET_STORE, FILE_STORE, JSON.stringify(secrets), body);
-}
-
-let persistChain = Promise.resolve();
-let persistTimer: ReturnType<typeof setTimeout> | null = null;
-let persistDirty = false;
-
-async function flushPersist() {
-  // Clear dirty before await so persist()/persistNow during an in-flight write
-  // re-sets the flag; loop until a write completes with dirty still clear.
-  while (persistDirty) {
-    persistDirty = false;
-    const mem = memory();
-    try {
-      await writeFileStore(mem);
-    } catch (err) {
-      persistDirty = true;
-      throw err;
-    }
-  }
-}
-
-export async function persistNow() {
-  persistDirty = true;
-  try {
-    const run = persistChain.catch(() => undefined).then(flushPersist);
-    persistChain = run.catch(() => undefined);
-    await run;
-  } catch (err) {
-    persistDirty = true;
-    throw err;
-  }
-}
-
 let cachedRelayVersion = "";
 
 export function relayVersion() {
@@ -387,18 +343,6 @@ export function relayVersion() {
   } catch { /* ignore */ }
   cachedRelayVersion = sha ? `${ver} (${sha})` : ver;
   return cachedRelayVersion;
-}
-
-export function persist() {
-  persistDirty = true;
-  if (persistTimer) return persistChain;
-  persistTimer = setTimeout(() => {
-    persistTimer = null;
-    persistChain = persistChain.then(flushPersist).catch(() => {
-      persistDirty = true;
-    });
-  }, 800);
-  return persistChain;
 }
 
 export function pushLog(entry: Omit<LogEntry, "id" | "at"> & { at?: number }) {
