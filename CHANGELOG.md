@@ -2,6 +2,11 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## 0.9.39 — 2026-09-22
+
+- Tag `v0.9.39`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Security train after v0.9.38: F2 serial allowlist, F1 LAN HTTP authority, F3 LAN gates, F4 secrets reload on verifyConfigPin, F5 vars PUT clamp, F6 peer macro-only, F7 session missing exp, F8 room lastError scrub (#68–#75).
+
 ## 0.9.38 — 2026-09-22
 
 - Tag `v0.9.38`. Same Foyer pair (`v0.2.2`). Wire unchanged.
