@@ -118,3 +118,56 @@ test("HTTP config-unlock sets pinChangeRequired for already-hashed weak PIN", as
   assert.equal(result.mustChange, true);
   assert.equal(f.mem.pinChangeRequired, true);
 });
+
+test("HTTP unlock routes mint via shared mint() helper", async () => {
+  const config = fixture({ configPin: hashPin("8492"), panelAccess: "open" });
+  const configCalls = [];
+  config.bindings.mint = (kind, label) => {
+    configCalls.push({ kind, label });
+    return "minted-config-token";
+  };
+  const configRun = handler("../src/routes/api/config-unlock.ts", "POST", config.bindings);
+  const configRes = await (await configRun({
+    request: new Request("http://localhost/api/config-unlock", { method: "POST", body: JSON.stringify({ pin: "8492" }) }),
+  })).json();
+  assert.equal(configRes.ok, true);
+  assert.equal(configRes.token, "minted-config-token");
+  assert.deepEqual(configCalls, [{ kind: "config", label: undefined }]);
+
+  const panel = fixture({ panelAccess: "pin", panelPin: hashPin("7613"), configPin: hashPin("8492") });
+  const panelCalls = [];
+  panel.bindings.mint = (kind, label) => {
+    panelCalls.push({ kind, label });
+    return "minted-panel-token";
+  };
+  const panelRun = handler("../src/routes/api/panel-unlock.ts", "POST", panel.bindings);
+  const panelRes = await (await panelRun({
+    request: new Request("http://localhost/api/panel-unlock", { method: "POST", body: JSON.stringify({ pin: "7613" }) }),
+  })).json();
+  assert.equal(panelRes.ok, true);
+  assert.equal(panelRes.token, "minted-panel-token");
+  assert.deepEqual(panelCalls, [{ kind: "panel", label: undefined }]);
+
+  const openLan = fixture({ panelAccess: "open", configPin: hashPin("8492") });
+  const openCalls = [];
+  openLan.bindings.mint = (kind, label) => {
+    openCalls.push({ kind, label });
+    return "minted-open-lan-token";
+  };
+  const openRun = handler("../src/routes/api/panel-unlock.ts", "POST", openLan.bindings);
+  const openRes = await (await openRun({
+    request: new Request("http://localhost/api/panel-unlock", { method: "POST", body: JSON.stringify({}) }),
+  })).json();
+  assert.equal(openRes.ok, true);
+  assert.equal(openRes.token, "minted-open-lan-token");
+  assert.deepEqual(openCalls, [{ kind: "panel", label: "open-lan" }]);
+});
+
+test("HTTP unlock sources no longer hand-roll __relayTokens__", () => {
+  for (const file of ["../src/routes/api/config-unlock.ts", "../src/routes/api/panel-unlock.ts"]) {
+    const src = readFileSync(new URL(file, import.meta.url), "utf8");
+    assert.match(src, /\bmint\b/);
+    assert.doesNotMatch(src, /__relayTokens__/);
+    assert.doesNotMatch(src, /function randomHex/);
+  }
+});
