@@ -34,7 +34,10 @@ function fixture(room) {
     validToken: token => token === "test-config-session", hashPin, verifyStoredPin,
     checkLockout: () => ({ blocked: false }), lockoutKey: kind => kind,
     clearPinFail: () => {}, notePinFail: () => {}, mint: () => "test-config-session",
-    normalize: (c) => c, traces: () => ({}), processStatus: () => ({}),
+    normalize: (c) => c, normalizedConfig: (c) => c,
+    installRoomConfig: (c) => { mem.config = c; return c; },
+    invalidateNormalizedConfig: () => {},
+    traces: () => ({}), processStatus: () => ({}),
     randomHex: () => "test-id",
   };
   return { mem, writes: () => writes, bindings: { ...io, loadControl: async () => io, isWeakPin, isHashedPin, panelUnlockAllowed,
