@@ -58,6 +58,17 @@ test("F7 sessions without exp are dropped (fail closed)", () => {
   assert.deepEqual(dropped, ["panel-orphan", "panel-invalid"]);
 });
 
+test("F8 validToken persists after sliding exp", () => {
+  const src = readFileSync(new URL("../src/lib/control/session.server.ts", import.meta.url), "utf8");
+  const fn = src.match(/export function validToken\([\s\S]*?\n\}/);
+  assert.ok(fn, "validToken present");
+  // Success path: slide exp, refresh tokenStore, then debounced persist (mint/prune pattern).
+  assert.match(
+    fn[0],
+    /row\.exp\s*=\s*Date\.now\(\)\s*\+\s*SESSION_TTL_MS;\s*\n\s*tokenStore\(\)\.set\(token,\s*row\);\s*\n(?:\s*\/\/[^\n]*\n)?\s*persist\(\);\s*\n\s*return\s+true;/,
+  );
+});
+
 test("ping route uses validToken for config auth (rejects expired)", () => {
   const src = readFileSync(new URL("../src/routes/api/ping.ts", import.meta.url), "utf8");
   assert.match(src, /validToken\(\s*token\s*,\s*["']config["']\s*\)/);
