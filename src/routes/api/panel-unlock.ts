@@ -3,12 +3,7 @@ import { ensureLoaded, memory, persistNow, reloadSecretsFromDisk } from "@/lib/c
 import { hashPin, checkLockout, notePinFail, clearPinFail, lockoutKey } from "@/lib/control/pins.server";
 import { isHashedPin } from "@/lib/control/pins";
 import { panelUnlockAllowed } from "@/lib/control/panel-unlock-rule";
-
-function randomHex(bytes: number) {
-  const buf = new Uint8Array(bytes);
-  globalThis.crypto.getRandomValues(buf);
-  return Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
-}
+import { mint } from "@/lib/control/session.server";
 
 export const Route = createFileRoute("/api/panel-unlock")({
   server: {
@@ -42,14 +37,7 @@ export const Route = createFileRoute("/api/panel-unlock")({
             return Response.json({ ok: true, token: existing.secret });
           }
         }
-        const id = randomHex(8);
-        const secret = `panel-${randomHex(18)}`;
-        const row = { id, secret, kind: "panel" as const, exp: Date.now() + 30 * 24 * 60 * 60 * 1000, created: Date.now(), lastSeen: Date.now(), label: openLan ? "open-lan" : "panel" };
-        const g = globalThis as typeof globalThis & { __relayTokens__?: Map<string, typeof row> };
-        g.__relayTokens__ ??= new Map();
-        g.__relayTokens__.set(secret, row);
-        memory().sessions = memory().sessions ?? {};
-        memory().sessions[id] = row;
+        const secret = mint("panel", openLan ? "open-lan" : undefined);
         host.locked = false;
         await persistNow();
         return Response.json({ ok: true, token: secret });
