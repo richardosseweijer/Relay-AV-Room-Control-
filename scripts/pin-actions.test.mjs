@@ -25,7 +25,7 @@ function handler(file, name, bindings) {
 }
 
 function fixture(room) {
-  const mem = { config: { room, devices: [], variables: [] }, vars: {}, sessions: {} };
+  const mem = { config: { room, devices: [], variables: [], pages: [] }, vars: {}, sessions: {}, log: [], pinChangeRequired: false };
   let writes = 0;
   const io = {
     memory: () => mem, ensureLoaded: async () => {}, reloadSecretsFromDisk: async () => {},
@@ -33,9 +33,12 @@ function fixture(room) {
     writeDriverFile: async () => {}, pruneRoomDrivers: async () => {}, readLibrarySpec: async () => null,
     validToken: token => token === "test-config-session", hashPin, verifyStoredPin,
     checkLockout: () => ({ blocked: false }), lockoutKey: kind => kind,
-    clearPinFail: () => {}, notePinFail: () => {}, mint: () => "test-panel-session",
+    clearPinFail: () => {}, notePinFail: () => {}, mint: () => "test-config-session",
+    normalize: (c) => c, traces: () => ({}), processStatus: () => ({}),
+    randomHex: () => "test-id",
   };
   return { mem, writes: () => writes, bindings: { ...io, S: async () => io, isWeakPin, isHashedPin, panelUnlockAllowed,
+    occupancyOf: () => "available", applyOccupancy: () => {},
     randomHex: () => "test-id", seedVars: () => ({}), loadDefaults: async () => ({ emptyRoomConfig: pin => ({ room: { configPin: pin }, devices: [] }), defaultDeviceState: () => ({}), hostDriverSeed: () => ({ "relay-host.json": {} }), HOST_DRIVER: "relay-host.json" }),
   } };
 }
@@ -81,4 +84,37 @@ test("API/export redaction removes PIN credentials without mutating device auth"
   assert.deepEqual(redactAuth(auth), { pin: "", pairingPIN: "", password: "", token: "", user: "", username: "", mac: auth.mac });
   assert.equal(auth.pin, "8492");
   assert.deepEqual(redactAuth(), {});
+});
+
+test("weak unlock persists pinChangeRequired so getEditorConfig keeps mustChange after hash", async () => {
+  const f = fixture({ configPin: "1234", panelAccess: "open" });
+  const unlock = handler(actions, "verifyConfigPin", f.bindings);
+  const unlocked = await unlock({ data: { pin: "1234" } });
+  assert.equal(unlocked.ok, true);
+  assert.equal(unlocked.mustChange, true);
+  assert.equal(f.mem.pinChangeRequired, true);
+  assert.equal(isHashedPin(f.mem.config.room.configPin), true);
+  assert.equal(isWeakPin(f.mem.config.room.configPin), false, "hash must not look weak to isWeakPin");
+
+  const editor = handler(actions, "getEditorConfig", f.bindings);
+  const ed = await editor({ data: { token: "test-config-session" } });
+  assert.equal(ed.ok, true);
+  assert.equal(ed.mustChange, true, "mustChange must survive reload after PIN is hashed");
+
+  const save = handler(actions, "saveConfig", f.bindings);
+  const saved = await save({ data: { token: "test-config-session", config: { room: { configPin: "8492", panelAccess: "open" }, devices: [], variables: [] } } });
+  assert.equal(saved.ok, true);
+  assert.equal(f.mem.pinChangeRequired, false);
+  const ed2 = await editor({ data: { token: "test-config-session" } });
+  assert.equal(ed2.mustChange, false);
+});
+
+test("HTTP config-unlock sets pinChangeRequired for already-hashed weak PIN", async () => {
+  const f = fixture({ configPin: hashPin("1234"), panelAccess: "open" });
+  const run = handler("../src/routes/api/config-unlock.ts", "POST", f.bindings);
+  const response = await run({ request: new Request("http://localhost/api/config-unlock", { method: "POST", body: JSON.stringify({ pin: "1234" }) }) });
+  const result = await response.json();
+  assert.equal(result.ok, true);
+  assert.equal(result.mustChange, true);
+  assert.equal(f.mem.pinChangeRequired, true);
 });

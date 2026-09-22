@@ -129,6 +129,8 @@ type Memory = {
   latches: Record<string, string>;
   host: { dim: boolean; locked: boolean; toast: string | null; block: string | null; pageId: string | null; fullscreenAt?: number };
   sessions: Record<string, { id?: string; secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
+  /** Set when a weak config PIN is unlocked/hashed; cleared only after a strong PIN save. */
+  pinChangeRequired?: boolean;
 };
 
 const g = globalThis as typeof globalThis & {
@@ -151,6 +153,7 @@ type SecretFile = {
   configPin?: string;
   panelPin?: string | null;
   peerSecret?: string;
+  pinChangeRequired?: boolean;
   sessions?: Record<string, { id?: string; secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
   devices?: Record<string, Record<string, string>>;
 };
@@ -213,6 +216,7 @@ export async function reloadSecretsFromDisk() {
   const mem = memory();
   mem.config = applySecrets(mem.config, secrets);
   mem.sessions = { ...(secrets.sessions ?? {}), ...(mem.sessions ?? {}) };
+  mem.pinChangeRequired = secrets.pinChangeRequired === true;
   return secrets;
 }
 
@@ -284,6 +288,7 @@ function emptyMemory(): Memory {
     host: { dim: false, locked: false, toast: null, block: null, pageId: null },
     latches: {},
     sessions: {},
+    pinChangeRequired: false,
   };
 }
 
@@ -347,6 +352,7 @@ export async function loadPersisted(): Promise<Memory> {
       mem.vars[OCCUPANCY_VAR_ID] = occupancyCode(occupancyOf(mem.config.room));
       mem.latches = saved.latches ?? {};
       mem.sessions = fromDisk.sessions ?? {};
+      mem.pinChangeRequired = fromDisk.pinChangeRequired === true;
       const nextSessions: Memory["sessions"] = {};
       const now = Date.now();
       for (const [key, row] of Object.entries(mem.sessions)) {
@@ -376,6 +382,7 @@ async function writeFileStore(mem: Memory) {
   await mkdir(path.dirname(FILE_STORE), { recursive: true });
   const secrets = pickSecrets(mem.config);
   secrets.sessions = mem.sessions ?? {};
+  if (mem.pinChangeRequired) secrets.pinChangeRequired = true;
   const body = JSON.stringify({
     config: publicConfig(normalize(mem.config)),
     drivers: mem.drivers,
