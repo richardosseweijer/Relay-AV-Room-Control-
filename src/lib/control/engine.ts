@@ -4,7 +4,6 @@ import type {
   DeviceInstance,
   DeviceInventory,
   DeviceStateMap,
-  DriverCommand,
   DriverSpec,
   HostInterface,
   Macro,
@@ -13,7 +12,7 @@ import type {
 import { NONE_MACRO_ID } from "./types";
 import { inferPairingSteps } from "./schema";
 import { gatewayIoTemplate, gatewayProfile, gatewaySlot, isGatewayKind } from "./gateway";
-import { applyMonitors, clampVar, resolveTemplate, type VarMap } from "./vars";
+import { clampVar, resolveTemplate, type VarMap } from "./vars";
 import { fetchTextBounded, requestHttpExact, DEFAULT_MAX_RESPONSE_BYTES } from "./http-client";
 import { wsPoolSize, sendControlSocket, buildWsTarget } from "./ws";
 import { castPoolSize } from "./cast";
@@ -45,7 +44,7 @@ export function socketStats() {
   };
 }
 
-export function wireThroughInterface(device: DeviceInstance, iface?: HostInterface): DeviceInstance {
+function wireThroughInterface(device: DeviceInstance, iface?: HostInterface): DeviceInstance {
   if (!iface) return device;
   if (isGatewayKind(iface.kind)) {
     const profile = gatewayProfile(iface.vendor);
@@ -182,7 +181,7 @@ export async function scanDevicePorts(host: string, ports?: number[]) {
   return { ok: open.length > 0, message: open.join(", ") || "none open", open };
 }
 
-export async function sendGatewayRaw(opts: { config: RoomConfig; interfaceId: string; payload: string }): Promise<CommandResult> {
+async function sendGatewayRaw(opts: { config: RoomConfig; interfaceId: string; payload: string }): Promise<CommandResult> {
   const iface = opts.config.interfaces?.find((item) => item.id === opts.interfaceId);
   if (!iface) return { ok: false, message: "Unknown interface" };
   if (!isGatewayKind(iface.kind)) return { ok: false, message: "Not a gateway" };
@@ -438,7 +437,7 @@ export async function readMonitorValue(opts: {
   return { ok: true, value: parsed, message: parsed };
 }
 
-export function isLocalRelayHost(host?: string) {
+function isLocalRelayHost(host?: string) {
   const h = String(host ?? "").trim().toLowerCase();
   return !h || h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0" || h === "::1";
 }
