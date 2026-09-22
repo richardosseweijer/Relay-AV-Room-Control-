@@ -156,3 +156,87 @@ test("F3: dirty set during in-flight write is flushed again (protocol)", async (
   assert.equal(persistDirty, false);
   assert.deepEqual(writes, [1, 2], "mutation during flush must trigger a second durable write");
 });
+
+test("F1: snapshot uses normalizedConfig memo (not bare normalize every poll)", () => {
+  const src = fs.readFileSync(new URL("../src/lib/control/store.server.ts", import.meta.url), "utf8");
+  const start = src.indexOf("export function snapshot()");
+  assert.ok(start >= 0, "snapshot present");
+  const end = src.indexOf("\nexport ", start + 1);
+  const body = src.slice(start, end > start ? end : start + 800);
+  assert.match(body, /normalizedConfig\s*\(\s*mem\.config\s*\)/, "snapshot must use normalizedConfig");
+  assert.doesNotMatch(body, /mem\.config\s*=\s*normalize\s*\(\s*mem\.config\s*\)/, "snapshot must not call normalize(mem.config) directly");
+});
+
+test("F7: writeFileStore/persist reuses normalizedConfig (no second normalize)", () => {
+  const src = fs.readFileSync(new URL("../src/lib/control/store.server.ts", import.meta.url), "utf8");
+  // Persist body must publicConfig(normalizedConfig(...)), not publicConfig(normalize(...)).
+  assert.match(src, /publicConfig\s*\(\s*normalizedConfig\s*\(\s*mem\.config\s*\)\s*\)/);
+  assert.doesNotMatch(src, /publicConfig\s*\(\s*normalize\s*\(\s*mem\.config\s*\)\s*\)/);
+});
+
+test("F1+F7: installRoomConfig bumps generation; memo hits on same identity", () => {
+  const src = fs.readFileSync(new URL("../src/lib/control/store.server.ts", import.meta.url), "utf8");
+  assert.match(src, /export function installRoomConfig\s*\(/);
+  assert.match(src, /export function normalizedConfig\s*\(/);
+  assert.match(src, /export function invalidateNormalizedConfig\s*\(/);
+  const install = src.match(/export function installRoomConfig\([\s\S]*?\n\}/);
+  assert.ok(install, "installRoomConfig body");
+  assert.match(install[0], /configNormGeneration\s*\+=\s*1/);
+  assert.match(install[0], /rememberNormalized\s*\(/);
+  const memo = src.match(/export function normalizedConfig\([\s\S]*?\n\}/);
+  assert.ok(memo, "normalizedConfig body");
+  assert.match(memo[0], /config === memoNormalized/);
+  assert.match(memo[0], /memoNormGeneration === configNormGeneration/);
+  // Protocol: same generation + same identity → no rebuild; install bumps then rebuilds once.
+  let configNormGeneration = 0;
+  let memoNormGeneration = -1;
+  let memoNormalized = null;
+  let normalizeCalls = 0;
+  function normalize(config) {
+    normalizeCalls += 1;
+    return { ...config, _n: normalizeCalls };
+  }
+  function rememberNormalized(config) {
+    memoNormalized = config;
+    memoNormGeneration = configNormGeneration;
+  }
+  function normalizedConfig(config) {
+    if (memoNormalized && memoNormGeneration === configNormGeneration && config === memoNormalized) {
+      return memoNormalized;
+    }
+    const next = normalize(config);
+    rememberNormalized(next);
+    return next;
+  }
+  function installRoomConfig(config, opts) {
+    configNormGeneration += 1;
+    const next = opts?.alreadyNormalized ? config : normalize(config);
+    rememberNormalized(next);
+    return next;
+  }
+  const live = installRoomConfig({ room: { name: "A" } });
+  assert.equal(normalizeCalls, 1);
+  assert.equal(normalizedConfig(live), live);
+  assert.equal(normalizedConfig(live), live);
+  assert.equal(normalizeCalls, 1, "polls must not re-normalize");
+  const replaced = installRoomConfig({ room: { name: "B" } });
+  assert.equal(normalizeCalls, 2);
+  assert.equal(normalizedConfig(replaced), replaced);
+  assert.equal(normalizeCalls, 2);
+  // alreadyNormalized install still bumps generation but skips normalize().
+  const seeded = { room: { name: "C" }, _n: 99 };
+  const adopted = installRoomConfig(seeded, { alreadyNormalized: true });
+  assert.equal(adopted, seeded);
+  assert.equal(normalizeCalls, 2, "alreadyNormalized must not call normalize");
+  assert.equal(normalizedConfig(seeded), seeded);
+  assert.equal(normalizeCalls, 2);
+});
+
+test("F1+F7: config write paths installRoomConfig (not raw memory().config =)", () => {
+  const src = fs.readFileSync(new URL("../src/lib/control/actions-config.ts", import.meta.url), "utf8");
+  assert.equal((src.match(/memory\(\)\.config\s*=/g) || []).length, 0, "actions-config must not assign memory().config raw");
+  assert.match(src, /installRoomConfig\s*\(\s*nextConfig\s*\)/);
+  assert.match(src, /installRoomConfig\s*\(\s*emptyRoomConfig/);
+  assert.match(src, /installRoomConfig\s*\(\s*config\s*,\s*\{\s*alreadyNormalized:\s*true\s*\}\s*\)/);
+  assert.match(src, /normalizedConfig\s*\(\s*memory\(\)\.config\s*\)/);
+});
