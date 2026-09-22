@@ -1,13 +1,12 @@
 import { defaultDeviceState, emptyRoomConfig, hostDriverSeed, workingSetNames } from "./defaults";
-import { readMonitorValue, runMacro, traces, scrubSecret, socketStats } from "./engine";
+import { runMacro, traces, scrubSecret, socketStats } from "./engine";
 import { syncMidiWatchers } from "./midi-in";
 import type { DeviceHealth, DeviceStateMap, DriverIndex, DriverSpec, LogEntry, Macro, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
 import { indexDriver } from "./types";
-import { applyMonitors, clampVar, resolveTemplate, seedVars, monitorVarId, type VarMap } from "./vars";
+import { applyMonitors, resolveTemplate, seedVars, type VarMap } from "./vars";
 import { scheduleShouldRun, TriggerReservations, triggerPathHit, triggerStep } from "./logic-policy";
 import { retainSacnCidKeys } from "./sacn";
 import { retainPaceDevices, pruneIdlePaceDevices } from "./engine-wire";
-import { MONITOR_DEVICE_CONCURRENCY, groupMonitorRulesByDevice, mapPool } from "./monitor-pool";
 import {
   DRIVER_DIR,
   loadDriverFiles,
@@ -22,7 +21,7 @@ import {
   applySecrets,
   readSecretCandidate,
 } from "./store-secrets";
-import { FILE_STORE, persist, persistNow } from "./store-persist";
+import { FILE_STORE, persistNow } from "./store-persist";
 import {
   normalize,
   normalizedConfig,
@@ -30,6 +29,7 @@ import {
   rememberNormalized,
   bindNormalizeInstallDeps,
 } from "./store-normalize";
+import { runDueMonitors, applyDueMonitor, pruneMonitorMaps } from "./store-monitors";
 import { recoverPersistPair } from "../../../scripts/write-atomic.mjs";
 import { readFile, readdir, rename } from "node:fs/promises";
 import { readFileSync } from "node:fs";
@@ -51,7 +51,7 @@ export {
 } from "./store-drivers";
 
 export { reloadSecretsFromDisk } from "./store-secrets";
-export { persist, persistNow };
+export { persist, persistNow } from "./store-persist";
 
 export {
   normalize,
@@ -60,6 +60,7 @@ export {
   installRoomConfig,
 } from "./store-normalize";
 
+export { runDueMonitors, applyDueMonitor, pruneMonitorMaps };
 
 type Memory = {
   config: RoomConfig;
@@ -92,11 +93,9 @@ export function scheduleStamps(): Record<string, string> {
   return Object.fromEntries(lastScheduleRun);
 }
 let scheduleBusy = false;
-const lastMonitorRun = new Map<string, number>();
 const lastTriggerValue = new Map<string, string>();
 const lastTriggerFire = new Map<string, number>();
 const lastTriggerHeld = new Map<string, number>();
-const goodPolls = new Map<string, number>();
 const triggerQueue: { id: string; macroId: string; label: string; path: "t" | "f" }[] = [];
 const pendingTriggers = new TriggerReservations();
 
@@ -123,14 +122,7 @@ function pruneRuntimeMaps(config: RoomConfig) {
       lastTriggerHeld.delete(key);
     }
   }
-  const monitorIds = new Set((config.monitors ?? []).map((m) => m.id));
-  for (const id of [...lastMonitorRun.keys()]) {
-    if (!monitorIds.has(id)) lastMonitorRun.delete(id);
-  }
-  const deviceSet = new Set(deviceIds);
-  for (const id of [...goodPolls.keys()]) {
-    if (!deviceSet.has(id)) goodPolls.delete(id);
-  }
+  pruneMonitorMaps(config);
   const scheduleKeep = new Set<string>();
   for (const job of config.schedules ?? []) {
     scheduleKeep.add(job.id);
@@ -168,7 +160,7 @@ export function memory(): Memory {
   return g.__relayMemory__;
 }
 
-// Sync wire for store-normalize installRoomConfig (scheduler/monitor prune stays here).
+// Sync wire for store-normalize installRoomConfig (scheduler Maps stay here; monitors prune via leaf).
 bindNormalizeInstallDeps({ memory, pruneRuntimeMaps });
 
 export async function loadPersisted(): Promise<Memory> {
@@ -513,101 +505,6 @@ async function runQueuedTrigger(job: { id: string; macroId: string; label: strin
   const nested = live.config.macros.find((m) => m.id === next.macroId);
   if (nested) await runQueuedTrigger(next, nested);
   else pendingTriggers.release(`${next.id}:${next.path}`);
-}
-
-let monitorsBusy = false;
-
-/** Apply one due monitor rule; returns whether vars were dirtied. Same-device callers stay serial via F6 pool. */
-async function applyDueMonitor(mem: Memory, rule: NonNullable<RoomConfig["monitors"]>[number], now: number): Promise<boolean> {
-  let dirty = false;
-  const result = await readMonitorValue({
-    config: mem.config,
-    drivers: mem.drivers,
-    state: mem.state,
-    deviceId: rule.device,
-    feedbackId: rule.feedback,
-    interfaceId: rule.interfaceId,
-    query: rule.query,
-    parsePattern: rule.parsePattern,
-    host: mem.host,
-  });
-  mem.monitorStatus = mem.monitorStatus ?? {};
-  if (!result.ok) {
-    mem.monitorStatus[rule.id] = { at: now, ok: false, value: "", message: result.message };
-    goodPolls.set(rule.device, 0);
-    const errVar = rule.errorVar || rule.writeVar;
-    if (errVar && rule.errorValue !== undefined && rule.errorValue !== "") {
-      const def = mem.config.variables.find((v) => v.id === errVar);
-      const next = def ? clampVar(def, rule.errorValue) : rule.errorValue;
-      if (String(mem.vars[errVar]) !== String(next)) {
-        mem.vars[errVar] = next;
-        dirty = true;
-      }
-      mem.monitorStatus[rule.id] = { at: now, ok: false, value: String(next), message: result.message };
-    }
-    pushLog({ kind: "monitor", ok: false, title: rule.label, detail: result.message });
-    return dirty;
-  }
-  const wins = (goodPolls.get(rule.device) ?? 0) + 1;
-  goodPolls.set(rule.device, wins);
-  if (wins >= 2 && mem.health[rule.device] && !mem.health[rule.device]!.ok) {
-    delete mem.health[rule.device];
-    pushLog({ kind: "system", ok: true, title: rule.label, detail: "Device recovered" });
-  }
-  let value = result.value;
-  if (rule.mapMode === "map") {
-    const hit = (rule.map ?? []).find((row) => row.from === value);
-    if (hit) value = hit.to;
-  }
-  const autoId = monitorVarId(rule);
-  const def = mem.config.variables.find((v) => v.id === rule.writeVar) || mem.config.variables.find((v) => v.id === autoId);
-  const next = def ? clampVar(def, value) : value;
-  mem.monitorStatus[rule.id] = { at: now, ok: true, value: String(next), message: result.message };
-  const changedAuto = String(mem.vars[autoId] ?? "") !== String(next);
-  const changedWrite = Boolean(rule.writeVar && rule.writeVar !== autoId && String(mem.vars[rule.writeVar]) !== String(next));
-  if (changedAuto) {
-    mem.vars[autoId] = next;
-    dirty = true;
-  }
-  if (changedWrite && rule.writeVar) {
-    mem.vars[rule.writeVar] = next;
-    dirty = true;
-  }
-  if (changedAuto || changedWrite) {
-    pushLog({ kind: "monitor", ok: true, title: rule.label, detail: String(next) });
-  }
-  return dirty;
-}
-
-async function runDueMonitors() {
-  if (monitorsBusy) return;
-  monitorsBusy = true;
-  try {
-    const mem = memory();
-    const now = Date.now();
-    const due: NonNullable<RoomConfig["monitors"]> = [];
-    for (const rule of mem.config.monitors ?? []) {
-      if (!rule.enabled) continue;
-      const wait = Math.max(500, rule.pollMs || 8000);
-      const last = lastMonitorRun.get(rule.id) ?? 0;
-      if (now - last < wait) continue;
-      lastMonitorRun.set(rule.id, now);
-      due.push(rule);
-    }
-    if (!due.length) return;
-
-    // F6: parallelize across devices (bounded); serialize rules that share a device.
-    const groups = groupMonitorRulesByDevice(due);
-    let dirty = false;
-    await mapPool(groups, MONITOR_DEVICE_CONCURRENCY, async (rules) => {
-      for (const rule of rules) {
-        if (await applyDueMonitor(mem, rule, now)) dirty = true;
-      }
-    });
-    if (dirty) await persist();
-  } finally {
-    monitorsBusy = false;
-  }
 }
 
 let foyerBusy = false;
