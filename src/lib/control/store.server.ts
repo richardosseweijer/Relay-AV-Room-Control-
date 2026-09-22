@@ -16,13 +16,19 @@ import {
   readRoomSpec,
   writeDriverFile,
 } from "./store-drivers";
+import {
+  SECRET_STORE,
+  pickSecrets,
+  publicConfig,
+  applySecrets,
+  readSecretCandidate,
+} from "./store-secrets";
 import { persistPair, recoverPersistPair } from "../../../scripts/write-atomic.mjs";
-import { mkdir, readFile, readdir, access, rename } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
-import { isSecretKey } from "./secrets";
 import { withOccupancyVar, occupancyOf, occupancyCode, OCCUPANCY_VAR_ID } from "./peer-payload";
 import { applyFoyerSession, fetchFoyerSession, withFoyerSessionVars, DEFAULT_FOYER_PEER_URL } from "./foyer-peer";
 import { peerKey } from "./peer-auth";
@@ -39,8 +45,9 @@ export {
   pruneRoomDrivers,
 } from "./store-drivers";
 
+export { reloadSecretsFromDisk } from "./store-secrets";
+
 const FILE_STORE = path.join(process.cwd(), "data", "relay-room.json");
-const SECRET_STORE = process.env.RELAY_SECRETS_FILE || path.join(process.cwd(), "data", "relay-secrets.json");
 
 type Memory = {
   config: RoomConfig;
@@ -76,76 +83,6 @@ const lastTriggerHeld = new Map<string, number>();
 const goodPolls = new Map<string, number>();
 const triggerQueue: { id: string; macroId: string; label: string; path: "t" | "f" }[] = [];
 const pendingTriggers = new TriggerReservations();
-
-type SecretFile = {
-  configPin?: string;
-  panelPin?: string | null;
-  peerSecret?: string;
-  pinChangeRequired?: boolean;
-  sessions?: Record<string, { id?: string; secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
-  devices?: Record<string, Record<string, string>>;
-};
-
-
-function pickSecrets(config: RoomConfig): SecretFile {
-  const devices: Record<string, Record<string, string>> = {};
-  for (const device of config.devices) {
-    const hide: Record<string, string> = {};
-    for (const [key, value] of Object.entries(device.auth ?? {})) {
-      if (isSecretKey(key) && String(value ?? "").trim()) hide[key] = String(value);
-    }
-    if (Object.keys(hide).length) devices[device.id] = hide;
-  }
-  return {
-    configPin: config.room.configPin,
-    panelPin: config.room.panelPin,
-    peerSecret: config.room.peerSecret,
-    devices,
-  };
-}
-
-function publicConfig(config: RoomConfig): RoomConfig {
-  const next = structuredClone(config);
-  next.room.configPin = "";
-  next.room.peerSecret = "";
-  next.room.panelPin = next.room.panelAccess === "pin" ? "" : null;
-  for (const device of next.devices) {
-    const keep: Record<string, string> = {};
-    for (const [key, value] of Object.entries(device.auth ?? {})) {
-      if (!isSecretKey(key)) keep[key] = value;
-    }
-    device.auth = keep;
-  }
-  return next;
-}
-
-function applySecrets(config: RoomConfig, secrets?: SecretFile | null): RoomConfig {
-  const next = structuredClone(config);
-  if (secrets?.configPin) next.room.configPin = secrets.configPin;
-  if (secrets?.peerSecret) next.room.peerSecret = secrets.peerSecret;
-  if (next.room.panelAccess === "pin" && secrets?.panelPin) next.room.panelPin = secrets.panelPin;
-  for (const device of next.devices) {
-    const extra = secrets?.devices?.[device.id];
-    if (extra) device.auth = { ...device.auth, ...extra };
-  }
-  return next;
-}
-
-async function readSecretFile(): Promise<SecretFile> {
-  // Same contract as readSecretCandidate: missing file → {}; corrupt JSON throws.
-  // Prefer refuse-to-apply over silently continuing with blank secrets (#8).
-  return readSecretCandidate(SECRET_STORE);
-}
-
-export async function reloadSecretsFromDisk() {
-  const secrets = await readSecretFile();
-  const mem = memory();
-  // applySecrets clones — install seeds memo; shape is already live-normalized.
-  installRoomConfig(applySecrets(mem.config, secrets), { alreadyNormalized: true });
-  mem.sessions = { ...(secrets.sessions ?? {}), ...(mem.sessions ?? {}) };
-  mem.pinChangeRequired = secrets.pinChangeRequired === true;
-  return secrets;
-}
 
 function liftTag<T extends { tag?: string | null }>(item: T): T {
   const legacy = (item as T & { folder?: string | null }).folder;
@@ -312,15 +249,6 @@ function emptyMemory(): Memory {
 export function memory(): Memory {
   if (!g.__relayMemory__) g.__relayMemory__ = emptyMemory();
   return g.__relayMemory__;
-}
-
-async function readSecretCandidate(file: string): Promise<SecretFile> {
-  try {
-    await access(file);
-  } catch {
-    return {};
-  }
-  return JSON.parse(await readFile(file, "utf8")) as SecretFile;
 }
 
 export async function loadPersisted(): Promise<Memory> {
