@@ -14,6 +14,7 @@ import { PanelSlider } from "./panel-slider";
 import { applyRoomSession, clearPanelToken, PANEL_TOKEN_KEY } from "@/lib/control/panel-token";
 import { applyRoomTheme } from "@/lib/theme";
 import { resolveStatusAppearance } from "@/lib/control/status-widget";
+import { panelSnapFingerprint } from "@/lib/control/panel-snap";
 
 async function rpc() {
   return import("@/lib/control/actions");
@@ -125,6 +126,7 @@ export function ControlPanel() {
   const slideTimer = useRef<number | null>(null);
   const slideWidget = useRef<string | null>(null);
   const misses = useRef(0);
+  const snapFp = useRef<string | null>(null);
   const [offline, setOffline] = useState(false);
 
   useEffect(() => {
@@ -248,7 +250,12 @@ export function ControlPanel() {
       misses.current = 0;
       setOffline(false);
       setLoadErr(null);
-      setSnap(next);
+      // F5: skip setSnap when panel-rendered fields unchanged (avoids full grid re-render ~4s).
+      const fp = panelSnapFingerprint(next);
+      if (fp !== snapFp.current) {
+        snapFp.current = fp;
+        setSnap(next);
+      }
       return next;
     } catch (err) {
       misses.current += 1;
@@ -778,16 +785,21 @@ export function ControlPanel() {
                 const { fireCommand } = await rpc();
                 await fireCommand({ data: { deviceId: hostId, commandId: "panel.unlock", token: session } }).catch(() => undefined);
               }
-              setSnap((cur) => (cur ? {
-                ...cur,
-                host: {
-                  dim: cur.host?.dim ?? false,
-                  locked: false,
-                  toast: cur.host?.toast ?? null,
-                  block: cur.host?.block ?? null,
-                  pageId: cur.host?.pageId ?? null,
-                },
-              } : cur));
+              setSnap((cur) => {
+                if (!cur) return cur;
+                const next = {
+                  ...cur,
+                  host: {
+                    dim: cur.host?.dim ?? false,
+                    locked: false,
+                    toast: cur.host?.toast ?? null,
+                    block: cur.host?.block ?? null,
+                    pageId: cur.host?.pageId ?? null,
+                  },
+                };
+                snapFp.current = panelSnapFingerprint(next);
+                return next;
+              });
               setLocked(false);
             }}
           >
