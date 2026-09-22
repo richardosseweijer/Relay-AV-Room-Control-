@@ -204,11 +204,9 @@ function applySecrets(config: RoomConfig, secrets?: SecretFile | null): RoomConf
 }
 
 async function readSecretFile(): Promise<SecretFile> {
-  try {
-    return JSON.parse(await readFile(SECRET_STORE, "utf8")) as SecretFile;
-  } catch {
-    return {};
-  }
+  // Same contract as readSecretCandidate: missing file → {}; corrupt JSON throws.
+  // Prefer refuse-to-apply over silently continuing with blank secrets (#8).
+  return readSecretCandidate(SECRET_STORE);
 }
 
 export async function reloadSecretsFromDisk() {
