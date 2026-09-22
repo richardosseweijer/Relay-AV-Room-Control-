@@ -75,7 +75,7 @@ export function wsQueryFromDriver(driver: DriverSpec, device: DeviceInstance): R
   return Object.keys(out).length ? out : undefined;
 }
 
-export async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: string, command?: DriverCommand, config?: RoomConfig): Promise<CommandResult> {
+export async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: string, command?: DriverCommand, config?: RoomConfig, value?: string | number): Promise<CommandResult> {
   const lan = driver.transports.lan;
   if (!lan) return { ok: false, message: "No LAN transport on this driver" };
   const proto = String(lan.protocol || "");
@@ -153,9 +153,9 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
     result = await sendOscCommand({
       host,
       port: oscPort,
-      path: renderPayload(payload, undefined, auth, ctx),
+      path: renderPayload(payload, value, auth, ctx),
       types: command?.osc?.types,
-      values: (command?.osc?.values ?? []).map((v) => renderPayload(String(v ?? ""), undefined, auth, ctx)),
+      values: (command?.osc?.values ?? []).map((v) => renderPayload(String(v ?? ""), value, auth, ctx)),
       localAddress,
     });
   }
@@ -166,7 +166,7 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
     result = await sendSacnCommand({
       universe,
       slot: command?.sacn?.slot,
-      value: command?.sacn ? renderPayload(String(command.sacn.value ?? payload ?? "0"), undefined, auth, ctx) : undefined,
+      value: command?.sacn ? renderPayload(String(command.sacn.value ?? payload ?? "0"), value, auth, ctx) : undefined,
       cidKey: device.id || host || "relay",
       localAddress,
     });

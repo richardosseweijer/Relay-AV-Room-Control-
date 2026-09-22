@@ -22,3 +22,18 @@ test("sendSacnCommand rejects universe 0", async () => {
   const res = await sendSacnCommand({ universe: 0, slot: 1, value: 1, cidKey: "x" });
   assert.equal(res.ok, false);
 });
+
+test("ChatGPT #3: sACN {value} template receives provided number (not empty→0)", async () => {
+  const { renderPayload } = await import("../src/lib/control/engine-payload.ts");
+  // Bug mode: undefined → "" → Number("") → 0 DMX
+  assert.equal(renderPayload("{value}", undefined), "");
+  assert.equal(Number(renderPayload("{value}", undefined)), 0);
+  const rendered = renderPayload("{value}", 200);
+  assert.equal(rendered, "200");
+  const n = Number(rendered);
+  assert.equal(n, 200);
+  const slots = new Uint8Array(512);
+  slots[0] = Math.max(0, Math.min(255, Math.trunc(n)));
+  const buf = encodeSacn({ universe: 1, priority: 100, cid: cidFrom("t"), sequence: 1, slots });
+  assert.equal(buf[126], 200);
+});
