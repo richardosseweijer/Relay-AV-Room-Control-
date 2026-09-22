@@ -5,6 +5,7 @@ import { hashPin, isHashedPin, verifyStoredPin, checkLockout, notePinFail, clear
 import { isWeakPin } from "../src/lib/control/pins.ts";
 import { signPeer, verifyPeerRequest, varsRequestAllowed } from "../src/lib/control/peer-auth.ts";
 import { serialPathOk, sendLocal } from "../src/lib/control/engine-host.ts";
+import { safeLanHttpUrl } from "../src/lib/control/engine-policy.ts";
 
 test("weak pins", () => {
   assert.equal(isWeakPin("1234"), true);
@@ -141,3 +142,23 @@ test("sendLocal serial rejects bad path before open", async () => {
   assert.equal(traj.ok, false);
   assert.match(traj.message, /Serial path rejected/);
 });
+
+test("safeLanHttpUrl accepts path-only /api/status", () => {
+  const ok = safeLanHttpUrl("http", "10.0.10.50", 8080, "/api/status");
+  assert.equal(ok.ok, true);
+  if (ok.ok) assert.equal(ok.url, "http://10.0.10.50:8080/api/status");
+  const httpsOk = safeLanHttpUrl("https", "10.0.10.50", 8443, "/api/status");
+  assert.equal(httpsOk.ok, true);
+  if (httpsOk.ok) assert.equal(httpsOk.url, "https://10.0.10.50:8443/api/status");
+});
+
+test("safeLanHttpUrl rejects authority rewrite via @ in path", () => {
+  const bad = safeLanHttpUrl("http", "10.0.10.50", 8080, "@127.0.0.1:8123/foo");
+  assert.equal(bad.ok, false);
+  if (!bad.ok) assert.match(bad.message, /Invalid path/);
+  const withSlash = safeLanHttpUrl("http", "10.0.10.50", 8080, "/@evil/foo");
+  assert.equal(withSlash.ok, false);
+  const noSlash = safeLanHttpUrl("http", "10.0.10.50", 8080, "api/status");
+  assert.equal(noSlash.ok, false);
+});
+

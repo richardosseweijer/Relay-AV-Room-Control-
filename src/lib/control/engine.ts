@@ -20,7 +20,7 @@ import { sendWol } from "./wol";
 import { rtpMidiPoolSize } from "./rtp-midi";
 import { encodeMtcQf, encodeMtcSysex } from "./midi-in";
 import { roomLanBind } from "./nics";
-import { allowedLanHost, pushTrace, sleep } from "./engine-policy";
+import { allowedLanHost, pushTrace, safeLanHttpUrl, sleep } from "./engine-policy";
 import { applySim, guardOk, mapCommandValue, parseFeedback, parseInventoryItems, pickJsonField, renderPayload } from "./engine-payload";
 import { paceDevice, tcpSessionWrite, tcpPoolSize } from "./engine-wire";
 import { sendHttp, sendLan, wsQueryFromDriver } from "./engine-lan";
@@ -298,11 +298,12 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
     } else if (resource.httpPath) {
       const path = renderPayload(resource.httpPath, undefined, device.auth, { host: device.host, port: device.port, id: device.id });
       const port = driver.status?.port ?? device.port ?? driver.transports.lan?.port ?? 80;
-      const url = `http://${device.host}:${port}${path}`;
+      const built = safeLanHttpUrl("http", device.host, port, path);
+      if (!built.ok) return { ok: false, message: built.message };
       const inventoryLimit = 2 * 1024 * 1024;
       const bind = roomLanBind(opts.config);
       if (!bind.ok) return bind;
-      const res = await sendHttp(url, resource.httpMethod || "GET", "", 8000, {
+      const res = await sendHttp(built.url, resource.httpMethod || "GET", "", 8000, {
         maxBytes: inventoryLimit,
         maxMessageChars: inventoryLimit,
         localAddress: bind.localAddress,

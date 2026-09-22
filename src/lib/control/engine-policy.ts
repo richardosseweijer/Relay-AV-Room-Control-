@@ -21,6 +21,47 @@ export function allowedLanHost(host: string | undefined, opts?: { localOk?: bool
   return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
 }
 
+/**
+ * Build http(s)://host:port + path without letting path rewrite authority (SSRF).
+ * Path must be path-only: start with `/`, no `@`. After parse, hostname/port must match.
+ */
+export function safeLanHttpUrl(
+  proto: string,
+  host: string,
+  port: number | string | undefined,
+  path: string,
+): { ok: true; url: string } | { ok: false; message: string } {
+  const scheme = String(proto || "").toLowerCase();
+  if (scheme !== "http" && scheme !== "https") return { ok: false, message: "Invalid protocol" };
+  const h = String(host ?? "").trim();
+  if (!h) return { ok: false, message: "No host" };
+  const rawPath = String(path ?? "");
+  if (!rawPath.startsWith("/") || rawPath.includes("@")) {
+    return { ok: false, message: "Invalid path" };
+  }
+  const portNum = Number(port);
+  if (!Number.isFinite(portNum) || portNum < 1 || portNum > 65535) {
+    return { ok: false, message: "Invalid port" };
+  }
+  const url = `${scheme}://${h}:${portNum}${rawPath}`;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, message: "Invalid path" };
+  }
+  if (parsed.hostname.toLowerCase() !== h.toLowerCase()) {
+    return { ok: false, message: "Invalid path" };
+  }
+  const defaultPort = scheme === "https" ? 443 : 80;
+  const actualPort = Number(parsed.port || defaultPort);
+  if (actualPort !== portNum) {
+    return { ok: false, message: "Invalid path" };
+  }
+  return { ok: true, url };
+}
+
+
 /** Scrub free-text logs/traces using the same key policy as redactAuth / isSecretKey. */
 export function scrubSecret(text: string) {
   return String(text ?? "")
