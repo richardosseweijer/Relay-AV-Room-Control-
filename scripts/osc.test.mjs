@@ -29,3 +29,17 @@ test("sendOscCommand rejects types/values length mismatch", async () => {
   const res = await sendOscCommand({ host: "127.0.0.1", port: 9000, path: "/x", types: "f", values: [] });
   assert.equal(res.ok, false);
 });
+
+test("ChatGPT #3: OSC {value} template receives provided number (not empty→0)", async () => {
+  const { renderPayload } = await import("../src/lib/control/engine-payload.ts");
+  // Bug mode: undefined → "" → Number("") → 0 float
+  assert.equal(renderPayload("{value}", undefined), "");
+  assert.equal(Number(""), 0);
+  const rendered = renderPayload("{value}", 0.75);
+  assert.equal(rendered, "0.75");
+  const buf = encodeOsc("/ch/1/mix/fader", [{ type: "f", value: rendered }]);
+  assert.equal(buf.subarray(0, 16).toString("utf8").replace(/\0+$/, ""), "/ch/1/mix/fader");
+  assert.equal(buf.subarray(16, 20).toString("utf8").replace(/\0+$/, ""), ",f");
+  const f = buf.readFloatBE(20);
+  assert.ok(Math.abs(f - 0.75) < 1e-5, `expected 0.75 got ${f}`);
+});
