@@ -114,10 +114,18 @@ test("panel no longer hard-blocks status presses", () => {
 
 test("pages editor uses Status setup title and colorWhen editor", () => {
   const src = fs.readFileSync("src/components/config/pages-editor.tsx", "utf8");
+  const leaf = fs.readFileSync("src/components/config/pages-status-fields.tsx", "utf8");
   assert.match(src, /Status setup/);
-  assert.match(src, /colorWhen/);
-  assert.match(src, /statusDefault/);
-  assert.match(src, /Catch-all color/);
+  assert.match(src, /PagesStatusFields/);
+  assert.match(src, /from\s+["']\.\/pages-status-fields["']/);
+  // Traffic-light editor chrome lives on the leaf (#86 / pages-status-fields extract).
+  assert.equal(/colorWhen/.test(src), false);
+  assert.equal(/statusDefault/.test(src), false);
+  assert.equal(/Catch-all color/.test(src), false);
+  assert.match(leaf, /colorWhen/);
+  assert.match(leaf, /statusDefault/);
+  assert.match(leaf, /Catch-all color/);
+  assert.match(leaf, /export function PagesStatusFields\s*\(/);
 });
 
 test("F11: coerceLegacyWidgetType maps legacy toggle → button", () => {
