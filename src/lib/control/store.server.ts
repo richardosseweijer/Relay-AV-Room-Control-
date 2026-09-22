@@ -402,10 +402,18 @@ let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let persistDirty = false;
 
 async function flushPersist() {
-  if (!persistDirty) return;
-  const mem = memory();
-  await writeFileStore(mem);
-  persistDirty = false;
+  // Clear dirty before await so persist()/persistNow during an in-flight write
+  // re-sets the flag; loop until a write completes with dirty still clear.
+  while (persistDirty) {
+    persistDirty = false;
+    const mem = memory();
+    try {
+      await writeFileStore(mem);
+    } catch (err) {
+      persistDirty = true;
+      throw err;
+    }
+  }
 }
 
 export async function persistNow() {
