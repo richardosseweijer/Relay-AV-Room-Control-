@@ -299,3 +299,91 @@ test("F5: panelSnapFingerprint ignores process/log noise; reacts to vars/host/co
   };
   assert.notEqual(panelSnapFingerprint(base), panelSnapFingerprint(pageChanged));
 });
+
+
+test("F14: /api/room rate-limit Map drops idle IP/token keys", async () => {
+  const { roomRateLimited, roomRateLimitSize, roomRateLimitReset } = await import("../src/lib/control/room-rate-limit.ts");
+  roomRateLimitReset();
+  const t0 = 1_000_000;
+  assert.equal(roomRateLimited("ip-a", t0), false);
+  assert.equal(roomRateLimited("token-b", t0 + 100), false);
+  assert.equal(roomRateLimitSize(), 2);
+  // Past both keys' 10s windows — pruneIdle must drop them when a new key arrives.
+  assert.equal(roomRateLimited("ip-c", t0 + 10_101), false);
+  assert.equal(roomRateLimitSize(), 1, "idle keys must be evicted with the window");
+  assert.equal(roomRateLimited("ip-c", t0 + 10_102), false);
+  assert.equal(roomRateLimitSize(), 1);
+  roomRateLimitReset();
+});
+
+test("F8: sACN retain drops removed device slots/seq; keeps live", async () => {
+  const {
+    sendSacnCommand,
+    clearSacnSlotBuffers,
+    retainSacnCidKeys,
+    sacnMapSizes,
+    peekSacnSlots,
+  } = await import("../src/lib/control/sacn.ts");
+  clearSacnSlotBuffers();
+  retainSacnCidKeys([]); // also drop seq counters left by earlier suites
+  await sendSacnCommand({ universe: 1, slot: 1, value: 10, cidKey: "dev-live" });
+  await sendSacnCommand({ universe: 2, slot: 1, value: 20, cidKey: "dev-gone" });
+  assert.equal(sacnMapSizes().slots, 2);
+  assert.equal(sacnMapSizes().seq, 2);
+  retainSacnCidKeys(["dev-live"]);
+  assert.equal(sacnMapSizes().slots, 1);
+  assert.equal(sacnMapSizes().seq, 1);
+  const live = peekSacnSlots({ universe: 1, cidKey: "dev-live" });
+  assert.ok(live);
+  assert.equal(live[0], 10);
+  assert.equal(peekSacnSlots({ universe: 2, cidKey: "dev-gone" }), undefined);
+  clearSacnSlotBuffers();
+});
+
+test("F8: pace retain drops removed device tails; idle prune drops stale", async () => {
+  const {
+    paceDevice,
+    retainPaceDevices,
+    pruneIdlePaceDevices,
+    paceMapSizes,
+    forgetPaceDevice,
+  } = await import("../src/lib/control/engine-wire.ts");
+  const live = `pace-live-${Date.now()}`;
+  const gone = `pace-gone-${Date.now()}`;
+  const stale = `pace-stale-${Date.now()}`;
+  await paceDevice(live, 10);
+  await paceDevice(gone, 10);
+  await paceDevice(stale, 10);
+  assert.ok(paceMapSizes().clock >= 3);
+  retainPaceDevices([live]);
+  assert.ok(paceMapSizes().clock >= 1);
+  // gone/stale not retained → dropped immediately
+  await paceDevice(live, 10); // still works for live
+  await paceDevice(stale, 10);
+  const beforeIdle = paceMapSizes().clock;
+  assert.ok(beforeIdle >= 2, "stale recreated until idle prune");
+  pruneIdlePaceDevices(Date.now() + 31 * 60_000, 30 * 60_000);
+  // everything idle relative to future now is dropped
+  assert.equal(paceMapSizes().clock, 0);
+  forgetPaceDevice(live);
+  forgetPaceDevice(gone);
+  forgetPaceDevice(stale);
+});
+
+test("F8: installRoomConfig prunes runtime Maps (source contract)", () => {
+  const src = fs.readFileSync(new URL("../src/lib/control/store.server.ts", import.meta.url), "utf8");
+  assert.match(src, /function pruneRuntimeMaps\s*\(/);
+  assert.match(src, /retainPaceDevices\s*\(/);
+  assert.match(src, /retainSacnCidKeys\s*\(/);
+  assert.match(src, /pruneIdlePaceDevices\s*\(/);
+  const install = src.match(/export function installRoomConfig\([\s\S]*?\n\}/);
+  assert.ok(install, "installRoomConfig body");
+  assert.match(install[0], /pruneRuntimeMaps\s*\(\s*next\s*\)/);
+});
+
+test("F14: room route uses roomRateLimited helper (idle eviction)", () => {
+  const src = fs.readFileSync(new URL("../src/routes/api/room.ts", import.meta.url), "utf8");
+  assert.match(src, /roomRateLimited/);
+  assert.match(src, /from\s+[\"']@\/lib\/control\/room-rate-limit[\"']/);
+  assert.doesNotMatch(src, /const hits = new Map/);
+});
