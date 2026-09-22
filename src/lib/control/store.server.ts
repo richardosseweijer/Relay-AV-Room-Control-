@@ -213,7 +213,8 @@ async function readSecretFile(): Promise<SecretFile> {
 export async function reloadSecretsFromDisk() {
   const secrets = await readSecretFile();
   const mem = memory();
-  mem.config = applySecrets(mem.config, secrets);
+  // applySecrets clones — install seeds memo; shape is already live-normalized.
+  installRoomConfig(applySecrets(mem.config, secrets), { alreadyNormalized: true });
   mem.sessions = { ...(secrets.sessions ?? {}), ...(mem.sessions ?? {}) };
   mem.pinChangeRequired = secrets.pinChangeRequired === true;
   return secrets;
@@ -274,8 +275,51 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
   })));
 }
 
+/** Bumped when room config is replaced; in-place field tweaks on the live object keep the memo. */
+let configNormGeneration = 0;
+let memoNormGeneration = -1;
+let memoNormalized: RoomConfig | null = null;
+
+/** Invalidate memo so the next normalizedConfig()/install rebuilds (F1+F7). */
+export function invalidateNormalizedConfig() {
+  configNormGeneration += 1;
+  memoNormalized = null;
+  memoNormGeneration = -1;
+}
+
+function rememberNormalized(config: RoomConfig) {
+  memoNormalized = config;
+  memoNormGeneration = configNormGeneration;
+}
+
+/**
+ * F1+F7: return normalize(config), memoized until generation changes or config identity differs.
+ * Snapshot polls and persist reuse the same object when mem.config is already the memo.
+ */
+export function normalizedConfig(config: RoomConfig): RoomConfig {
+  if (memoNormalized && memoNormGeneration === configNormGeneration && config === memoNormalized) {
+    return memoNormalized;
+  }
+  const next = normalize(config);
+  rememberNormalized(next);
+  return next;
+}
+
+/**
+ * Replace live room config: bump generation, normalize once (unless alreadyNormalized), seed memo.
+ * Use on load / save / import / clear — not for in-place PIN/occupancy tweaks.
+ */
+export function installRoomConfig(config: RoomConfig, opts?: { alreadyNormalized?: boolean }) {
+  configNormGeneration += 1;
+  const next = opts?.alreadyNormalized ? config : normalize(config);
+  memory().config = next;
+  rememberNormalized(next);
+  return next;
+}
+
 function emptyMemory(): Memory {
-  const config = emptyRoomConfig();
+  const config = normalize(emptyRoomConfig());
+  rememberNormalized(config);
   return {
     config,
     drivers: { ...hostDriverSeed() },
@@ -323,12 +367,12 @@ export async function loadPersisted(): Promise<Memory> {
       // not: reject this candidate so its matching last-good pair is tried.
       const fromDisk = await readSecretCandidate(secretFile);
       const fromRoom = pickSecrets(saved.config);
-      mem.config = applySecrets(normalize(saved.config), {
+      installRoomConfig(applySecrets(normalize(saved.config), {
         configPin: fromDisk.configPin || fromRoom.configPin,
         panelPin: fromDisk.panelPin || fromRoom.panelPin,
         peerSecret: fromDisk.peerSecret || fromRoom.peerSecret,
         devices: { ...fromRoom.devices, ...fromDisk.devices },
-      });
+      }), { alreadyNormalized: true });
       mem.library = await loadLibraryIndex();
       mem.drivers = {};
       const roomFiles = (await readdir(DRIVER_DIR).catch(() => [] as string[])).filter((n) => n.endsWith(".json"));
@@ -387,7 +431,8 @@ async function writeFileStore(mem: Memory) {
   secrets.sessions = mem.sessions ?? {};
   if (mem.pinChangeRequired) secrets.pinChangeRequired = true;
   const body = JSON.stringify({
-    config: publicConfig(normalize(mem.config)),
+    // F7: reuse memoized normalized config — do not normalize again on every persist.
+    config: publicConfig(normalizedConfig(mem.config)),
     drivers: mem.drivers,
     state: mem.state,
     vars: mem.vars,
@@ -499,7 +544,8 @@ export function processStatus() {
 
 export function snapshot(): RoomSnapshot {
   const mem = memory();
-  mem.config = normalize(mem.config);
+  // F1: poll path must not re-normalize every GET /api/room — reuse memo until config install.
+  mem.config = normalizedConfig(mem.config);
   mem.drivers = mem.drivers ?? {};
   mem.library = mem.library ?? {};
   mem.vars = seedVars(mem.config, mem.vars);
@@ -843,13 +889,13 @@ export function ensureLoaded() {
         if (!Object.keys(mem.library ?? {}).length) {
           mem.library = await loadLibraryIndex();
         }
-        if (!mem.config?.room) mem.config = emptyRoomConfig();
+        if (!mem.config?.room) installRoomConfig(emptyRoomConfig());
         startScheduler();
         return mem;
       })
       .catch(async () => {
         const mem = memory();
-        mem.config = emptyRoomConfig();
+        installRoomConfig(emptyRoomConfig());
         mem.drivers = hostDriverSeed();
         mem.library = await loadLibraryIndex();
         mem.vars = seedVars(mem.config, mem.vars);
