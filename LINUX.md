@@ -4,7 +4,7 @@ Install **`main`** from GitHub (that is the supported tree). Current package ver
 
 Default configurator PIN after first start: `1234`. Open `/config` once and set a stronger PIN. New rooms default to **Panel PIN**: every tablet unlocks with that PIN and gets its own session (30 days, sliding). **Open on LAN** is a separate Security setting that skips the panel PIN for anyone who can reach port 8081 — use it only on the room VLAN. Do not confuse it with **open LAN control** (unauthenticated `fireCommand`). See `SECURITY.md`.
 
-This host binds the cleartext panel/API to the **AV-LAN IPv4** only (never `0.0.0.0`). Tablet URL: `http://<av-lan-ip>:8081` (or your configured port). Before you call the install finished, finish the dual-NIC / firewall checklist in §5b. Do not port-forward 8081 to venue/WAN. Optional **file-based HTTPS** on the venue NIC is **shipped B1** (set `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath`, outbound NIC not None; default port 8443). **Let’s Encrypt / ACME / DNS-01 is PARKED** — not required. **Shipped (C1–C4):** Generate (API + Networks UI), CA download, mismatch / expiry banners, regenerate confirm, OS hints; docs consistency + checkpoint tag `v0.9.46`. See [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
+This host binds the cleartext panel/API to the **AV-LAN IPv4** only (never `0.0.0.0`). Tablet URL: `http://<av-lan-ip>:8081` (or your configured port). Before you call the install finished, finish the one-NIC / two-NIC firewall chapter in §5b. Do not port-forward 8081 to venue/WAN. Optional **file-based HTTPS** on the venue NIC is **shipped B1** (set `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath`, outbound NIC not None; default port 8443). **Let’s Encrypt / ACME / DNS-01 is PARKED** — not required. **Shipped (C1–C4):** Generate (API + Networks UI), CA download, mismatch / expiry banners, regenerate confirm, OS hints; docs consistency + checkpoint tag `v0.9.46`. See [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
 
 Commands below are run in a terminal as a normal user that can use `sudo`.
 
@@ -146,24 +146,67 @@ Stop the test process with Ctrl+C.
 
 If the page never loads, check that nothing else is bound to 8081 (`ss -lptn | grep 8081`).
 
-### 5b. Dual-NIC + firewall (required before tablets live on AV-LAN)
+### 5b. Firewall + NIC layout (required before tablets live on AV-LAN)
 
-Relay binds HTTP to the **AV-LAN IPv4** only. ufw still limits who may connect. Do this on every room PC.
+Relay binds the cleartext panel/API to the **AV-LAN IPv4** only (never `0.0.0.0`). **ufw** still limits who may connect. Do this on every new room PC before tablets go live.
+
+This chapter covers **one-NIC** and **two-NIC** builds with copy-paste ufw. nftables / firewalld are out of scope — translate yourself if you must. Do not weaken the model below.
+
+Peer HMAC (AV HTTP or venue HTTPS) does **not** replace CIDR scoping. Firewall first; HMAC second.
+
+#### Overview
+
+| Setup | NICs | HTTP listen | Venue HTTPS | Typical ufw |
+|---|---|---|---|---|
+| **One-NIC** | Single Ethernet (AV-only / air-gap / lab). Room → **LAN (internet)** = **None**, *or* the same NIC used as outbound for Update | AV IPv4 `:8081` | None (no outbound face) | Allow `8081` from that LAN CIDR; OpenSSH; deny incoming default |
+| **Two-NIC** | NIC1 = AV-LAN (no default route); NIC2 = venue/internet (default route) | AV IPv4 `:8081` only | Optional `:8443` on NIC2 when PEMs present (B1) | Allow `8081` **from AV CIDR only**; optional `8443` from known venue/admin CIDR (fail-closed — nowhere by default); OpenSSH prefer AV/mgmt |
+
+Replace example CIDRs (`192.168.25.0/24` AV, `10.20.0.0/24` venue) with yours every time.
 
 #### Networks (Room tab)
 
 | Picker | Role |
 |---|---|
 | **AV-LAN** | Trusted offline control LAN. Panel/API listen. Device sockets (except protocols already designed for open LAN such as Cast / Hue). Tablets live here. |
-| **LAN (internet)** | Optional venue/outbound NIC for **Update from GitHub**. Choose **None** for air-gap or single-NIC rooms — Update is then disabled/refused with a clear reason. When set and up, the Room tab shows that NIC’s live IPv4 (Refresh NICs) so you can copy the raw address without DNS/LE. |
+| **LAN (internet)** | Optional venue/outbound NIC for **Update from GitHub** and optional venue HTTPS. Choose **None** for air-gap or single-NIC rooms that must not use venue — Update is then disabled/refused with a clear reason. When set and up, the Room tab shows that NIC’s live IPv4 (Refresh NICs) so you can copy the raw address without DNS/LE. |
 
-On a two-NIC Ubuntu room PC:
+Rules that always hold:
 
-- AV-LAN has **no default route**.
-- NIC2 (venue) has the **default route**, **or** is **None**.
-- NIC2 down / None / missing PEMs / a future venue-TLS Generate failure must **not** break NIC1.
-- No IP forward and no bridge between the two NICs.
+- No IP forwarding and no bridge between NICs.
+- AV-LAN must **not** hold the default route.
+- NIC2 down / None / missing PEMs / venue-TLS Generate failure must **not** break NIC1.
 - Same NIC on both pickers is allowed on a test box only.
+- Panel HDMI kiosk (§7) is local display only — **no new inbound ports**.
+
+#### Prerequisites
+
+```bash
+# Identify interfaces + addresses (replace names with yours)
+ip -br a
+ip route
+
+# Confirm no forwarding
+sysctl net.ipv4.ip_forward net.ipv6.conf.all.forwarding
+# Expect: both = 0
+sudo sysctl -w net.ipv4.ip_forward=0
+sudo sysctl -w net.ipv6.conf.all.forwarding=0
+# persist (Debian/Ubuntu):
+echo 'net.ipv4.ip_forward=0' | sudo tee /etc/sysctl.d/99-relay-no-forward.conf
+echo 'net.ipv6.conf.all.forwarding=0' | sudo tee -a /etc/sysctl.d/99-relay-no-forward.conf
+# Confirm there is no br-* joining the two NICs:
+ip link; bridge link 2>/dev/null || true
+
+# Install ufw; deny in / allow out
+sudo apt-get install -y ufw
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+```
+
+Write down:
+
+- AV iface name + IPv4 + CIDR (e.g. `eth0` → `192.168.25.10/24` → CIDR `192.168.25.0/24`)
+- Venue iface name + IPv4 + CIDR if two-NIC (e.g. `eth1` → `10.20.0.50/24` → CIDR `10.20.0.0/24`)
+- Whether Room → **LAN (internet)** is **None** or a real NIC
 
 #### Apply AV-LAN IPv4 (Linux / NetworkManager)
 
@@ -175,7 +218,7 @@ Room → Networks → **AV-LAN IPv4 (Linux)** can set **static** or **DHCP** on 
 - DNS / hostname / NTP / NIC2 address are out of scope.
 - Windows / non-Linux: Apply returns a clear error (no silent success).
 - If `RELAY_LISTEN_HOST` is set and would disagree with the new address, Apply **refuses**.
-- Changing prefix/network: update **ufw** to the new AV CIDR (Apply does not edit ufw).
+- Changing prefix/network: **re-check and update ufw** to the new AV CIDR (Apply does not edit ufw).
 
 Privilege: Relay stays non-root. Install a narrow sudoers drop-in so the service user can run nmcli without a password:
 
@@ -188,51 +231,167 @@ sudo visudo -cf /etc/sudoers.d/relay-nmcli
 
 Apply spawns `sudo -n nmcli …` (argv allowlist, no shell). Missing sudoers → clear operator error pointing here. Do **not** run Relay as root; MR1 does not use `AmbientCapabilities` / `CAP_NET_ADMIN`.
 
-```bash
-# No forward / no bridge between AV and venue
-sudo sysctl -w net.ipv4.ip_forward=0
-sudo sysctl -w net.ipv6.conf.all.forwarding=0
-# persist (Debian/Ubuntu):
-echo 'net.ipv4.ip_forward=0' | sudo tee /etc/sysctl.d/99-relay-no-forward.conf
-echo 'net.ipv6.conf.all.forwarding=0' | sudo tee -a /etc/sysctl.d/99-relay-no-forward.conf
-# Confirm there is no br-* joining the two NICs: ip link; bridge link
-```
+#### A. One-NIC room
 
-#### ufw — panel from AV CIDR only
+**Topology:** Tablets, AV devices, and this PC share one trusted Ethernet LAN. There is no second NIC. Outbound is either **None** (air-gap / AV-only — no venue face, Update from GitHub disabled) or the **same** NIC is also Room → **LAN (internet)** so Update can reach GitHub through that LAN’s gateway.
 
-Replace `192.168.25.0/24` with your real AV-LAN CIDR. Do **not** allow the panel from the venue NIC or from anywhere.
+When outbound is **None**: no venue HTTPS (`:8443`); no Update from GitHub. Panel stays on AV HTTP `:8081`.
+
+When the single NIC is also “LAN (internet)”: Update may work if the LAN has internet; still **no** second face — do not treat this as two-NIC venue HTTPS unless you really have a separate venue CIDR and PEMs.
+
+**ufw (replace CIDR with yours):**
 
 ```bash
-sudo apt-get install -y ufw
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
+# Example AV/lab LAN — replace 192.168.25.0/24 with yours
 sudo ufw allow from 192.168.25.0/24 to any port 8081 proto tcp
+# SSH: management is usually on this same LAN (or a jump host on it)
 sudo ufw allow OpenSSH
+# Or restrict SSH to the LAN CIDR (preferred when OpenSSH would otherwise mean "any"):
+# sudo ufw allow from 192.168.25.0/24 to any port 22 proto tcp
 sudo ufw enable
-sudo ufw status
+sudo ufw status verbose
 ```
 
-Do not `ufw allow 8081/tcp` from anywhere. Do not port-forward 8080, 8081, or 8082 to venue/WAN / the public internet.
+**What NOT to open**
 
-#### Verify
+- Do **not** `ufw allow 8081/tcp` from anywhere.
+- Do **not** port-forward `8080` / `8081` / `8082` / `8443` to WAN / the public internet.
+- Do **not** enable IP forward or add masquerade “so tablets can share internet” through Relay.
+- Optional Foyer on this host: allow `8080` / `8082` **from the same LAN CIDR only** (see Foyer note below) — still never forward them.
+
+**Verify**
+
+```bash
+sudo ufw status verbose
+# Expect: 8081 from your LAN CIDR only; default deny incoming
+
+ss -lptn 'sport = :8081'
+# Expect: listen on this NIC’s IPv4 (or 127.0.0.1 if AV-LAN unset) — never 0.0.0.0
+
+# From another host on the same LAN (replace IP):
+curl -sS -o /dev/null -w '%{http_code}\n' http://192.168.25.10:8081/
+# Expect: HTTP response (200/302/401 — page reachable)
+
+# From a host *not* on that CIDR (or after a wrong-CIDR rule): expect hang / timeout / blocked — not the panel
+```
+
+**Optional Foyer ports** (same host, still AV CIDR only):
+
+```bash
+# Replace 192.168.25.0/24 with yours
+# sudo ufw allow from 192.168.25.0/24 to any port 8080 proto tcp
+# sudo ufw allow from 192.168.25.0/24 to any port 8082 proto tcp
+```
+
+#### B. Two-NIC room
+
+**Topology**
+
+| NIC | Role | Route |
+|---|---|---|
+| NIC1 (e.g. `eth0`) | **AV-LAN** — tablets + devices + panel HTTP | Subnet route only — **no default route** |
+| NIC2 (e.g. `eth1`) | **Venue / internet** — Update from GitHub; optional HTTPS `:8443` | **Default route** |
+
+Room → **AV-LAN** = NIC1. Room → **LAN (internet)** = NIC2 (not None).
 
 ```bash
 ip route
-# Expect: default via venue NIC (or no default if outbound is None / air-gap).
-# Expect: AV subnet route on the AV interface — no default on AV.
-
-ss -lptn 'sport = :8081'
-# Expect: listen on the AV IPv4 (or 127.0.0.1 if AV-LAN is unset) — never 0.0.0.0.
-
-sudo ufw status
-# Expect: 8081 allowed from AV CIDR only.
+# Expect: default via NIC2 (venue). AV subnet on NIC1 — no default on AV.
 ```
 
-Outbound **None** ⇒ Room → **Update from GitHub** unavailable until you pick a venue NIC. That is intentional.
+**ufw — panel from AV CIDR only (replace CIDRs with yours)**
+
+```bash
+# AV example 192.168.25.0/24 — replace with yours
+sudo ufw allow from 192.168.25.0/24 to any port 8081 proto tcp
+# Do NOT allow 8081 from the venue CIDR or from anywhere
+# Do NOT: sudo ufw allow 8081/tcp
+
+# SSH — prefer AV-LAN or a management jump host on AV
+sudo ufw allow from 192.168.25.0/24 to any port 22 proto tcp
+# If you must SSH on the venue NIC, restrict source (replace 10.20.0.0/24 / admin host):
+# sudo ufw allow from 10.20.0.0/24 to any port 22 proto tcp
+# Warn: exposing SSH on venue without a source limit is discouraged.
+
+sudo ufw enable
+sudo ufw status verbose
+```
+
+**Optional venue HTTPS `:8443` (fail-closed)**
+
+Product default: **do not open 8443** until you actually use venue HTTPS tablets or room-to-room venue peers. When you need it, scope to a **known venue/admin CIDR** — never “any”.
+
+```bash
+# Only if you use venue HTTPS / venue peers — replace 10.20.0.0/24 with yours
+# sudo ufw allow from 10.20.0.0/24 to any port 8443 proto tcp
+# Prefer a tighter admin host list when you can:
+# sudo ufw allow from 10.20.0.10 to any port 8443 proto tcp
+```
+
+HMAC peer over venue HTTPS still requires this CIDR allow (and PEMs + trusted peer CA). Firewall stays fail-closed.
+
+**Explicitly forbidden**
+
+- No `net.ipv4.ip_forward=1`, no masquerade, no NAT “helper” between NICs.
+- No bridge / no allow-routing between AV and venue.
+- No `ufw allow 8081/tcp` from anywhere; no allow of `8081` on the venue iface.
+- No port-forward of `8080` / `8081` / `8082` / `8443` to WAN.
+
+**Verify**
+
+```bash
+ss -lptn 'sport = :8081'
+# Expect: AV IPv4 only — never 0.0.0.0, never the venue IPv4
+
+sudo ufw status verbose
+# Expect: 8081 from AV CIDR only; 8443 absent unless you opted in with a scoped rule
+
+# From an AV-LAN host (replace IPs):
+curl -sS -o /dev/null -w '%{http_code}\n' http://192.168.25.10:8081/
+
+# From a venue-side host: 8081 must fail (timeout / blocked). Do not "fix" that by opening 8081 on venue.
+```
+
+Optional Foyer on the same host: same as one-NIC — `8080` / `8082` from **AV CIDR only** (commands in §A).
+
+#### C. Shared checklist before tablets go live
+
+- [ ] `ip_forward` / IPv6 forwarding = `0`; no bridge joining AV and venue
+- [ ] AV-LAN has **no** default route; venue has default **or** outbound is **None**
+- [ ] `ss -lptn 'sport = :8081'` shows **AV IPv4** (or loopback if AV unset) — never `0.0.0.0`
+- [ ] ufw: default deny incoming; `8081` allowed **from AV CIDR only**
+- [ ] Did **not** run bare `ufw allow 8081/tcp`
+- [ ] Did **not** port-forward `8080` / `8081` / `8082` / `8443` to WAN
+- [ ] SSH: allowed from AV/mgmt (or knowingly restricted on venue) — not wide open on venue without need
+- [ ] Two-NIC: `8443` closed **or** scoped to known venue/admin CIDR (never “any”)
+- [ ] Outbound **None** ⇒ expect Update disabled and no venue HTTPS face
+- [ ] After any AV IP Apply / prefix change: ufw CIDR re-checked
+- [ ] Panel HDMI kiosk (§7) optional — local only; no extra inbound ports
+- [ ] Curl from an AV host reaches the panel; curl from the wrong net does not
+
+#### D. Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| Tablets can’t reach panel | AV CIDR in ufw matches real tablet subnet; Room → **AV-LAN** is the iface tablets use; `ss` listen host is that AV IPv4 (not venue, not `0.0.0.0`); tablet URL is `http://<av-ip>:8081` |
+| After **AV IP Apply**, tablets die | Prefix/network changed — update ufw `allow from <new-av-cidr> to any port 8081`; delete the old CIDR rule; Confirm Apply does not edit ufw |
+| Venue HTTPS works but AV panel broken | Must not be coupled. Confirm AV HTTP still listens (`ss` on `:8081`); venue PEM / `:8443` issues must soft-skip only. Fix AV (CIDR / listen / AV NIC up) independently |
+| Accidentally allowed `8081` from anywhere | `sudo ufw status numbered` → `sudo ufw delete <n>` for the open rule; re-add CIDR-scoped allow; `sudo ufw status verbose` |
+| SSH locked out after ufw enable | Use console / HDMI / existing session; add a scoped SSH allow before enabling from a remote-only path |
+| Wrong net can hit `8081` | Delete broad rules; ensure no venue-sourced allow for `8081`; confirm no WAN port-forward |
+
+Delete a bad rule (example):
+
+```bash
+sudo ufw status numbered
+# sudo ufw delete 3   # pick the number for the bad 8081-from-anywhere rule
+sudo ufw allow from 192.168.25.0/24 to any port 8081 proto tcp   # replace CIDR
+sudo ufw status verbose
+```
 
 #### Venue HTTPS (shipped B1) — PEM drop paths
 
-Optional venue HTTPS: `https://<outbound-ip>:8443` when outbound NIC is set **and** PEMs are readable.
+Optional venue HTTPS: `https://<outbound-ip>:8443` when outbound NIC is set **and** PEMs are readable. One-NIC with outbound **None** has no venue face — skip this subsection.
 
 | How | Paths |
 |---|---|
@@ -271,12 +430,7 @@ Foyer (optional, separate process) owns `:8080` / `:8082`; Relay production is `
 
 **Foyer control URL:** prefers the live AV-LAN IPv4 (`http://<av-lan-ipv4>:8081`) — Room → Occupancy shows the paste URL. Soft-fails if AV unset / no IPv4. Same-PC hairpin to that listen address is allowed for unsigned occupancy GET. Do not widen listen to `0.0.0.0`. Lab only: `RELAY_LISTEN_HOST=127.0.0.1`. See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 
-If Foyer is installed on this host, also allow the door/welcome ports from AV-LAN (still do not forward them):
-
-```bash
-# sudo ufw allow from 192.168.25.0/24 to any port 8080 proto tcp
-# sudo ufw allow from 192.168.25.0/24 to any port 8082 proto tcp
-```
+Outbound **None** ⇒ Room → **Update from GitHub** unavailable until you pick a venue NIC. That is intentional.
 
 ---
 
@@ -421,7 +575,104 @@ ss -lptn 'sport = :8081'
 
 ---
 
-## 7. Update from GitHub
+
+## 7. Panel on local HDMI (kiosk)
+
+Optional. Same pattern as Foyer welcome kiosk: **cage** on tty1 + Chromium on Wayland, pinned to one DRM connector. The kiosk opens the **live AV-LAN panel URL** (`http://<av-lan-ipv4>:8081/`), not `127.0.0.1` and never `0.0.0.0`. HTTP listen stays AV-LAN only.
+
+Skip until §5 answers on the AV IPv4 and §6 has `relay.service` enabled.
+
+```bash
+sudo apt-get install -y seatd cage wlr-randr fonts-liberation fonts-noto-core mesa-vulkan-drivers libgl1-mesa-dri
+sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser
+sudo systemctl enable --now seatd
+sudo usermod -aG video,render,input,tty "$USER"
+sudo loginctl enable-linger "$USER"
+```
+
+Log out and back in (or reboot) so the `video` / `render` groups apply. `echo $XDG_RUNTIME_DIR` should print `/run/user/$(id -u)`.
+
+If `chromium` is missing, try `chromium-browser`. Snap Chromium under cage often needs `--no-sandbox` on a dedicated PC — set `RELAY_KIOSK_NO_SANDBOX=1` in `data/relay-kiosk.env` only if `journalctl -u relay-kiosk` shows namespace errors. Do not enable it by default.
+
+`unclutter` is X11 and does nothing under cage. Skip it.
+
+Disable blanking and sleep:
+
+```bash
+sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+```
+
+### 7a. Kiosk unit
+
+Cage needs a real HDMI connected **before** start. This unit **takes tty1** from the Ubuntu login prompt so Chromium covers that console. SSH is unchanged.
+
+```bash
+USER_NAME="$(whoami)"
+HOME_DIR="$HOME"
+REPO_DIR="${HOME_DIR}/Relay-AV-Room-Control-"
+chmod +x "${REPO_DIR}/scripts/relay-kiosk.sh"
+sudo tee /etc/systemd/system/relay-kiosk.service >/dev/null <<EOF
+[Unit]
+Description=Relay panel kiosk (local HDMI)
+After=relay.service systemd-user-sessions.service plymouth-quit-wait.service
+Requires=relay.service
+Conflicts=getty@tty1.service
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+User=${USER_NAME}
+SupplementaryGroups=video render input tty
+PAMName=login
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty1
+UnsetEnvironment=TERM
+Environment=XDG_SESSION_TYPE=wayland
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+Environment=WLR_LIBINPUT_NO_DEVICES=1
+EnvironmentFile=-${REPO_DIR}/data/relay-kiosk.env
+ExecStartPre=+/bin/chvt 1
+ExecStart=/usr/bin/cage -d -- ${REPO_DIR}/scripts/relay-kiosk.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now relay-kiosk
+sudo systemctl status relay-kiosk --no-pager
+```
+
+Room → **Local display (HDMI)** saves `data/relay-kiosk.env` (`RELAY_VIDEO_OUTPUT` + `RELAY_KIOSK_URL`) and can restart this unit. Wrong output can blank the console page; SSH stays up.
+
+Configurator restart needs passwordless systemctl for this unit only:
+
+```bash
+USER_NAME="$(whoami)"
+sudo tee /etc/sudoers.d/relay-kiosk >/dev/null <<EOF
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start relay-kiosk.service, /usr/bin/systemctl restart relay-kiosk.service, /usr/bin/systemctl try-restart relay-kiosk.service, /usr/bin/systemctl stop relay-kiosk.service
+EOF
+sudo chmod 440 /etc/sudoers.d/relay-kiosk
+sudo visudo -c
+```
+
+Templates: `deploy/relay-kiosk.service`, `deploy/sudoers.relay-kiosk`.
+
+cage `-d` skips client decorations. It does **not** use `-s` (that flag allows switching back to the text console).
+
+If the kiosk stays on the Ubuntu login TTY: the unit is the old one (no `Conflicts=getty@tty1`). Re-run this section, then `sudo systemctl daemon-reload && sudo systemctl restart relay-kiosk`. Next step: `sudo journalctl -u relay-kiosk -e`. Confirm the panel from a config laptop at `http://<av-lan-ipv4>:8081/` (not loopback once AV-LAN is set).
+
+---
+
+## 8. Update from GitHub
 
 The application directory must be a clone of [Relay-AV-Room-Control-](https://github.com/richardosseweijer/Relay-AV-Room-Control-).
 
@@ -480,7 +731,7 @@ For **Apply AV-LAN IP**, also install the nmcli sudoers drop-in in §5b (`/etc/s
 
 ---
 
-## 8. Data
+## 9. Data
 
 Room configuration is stored in `data/relay-room.json` (layout, IPs) and `data/relay-secrets.json` (PINs, tokens). Copy both off the card before a re-image. Do not put the secrets file in an export or a git repo.
 
