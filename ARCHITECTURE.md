@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.46** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.47** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -209,7 +209,7 @@ Save all calls `persistNow()`. Secrets and room JSON are written through a journ
 | Peer HMAC | `x-relay-ts` + `x-relay-auth` (64 lowercase hex). Replay cache keys the digest for 90s. Peer secret only — not the PIN. Host restart/update/reboot use that same first check. |
 | Export / import / update / reboot / ping | Configurator session required. |
 
-Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue NICs. **Wire split:** cleartext HTTP on AV-LAN only; optional file HTTPS on venue (B1) + HMAC peer over that HTTPS (B3) + per-device `nicFace` bind (B4). Soft TLS verify (`rejectUnauthorized: false`) for file / venue-CA PEMs (optional strict peer verify not implemented). LE/ACME/FQDN **parked** — not a cleartext panel on venue, and not the next cert path. B5 tags the Phase B software close; C4 closes the in-box venue TLS docs train at `v0.9.46`. Generate / venue TLS failures must not make AV depend on venue certs.
+Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue NICs. **Wire split:** cleartext HTTP on AV-LAN only; optional file HTTPS on venue (B1) + HMAC peer over that HTTPS (B3) + per-device `nicFace` bind (B4). Venue **peers** use **strict TLS verify** against a configured trusted peer CA (`peerTrustedCaPath`; fail-closed if missing). Soft `rejectUnauthorized: false` remains only for third-party venue *device* HTTPS, not Relay↔Relay peers. LE/ACME/FQDN **parked**. B5 / C4 / strict peer TLS (`v0.9.47`). Generate / venue TLS / peer CA failures must not make AV depend on venue certs.
 
 ---
 
@@ -236,7 +236,7 @@ Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue
 | `scripts/http-listen-host.mjs` | Pure AV → HTTP listen host (A2). Never returns `0.0.0.0`. |
 | `scripts/control-base-url.mjs` | Advertised panel / Foyer Relay base URL from live AV IPv4; soft-fail if AV unset / no IPv4. |
 | `scripts/https-venue-listen.mjs` | B1 optional HTTPS listen on outbound/venue IPv4 (file PEMs; soft-skip). |
-| `src/lib/control/peer-venue.ts` | B3 HMAC peer AV HTTP vs venue HTTPS planner (`peerFace`). |
+| `src/lib/control/peer-venue.ts` | B3 HMAC peer AV HTTP vs venue HTTPS planner (`peerFace`) + strict trusted peer CA. |
 | `src/lib/control/device-face.ts` | B4 per-device `nicFace` bind planner (AV vs venue; cleartext gate). |
 | `src/lib/control/actions-context.ts` | Shared `loadControl()` → `session.server`. |
 | `src/lib/control/vars.ts` | Variable seeding, clamping, template substitution, enable-when evaluation. |

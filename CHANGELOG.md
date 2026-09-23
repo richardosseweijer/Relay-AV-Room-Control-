@@ -8,6 +8,13 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.47
+
+- Tag `v0.9.47`. **Strict peer TLS verify** for venue HMAC peers — closes the soft `rejectUnauthorized: false` footgun on the Relay↔Relay path. Same Foyer pair (`v0.2.2`). No LE/ACME; no silent auto-reissue; Foyer control-URL footgun left as already fixed on main.
+- **Trust model:** per-`relay-host` trusted peer CA (`peerTrustedCaPath` / PEM paste / `RELAY_PEER_TRUSTED_CA`) = remote room’s **Download CA** PEM. Venue peer happy path: `rejectUnauthorized: true` + Node `ca`. **Fail-closed** with a clear install-peer-CA error when CA missing/unreadable. AV-LAN HTTP peers unchanged. Same-install loop: `data/tls/venue/ca.cert.pem`. Venue peer TLS failure soft-fails that peer only — AV control stays up.
+- Devices UI: **Trusted peer CA path** next to Peer face. Docs: SECURITY / LINUX / AGENTS / ARCHITECTURE / CONTEXT / KNOWN_ISSUES / CHANGELOG aligned (remove “soft verify until LE” as the standing peer story).
+- Tests: planner strict success + fail-closed; live HTTPS verify against test CA; reject wrong CA (`peer-tls-verify.test.mjs`).
+
 ## 0.9.46 — 2026-09-23
 - Tag `v0.9.46`. Venue TLS **C4** docs/hardening checkpoint — closes in-box venue TLS train C0–C4. Same Foyer pair (`v0.2.2`). No LE/ACME; no silent auto-reissue; no strict peer TLS verify.
 - **C4:** full doc consistency audit (SECURITY / LINUX / ARCHITECTURE / AGENTS / CONTEXT / KNOWN_ISSUES / README / WINDOWS / CHANGELOG / FOYER-ROADMAP). Current-state sections now say C1–C3 Generate / UI / lifecycle **shipped**; C4 checkpoint **shipped**; LE **PARKED** (not “B2 next”). Light comment hardening: leftover “until B2 LE” / “B2 deferred” strings aligned to PARKED. Residual known: Foyer loopback URL vs AV-only listen; soft `rejectUnauthorized: false` (optional strict peer verify not implemented).
