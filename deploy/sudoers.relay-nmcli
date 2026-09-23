@@ -1,0 +1,5 @@
+# Copy to /etc/sudoers.d/relay-nmcli (visudo -cf first).
+# Replace USER with the Relay service account (same as deploy/relay.service User=).
+# Configurator "Apply AV-LAN IPv4" uses: sudo -n nmcli …
+# Least privilege — nmcli only. Do not grant unrestricted NOPASSWD.
+USER ALL=(root) NOPASSWD: /usr/bin/nmcli
