@@ -178,7 +178,7 @@ Host commands `ui.toast`, `ui.block`, `ui.unblock`, and `ui.clear` draw overlays
 
 Shell: `config-app.tsx` (PIN, Save all, toast, `draft`, tab bar). Tabs: Room, Security, Drivers, Devices, Interfaces, Macros, Logic, Pages, Log. Logic sub-tabs: variables, monitors, schedules, triggers. Trigger panes (`trigger-pane.tsx`): If / and / on-change-or-interval / one macro. Occupancy is the baked var `0`–`3` (closed / open / in session / DND); there is no Room-tab occupancy dropdown. **Save all** keeps live occupancy (it does not write `draft.room.occupancy`). Foyer GET still reads the string `occupancy` field.
 
-Room actions: export (browser download, secrets stripped), import, clear configuration, restart Vite, update from GitHub, reboot the host. Room tab shows `package.json` version plus `git rev-parse --short HEAD`. There is no Restore demo. Clear configuration leaves occupancy and one `relay-host.json` device on localhost. Export requires a configurator session. Import preserves existing secrets when the bundle left those fields empty.
+Room actions: export (browser download, secrets stripped), import, clear configuration, restart Vite, update from GitHub, reboot the host. **Apply AV-LAN IPv4** (Linux / nmcli, config PIN): static or DHCP on the AV pick only → strip gateway + never-default → persist `room.network` → restart Relay to re-bind listen (never `0.0.0.0`). Room tab shows `package.json` version plus `git rev-parse --short HEAD`. There is no Restore demo. Clear configuration leaves occupancy and one `relay-host.json` device on localhost. Export requires a configurator session. Import preserves existing secrets when the bundle left those fields empty.
 
 ---
 
@@ -231,7 +231,7 @@ Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue
 | `src/lib/control/actions-auth.ts` | PIN verify, session revoke. |
 | `src/lib/control/actions-config.ts` | Editor load/save/import/clear/driver library. |
 | `src/lib/control/actions-runtime.ts` | `fireMacro` / `fireCommand` / `setVariable` and related runtime RPCs. |
-| `src/lib/control/actions-host.ts` | Host restart/update/reboot, NIC/port list, debug. |
+| `src/lib/control/actions-host.ts` | Host restart/update/reboot, Apply AV-LAN IP (nmcli), NIC/port list, debug. |
 | `src/lib/control/nics.ts` | NIC list, AV/outbound pick helpers, outbound None (A1), re-exports listen host. |
 | `scripts/http-listen-host.mjs` | Pure AV → HTTP listen host (A2). Never returns `0.0.0.0`. |
 | `scripts/control-base-url.mjs` | Advertised panel / Foyer Relay base URL from live AV IPv4; soft-fail if AV unset / no IPv4. |

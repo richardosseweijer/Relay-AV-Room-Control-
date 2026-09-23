@@ -32,6 +32,7 @@ export {
   restartHost,
   updateHost,
   rebootHost,
+  applyAvLanIp,
   listHostPorts,
   listLanNics,
   debugScan,
