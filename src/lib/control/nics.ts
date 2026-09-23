@@ -21,7 +21,7 @@ export type HttpListenHostResult =
   | { ok: true; host: string; warning?: string }
   | { ok: false; reason: string };
 
-/** NIC-split Phase A (A1–A4): outbound None (A1), HTTP listen pin (A2), trust-model docs (A3), remaining AV-LAN bind gaps (A4: UDP multicast listen, ping, RPC). Device/control defaults to roomLanBind. listHostInterfaces = serial/GPIO/MIDI, not NICs. Phase B = HTTPS/LE/peers/nicFace (not started). */
+/** NIC-split Phase A (A1–A4) done; Phase B1 = optional venue HTTPS (file certs on outbound IPv4; see scripts/https-venue-listen.mjs). B2+ = LE/ACME, peer TLS, nicFace (not started). Device/control defaults to roomLanBind. listHostInterfaces = serial/GPIO/MIDI, not NICs. */
 
 export type LanNic = {
   index: number;
