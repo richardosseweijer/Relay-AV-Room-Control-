@@ -18,7 +18,7 @@ Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds t
 - NIC2 down, **None**, missing PEMs, or a future venue-TLS / Generate failure must **not** break NIC1 / AV listen.
 - No IP forwarding or bridge between NICs (`ip_forward=0`, no `br-*` joining AV and venue).
 - No cleartext panel on the venue NIC. Do not set `RELAY_LISTEN_HOST=0.0.0.0` in production.
-- **Local HDMI panel kiosk (Linux):** optional `relay-kiosk.service` (cage + Chromium) opens `http://<av-lan-ipv4>:<port>/` only — never widens HTTP to `0.0.0.0`. Narrow sudoers for `systemctl` on that unit; Relay stays non-root. When Foyer owns Welcome/Room panel heads on the same host, disable Relay’s unit (`systemctl disable --now relay-kiosk`) — see [`LINUX.md`](LINUX.md) §7a.
+- **Local HDMI panel kiosk (Linux):** optional `relay-kiosk.service` (cage + Chromium) opens `http://<av-lan-ipv4>:<port>/` only — never widens HTTP to `0.0.0.0`. Narrow sudoers for `sudo -n systemctl` on that unit only (`deploy/sudoers.relay-kiosk`); missing drop-in → clear LINUX.md §7 error (not raw polkit). Relay stays non-root. When Foyer owns Welcome/Room panel heads on the same host, disable Relay’s unit (`systemctl disable --now relay-kiosk`) — see [`LINUX.md`](LINUX.md) §7a.
 - **Apply AV-LAN IPv4 (Linux):** configurator may set AV static/DHCP via `sudo -n nmcli` under config token + Config PIN. Targets the saved AV pick only; strips gateway + `ipv4.never-default yes`; never listens on `0.0.0.0`; privilege is narrow nmcli sudoers — not full root / not AmbientCapabilities for this path.
 
 ### Listen resolution (A2)
