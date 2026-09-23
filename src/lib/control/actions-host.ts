@@ -265,7 +265,7 @@ export const applyPanelHdmi = createServerFn({ method: "POST" })
       return { ok: false as const, message: "PIN did not match" };
     }
 
-    const { platformGate, enableLocalOutput } = await import("./kiosk");
+    const { platformGate, enableLocalOutput, disableLocalOutput } = await import("./kiosk");
     const { listVideoOutputs: scan, resolveVideoOutput } = await import("./video-outputs");
     const { writeRelayKioskEnv, livePanelKioskUrl } = await import("./panel-kiosk-env");
 
@@ -330,11 +330,33 @@ export const applyPanelHdmi = createServerFn({ method: "POST" })
     }
 
     if (!enabled) {
+      const plat = platformGate();
+      if (!plat.ok) {
+        return {
+          ok: true as const,
+          message: `${plat.message} Local HDMI settings saved (kiosk unit not touched).`,
+          kioskUrl: null as string | null,
+          restarted: false,
+          disabled: false,
+        };
+      }
+      const stopped = disableLocalOutput();
+      if (!stopped.ok) {
+        return {
+          ok: false as const,
+          message: `Local HDMI settings saved, but could not disable relay-kiosk: ${stopped.detail}`,
+          kioskUrl: null as string | null,
+          restarted: false,
+          disabled: false,
+        };
+      }
       return {
         ok: true as const,
-        message: "Local HDMI panel disabled (saved). Kiosk unit was not restarted.",
+        message: "Local HDMI panel disabled (saved). relay-kiosk unit disabled and stopped.",
         kioskUrl: null as string | null,
         restarted: false,
+        disabled: true,
+        via: stopped.via,
       };
     }
 
