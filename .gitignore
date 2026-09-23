@@ -24,3 +24,6 @@ screenshots/app-builder-*
 
 # Room working-set copies. Stock lives in data/library/.
 data/drivers/*.json
+
+# C1 venue TLS PEMs (never commit keys)
+data/tls/

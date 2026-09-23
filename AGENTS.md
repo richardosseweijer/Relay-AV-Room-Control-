@@ -23,7 +23,7 @@ admin commands.
   `LINUX.md`, `WINDOWS.md`, and this file when rules drift.
 - No drive-by refactors outside the current phase allow-list.
 - No new dependencies unless a phase requires one and `npm ci` still works.
-- Do not invent a second process, a cloud API, or a language rewrite. Venue HTTPS (B1 file PEMs) already exists — do not invent Let’s Encrypt/ACME/DNS-01 as a “fix” or default path (LE is PARKED). Do not implement Generate / venue-CA crypto unless the operator names **C1+** explicitly.
+- Do not invent a second process, a cloud API, or a language rewrite. Venue HTTPS (B1 file PEMs) already exists — do not invent Let’s Encrypt/ACME/DNS-01 as a “fix” or default path (LE is PARKED). C1 Generate (API + crypto + B1 wire) is shipped — do not re-litigate LE; do not expand into C2 UI unless the operator names **C2+**.
 - Do not weaken security to make a test pass.
 - Do not invent tools (`imagine_*` or otherwise) that are not in your tool list.
 - Do not add Grok/xAI API calls (`XAI_API_KEY` spends the owner’s quota).
@@ -46,7 +46,7 @@ Hard rules for future turns:
 - **Do not reintroduce Let’s Encrypt / ACME / DNS-01** as the default, required, or “next” cert story. It is **PARKED** for guest/venue LAN + no admin DNS + $0 + no Cloudflare/LE accounts.
 - **Do not listen on `0.0.0.0`** in production paths. AV panel/API stay on AV-LAN IPv4 (else loopback). Preview escape `RELAY_LISTEN_HOST=0.0.0.0` is explicit and not the room-PC default.
 - **AV must not depend on venue certs.** Missing PEMs / outbound None / Generate failure → soft-skip venue HTTPS / venue peer / venue nicFace only; AV HTTP stays up.
-- **C0 is docs-only.** **C1–C4** (Planned, not shipped): Generate venue CA+leaf for live NIC2 IP → auto-wire to B1 → CA download from NIC2 HTTPS after click-through → regenerate on IP drift. Do not ship Generate UI or crypto under a docs/C0 label.
+- **C0 was docs-only; C1 is shipped** (Generate API + ECDSA PEMs + B1 wire + venue HTTPS reload). **C2–C4 Planned:** Networks UI / CA download / regenerate UX / doc checkpoint tag. Do not claim C2–C4 as live.
 - Prefer factual edits to existing canonical docs over new markdown sprawl.
 
 ## Two runtimes (read this once)
