@@ -116,10 +116,10 @@ A zip cannot use **Update from GitHub**.
 
 | Script | Command | Bind | Use |
 | --- | --- | --- | --- |
-| Dev | `npm run dev` | AV-LAN IPv4 `:8080` (else loopback) | Edit / preview host |
-| Production | `npm run build` then `npm start` | AV-LAN IPv4 `:8081` (else loopback) | Pi / 24/7 |
+| Dev | `npm run dev` | AV-LAN IPv4 `:8080` (else loopback if no NICs) | Edit / preview host |
+| Production | `npm run build` then `npm start` | AV-LAN IPv4 `:8081` (else loopback if no NICs) | Pi / 24/7 |
 
-Listen host resolution: `RELAY_LISTEN_HOST` if set; else AV-LAN IPv4; AV unset → `127.0.0.1` + warning; AV set with no IPv4 → refuse. Never `0.0.0.0`.
+Listen host resolution: `RELAY_LISTEN_HOST` if set; else saved AV-LAN IPv4; **AV unset/invalid → auto-map first scanned NIC** (physical eth/en* before docker/veth/bridges; same Networks scan order; persist into room config — outbound/NIC2 untouched); chosen iface with no IPv4 yet → refuse + boot wait/retry (never `0.0.0.0`); no scanned NICs → `127.0.0.1` + warning. Never `0.0.0.0`.
 
 ```bash
 cd ~/Relay-AV-Room-Control-
@@ -137,7 +137,7 @@ sudo chown "$USER" /var/lib/relay
 export RELAY_SECRETS_FILE=/var/lib/relay/secrets.json
 ```
 
-- On the host, open the panel via the **AV IPv4** (same as tablets): `http://<av-lan-ipv4>:8081/`. Loopback `http://127.0.0.1:8081/` only works when listen is loopback (AV unset) or you set `RELAY_LISTEN_HOST=127.0.0.1` (lab only).
+- On the host, open the panel via the **AV IPv4** (same as tablets): `http://<av-lan-ipv4>:8081/`. On a fresh install AV-LAN auto-maps to the first scanned NIC so the panel is reachable for first configuration. Loopback `http://127.0.0.1:8081/` only works when no scanned NICs exist or you set `RELAY_LISTEN_HOST=127.0.0.1` (lab only).
 - Wall tablet / other device on **AV-LAN**: `http://<av-lan-ipv4>:8081/`  
   Print the AV address after setting Room → **AV-LAN** (or `ip -4 addr show <av-iface>`). Do not use the venue/internet NIC address for the panel.
 - Configurator: `http://<av-lan-ipv4>:8081/config` — PIN `1234`.
@@ -167,7 +167,7 @@ Replace example CIDRs (`192.168.25.0/24` AV, `10.20.0.0/24` venue) with yours ev
 
 | Picker | Role |
 |---|---|
-| **AV-LAN** | Trusted offline control LAN. Panel/API listen. Device sockets (except protocols already designed for open LAN such as Cast / Hue). Tablets live here. |
+| **AV-LAN** | Trusted offline control LAN. Panel/API listen. Device sockets (except protocols already designed for open LAN such as Cast / Hue). Tablets live here. **First boot:** if unset/blank/invalid, Relay auto-maps to the first scanned NIC (physical before docker/veth/bridges), persists the pick, and binds HTTP to that IPv4 once known. A valid saved pick is left alone. |
 | **LAN (internet)** | Optional venue/outbound NIC for **Update from GitHub** and optional venue HTTPS. Choose **None** for air-gap or single-NIC rooms that must not use venue — Update is then disabled/refused with a clear reason. When set and up, the Room tab shows that NIC’s live IPv4 (Refresh NICs) so you can copy the raw address without DNS/LE. |
 
 Rules that always hold:
@@ -266,7 +266,7 @@ sudo ufw status verbose
 # Expect: 8081 from your LAN CIDR only; default deny incoming
 
 ss -lptn 'sport = :8081'
-# Expect: listen on this NIC’s IPv4 (or 127.0.0.1 if AV-LAN unset) — never 0.0.0.0
+# Expect: listen on this NIC’s IPv4 (or 127.0.0.1 only if no scanned NICs) — never 0.0.0.0
 
 # From another host on the same LAN (replace IP):
 curl -sS -o /dev/null -w '%{http_code}\n' http://192.168.25.10:8081/
@@ -358,7 +358,7 @@ Optional Foyer on the same host: same as one-NIC — `8080` / `8082` from **AV C
 
 - [ ] `ip_forward` / IPv6 forwarding = `0`; no bridge joining AV and venue
 - [ ] AV-LAN has **no** default route; venue has default **or** outbound is **None**
-- [ ] `ss -lptn 'sport = :8081'` shows **AV IPv4** (or loopback if AV unset) — never `0.0.0.0`
+- [ ] `ss -lptn 'sport = :8081'` shows **AV IPv4** (or loopback only if no scanned NICs) — never `0.0.0.0`
 - [ ] ufw: default deny incoming; `8081` allowed **from AV CIDR only**
 - [ ] Did **not** run bare `ufw allow 8081/tcp`
 - [ ] Did **not** port-forward `8080` / `8081` / `8082` / `8443` to WAN

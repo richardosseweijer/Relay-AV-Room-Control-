@@ -4,8 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
-- Docs **R1**: **panel via Foyer** as the supported same-host dual-display model — Foyer owns Welcome/Room panel heads; Relay serves AV-LAN HTTP only; leave / `systemctl disable --now relay-kiosk` when Foyer drives the panel head ([`LINUX.md`](LINUX.md) §7 / §7a). Pointers in [`FOYER-RELAY.md`](FOYER-RELAY.md), ARCHITECTURE / AGENTS / SECURITY / CONTEXT / README / WINDOWS. No app/code change; no version bump. (`FOYER-RELAY.md` display note is Relay-side until the next identical sync in Foyer.)
-- Docs: expand [`LINUX.md`](LINUX.md) §5b into a detailed **one-NIC / two-NIC firewall** chapter (overview table, prerequisites, copy-paste ufw, shared checklist, troubleshooting). Optional pointer in [`SECURITY.md`](SECURITY.md). No app/code change; no version bump.
+## 0.9.52
+
+- Tag `v0.9.52`. **Fresh-install AV-LAN auto-map:** when Room → AV-LAN is unset/blank/invalid, Relay maps to the **first scanned NIC** (same Networks scan; prefer physical eth/en* over docker/veth/bridges; fall back to virtual only if that is all that exists), **persists** the pick (outbound/NIC2 untouched), and binds HTTP panel/API to that IPv4. Valid saved AV-LAN is left alone. If the chosen iface has no IPv4 yet, boot logs clearly and waits/retries — never binds `0.0.0.0`. No scanned NICs → loopback + warning (lab). Docs: LINUX Networks / listen resolution; AGENTS / ARCHITECTURE / SECURITY / CONTEXT / KNOWN_ISSUES.
+- Tests: empty → first scanned; invalid → first scanned; valid saved unchanged; skip lo/docker preference; persist write.
 
 ## 0.9.51
 
