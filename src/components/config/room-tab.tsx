@@ -5,7 +5,8 @@ import { liveNicIpv4Label } from "@/lib/control/nic-live-ip";
 import {
   venueTlsCaInstallHintList,
   venueTlsGenerateGate,
-  venueTlsSanMismatch,
+  venueTlsLifecycleFlags,
+  venueTlsRegenerateConfirmMessage,
   venueTlsStatusLines,
 } from "@/lib/control/venue-tls-ui";
 import type { RoomConfig, RoomSnapshot } from "@/lib/control/types";
@@ -118,14 +119,16 @@ export function RoomTab(props: {
   const avPick = nicChoices.find((row) => nicKey(row.name, row.index) === nicKey(draft.room.avLanNicName, draft.room.avLanNicIndex));
   const avLiveIp = liveNicIpv4Label({ unset: avUnset, ipv4: avPick?.ipv4, unsetText: "—" });
   const outboundLiveIp = liveNicIpv4Label({ unset: outboundNone, ipv4: outboundPick?.ipv4 });
+  const liveIpv4 = outboundLiveIp.kind === "ip" ? outboundLiveIp.ipv4 : null;
   const generateGate = venueTlsGenerateGate({
     outboundNone,
-    liveIpv4: outboundLiveIp.kind === "ip" ? outboundLiveIp.ipv4 : null,
+    liveIpv4,
   });
-  const sanMismatch = venueTlsSanMismatch({
+  const lifecycle = venueTlsLifecycleFlags({
     present: Boolean(venueTls?.present),
     sanIp: venueTls?.sanIp ?? null,
-    liveIpv4: outboundLiveIp.kind === "ip" ? outboundLiveIp.ipv4 : null,
+    liveIpv4,
+    leafNotAfter: venueTls?.leafNotAfter ?? null,
   });
   const tlsLines = venueTlsStatusLines(venueTls ?? { present: false });
   const caHints = venueTlsCaInstallHintList();
@@ -162,6 +165,18 @@ export function RoomTab(props: {
       flash("Generate skipped", generateGate.reason || "Cannot generate");
       return;
     }
+    // C3: explicit confirm before replacing an existing CA/leaf (never wipe trust casually).
+    if (lifecycle.needsConfirm) {
+      const ok = window.confirm(
+        venueTlsRegenerateConfirmMessage({
+          liveIpv4,
+          mismatch: lifecycle.mismatch,
+          expiryWarn: lifecycle.expiryWarn && !lifecycle.expired,
+          expired: lifecycle.expired,
+        }),
+      );
+      if (!ok) return;
+    }
     setVenueTlsBusy(true);
     setVenueTlsMsg("");
     try {
@@ -174,7 +189,10 @@ export function RoomTab(props: {
             : "reload" in res && res.reload?.skipped
               ? `Venue HTTPS: ${res.reload.reason || "skipped"}`
               : "";
-        flash("Venue certificate generated", reloadNote || "PEMs written and room paths wired.");
+        flash(
+          lifecycle.needsConfirm ? "Venue certificate regenerated" : "Venue certificate generated",
+          reloadNote || "PEMs written and room paths wired.",
+        );
         await loadVenueTls();
       } else {
         const msg = res.message || "Generate failed";
@@ -226,7 +244,7 @@ export function RoomTab(props: {
             <article className="sm:col-span-2 grid gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2">
               <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-subtle">Networks</p>
-                <Button size="sm" variant="secondary" onClick={() => void loadNics()}>Refresh NICs</Button>
+                <Button size="sm" variant="secondary" onClick={() => { void loadNics(); void loadVenueTls(); }}>Refresh NICs</Button>
               </div>
               <p className="sm:col-span-2 text-xs text-muted">On two NICs, bind device I/O to AV-LAN and GitHub update to LAN (internet). On a one-NIC box pick that NIC for update, or None for air-gapped rooms. Same NIC is allowed for testing.</p>
               <label className="grid gap-1 text-sm text-muted">AV-LAN
@@ -268,10 +286,15 @@ export function RoomTab(props: {
                       size="sm"
                       variant="secondary"
                       disabled={venueTlsBusy || !generateGate.allowed}
-                      title={generateGate.reason ?? undefined}
+                      title={
+                        generateGate.reason
+                          ?? (lifecycle.needsConfirm
+                            ? "Confirm, then replace CA + leaf for the current live NIC2 IPv4 (venue HTTPS only)."
+                            : undefined)
+                      }
                       onClick={() => void runGenerateVenueTls()}
                     >
-                      Generate venue certificate
+                      {lifecycle.needsConfirm ? "Regenerate venue certificate" : "Generate venue certificate"}
                     </Button>
                     <Button
                       size="sm"
@@ -296,9 +319,21 @@ export function RoomTab(props: {
                   {" · "}Fingerprint:{" "}
                   <span className="font-mono text-fg select-all" title={venueTls?.leafFingerprint256 ?? undefined}>{tlsLines.fingerprint}</span>
                 </p>
-                {sanMismatch.mismatch ? (
+                {lifecycle.mismatch ? (
                   <p className="text-xs text-clay">
-                    Regenerate needed — {sanMismatch.message} Use Generate again (confirm flow arrives in C3).
+                    IP drift — {lifecycle.mismatchMessage} Use <span className="font-medium text-fg">Regenerate venue certificate</span> (confirm required).
+                  </p>
+                ) : null}
+                {lifecycle.expiryWarn ? (
+                  <p className="text-xs text-clay">
+                    {lifecycle.expired ? "Expired" : "Expiring soon"}
+                    {lifecycle.daysLeft != null
+                      ? lifecycle.expired
+                        ? ` (${Math.abs(lifecycle.daysLeft)}d ago)`
+                        : ` (${lifecycle.daysLeft}d left)`
+                      : ""}
+                    {" — "}
+                    {lifecycle.expiryMessage} Use <span className="font-medium text-fg">Regenerate venue certificate</span> (confirm required).
                   </p>
                 ) : null}
                 {venueTlsMsg ? <p className="text-xs text-clay">{venueTlsMsg}</p> : null}
