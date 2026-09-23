@@ -13,7 +13,7 @@ Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds t
 | NIC | Role | Required? |
 |---|---|---|
 | **NIC1 AV-LAN** | Trusted offline control LAN. Panel/API listen here. Device/control protocols stay on AV unless already designed for open LAN (Cast, Hue, etc.). | Required |
-| **NIC2 venue/internet** | Outbound GitHub Update + optional Phase B1 HTTPS (file certs). Picker **None** = air-gap / single-NIC (no venue HTTPS). | Optional |
+| **NIC2 venue/internet** | Outbound GitHub Update + optional Phase B1 HTTPS (file certs) + B3 HMAC peer over that HTTPS. Picker **None** = air-gap / single-NIC (no venue HTTPS / no venue peer). | Optional |
 
 - NIC2 down, **None**, or a future LE failure must **not** break NIC1 / AV listen.
 - No IP forwarding or bridge between NICs (`ip_forward=0`, no `br-*` joining AV and venue).
@@ -61,6 +61,17 @@ They are easy to confuse. They are not the same control.
 
 HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex characters. Replay cache stores the digest for 90s. Peers may run only macros listed on Security. Host commands are rejected. The peer secret is not a PIN.
 
+### Peer face (B3)
+
+| Face | When | Wire |
+|---|---|---|
+| **AV-LAN** (default) | Peer host on AV subnet, or `peerFace=av` | `http://<av-ip>:8081` + HMAC; bind AV IPv4 |
+| **Venue / NIC2** | Host on outbound subnet, or `peerFace=outbound` | `https://<venue-ip>:8443` (`RELAY_HTTPS_PORT`) + HMAC under TLS; bind outbound IPv4 |
+
+- Never cleartext HTTP on the venue face. Soft-skip venue peer when outbound is **None** or TLS PEMs are missing — AV-LAN peers keep working.
+- Inbound peer on the B1 HTTPS listener uses the same `/api/peer` + HMAC middleware when certs are present.
+- Operator: point a remote `relay-host` device at the other room’s live NIC2 IP (Networks UI) + 8443, set Peer face **Venue** (or Auto when the IP is on your outbound subnet). No ACME/FQDN (B2). Per-device nicFace matrix is B4.
+
 Foyer (optional) on this PC: occupancy GET and calendar-session GET on loopback. See [`FOYER-RELAY.md`](FOYER-RELAY.md). Unsigned GET is allowed only when the **TCP peer** is loopback (`127.0.0.1` / `::1`); the body is occupancy + `host.locked` only. `Host` / `X-Forwarded-*` are not loopback. HMAC GET (LAN or loopback) returns the full peer snapshot. POST still requires HMAC. Room names do not need to match.
 
 ## Secrets on disk
@@ -89,5 +100,6 @@ Persist writes a `relay-room.json.transaction` journal, then secrets, then room 
 - Verify: `ip route`, `ss -lptn 'sport = :8081'`, `ufw status`. Listen address must be the AV IPv4 (or loopback if AV unset) — never `0.0.0.0`.
 - Outbound **None** ⇒ Update from GitHub unavailable (expected); venue HTTPS also skipped.
 - Optional venue HTTPS (B1): `RELAY_TLS_CERT` + `RELAY_TLS_KEY` (or room `tlsCertPath`/`tlsKeyPath`) with outbound NIC set. Port `RELAY_HTTPS_PORT` (default 8443). Missing certs ⇒ skip venue HTTPS only — AV HTTP stays up. No ACME yet (B2).
+- Venue peer (B3): same PEMs + outbound NIC; HMAC peer over HTTPS. Soft-skip venue peer if None/no PEMs; AV peers unchanged.
 - Do not port-forward the panel port to venue/WAN. Do not port-forward 8080, 8081, or 8082. Foyer (if installed) is a separate process; HMAC between Relay and Foyer is loopback only.
 - Do not set `RELAY_LISTEN_HOST=0.0.0.0` on a room PC.

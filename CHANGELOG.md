@@ -4,6 +4,7 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## 0.9.44 — 2026-09-23
 - Networks UI: show live DHCP IPv4 next to LAN (internet) / AV-LAN pickers (read-only; Refresh NICs). No LE/ACME.
+- NIC-split B3: HMAC peer over venue/NIC2 HTTPS (outbound bind + soft-skip when outbound None / no TLS PEMs). AV-LAN HTTP peers unchanged. Narrow `peerFace` on relay-host (auto / av / outbound). No ACME (B2), no full nicFace (B4). No tag yet.
 - NIC-split B1: optional HTTPS listener on outbound/venue NIC IPv4 (file certs via `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath`; default port 8443). Soft-skip when outbound is None or certs missing — AV HTTP unchanged. No ACME/LE (B2). No tag yet (prefer wait for B2).
 
 ## 0.9.43 — 2026-09-23

@@ -209,7 +209,7 @@ Save all calls `persistNow()`. Secrets and room JSON are written through a journ
 | Peer HMAC | `x-relay-ts` + `x-relay-auth` (64 lowercase hex). Replay cache keys the digest for 90s. Peer secret only — not the PIN. Host restart/update/reboot use that same first check. |
 | Export / import / update / reboot / ping | Configurator session required. |
 
-Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue NICs. HTTP only today (issue #15); Phase B adds HTTPS/LE on the venue NIC — not a cleartext panel there.
+Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue NICs. HTTP on AV-LAN; optional file HTTPS on venue (B1) + HMAC peer over that HTTPS (B3). LE/ACME = B2 — not a cleartext panel on venue.
 
 ---
 

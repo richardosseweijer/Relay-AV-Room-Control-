@@ -20,6 +20,7 @@ import { sendWol } from "./wol";
 import { rtpMidiPoolSize } from "./rtp-midi";
 import { encodeMtcQf, encodeMtcSysex } from "./midi-in";
 import { roomLanBind } from "./nics";
+import { planPeerTransportForDevice } from "./peer-venue";
 import { allowedLanHost, pushTrace, safeLanHttpUrl, sleep } from "./engine-policy";
 import { applySim, guardOk, mapCommandValue, parseFeedback, parseInventoryItems, pickJsonField, renderPayload } from "./engine-payload";
 import { paceDevice, tcpSessionWrite, tcpPoolSize } from "./engine-wire";
@@ -268,7 +269,7 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
   if (driver.device.type === "host" || device.driver === "relay-host.json") {
     if (!isLocalRelayHost(device.host)) {
       try {
-        const res = await signedPeerFetch(device, "GET", "/api/peer");
+        const res = await signedPeerFetch(device, "GET", "/api/peer", undefined, opts.config);
         const parsed = JSON.parse(res.text) as {
           ok?: boolean;
           message?: string;
@@ -385,7 +386,7 @@ export async function readMonitorValue(opts: {
   if (driver?.device.type === "host" || device.driver === "relay-host.json") {
     if (!isLocalRelayHost(device.host)) {
       try {
-        const res = await signedPeerFetch(device, "GET", "/api/peer");
+        const res = await signedPeerFetch(device, "GET", "/api/peer", undefined, opts.config);
         const parsed = JSON.parse(res.text) as { host?: { dim?: boolean; locked?: boolean }; vars?: Record<string, { value?: string | number }> };
         let value = "";
         if (opts.feedbackId === "panel.locked") value = parsed.host?.locked ? "1" : "0";
@@ -469,36 +470,54 @@ function isLocalRelayHost(host?: string) {
   return !h || h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0" || h === "::1";
 }
 
-function relayPeerUrl(device: { host: string; port?: number }, path: string) {
-  return `http://${device.host}:${device.port || 8081}${path}`;
-}
-
-async function signedPeerFetch(device: { host: string; port?: number; auth?: Record<string, string> }, method: string, path: string, body?: string) {
-  if (!allowedLanHost(device.host)) {
-    throw new Error("Host not on room LAN");
+async function signedPeerFetch(
+  device: Pick<DeviceInstance, "host" | "port" | "auth" | "peerFace">,
+  method: string,
+  path: string,
+  body?: string,
+  config?: RoomConfig,
+) {
+  const plan = planPeerTransportForDevice(device, config);
+  if (!plan.ok) {
+    throw new Error(plan.message);
   }
+  // Never cleartext on venue; planner already enforces https for outbound.
+  if (plan.face === "outbound" && plan.scheme !== "https") {
+    throw new Error("Venue peer refused: cleartext HTTP is not allowed on NIC2");
+  }
+  const built = safeLanHttpUrl(plan.scheme, plan.host, plan.port, path);
+  if (!built.ok) throw new Error(built.message);
   const key = device.auth?.secret || device.auth?.pin || device.auth?.token || "";
   const payload = method === "GET" ? "" : (body ?? "");
   const ts = String(Date.now());
   const { signPeer } = await import("./peer-auth");
-  const headers: Record<string, string> = { "x-relay-ts": ts, "x-relay-auth": key ? signPeer(key, method, path, ts, payload) : "" };
+  const headers: Record<string, string> = {
+    "x-relay-ts": ts,
+    "x-relay-auth": key ? signPeer(key, method, path, ts, payload) : "",
+  };
   if (method !== "GET") headers["content-type"] = "application/json";
-  return fetchTextBounded(relayPeerUrl(device, path), {
+  return requestHttpExact(
+    built.url,
     method,
+    method === "GET" ? "" : payload,
     headers,
-    body: method === "GET" ? undefined : payload,
-  }, 8000, 2 * 1024 * 1024);
+    8000,
+    2 * 1024 * 1024,
+    plan.localAddress,
+    plan.rejectUnauthorized,
+  );
 }
 
 async function callRelayPeer(
-  device: { host: string; port?: number; auth?: Record<string, string> },
+  device: Pick<DeviceInstance, "host" | "port" | "auth" | "peerFace">,
   method: string,
   path: string,
   body?: Record<string, unknown>,
+  config?: RoomConfig,
 ): Promise<CommandResult> {
   const payload = method === "GET" ? "" : JSON.stringify(body ?? {});
   try {
-    const res = await signedPeerFetch(device, method, path, payload);
+    const res = await signedPeerFetch(device, method, path, payload, config);
     const text = res.text;
     try {
       const parsed = JSON.parse(text) as { ok?: boolean; message?: string };
@@ -535,7 +554,7 @@ export async function executeCommand(opts: {
       // Peers stay macro-only (/api/peer rejects raw commands). Only forward macro.run.
       if (opts.commandId === "macro.run") {
         const target = String(resolveTemplate(opts.value, opts.vars ?? {}, opts.config.variables) ?? "");
-        return callRelayPeer(device, "POST", "/api/peer", { macroId: target });
+        return callRelayPeer(device, "POST", "/api/peer", { macroId: target }, opts.config);
       }
       return {
         ok: false,
