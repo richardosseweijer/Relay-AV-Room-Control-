@@ -18,6 +18,7 @@ Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds t
 - NIC2 down, **None**, missing PEMs, or a future venue-TLS / Generate failure must **not** break NIC1 / AV listen.
 - No IP forwarding or bridge between NICs (`ip_forward=0`, no `br-*` joining AV and venue).
 - No cleartext panel on the venue NIC. Do not set `RELAY_LISTEN_HOST=0.0.0.0` in production.
+- **Apply AV-LAN IPv4 (Linux):** configurator may set AV static/DHCP via `sudo -n nmcli` under config token + Config PIN. Targets the saved AV pick only; strips gateway + `ipv4.never-default yes`; never listens on `0.0.0.0`; privilege is narrow nmcli sudoers — not full root / not AmbientCapabilities for this path.
 
 ### Listen resolution (A2)
 

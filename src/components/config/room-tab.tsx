@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { generateVenueTls, getEditorConfig, getVenueTlsStatus, importBundle, listLanNics, rebootHost, restartHost, updateHost } from "@/lib/control/actions";
+import { applyAvLanIp, generateVenueTls, getEditorConfig, getVenueTlsStatus, importBundle, listLanNics, rebootHost, restartHost, updateHost } from "@/lib/control/actions";
 import { liveNicIpv4Label } from "@/lib/control/nic-live-ip";
 import { controlBaseUrlFrom, DEFAULT_PRODUCTION_CONTROL_PORT } from "@/lib/control/nics";
 import {
@@ -10,6 +10,7 @@ import {
   venueTlsRegenerateConfirmMessage,
   venueTlsStatusLines,
 } from "@/lib/control/venue-tls-ui";
+import { avLanIpConfirmMessage } from "@/lib/control/av-lan-ip";
 import type { RoomConfig, RoomSnapshot } from "@/lib/control/types";
 import { FOYER_END_ID, FOYER_KIND_ID, FOYER_START_ID, FOYER_TITLE_ID } from "@/lib/control/foyer-peer";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,11 @@ export function RoomTab(props: {
   const [venueTls, setVenueTls] = useState<VenueTlsStatusView>(null);
   const [venueTlsBusy, setVenueTlsBusy] = useState(false);
   const [venueTlsMsg, setVenueTlsMsg] = useState("");
+  const [avIpMode, setAvIpMode] = useState<"static" | "dhcp">("static");
+  const [avIpAddress, setAvIpAddress] = useState("");
+  const [avIpPrefix, setAvIpPrefix] = useState("24");
+  const [avIpBusy, setAvIpBusy] = useState(false);
+  const [avIpHint, setAvIpHint] = useState("");
   const loadVenueTls = useCallback(async () => {
     try {
       const res = await getVenueTlsStatus({ data: { token: token || "" } });
@@ -99,6 +105,15 @@ export function RoomTab(props: {
     }
   }, [token]);
   useEffect(() => { void loadVenueTls(); }, [loadVenueTls]);
+  useEffect(() => {
+    const net = draft.room.network;
+    if (net?.mode === "dhcp" || net?.mode === "static") setAvIpMode(net.mode);
+    const stored = String(net?.address ?? "").trim();
+    if (stored) setAvIpAddress((prev) => prev || stored);
+    if (net?.prefix != null && Number.isFinite(Number(net.prefix))) {
+      setAvIpPrefix(String(net.prefix));
+    }
+  }, [draft.room.network?.mode, draft.room.network?.address, draft.room.network?.prefix]);
 
   const nicChoices = useMemo(
     () => withStoredNic(
@@ -119,6 +134,59 @@ export function RoomTab(props: {
   const avUnset = !String(draft.room.avLanNicName ?? "").trim() && (draft.room.avLanNicIndex == null || !Number.isFinite(Number(draft.room.avLanNicIndex)));
   const avPick = nicChoices.find((row) => nicKey(row.name, row.index) === nicKey(draft.room.avLanNicName, draft.room.avLanNicIndex));
   const avLiveIp = liveNicIpv4Label({ unset: avUnset, ipv4: avPick?.ipv4, unsetText: "—" });
+  const avIpDisabled = avUnset || avIpBusy || !token;
+  useEffect(() => {
+    const live = avPick?.ipv4 ? String(avPick.ipv4).trim() : "";
+    if (live) setAvIpAddress((prev) => prev || live);
+  }, [avPick?.ipv4]);
+  const runApplyAvLanIp = async () => {
+    if (avUnset) {
+      flash("Apply blocked", "Pick AV-LAN first, Save all, then Apply.");
+      return;
+    }
+    const iface = avPick?.name || "AV-LAN";
+    const port = typeof window !== "undefined" && window.location.port
+      ? Number(window.location.port)
+      : DEFAULT_PRODUCTION_CONTROL_PORT;
+    const confirmText = avLanIpConfirmMessage({
+      mode: avIpMode,
+      iface,
+      address: avIpMode === "static" ? avIpAddress : null,
+      prefix: avIpMode === "static" ? Number(avIpPrefix) : null,
+      port: Number.isFinite(port) && port > 0 ? port : DEFAULT_PRODUCTION_CONTROL_PORT,
+    });
+    if (!window.confirm(confirmText)) return;
+    const pin = window.prompt("Config PIN") || "";
+    if (!pin) return;
+    setAvIpBusy(true);
+    setAvIpHint("");
+    try {
+      const res = await applyAvLanIp({
+        data: {
+          token: token || "",
+          pin,
+          mode: avIpMode,
+          address: avIpMode === "static" ? avIpAddress : undefined,
+          prefix: avIpMode === "static" ? Number(avIpPrefix) : undefined,
+        },
+      });
+      if (res.ok) {
+        const msg = res.message || "Applied.";
+        setAvIpHint(msg);
+        flash("AV-LAN IP applied", msg);
+        if ("panelUrl" in res && res.panelUrl) setAvIpHint(String(res.panelUrl) + " — " + msg);
+      } else {
+        flash("AV-LAN IP apply failed", res.message || "Apply failed");
+        setAvIpHint(res.message || "Apply failed");
+      }
+    } catch {
+      flash("AV-LAN IP apply failed", "Request error");
+      setAvIpHint("Request error");
+    } finally {
+      setAvIpBusy(false);
+      void loadNics();
+    }
+  };
 
   const controlPort = typeof window !== "undefined" && window.location.port
     ? Number(window.location.port)
@@ -270,6 +338,64 @@ export function RoomTab(props: {
                     : <span className="text-muted">{avLiveIp.text}</span>}
                   {" · "}Device sockets and tablets. No default route on a two-NIC room PC.
                 </span>
+                <div className="mt-2 grid gap-2 rounded-lg border border-border bg-raised/40 p-3">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-subtle">AV-LAN IPv4 (Linux)</p>
+                  <label className="grid gap-1 text-sm text-muted">Mode
+                    <select
+                      className={fieldClass()}
+                      value={avIpMode}
+                      disabled={avIpDisabled}
+                      onChange={(e) => setAvIpMode(e.target.value === "dhcp" ? "dhcp" : "static")}
+                    >
+                      <option value="static">Static</option>
+                      <option value="dhcp">DHCP</option>
+                    </select>
+                  </label>
+                  {avIpMode === "static" ? (
+                    <div className="grid gap-2 sm:grid-cols-[1fr_7rem]">
+                      <label className="grid gap-1 text-sm text-muted">Address
+                        <input
+                          className={fieldClass()}
+                          value={avIpAddress}
+                          disabled={avIpDisabled}
+                          autoComplete="off"
+                          placeholder="10.0.25.10"
+                          onChange={(e) => setAvIpAddress(e.target.value)}
+                        />
+                      </label>
+                      <label className="grid gap-1 text-sm text-muted">Prefix
+                        <input
+                          className={fieldClass()}
+                          value={avIpPrefix}
+                          disabled={avIpDisabled}
+                          inputMode="numeric"
+                          autoComplete="off"
+                          placeholder="24"
+                          onChange={(e) => setAvIpPrefix(e.target.value)}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted">DHCP clears a static address on the AV connection and keeps never-default (no gateway on AV).</p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={avIpDisabled}
+                      onClick={() => { void runApplyAvLanIp(); }}
+                    >
+                      {avIpBusy ? "Applying…" : "Apply AV-LAN IP"}
+                    </Button>
+                    <span className="text-xs text-muted">
+                      {avUnset
+                        ? "Pick AV-LAN first (Save all), then Apply."
+                        : `${avPick?.name || "AV-LAN"} · confirm + Config PIN · restarts Relay · Linux/nmcli only`}
+                    </span>
+                  </div>
+                  {avIpHint ? <p className="text-xs text-muted break-all">{avIpHint}</p> : null}
+                  <p className="text-xs text-muted">Not part of Save all — Apply writes the OS address, then persists room.network and restarts. No gateway/DNS fields; venue NIC untouched.</p>
+                </div>
               </label>
               <label className="grid gap-1 text-sm text-muted">LAN (internet)
                 <select className={fieldClass()} value={outboundNone ? "" : nicKey(draft.room.outboundNicName, draft.room.outboundNicIndex)} onChange={(e) => pickNic("out", e.target.value)}>
