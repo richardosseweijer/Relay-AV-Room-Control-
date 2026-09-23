@@ -9,6 +9,7 @@ import {
   DEVICE_VENUE_SKIP_OUTBOUND_NONE,
   DEVICE_VENUE_SKIP_NO_BIND,
   DEVICE_VENUE_SKIP_CLEARTEXT,
+  DEVICE_VENUE_SKIP_INVENTORY_CLEARTEXT,
   DEVICE_VENUE_AV_ONLY,
   DEVICE_VENUE_SKIP_BAD_HOST,
 } from "../src/lib/control/device-face.ts";
@@ -125,6 +126,12 @@ test("deviceHostAllowed AV uses RFC1918; outbound needs IPv4 literal", () => {
   const bad = deviceHostAllowed("outbound", "relay.example");
   assert.equal(bad.ok, false);
   if (!bad.ok) assert.equal(bad.message, DEVICE_VENUE_SKIP_BAD_HOST);
+});
+
+test("inventory cleartext refusal message is pointed", () => {
+  assert.match(DEVICE_VENUE_SKIP_INVENTORY_CLEARTEXT, /Inventory httpPath/);
+  assert.match(DEVICE_VENUE_SKIP_INVENTORY_CLEARTEXT, /nicFace=outbound/);
+  assert.match(DEVICE_VENUE_SKIP_CLEARTEXT, /forbids cleartext/);
 });
 
 test("peerFace auto path not rewritten by nicFace default (source pin)", async () => {
