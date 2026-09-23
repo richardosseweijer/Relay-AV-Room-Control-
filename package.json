@@ -1,6 +1,6 @@
 {
   "name": "relay",
-  "version": "0.9.45",
+  "version": "0.9.46",
   "license": "MIT",
   "private": true,
   "sideEffects": false,

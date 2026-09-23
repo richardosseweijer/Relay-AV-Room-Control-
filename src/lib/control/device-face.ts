@@ -11,7 +11,7 @@
  * - No cleartext HTTP/WS on venue (http / websocket → clear error).
  * - Multicast AV protocols (sACN, ipMIDI multicast) stay AV-only.
  * - Cast / https / tls-websocket may use outbound bind (TLS already).
- * - No ACME (B2). No IP forward. No 0.0.0.0 listen.
+ * - LE/ACME PARKED (was B2). No IP forward. No 0.0.0.0 listen.
  */
 import type { DeviceInstance, LanProtocol, RoomConfig } from "./types";
 import { allowedLanHost } from "./engine-policy.ts";
@@ -45,7 +45,7 @@ export const DEVICE_VENUE_AV_ONLY =
   "Protocol stays on AV-LAN (multicast / AV-only by design); nicFace=outbound is invalid for this driver.";
 
 export const DEVICE_VENUE_SKIP_BAD_HOST =
-  "Venue device face: host must be an IPv4 address (no DNS until B2).";
+  "Venue device face: host must be an IPv4 address (no DNS; LE/FQDN PARKED).";
 
 /** Normalize device.nicFace / auth.nicFace. Empty = av (back-compat). */
 export function readNicFace(device: {
@@ -62,7 +62,7 @@ export type DeviceBindPlan =
       ok: true;
       face: NicFace;
       localAddress?: string;
-      /** Soft TLS verify for venue HTTPS until B2 LE (mirrors peer-venue). */
+      /** Soft TLS verify for venue HTTPS (LE PARKED; mirrors peer-venue). */
       rejectUnauthorized: boolean;
     }
   | { ok: false; face: NicFace; message: string };
@@ -155,7 +155,7 @@ export function nicFaceProtocolGate(
 
 /**
  * Host allow for device I/O. AV face = existing RFC1918 gate.
- * Outbound face = IPv4 literal (public or private) like B3 venue peer; no DNS until B2.
+ * Outbound face = IPv4 literal (public or private) like B3 venue peer; no DNS (LE/FQDN PARKED).
  */
 export function deviceHostAllowed(
   face: NicFace,
