@@ -4,6 +4,8 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Docs: expand [`LINUX.md`](LINUX.md) §5b into a detailed **one-NIC / two-NIC firewall** chapter (overview table, prerequisites, copy-paste ufw, shared checklist, troubleshooting). Optional pointer in [`SECURITY.md`](SECURITY.md). No app/code change; no version bump.
+
 ## 0.9.51
 
 - Tag `v0.9.51`. **Local HDMI panel kiosk** (Linux): Room → Local display lists DRM outputs, saves `panelHdmiEnabled` / `panelHdmiOutputName` / `panelHdmiOutputIndex` + `data/relay-kiosk.env` (`RELAY_VIDEO_OUTPUT` / `RELAY_KIOSK_URL`), restarts `relay-kiosk.service` (cage + Chromium). Kiosk URL is the live AV-LAN panel root — never `0.0.0.0`. Docs: LINUX §7, WINDOWS Linux-only note. Tests: DRM fixture, resolve, env body, restart argv, URL builder.
