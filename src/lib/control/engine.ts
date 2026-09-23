@@ -499,7 +499,10 @@ function isLocalRelayHost(host?: string) {
 }
 
 async function signedPeerFetch(
-  device: Pick<DeviceInstance, "host" | "port" | "auth" | "peerFace">,
+  device: Pick<
+    DeviceInstance,
+    "host" | "port" | "auth" | "peerFace" | "peerTrustedCaPath" | "peerTrustedCaPem"
+  >,
   method: string,
   path: string,
   body?: string,
@@ -533,11 +536,15 @@ async function signedPeerFetch(
     2 * 1024 * 1024,
     plan.localAddress,
     plan.rejectUnauthorized,
+    plan.ca,
   );
 }
 
 async function callRelayPeer(
-  device: Pick<DeviceInstance, "host" | "port" | "auth" | "peerFace">,
+  device: Pick<
+    DeviceInstance,
+    "host" | "port" | "auth" | "peerFace" | "peerTrustedCaPath" | "peerTrustedCaPem"
+  >,
   method: string,
   path: string,
   body?: Record<string, unknown>,

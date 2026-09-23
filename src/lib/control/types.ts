@@ -437,6 +437,17 @@ export type DeviceInstance = {
    */
   peerFace?: "av" | "outbound" | null;
   /**
+   * Trusted peer CA for venue HTTPS (strict TLS verify). Path to the remote room’s
+   * Download CA PEM (or this room’s data/tls/venue/ca.cert.pem for same-install loops).
+   * Required when peerFace resolves to venue; fail-closed if missing. Also auth.peerTrustedCaPath.
+   */
+  peerTrustedCaPath?: string | null;
+  /**
+   * Optional inline CA PEM paste (same trust as peerTrustedCaPath). Prefer path in room JSON.
+   * Also auth.peerTrustedCaPem. Env fallback: RELAY_PEER_TRUSTED_CA.
+   */
+  peerTrustedCaPem?: string | null;
+  /**
    * B4 per-device NIC face for general device I/O bind (localAddress).
    * unset / "av" = AV-LAN bind (default, back-compat). "outbound" = venue/NIC2 bind.
    * Soft-fails when outbound None / no IPv4. No auto. Does not replace peerFace for HMAC peers.
