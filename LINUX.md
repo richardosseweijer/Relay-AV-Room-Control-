@@ -1,6 +1,6 @@
 # Relay — Linux / Raspberry Pi from a blank install
 
-Install **`main`** from GitHub (that is the supported tree). Current package version is **0.9.53**. Confirm with the Room tab version field or `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
+Install **`main`** from GitHub (that is the supported tree). Current package version is **0.9.54**. Confirm with the Room tab version field or `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
 
 Default configurator PIN after first start: `1234`. Open `/config` once and set a stronger PIN. New rooms default to **Panel PIN**: every tablet unlocks with that PIN and gets its own session (30 days, sliding). **Open on LAN** is a separate Security setting that skips the panel PIN for anyone who can reach port 8081 — use it only on the room VLAN. Do not confuse it with **open LAN control** (unauthenticated `fireCommand`). See `SECURITY.md`.
 
@@ -600,8 +600,8 @@ Supported path when Foyer and Relay share one PC and Foyer Setup has a **Room pa
 Operator steps:
 
 1. **Foyer Setup** — set **Welcome HDMI** and/or **Room panel HDMI** (different connectors if both). Room panel Relay URL = this PC’s AV-LAN base (`http://<av-lan-ipv4>:8081`). Lab checklist: Foyer [`INSTALL.md`](https://github.com/richardosseweijer/Foyer-Room-Signage/blob/main/INSTALL.md) §7b / §7c.
-2. **Relay Configurator → Room → Local display (HDMI)** — leave **Enable local HDMI panel** unchecked (default). Saving with it off records the preference; it does **not** stop a unit that is already running.
-3. **Stop and disable the Relay kiosk unit** on the room PC (required if it was ever enabled):
+2. **Relay Configurator → Room → Local display (HDMI)** — leave **Enable local HDMI panel** unchecked (default), or **uncheck** it and **Save**. Unchecking and saving runs `systemctl disable --now relay-kiosk` (bare, then `sudo -n`) so the unit cannot fight Foyer’s dual-head seat. Needs `/etc/sudoers.d/relay-kiosk` (§7c / `scripts/install-host-sudoers.sh`); missing sudoers → clear operator error pointing here.
+3. **CLI fallback** (optional if the unit was enabled before sudoers / Configurator save):
 
 ```bash
 sudo systemctl disable --now relay-kiosk
@@ -694,7 +694,7 @@ Room → **Local display (HDMI)** saves `data/relay-kiosk.env` (`RELAY_VIDEO_OUT
 
 Configurator restart needs passwordless `systemctl` for this unit only. Relay stays non-root and runs `sudo -n systemctl restart relay-kiosk.service`. Missing sudoers → clear operator error pointing here (not raw polkit text).
 
-**Required once on the appliance** (host `/etc`, not the git tree): Room → Local display **Save** can write `data/relay-kiosk.env` successfully while **restart** still fails with polkit “interactive authentication” / Access denied if `/etc/sudoers.d/relay-kiosk` is missing. `git pull`, in-app **Update from GitHub**, and reboot refresh code (`main` / `v0.9.53+`) — they do **not** create or refresh this drop-in. Install once below; re-run if `User=` on `relay.service` / `relay-kiosk.service` changes.
+**Required once on the appliance** (host `/etc`, not the git tree): Room → Local display **Save** can write `data/relay-kiosk.env` successfully while **restart** still fails with polkit “interactive authentication” / Access denied if `/etc/sudoers.d/relay-kiosk` is missing. `git pull`, in-app **Update from GitHub**, and reboot refresh code (`main` / `v0.9.54+`) — they do **not** create or refresh this drop-in. Install once below; re-run if `User=` on `relay.service` / `relay-kiosk.service` changes.
 
 ```bash
 # From the repo checkout — substitutes USER in both deploy templates, installs
