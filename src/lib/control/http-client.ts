@@ -58,8 +58,10 @@ export function requestHttpExact(
   timeout: number,
   maxBytes = DEFAULT_MAX_RESPONSE_BYTES,
   localAddress?: string,
-  /** Venue peer self-signed / venue-CA PEMs (LE PARKED); soft verify; default verifies. */
+  /** TLS verify (default true). Venue peers pass true + ca = trusted peer CA PEM. */
   rejectUnauthorized = true,
+  /** Trusted CA PEM for strict venue peer verify (Node tls `ca`). */
+  ca?: string | Buffer,
 ): Promise<{ ok: boolean; status: number; text: string }> {
   return new Promise((resolve) => {
     let parsed: URL;
@@ -75,6 +77,13 @@ export function requestHttpExact(
     if (payload && !Object.keys(hdrs).some((k) => k.toLowerCase() === "content-length")) {
       hdrs["Content-Length"] = String(Buffer.byteLength(payload));
     }
+    const tlsOpts =
+      parsed.protocol === "https:"
+        ? {
+            rejectUnauthorized,
+            ...(ca != null && String(ca).length ? { ca } : {}),
+          }
+        : {};
     const req = lib.request({
       protocol: parsed.protocol,
       hostname: parsed.hostname,
@@ -83,7 +92,7 @@ export function requestHttpExact(
       method: method.toUpperCase(),
       headers: hdrs,
       localAddress,
-      ...(parsed.protocol === "https:" ? { rejectUnauthorized } : {}),
+      ...tlsOpts,
     }, (res) => {
       const chunks: Buffer[] = [];
       let size = 0;
