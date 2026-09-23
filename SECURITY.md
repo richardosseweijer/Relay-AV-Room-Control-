@@ -25,7 +25,7 @@ Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds t
 
 1. `RELAY_LISTEN_HOST` env override if set (escape hatch; do not use `0.0.0.0` in production).
 2. Else room **AV-LAN** pick → that NIC’s IPv4.
-3. AV unset → `127.0.0.1` + warning (loopback only).
+3. AV unset/invalid → auto-map **first scanned NIC** (physical eth/en* before docker/veth/bridges; persist); bind that IPv4. No scanned NICs → `127.0.0.1` + warning.
 4. AV set but missing / no IPv4 → refuse listen (never widen to all interfaces).
 
 Tablet URL (AV): `http://<av-lan-ip>:8081` (or configured `PORT`). Optional venue URL when B1 certs are present: `https://<outbound-ip>:8443` (`RELAY_HTTPS_PORT`). LE/ACME parked; in-box PEMs now; Generate + Networks UI / CA download / regenerate lifecycle shipped (C1–C3); C4 docs checkpoint `v0.9.46`.
@@ -91,7 +91,7 @@ HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex 
 
 Foyer (optional) on this PC: occupancy GET to Relay on **AV-LAN `:8081`** (or loopback lab); calendar-session GET on Foyer loopback `:8080`. See [`FOYER-RELAY.md`](FOYER-RELAY.md). Unsigned GET is allowed when the **TCP peer** is loopback (`127.0.0.1` / `::1`) **or equals the HTTP listen host** (same-PC AV hairpin); the body is occupancy + `host.locked` only. `Host` / `X-Forwarded-*` are not local. HMAC GET (LAN or loopback) returns the full peer snapshot. POST still requires HMAC. Room names do not need to match.
 
-**Foyer control URL (fixed):** Relay production still binds HTTP to the AV-LAN IPv4 only (never `0.0.0.0`). The advertised panel / Foyer Relay URL prefers that live AV IPv4 (`controlBaseUrlFrom`; Room → Occupancy paste hint). Soft-fail when AV unset / no IPv4. Unsigned `/api/peer` GET treats TCP peer == listen host as local (same-PC hairpin), same as loopback. Lab escape only: `RELAY_LISTEN_HOST=127.0.0.1`. Do not widen listen to all interfaces. See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
+**Foyer control URL (fixed):** Relay production still binds HTTP to the AV-LAN IPv4 only (never `0.0.0.0`). The advertised panel / Foyer Relay URL prefers that live AV IPv4 (`controlBaseUrlFrom`; Room → Occupancy paste hint). Soft-fail when no scanned NICs / no IPv4 (unset auto-maps like listen). Unsigned `/api/peer` GET treats TCP peer == listen host as local (same-PC hairpin), same as loopback. Lab escape only: `RELAY_LISTEN_HOST=127.0.0.1`. Do not widen listen to all interfaces. See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 
 ## Venue TLS inventory (C0)
 
@@ -228,7 +228,7 @@ Room-PC ufw for **one-NIC** and **two-NIC** builds lives in [`LINUX.md` §5b](LI
 - **AV-LAN** has **no default route**. **LAN (internet)** has the default route, **or** is **None** (air-gap / single-NIC; Update unavailable).
 - `sysctl net.ipv4.ip_forward=0` (and IPv6 forward off). No bridge between AV and venue NICs.
 - ufw: allow panel port **from AV-LAN CIDR only** — not from the venue NIC / WAN / anywhere. Do not `ufw allow 8081/tcp` from anywhere. Detail: [`LINUX.md` §5b](LINUX.md).
-- Verify: `ip route`, `ss -lptn 'sport = :8081'`, `ufw status`. Listen address must be the AV IPv4 (or loopback if AV unset) — never `0.0.0.0`.
+- Verify: `ip route`, `ss -lptn 'sport = :8081'`, `ufw status`. Listen address must be the AV IPv4 (or loopback only if no scanned NICs) — never `0.0.0.0`.
 - Outbound **None** ⇒ Update from GitHub unavailable (expected); venue HTTPS also skipped.
 - Optional venue HTTPS (B1): `RELAY_TLS_CERT` + `RELAY_TLS_KEY` (or room `tlsCertPath`/`tlsKeyPath`) with outbound NIC set. Port `RELAY_HTTPS_PORT` (default 8443). Missing certs ⇒ skip venue HTTPS only — AV HTTP stays up. LE/ACME parked — not required.
 - Venue peer (B3): same server PEMs + outbound NIC; HMAC peer over HTTPS; **strict trusted peer CA** (fail-closed if CA missing). Soft-skip venue peer if None/no server PEMs; AV peers unchanged.

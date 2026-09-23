@@ -27,12 +27,21 @@ test("panelKioskUrlFrom: never advertises 0.0.0.0", () => {
   if (!res.ok) assert.match(res.reason, /0\.0\.0\.0/);
 });
 
-test("panelKioskUrlFrom: AV unset soft-fail (not loopback URL)", () => {
+test("panelKioskUrlFrom: AV unset → first scanned (not loopback URL)", () => {
   const res = panelKioskUrlFrom({ nics, pick: {}, port: 8081 });
+  assert.equal(res.ok, true);
+  if (res.ok) {
+    assert.equal(res.url, "http://10.0.25.10:8081/");
+    assert.match(String(res.warning), /auto-mapped/i);
+  }
+});
+
+test("panelKioskUrlFrom: no scanned NICs soft-fail (not loopback URL)", () => {
+  const res = panelKioskUrlFrom({ nics: [], pick: {}, port: 8081 });
   assert.equal(res.ok, false);
   if (!res.ok) {
     assert.equal("url" in res, false);
-    assert.match(res.reason, /AV-LAN/i);
+    assert.match(res.reason, /AV-LAN|scanned NIC/i);
   }
 });
 
