@@ -152,7 +152,29 @@ export function DevicesTab(props: {
                                   <option value="av">AV-LAN (default)</option>
                                   <option value="outbound">Venue / NIC2</option>
                                 </select>
-                                <span className="text-xs text-muted">Bind source NIC for this device (B4). Default AV. Venue soft-fails if outbound None / no IPv4. No cleartext HTTP/WS on venue; sACN / ipMIDI multicast stay AV-only. Cast/HTTPS OK. Relay HMAC peers use Peer face, not this.</span>
+                                <span className="text-xs text-muted">Bind source NIC for this device (B4). Default AV. Venue soft-fails if outbound None / no IPv4. No cleartext HTTP/WS on venue; sACN / ipMIDI / Cast stay AV-only. HTTPS/TLS-WS need device CA or sha256 pin below. Relay HMAC peers use Peer face, not this.</span>
+                              </label>
+                              <label className="grid gap-1 text-sm text-muted">Device trusted CA path
+                                <input
+                                  className={fieldClass()}
+                                  value={device.deviceTrustedCaPath ?? ""}
+                                  placeholder="data/tls/devices/tv-ca.cert.pem"
+                                  onChange={(e) => update((c) => {
+                                    c.devices[index]!.deviceTrustedCaPath = e.target.value.trim() || null;
+                                  })}
+                                />
+                                <span className="text-xs text-muted">For HTTPS / tls-websocket. Venue (nicFace=outbound) requires this or a sha256 pin below — fail-closed if missing. AV without CA/pin uses the system trust store (self-signed needs CA or pin). Not for relay-host peers (use Trusted peer CA).</span>
+                              </label>
+                              <label className="grid gap-1 text-sm text-muted">Device cert sha256 pin
+                                <input
+                                  className={fieldClass()}
+                                  value={device.tlsFingerprintSha256 ?? ""}
+                                  placeholder="AA:BB:… or bare hex"
+                                  onChange={(e) => update((c) => {
+                                    c.devices[index]!.tlsFingerprintSha256 = e.target.value.trim() || null;
+                                  })}
+                                />
+                                <span className="text-xs text-muted">Optional pin of the device leaf fingerprint (openssl x509 -fingerprint -sha256). Explicit trust for self-signed gear; wrong pin fails closed.</span>
                               </label>
                             </>
                           ) : null}
