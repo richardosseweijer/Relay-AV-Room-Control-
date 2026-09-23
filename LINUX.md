@@ -176,7 +176,7 @@ Rules that always hold:
 - AV-LAN must **not** hold the default route.
 - NIC2 down / None / missing PEMs / venue-TLS Generate failure must **not** break NIC1.
 - Same NIC on both pickers is allowed on a test box only.
-- Panel HDMI kiosk (§7) is local display only — **no new inbound ports**.
+- Local panel display (§7): prefer **panel via Foyer** on dual-head; Relay `relay-kiosk` optional/off when Foyer owns the panel head — **no new inbound ports**.
 
 #### Prerequisites
 
@@ -366,7 +366,7 @@ Optional Foyer on the same host: same as one-NIC — `8080` / `8082` from **AV C
 - [ ] Two-NIC: `8443` closed **or** scoped to known venue/admin CIDR (never “any”)
 - [ ] Outbound **None** ⇒ expect Update disabled and no venue HTTPS face
 - [ ] After any AV IP Apply / prefix change: ufw CIDR re-checked
-- [ ] Panel HDMI kiosk (§7) optional — local only; no extra inbound ports
+- [ ] Local panel (§7): dual-head with Foyer → disable `relay-kiosk` (§7a); else optional Relay HDMI kiosk (§7b/§7c) — local only; no extra inbound ports
 - [ ] Curl from an AV host reaches the panel; curl from the wrong net does not
 
 #### D. Troubleshooting
@@ -576,11 +576,46 @@ ss -lptn 'sport = :8081'
 ---
 
 
-## 7. Panel on local HDMI (kiosk)
+## 7. Local panel display (HDMI)
 
-Optional. Same pattern as Foyer welcome kiosk: **cage** on tty1 + Chromium on Wayland, pinned to one DRM connector. The kiosk opens the **live AV-LAN panel URL** (`http://<av-lan-ipv4>:8081/`), not `127.0.0.1` and never `0.0.0.0`. HTTP listen stays AV-LAN only.
+Two supported layouts on a dual-head room PC (e.g. Wyse 5070 / Ubuntu Server, two DP/HDMI):
 
-Skip until §5 answers on the AV IPv4 and §6 has `relay.service` enabled.
+| Model | Display owner | Relay role | Use when |
+|---|---|---|---|
+| **Panel via Foyer** (preferred same-host dual display) | Foyer (`foyer-kiosk` / sway + up to two Chromiums) | Serves HTTP on AV-LAN only (`:8081`). No local compositor. | Welcome on one head + Relay control UI on the other, both under Foyer |
+| **Relay local HDMI kiosk** (optional) | Relay (`relay-kiosk` / cage + Chromium on tty1) | Serves HTTP **and** paints the panel on one DRM connector | Relay-only box, or Foyer not driving a Room panel head |
+
+**Do not run both compositors on the same host.** `relay-kiosk` and `foyer-kiosk` both take tty1 / DRM. Two seats fight the console and can blank the other outputs. When Foyer paints the Room panel head, leave Relay’s kiosk **off** (§7a).
+
+HTTP listen is unchanged in either model: AV-LAN IPv4 only (`http://<av-lan-ipv4>:8081/`), never `0.0.0.0`.
+
+### 7a. Panel via Foyer — disable Relay `relay-kiosk`
+
+Supported path when Foyer and Relay share one PC and Foyer Setup has a **Room panel HDMI** pick (Welcome + Room panel, or Room-panel-only). Foyer owns the displays; Relay only answers on AV-LAN.
+
+Operator steps:
+
+1. **Foyer Setup** — set **Welcome HDMI** and/or **Room panel HDMI** (different connectors if both). Room panel Relay URL = this PC’s AV-LAN base (`http://<av-lan-ipv4>:8081`). Lab checklist: Foyer [`INSTALL.md`](https://github.com/richardosseweijer/Foyer-Room-Signage/blob/main/INSTALL.md) §7b / §7c.
+2. **Relay Configurator → Room → Local display (HDMI)** — leave **Enable local HDMI panel** unchecked (default). Saving with it off records the preference; it does **not** stop a unit that is already running.
+3. **Stop and disable the Relay kiosk unit** on the room PC (required if it was ever enabled):
+
+```bash
+sudo systemctl disable --now relay-kiosk
+systemctl is-enabled relay-kiosk || true   # expect: disabled / not-found
+systemctl status relay-kiosk --no-pager || true
+```
+
+Temporary stop without clearing enablement: `sudo systemctl stop relay-kiosk`.
+
+Confirm only Foyer’s unit owns the seat: `systemctl status foyer-kiosk --no-pager` (on the Foyer install). Wire / occupancy stay [`FOYER-RELAY.md`](FOYER-RELAY.md).
+
+If you later need Relay’s own HDMI kiosk again (no Foyer Room panel on this host), re-enable with §7b / §7c after Foyer’s Room panel pick is cleared and `foyer-kiosk` is not claiming that head.
+
+### 7b. Relay local HDMI kiosk (optional)
+
+Same pattern as a single-head Foyer welcome kiosk: **cage** on tty1 + Chromium on Wayland, pinned to one DRM connector. The kiosk opens the **live AV-LAN panel URL** (`http://<av-lan-ipv4>:8081/`), not `127.0.0.1` and never `0.0.0.0`. HTTP listen stays AV-LAN only.
+
+Skip until §5 answers on the AV IPv4 and §6 has `relay.service` enabled. Skip entirely when §7a applies (Foyer drives the Room panel head).
 
 ```bash
 sudo apt-get install -y seatd cage wlr-randr fonts-liberation fonts-noto-core mesa-vulkan-drivers libgl1-mesa-dri
@@ -602,7 +637,7 @@ Disable blanking and sleep:
 sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
 ```
 
-### 7a. Kiosk unit
+### 7c. Kiosk unit
 
 Cage needs a real HDMI connected **before** start. This unit **takes tty1** from the Ubuntu login prompt so Chromium covers that console. SSH is unchanged.
 

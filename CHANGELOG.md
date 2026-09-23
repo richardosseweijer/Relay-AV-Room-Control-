@@ -4,6 +4,7 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Docs **R1**: **panel via Foyer** as the supported same-host dual-display model — Foyer owns Welcome/Room panel heads; Relay serves AV-LAN HTTP only; leave / `systemctl disable --now relay-kiosk` when Foyer drives the panel head ([`LINUX.md`](LINUX.md) §7 / §7a). Pointers in [`FOYER-RELAY.md`](FOYER-RELAY.md), ARCHITECTURE / AGENTS / SECURITY / CONTEXT / README / WINDOWS. No app/code change; no version bump. (`FOYER-RELAY.md` display note is Relay-side until the next identical sync in Foyer.)
 - Docs: expand [`LINUX.md`](LINUX.md) §5b into a detailed **one-NIC / two-NIC firewall** chapter (overview table, prerequisites, copy-paste ufw, shared checklist, troubleshooting). Optional pointer in [`SECURITY.md`](SECURITY.md). No app/code change; no version bump.
 
 ## 0.9.51

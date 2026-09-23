@@ -18,6 +18,8 @@ The repository also contains Vite / TanStack Start scaffolding used to boot the 
 
 Optional **local HDMI panel kiosk** (`relay-kiosk.service`): cage + Chromium on tty1 opens the AV-LAN panel root URL written to `data/relay-kiosk.env`. Does not change the HTTP listen bind.
 
+**Same-host dual display with Foyer:** prefer **panel via Foyer** — Foyer’s `foyer-kiosk` (sway) owns Welcome and/or Room panel heads; Relay only serves AV-LAN HTTP. Leave `relay-kiosk` disabled/off so two compositors do not fight tty1 / DRM ([`LINUX.md`](LINUX.md) §7a). Relay-only HDMI kiosk remains available when Foyer is not driving a Room panel head ([`LINUX.md`](LINUX.md) §7b–§7c).
+
 ## 2. Process model
 
 One Node.js process serves three surfaces:
