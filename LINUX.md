@@ -1,6 +1,6 @@
 # Relay — Linux / Raspberry Pi from a blank install
 
-Install **`main`** from GitHub (that is the supported tree). Current package version is **0.9.54**. Confirm with the Room tab version field or `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
+Install **`main`** from GitHub (that is the supported tree). Current package version is **0.9.55**. Confirm with the Room tab version field or `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
 
 Default configurator PIN after first start: `1234`. Open `/config` once and set a stronger PIN. New rooms default to **Panel PIN**: every tablet unlocks with that PIN and gets its own session (30 days, sliding). **Open on LAN** is a separate Security setting that skips the panel PIN for anyone who can reach port 8081 — use it only on the room VLAN. Do not confuse it with **open LAN control** (unauthenticated `fireCommand`). See `SECURITY.md`.
 
@@ -368,7 +368,8 @@ Optional Foyer on the same host: same as one-NIC — `8080` / `8082` from **AV C
 - [ ] Two-NIC: `8443` closed **or** scoped to known venue/admin CIDR (never “any”)
 - [ ] Outbound **None** ⇒ expect Update disabled and no venue HTTPS face
 - [ ] After any AV IP Apply / prefix change: ufw CIDR re-checked
-- [ ] Local panel (§7): dual-head with Foyer → disable `relay-kiosk` (§7a); else optional Relay HDMI kiosk (§7b/§7c) — local only; no extra inbound ports
+- [ ] Host units (§6a): `sudo bash scripts/install-host.sh` once (`relay` enabled; `relay-kiosk` left disabled by default)
+- [ ] Local panel (§7): dual-head with Foyer → keep `relay-kiosk` disabled (§7a); else optional `--enable-kiosk` / §7b/§7c — local only; no extra inbound ports
 - [ ] Curl from an AV host reaches the panel; curl from the wrong net does not
 
 #### D. Troubleshooting
@@ -438,22 +439,68 @@ Outbound **None** ⇒ Room → **Update from GitHub** unavailable until you pick
 
 ## 6. Start on boot (systemd)
 
-Linux starts background programs from **unit files**. Relay’s unit is a new file you create:
+Linux starts background programs from **unit files**. Prefer the host installer (substitutes `User=` + checkout path from `deploy/`, `daemon-reload`, enables `relay.service`). It also installs `relay-kiosk.service` but **does not enable it** by default — Foyer dual-head prefers the kiosk off (§7a).
 
-`/etc/systemd/system/relay.service`
+Stop the test server from §5 first (Ctrl+C) so port 8081 is free. Finish `npm ci --include=dev` + `npm run build` (§4 / §8) before enabling.
 
-You do not edit anything inside the Relay folder for this step. Stop the test server from §5 first (Ctrl+C in that terminal) so port 8081 is free.
+### 6a. Prefer the host installer (idempotent)
 
-### 6a. Create the file in one paste
+**One-time host step** — `git pull`, in-app **Update from GitHub**, and reboot do **not** install or refresh these units. Re-run if `User=` or the checkout path changes. Re-running **replaces** `/etc/systemd/system/relay.service` and `relay-kiosk.service` from `deploy/` (re-apply any local unit customizations afterward).
 
-This writes the unit with your current username and home directory:
+```bash
+# From the repo checkout — User= from RELAY_USER / SUDO_USER / invoking account.
+# WorkingDirectory = this checkout (not a hardcoded ~/… assumption).
+sudo bash scripts/install-host.sh
+# Units only:  sudo bash scripts/install-host-units.sh
+# Units+sudoers is what install-host.sh does (same as --with-sudoers).
+# Or: sudo RELAY_USER=pi bash scripts/install-host.sh
+#
+# Relay-only HDMI kiosk (NOT for Foyer dual-head):
+#   sudo bash scripts/install-host-units.sh --enable-kiosk
+```
+
+Templates: [`deploy/relay.service`](deploy/relay.service), [`deploy/relay-kiosk.service`](deploy/relay-kiosk.service). `install-host.sh` also runs [`scripts/install-host-sudoers.sh`](scripts/install-host-sudoers.sh) (§5b / §7c).
+
+Check:
+
+```bash
+systemctl status relay --no-pager
+cat /etc/systemd/system/relay.service
+# User= must be your login; WorkingDirectory= this checkout.
+systemctl is-enabled relay-kiosk || true   # expect: disabled (default)
+```
+
+`enable --now relay` means: start immediately and start again after every reboot. You want `Active: active (running)`. Open `http://<av-lan-ipv4>:8081/` after AV-LAN is set.
+
+If it failed:
+
+```bash
+sudo journalctl -u relay -e --no-pager
+```
+
+Typical causes: the test server from §5 is still running, `WorkingDirectory` is wrong, or Node is not in `/usr/bin` (nvm users: put the nvm `bin` directory on the `Environment=PATH=` line in the unit, then re-run the installer or `daemon-reload` + restart).
+
+Later:
+
+```bash
+sudo systemctl restart relay
+sudo systemctl stop relay
+# Prefer re-running the installer over hand-editing; or:
+sudo nano /etc/systemd/system/relay.service
+sudo systemctl daemon-reload
+sudo systemctl restart relay
+```
+
+### 6b. Manual fallback (tee / editor)
+
+Only if you cannot run the installer. Confirm account and home:
 
 ```bash
 whoami
 echo $HOME
 ```
 
-You should see a name like `pi` and a path like `/home/pi`. Then paste all of the next block at once:
+Paste (substitutes current user + home):
 
 ```bash
 USER_NAME="$(whoami)"
@@ -481,83 +528,16 @@ TimeoutStartSec=120
 [Install]
 WantedBy=multi-user.target
 EOF
-```
-
-`sudo tee …` creates the file as root. You will be asked for the account password. There is no output if it succeeds.
-
-Check the file:
-
-```bash
-cat /etc/systemd/system/relay.service
-```
-
-`User=` must be your login. `WorkingDirectory=` must be the folder from §4 (usually `/home/YOURNAME/Relay-AV-Room-Control-`).
-
-### 6b. Or create it with an editor
-
-```bash
-sudo nano /etc/systemd/system/relay.service
-```
-
-Paste this, then change `pi` and `/home/pi` if that is not your account (`whoami` and `echo $HOME`):
-
-```
-[Unit]
-Description=Relay room controller
-After=network-online.target
-Wants=network-online.target
-StartLimitBurst=5
-StartLimitIntervalSec=60
-
-[Service]
-Type=simple
-User=pi
-WorkingDirectory=/home/pi/Relay-AV-Room-Control-
-Environment=PATH=/usr/bin:/usr/local/bin
-Environment=PORT=8081
-Environment=NODE_ENV=production
-ExecStart=/usr/bin/npm run start
-Restart=always
-RestartSec=5
-TimeoutStartSec=120
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Save: Ctrl+O, Enter. Leave the editor: Ctrl+X.
-
-### 6c. Enable and start
-
-```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now relay
 sudo systemctl status relay --no-pager
 ```
 
-`enable --now` means: start immediately and start again after every reboot.
+Or `sudo nano /etc/systemd/system/relay.service` and paste from [`deploy/relay.service`](deploy/relay.service), replacing `USER` with your login and `/home/USER/Relay-AV-Room-Control-` with the §4 checkout path. Do **not** leave `User=pi` unless that is the real account.
 
-You want `Active: active (running)` in green. Open `http://<av-lan-ipv4>:8081/` on the Pi (after AV-LAN is set).
+Then enable as above. For `relay-kiosk.service`, prefer §7c / the installer — do not enable it on a Foyer dual-head box.
 
-If it failed:
-
-```bash
-sudo journalctl -u relay -e --no-pager
-```
-
-Typical causes: the test server from §5 is still running, `WorkingDirectory` is wrong, or Node is not in `/usr/bin` (nvm users: put the nvm `bin` directory on the `Environment=PATH=` line).
-
-Later:
-
-```bash
-sudo systemctl restart relay
-sudo systemctl stop relay
-sudo nano /etc/systemd/system/relay.service
-sudo systemctl daemon-reload
-sudo systemctl restart relay
-```
-
-### 6d. Is it running?
+### 6c. Is it running?
 
 ```bash
 cd ~/Relay-AV-Room-Control-
@@ -645,6 +625,17 @@ sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.ta
 
 Cage needs a real HDMI connected **before** start. This unit **takes tty1** from the Ubuntu login prompt so Chromium covers that console. SSH is unchanged.
 
+**Prefer the host installer** (§6a). Default install leaves `relay-kiosk` **disabled** (safe for Foyer dual-head). Enable only for Relay-only HDMI:
+
+```bash
+# After §7b packages + groups + linger (and log out/in):
+sudo bash scripts/install-host-units.sh --enable-kiosk
+# Or first-boot with kiosk: sudo bash scripts/install-host.sh --enable-kiosk
+sudo systemctl status relay-kiosk --no-pager
+```
+
+Manual tee fallback (same substitutions as §6b):
+
 ```bash
 USER_NAME="$(whoami)"
 HOME_DIR="$HOME"
@@ -694,7 +685,7 @@ Room → **Local display (HDMI)** saves `data/relay-kiosk.env` (`RELAY_VIDEO_OUT
 
 Configurator restart needs passwordless `systemctl` for this unit only. Relay stays non-root and runs `sudo -n systemctl restart relay-kiosk.service`. Missing sudoers → clear operator error pointing here (not raw polkit text).
 
-**Required once on the appliance** (host `/etc`, not the git tree): Room → Local display **Save** can write `data/relay-kiosk.env` successfully while **restart** still fails with polkit “interactive authentication” / Access denied if `/etc/sudoers.d/relay-kiosk` is missing. `git pull`, in-app **Update from GitHub**, and reboot refresh code (`main` / `v0.9.54+`) — they do **not** create or refresh this drop-in. Install once below; re-run if `User=` on `relay.service` / `relay-kiosk.service` changes.
+**Required once on the appliance** (host `/etc`, not the git tree): Room → Local display **Save** can write `data/relay-kiosk.env` successfully while **restart** still fails with polkit “interactive authentication” / Access denied if `/etc/sudoers.d/relay-kiosk` is missing. `git pull`, in-app **Update from GitHub**, and reboot refresh code (`main` / `v0.9.55+`) — they do **not** create or refresh this drop-in. Install once below; re-run if `User=` on `relay.service` / `relay-kiosk.service` changes.
 
 ```bash
 # From the repo checkout — substitutes USER in both deploy templates, installs
@@ -705,7 +696,7 @@ sudo bash scripts/install-host-sudoers.sh
 sudo -u "$(whoami)" sudo -n /usr/bin/systemctl is-active relay-kiosk.service || true
 ```
 
-Templates: `deploy/relay-kiosk.service`, `deploy/sudoers.relay-kiosk`, `deploy/sudoers.relay-nmcli`. Keep the two drop-ins separate — do **not** merge into `NOPASSWD: ALL`.
+Templates: `deploy/relay.service`, `deploy/relay-kiosk.service`, `deploy/sudoers.relay-kiosk`, `deploy/sudoers.relay-nmcli`. Units: `scripts/install-host-units.sh` / `scripts/install-host.sh` (§6a). Keep the two sudoers drop-ins separate — do **not** merge into `NOPASSWD: ALL`.
 
 **Relay-only HDMI:** operators who paint the panel with Relay’s own kiosk (not Foyer) need this drop-in for Room → Local display → save/restart. **Foyer dual-head:** leave `relay-kiosk` off (§7a); sudoers is harmless while the unit is disabled.
 
@@ -725,13 +716,13 @@ That fetches the release into a separate git worktree, runs `npm ci --include=de
 
 `NODE_ENV=production` (systemd) would otherwise skip Vite. `--include=dev` keeps it.
 
-First install still needs a build before `systemctl enable`:
+First install still needs a build before enabling the unit:
 
 ```bash
 cd ~/Relay-AV-Room-Control-
 npm ci --include=dev
 npm run build
-sudo systemctl enable --now relay
+sudo bash scripts/install-host.sh   # or: sudo systemctl enable --now relay if unit already installed
 ```
 
 Uncommitted source edits block Update. A dirty `.vercel/` tree (build output) does not. The updater fetches `origin/main` (force-updating tags), builds it in a worktree, then `git checkout -f -B main <sha>`. A zip-only copy cannot use the button. If the button still no-ops, `data/relay-update.log` has the reason.
@@ -770,9 +761,10 @@ echo "$USER ALL=NOPASSWD: /bin/systemctl restart relay" | sudo tee /etc/sudoers.
 
 The default path does not need that: `system.restart` is `process.exit(1)` and systemd starts it again.
 
-**After Update / reboot — host sudoers checklist:** Update refreshes the checkout only. If Room → Local display **Save** still fails auth (polkit / Access denied), or **Apply AV-LAN IP** fails nmcli auth, (re)run `sudo bash scripts/install-host-sudoers.sh` (§5b / §7c). You may keep both drop-ins; neither is installed by pull/reboot.
+**After Update / reboot — host units + sudoers checklist:** Update refreshes the checkout only. Units and sudoers under `/etc` are **not** installed by pull/Update/reboot. If `relay.service` is missing/stale, (re)run `sudo bash scripts/install-host-units.sh` (§6a). If Room → Local display **Save** still fails auth (polkit / Access denied), or **Apply AV-LAN IP** fails nmcli auth, (re)run `sudo bash scripts/install-host-sudoers.sh` (§5b / §7c) — or `sudo bash scripts/install-host.sh` for both.
 
-- [ ] Ran `sudo bash scripts/install-host-sudoers.sh` (or verified drop-ins present)
+- [ ] Ran `sudo bash scripts/install-host.sh` (or verified units + drop-ins present)
+- [ ] `/etc/systemd/system/relay.service` — boot unit (§6a); `relay-kiosk.service` present, enabled only if Relay-only HDMI
 - [ ] `/etc/sudoers.d/relay-nmcli` — AV-LAN Apply (§5b)
 - [ ] `/etc/sudoers.d/relay-kiosk` — Local display restart (`relay-kiosk.service`, §7c)
 
