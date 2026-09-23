@@ -131,5 +131,5 @@ Or Task Manager → end the `node.exe` bound to 8081.
 
 ## Local HDMI panel kiosk
 
-**Linux-only.** The cage / tty1 Chromium unit (`relay-kiosk.service`) does not run on Windows. In the lab, open the AV-LAN panel URL in a normal browser. Room → Local display still saves HDMI preferences for the Linux room PC.
+**Linux-only.** The cage / tty1 Chromium unit (`relay-kiosk.service`) does not run on Windows. In the lab, open the AV-LAN panel URL in a normal browser. Room → Local display still saves HDMI preferences for the Linux room PC. On the Linux room PC with Foyer dual-head, prefer panel via Foyer and disable `relay-kiosk` ([LINUX.md](LINUX.md) §7a).
 

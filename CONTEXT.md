@@ -37,7 +37,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Stock drivers | `data/library/*.json` + `index.json` |
 | This room’s copies | `data/drivers/*.json` (not git) |
 | New driver syntax | `DRIVER-PROMPT.md`, then `npm run driver:check -- data/library/<file>.json` |
-| Local HDMI panel kiosk | `video-outputs` / `kiosk` / `panel-kiosk-url` / `panel-kiosk-env`, `scripts/relay-kiosk.sh`, `deploy/relay-kiosk.service`, Room → Local display |
+| Local HDMI panel kiosk | `video-outputs` / `kiosk` / `panel-kiosk-url` / `panel-kiosk-env`, `scripts/relay-kiosk.sh`, `deploy/relay-kiosk.service`, Room → Local display. Dual-head + Foyer: prefer panel via Foyer; disable `relay-kiosk` ([`LINUX.md`](LINUX.md) §7a) |
 | NIC pick / listen host | `nics.ts`, `scripts/http-listen-host.mjs`, `scripts/https-venue-listen.mjs` (B1), `peer-venue.ts` (B3), `device-face.ts` (B4), `scripts/venue-tls-*.mjs` (C1–C3), `scripts/with-app-env.mjs`, Room tab Networks (Generate / Regenerate / Download CA) |
 | Install / firewall | `LINUX.md`, `WINDOWS.md`, `SECURITY.md` |
 | Venue TLS inventory (C0–C4) | `SECURITY.md` § Venue TLS inventory — Shipped C0–C4 vs PARKED LE vs residual leftovers |
