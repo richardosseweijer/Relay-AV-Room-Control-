@@ -234,6 +234,7 @@ Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue
 | `src/lib/control/actions-host.ts` | Host restart/update/reboot, NIC/port list, debug. |
 | `src/lib/control/nics.ts` | NIC list, AV/outbound pick helpers, outbound None (A1), re-exports listen host. |
 | `scripts/http-listen-host.mjs` | Pure AV → HTTP listen host (A2). Never returns `0.0.0.0`. |
+| `scripts/control-base-url.mjs` | Advertised panel / Foyer Relay base URL from live AV IPv4; soft-fail if AV unset / no IPv4. |
 | `scripts/https-venue-listen.mjs` | B1 optional HTTPS listen on outbound/venue IPv4 (file PEMs; soft-skip). |
 | `src/lib/control/peer-venue.ts` | B3 HMAC peer AV HTTP vs venue HTTPS planner (`peerFace`). |
 | `src/lib/control/device-face.ts` | B4 per-device `nicFace` bind planner (AV vs venue; cleartext gate). |
