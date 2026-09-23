@@ -56,13 +56,17 @@ flowchart LR
     P["Foyer door :8082"]
   end
   Tab["Door tablet AV-LAN"]
-  Kiosk["HDMI welcome"]
+  Welcome["HDMI welcome"]
+  RoomPanel["HDMI room panel optional"]
   F -->|"GET /api/peer occupancy"| R
   R -->|"GET /api/peer session"| F
-  Kiosk --> F
+  Welcome --> F
+  RoomPanel -->|"Chromium → Relay panel URL"| R
   Tab --> P
   P -.->|"deny /api/peer"| X[no]
 ```
+
+**Displays (same host):** Foyer owns local HDMI/DP when Setup picks Welcome and/or Room panel (`foyer-kiosk` / sway). Relay serves the panel over AV-LAN HTTP; do **not** also run Relay `relay-kiosk` on that PC (two compositors fight tty1 / DRM). Disable steps: Relay [`LINUX.md`](LINUX.md) §7a. Foyer lab checklist: Foyer `INSTALL.md` §7b / §7c.
 
 Two **pulls**. Neither side pushes occupancy or calendar.
 
@@ -314,10 +318,12 @@ After **Update from GitHub** on both apps:
    - **Read occupancy from Relay on this PC** on
    - Relay URL `http://<av-lan-ipv4>:8081` (copy from Relay Room → Occupancy; not `127.0.0.1` on dual-NIC)
    - Peer secret may stay blank
+   - Dual-head: **Welcome HDMI** + **Room panel HDMI** (different connectors). Room panel loads this Relay URL. Leave Relay `relay-kiosk` off ([`LINUX.md`](LINUX.md) §7a).
 2. **Relay Configurator → Room → Occupancy / Foyer**
    - Set occupancy with the Occupancy var (`0`–`3`) or a Relay Occupancy command / macro
    - Foyer URL `http://127.0.0.1:8080`
    - Within a few seconds the card shows `now`/`next` plus title and times, or “No session from Foyer yet.”
+   - **Local display (HDMI):** keep disabled when Foyer paints the Room panel head (`sudo systemctl disable --now relay-kiosk` if the unit was enabled).
 
 Plate ignores Relay → Foyer occupancy is not Auto, or the occupancy poll is off, or Relay is down (last-good / empty).
 
