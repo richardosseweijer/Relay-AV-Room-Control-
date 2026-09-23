@@ -18,6 +18,7 @@ Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds t
 - NIC2 down, **None**, missing PEMs, or a future venue-TLS / Generate failure must **not** break NIC1 / AV listen.
 - No IP forwarding or bridge between NICs (`ip_forward=0`, no `br-*` joining AV and venue).
 - No cleartext panel on the venue NIC. Do not set `RELAY_LISTEN_HOST=0.0.0.0` in production.
+- **Local HDMI panel kiosk (Linux):** optional `relay-kiosk.service` (cage + Chromium) opens `http://<av-lan-ipv4>:<port>/` only — never widens HTTP to `0.0.0.0`. Narrow sudoers for `systemctl` on that unit; Relay stays non-root.
 - **Apply AV-LAN IPv4 (Linux):** configurator may set AV static/DHCP via `sudo -n nmcli` under config token + Config PIN. Targets the saved AV pick only; strips gateway + `ipv4.never-default yes`; never listens on `0.0.0.0`; privilege is narrow nmcli sudoers — not full root / not AmbientCapabilities for this path.
 
 ### Listen resolution (A2)
@@ -191,7 +192,7 @@ Operators may still drop in file PEMs for B1. **C0–C4 closed.** **Strict peer 
 | File | Role after C0 |
 |---|---|
 | `SECURITY.md` (this file) | Canonical trust model + inventory (Shipped C0–C4 vs PARKED LE vs residual leftovers) |
-| `LINUX.md` §5b / venue HTTPS notes | Install: dual-NIC, ufw, PEM drop, Generate + NIC2 CA download click-through |
+| `LINUX.md` §5b / venue HTTPS notes | Install: one-NIC + two-NIC ufw chapter, PEM drop, Generate + NIC2 CA download click-through |
 | `ARCHITECTURE.md` §2 / §8 | Process listen + access control aligned with AV HTTP vs venue HTTPS |
 | `CONTEXT.md` / `AGENTS.md` | Agent map + bans: no LE default; no `0.0.0.0`; AV ≠ venue certs; C1–C4 Generate + UI + lifecycle + docs checkpoint shipped |
 | `KNOWN_ISSUES.md` | Still-true listen / venue TLS bullets |
@@ -212,6 +213,10 @@ Persist writes a `relay-room.json.transaction` journal, then secrets, then room 
 
 `relay-host.json` can restart Vite, reboot the OS, dim, lock, and toast. Those run if a macro or the configurator fires them. They need a config session.
 
+## Firewall (install detail)
+
+Room-PC ufw for **one-NIC** and **two-NIC** builds lives in [`LINUX.md` §5b](LINUX.md): CIDR-scoped `8081`, fail-closed optional `8443`, no forward/bridge, no WAN port-forward. This checklist stays the short security contract; follow LINUX for copy-paste commands.
+
 ## Checklist
 
 - Change PIN `1234` on first config login.
@@ -222,7 +227,7 @@ Persist writes a `relay-room.json.transaction` journal, then secrets, then room 
 - Keep `data/` off shared sticks.
 - **AV-LAN** has **no default route**. **LAN (internet)** has the default route, **or** is **None** (air-gap / single-NIC; Update unavailable).
 - `sysctl net.ipv4.ip_forward=0` (and IPv6 forward off). No bridge between AV and venue NICs.
-- ufw: allow panel port **from AV-LAN CIDR only** — not from the venue NIC / WAN. Do not `ufw allow 8081/tcp` from anywhere.
+- ufw: allow panel port **from AV-LAN CIDR only** — not from the venue NIC / WAN / anywhere. Do not `ufw allow 8081/tcp` from anywhere. Detail: [`LINUX.md` §5b](LINUX.md).
 - Verify: `ip route`, `ss -lptn 'sport = :8081'`, `ufw status`. Listen address must be the AV IPv4 (or loopback if AV unset) — never `0.0.0.0`.
 - Outbound **None** ⇒ Update from GitHub unavailable (expected); venue HTTPS also skipped.
 - Optional venue HTTPS (B1): `RELAY_TLS_CERT` + `RELAY_TLS_KEY` (or room `tlsCertPath`/`tlsKeyPath`) with outbound NIC set. Port `RELAY_HTTPS_PORT` (default 8443). Missing certs ⇒ skip venue HTTPS only — AV HTTP stays up. LE/ACME parked — not required.

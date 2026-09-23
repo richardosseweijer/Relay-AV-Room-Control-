@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.50** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.51** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -15,6 +15,8 @@ The application is intended to run on a machine that remains on the same private
 The repository also contains Vite / TanStack Start scaffolding used to boot the HTTP server. Device I/O is only in `src/lib/control/`, `src/components/panel/`, `src/components/config/`, and `src/routes/`.
 
 ---
+
+Optional **local HDMI panel kiosk** (`relay-kiosk.service`): cage + Chromium on tty1 opens the AV-LAN panel root URL written to `data/relay-kiosk.env`. Does not change the HTTP listen bind.
 
 ## 2. Process model
 
