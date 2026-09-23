@@ -217,7 +217,7 @@ Optional venue HTTPS: `https://<outbound-ip>:8443` when outbound NIC is set **an
 | Room fields | `tlsCertPath` + `tlsKeyPath` on the room object (same idea) |
 | Port | `RELAY_HTTPS_PORT` (default **8443**) |
 
-**C1 Generate** also writes `data/tls/venue/server.{cert,key}.pem` and wires room paths. You may still drop PEMs where you like (e.g. `/var/lib/relay/tls/cert.pem` + `key.pem`) and point the env/room fields at them. Missing/unreadable PEMs ⇒ soft-skip venue HTTPS only; **AV HTTP stays up**. Soft TLS verify (`rejectUnauthorized: false`) for these file PEMs. Raw venue IPv4 is fine (Networks UI live IP). B3: HMAC peer over that venue HTTPS (`peerFace`). B4: per-device `nicFace` bind (AV default; venue soft-fails if outbound None).
+**C1 Generate** also writes `data/tls/venue/server.{cert,key}.pem` and wires room paths. You may still drop PEMs where you like (e.g. `/var/lib/relay/tls/cert.pem` + `key.pem`) and point the env/room fields at them. Missing/unreadable PEMs ⇒ soft-skip venue HTTPS only; **AV HTTP stays up**. Raw venue IPv4 is fine (Networks UI live IP). B3: HMAC peer over that venue HTTPS (`peerFace`) with **strict trusted peer CA** (Devices → Trusted peer CA path = remote **Download CA** PEM; fail-closed if missing). B4: per-device `nicFace` bind (AV default; venue soft-fails if outbound None). Third-party venue device HTTPS may still soft-verify.
 
 **Guest / venue LAN reality:** NIC2 is often a guest or venue segment with no admin DNS, no Cloudflare, and no LE account. **LE/ACME/DNS-01 is PARKED permanently** for this product — do not require public FQDN for venue HTTPS.
 
@@ -238,7 +238,9 @@ In-box **ECDSA P-256** private CA (~10y) + server leaf (~2y) with IP SAN = live 
 
 **Integrator flow (NIC2):** open `https://<outbound-ip>:8443/config` → accept click-through → unlock → Networks → Generate → Download CA → install CA on tablets → reopen venue URL. On IP drift or leaf nearing expiry, **Regenerate** (confirm) → re-Download CA if the CA changed → reinstall on tablets.
 
-**C4 shipped:** docs consistency + checkpoint tag `v0.9.46`. No silent auto-reissue (by design). Residual leftovers (separate tracks): Foyer loopback URL vs AV-only listen; optional strict peer TLS verify.
+**Room-to-room CA exchange (venue peers):** On room B, Networks → **Download CA** → save PEM on room A (e.g. `data/tls/peers/room-b-ca.cert.pem`). On room A’s `relay-host` device pointing at B’s NIC2 IP:8443, set Peer face Venue (or Auto) and **Trusted peer CA path** to that file (or paste / `RELAY_PEER_TRUSTED_CA`). Reverse for B→A. Same-install loop: use this room’s `data/tls/venue/ca.cert.pem`. Venue peer TLS failure soft-fails that peer only — AV control stays up.
+
+**C4 shipped:** docs consistency + checkpoint tag `v0.9.46`. **Strict peer TLS verify shipped** (`v0.9.47`). No silent auto-reissue (by design). Foyer control URL prefers AV live IP (footgun fixed).
 
 File PEM drop (table above) still works. AV tablet URL remains `http://<av-lan-ip>:8081`. Inventory: [`SECURITY.md`](SECURITY.md#venue-tls-inventory-c0).
 

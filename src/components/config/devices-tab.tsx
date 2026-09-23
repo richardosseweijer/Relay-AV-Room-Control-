@@ -111,6 +111,7 @@ export function DevicesTab(props: {
                                 <InputNum placeholder={String(driver?.transports.lan?.port ?? 80)} value={device.port} onNumber={(n) => update((c) => { c.devices[index]!.port = n; })} />
                               </label>
                               {driver?.device.type === "host" || device.driver === "relay-host.json" ? (
+                                <>
                                 <label className="grid gap-1 text-sm text-muted">Peer face
                                   <select
                                     className={fieldClass()}
@@ -124,8 +125,20 @@ export function DevicesTab(props: {
                                     <option value="av">AV-LAN HTTP</option>
                                     <option value="outbound">Venue / NIC2 HTTPS</option>
                                   </select>
-                                  <span className="text-xs text-muted">HMAC peer transport only (B3). Auto/HTTP↔HTTPS. Distinct from NIC face below. Other room over venue: live NIC2 IP + 8443, Peer face Venue. Needs outbound NIC + TLS PEMs.</span>
+                                  <span className="text-xs text-muted">HMAC peer transport only (B3). Auto/HTTP↔HTTPS. Distinct from NIC face below. Other room over venue: live NIC2 IP + 8443, Peer face Venue. Needs outbound NIC + server TLS PEMs + trusted peer CA below.</span>
                                 </label>
+                                <label className="grid gap-1 text-sm text-muted">Trusted peer CA path
+                                  <input
+                                    className={fieldClass()}
+                                    value={device.peerTrustedCaPath ?? ""}
+                                    placeholder="data/tls/peers/other-room-ca.cert.pem"
+                                    onChange={(e) => update((c) => {
+                                      c.devices[index]!.peerTrustedCaPath = e.target.value.trim() || null;
+                                    })}
+                                  />
+                                  <span className="text-xs text-muted">Required for venue HTTPS peers (strict TLS). Remote room: Networks → Download CA → save PEM here. Same-install loop: this room’s data/tls/venue/ca.cert.pem. Env fallback: RELAY_PEER_TRUSTED_CA. AV-LAN HTTP peers ignore this. Fail-closed if missing on venue.</span>
+                                </label>
+                                </>
                               ) : null}
                               <label className="grid gap-1 text-sm text-muted">NIC face
                                 <select
