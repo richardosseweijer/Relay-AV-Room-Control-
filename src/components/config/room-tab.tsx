@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { applyAvLanIp, generateVenueTls, getEditorConfig, getVenueTlsStatus, importBundle, listLanNics, rebootHost, restartHost, updateHost } from "@/lib/control/actions";
+import { applyAvLanIp, applyPanelHdmi, generateVenueTls, getEditorConfig, getVenueTlsStatus, importBundle, listLanNics, listVideoOutputs, rebootHost, restartHost, restartPanelKiosk, updateHost } from "@/lib/control/actions";
 import { liveNicIpv4Label } from "@/lib/control/nic-live-ip";
 import { controlBaseUrlFrom, DEFAULT_PRODUCTION_CONTROL_PORT } from "@/lib/control/nics";
 import {
@@ -89,6 +89,28 @@ export function RoomTab(props: {
   const [avIpPrefix, setAvIpPrefix] = useState("24");
   const [avIpBusy, setAvIpBusy] = useState(false);
   const [avIpHint, setAvIpHint] = useState("");
+  type VideoOutRow = { index: number; name: string; connected: boolean; label: string };
+  const [videoOutputs, setVideoOutputs] = useState<VideoOutRow[]>([]);
+  const [videoError, setVideoError] = useState("");
+  const [hdmiBusy, setHdmiBusy] = useState(false);
+  const [hdmiHint, setHdmiHint] = useState("");
+  const loadVideoOutputs = useCallback(async () => {
+    try {
+      const res = await listVideoOutputs({ data: { token: token || "" } });
+      if (res.ok) {
+        setVideoOutputs(res.outputs);
+        setVideoError(res.outputs.length ? "" : "No DRM connectors listed (Linux host with /sys/class/drm).");
+      } else {
+        setVideoOutputs([]);
+        setVideoError(res.message || "Could not list video outputs. Unlock, then Refresh.");
+      }
+    } catch {
+      setVideoOutputs([]);
+      setVideoError("Could not list video outputs. Unlock, then Refresh.");
+    }
+  }, [token]);
+  useEffect(() => { void loadVideoOutputs(); }, [loadVideoOutputs]);
+
   const loadVenueTls = useCallback(async () => {
     try {
       const res = await getVenueTlsStatus({ data: { token: token || "" } });
@@ -196,6 +218,85 @@ export function RoomTab(props: {
     pick: { name: draft.room.avLanNicName, index: draft.room.avLanNicIndex ?? null },
     port: Number.isFinite(controlPort) && controlPort > 0 ? controlPort : DEFAULT_PRODUCTION_CONTROL_PORT,
   });
+
+  const panelKioskPreview = controlBaseUrlFrom({
+    nics: nicChoices.map((row) => ({ index: row.index, name: row.name, ipv4: row.ipv4 ?? null })),
+    pick: { name: draft.room.avLanNicName, index: draft.room.avLanNicIndex ?? null },
+    port: Number.isFinite(controlPort) && controlPort > 0 ? controlPort : DEFAULT_PRODUCTION_CONTROL_PORT,
+  });
+  const panelKioskUrl = panelKioskPreview.ok
+    ? (panelKioskPreview.url.endsWith("/") ? panelKioskPreview.url : `${panelKioskPreview.url}/`)
+    : null;
+
+  const runApplyPanelHdmi = async (restart: boolean) => {
+    if (!token) {
+      flash("HDMI blocked", "Unlock config first.");
+      return;
+    }
+    if (draft.room.panelHdmiEnabled && !draft.room.panelHdmiOutputName && draft.room.panelHdmiOutputIndex == null) {
+      flash("HDMI blocked", "Pick a video output, then Save all or Apply.");
+      return;
+    }
+    const pin = window.prompt("Config PIN") || "";
+    if (!pin) return;
+    setHdmiBusy(true);
+    setHdmiHint("");
+    try {
+      const res = await applyPanelHdmi({
+        data: {
+          token: token || "",
+          pin,
+          enabled: Boolean(draft.room.panelHdmiEnabled),
+          outputName: draft.room.panelHdmiOutputName ?? null,
+          outputIndex: draft.room.panelHdmiOutputIndex ?? null,
+          restart,
+        },
+      });
+      if (res.ok) {
+        setHdmiHint(res.message || "Saved.");
+        flash(restart ? "Panel HDMI" : "Panel HDMI saved", res.message || "OK");
+        if ("kioskUrl" in res && res.kioskUrl) setHdmiHint(String(res.kioskUrl) + " — " + (res.message || ""));
+        const ed = await getEditorConfig({ data: { token: token || "" } });
+        if (ed.config) setDraft(structuredClone(ed.config));
+      } else {
+        flash("Panel HDMI failed", res.message || "Failed");
+        setHdmiHint(res.message || "Failed");
+      }
+    } catch {
+      flash("Panel HDMI failed", "Request error");
+      setHdmiHint("Request error");
+    } finally {
+      setHdmiBusy(false);
+      void loadVideoOutputs();
+    }
+  };
+
+  const runRestartPanelKiosk = async () => {
+    if (!token) {
+      flash("Restart blocked", "Unlock config first.");
+      return;
+    }
+    if (!window.confirm("Restart the local HDMI panel kiosk? The wall page will drop briefly. SSH is unaffected.")) return;
+    const pin = window.prompt("Config PIN") || "";
+    if (!pin) return;
+    setHdmiBusy(true);
+    setHdmiHint("");
+    try {
+      const res = await restartPanelKiosk({ data: { token: token || "", pin } });
+      if (res.ok) {
+        setHdmiHint(res.message || "Restarted.");
+        flash("Panel kiosk restarted", res.message || "OK");
+      } else {
+        flash("Panel kiosk restart failed", res.message || "Failed");
+        setHdmiHint(res.message || "Failed");
+      }
+    } catch {
+      flash("Panel kiosk restart failed", "Request error");
+      setHdmiHint("Request error");
+    } finally {
+      setHdmiBusy(false);
+    }
+  };
 
   const outboundLiveIp = liveNicIpv4Label({ unset: outboundNone, ipv4: outboundPick?.ipv4 });
   const liveIpv4 = outboundLiveIp.kind === "ip" ? outboundLiveIp.ipv4 : null;
@@ -483,6 +584,99 @@ export function RoomTab(props: {
                   </ul>
                 </div>
               </div>
+            </article>
+
+            <article className="sm:col-span-2 grid gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2">
+              <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-subtle">Local display (HDMI)</p>
+                <Button size="sm" variant="secondary" onClick={() => { void loadVideoOutputs(); }}>Refresh outputs</Button>
+              </div>
+              <p className="sm:col-span-2 text-xs text-muted">
+                Show the <span className="font-medium text-fg">user panel</span> on a local HDMI/DP output (Linux + cage). Same idea as Foyer welcome kiosk.
+                Chromium opens the live AV-LAN panel URL — never <span className="font-mono">0.0.0.0</span> and not <span className="font-mono">127.0.0.1</span> once AV-LAN is set.
+                Needs packages + <span className="font-mono">relay-kiosk.service</span> from LINUX.md. Wrong output can blank the console page; SSH stays up.
+              </p>
+              <label className="flex items-center gap-3 text-sm text-muted sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={Boolean(draft.room.panelHdmiEnabled)}
+                  onChange={(e) => update((c) => { c.room.panelHdmiEnabled = e.target.checked; })}
+                />
+                <span>Enable local HDMI panel</span>
+              </label>
+              <label className="grid gap-1 text-sm text-muted sm:col-span-2">Video output
+                <select
+                  className={fieldClass()}
+                  value={
+                    draft.room.panelHdmiOutputName
+                      ? `name:${draft.room.panelHdmiOutputName}`
+                      : draft.room.panelHdmiOutputIndex != null
+                        ? `index:${draft.room.panelHdmiOutputIndex}`
+                        : ""
+                  }
+                  disabled={!draft.room.panelHdmiEnabled}
+                  onChange={(e) => {
+                    const key = e.target.value;
+                    update((c) => {
+                      if (!key) {
+                        c.room.panelHdmiOutputName = null;
+                        c.room.panelHdmiOutputIndex = null;
+                        return;
+                      }
+                      const row = videoOutputs.find((o) =>
+                        key.startsWith("name:") ? o.name === key.slice(5) : `index:${o.index}` === key,
+                      );
+                      if (!row) return;
+                      c.room.panelHdmiOutputName = row.name;
+                      c.room.panelHdmiOutputIndex = row.index;
+                    });
+                  }}
+                >
+                  <option value="">Not set</option>
+                  {videoOutputs.map((row) => (
+                    <option key={row.name} value={`name:${row.name}`}>{row.label}</option>
+                  ))}
+                </select>
+                <span className="text-xs">Connected outputs first. Name is preferred when applying.</span>
+              </label>
+              <p className="sm:col-span-2 text-xs text-muted">
+                Target URL:{" "}
+                {panelKioskUrl ? (
+                  <span className="font-mono text-fg select-all">{panelKioskUrl}</span>
+                ) : (
+                  <span className="text-clay">{panelKioskPreview.ok === false ? panelKioskPreview.reason : "—"}</span>
+                )}
+              </p>
+              <div className="sm:col-span-2 flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={hdmiBusy || !token || !draft.room.panelHdmiEnabled}
+                  onClick={() => { void runApplyPanelHdmi(true); }}
+                >
+                  {hdmiBusy ? "Working…" : "Start / restart panel on HDMI"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={hdmiBusy || !token}
+                  onClick={() => { void runApplyPanelHdmi(false); }}
+                >
+                  Save HDMI settings
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={hdmiBusy || !token || !draft.room.panelHdmiEnabled}
+                  onClick={() => { void runRestartPanelKiosk(); }}
+                  title="Rewrite env from saved room + restart unit"
+                >
+                  Restart kiosk only
+                </Button>
+                <span className="text-xs text-muted">Config PIN · Linux-only OS unit · does not widen HTTP listen</span>
+              </div>
+              {hdmiHint ? <p className="sm:col-span-2 text-xs text-muted break-all">{hdmiHint}</p> : null}
+              {videoError ? <p className="sm:col-span-2 text-xs text-clay">{videoError}</p> : null}
             </article>
 
             <article className="sm:col-span-2 grid gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2">
