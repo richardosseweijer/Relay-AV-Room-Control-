@@ -1,12 +1,15 @@
 /**
  * Phase B3 — plan Relay↔Relay peer transport: AV-LAN HTTP vs venue/NIC2 HTTPS.
- * No nicFace matrix (B4). No ACME (B2). Never cleartext on the venue face.
+ * B4 nicFace (device-face.ts) is the general device bind face; peerFace stays here
+ * for HMAC peers (auto | av | outbound + HTTP/HTTPS). Do not regress auto.
+ * No ACME (B2). Never cleartext on the venue face.
  *
  * Operator model:
  * - Point a remote relay-host device at the other room’s AV IP:8081 → AV HTTP + HMAC.
  * - Point it at the other room’s live NIC2 IP (Networks UI) with port 8443 (or
  *   RELAY_HTTPS_PORT), or set peerFace=outbound → venue HTTPS + outbound bind + HMAC.
  * - Auto: host on outbound NIC subnet (not AV) ⇒ venue; else AV.
+ * - nicFace on non-peer devices selects AV vs venue bind only; for relay-host use Peer face.
  */
 import type { DeviceInstance, RoomConfig } from "./types";
 import { allowedLanHost } from "./engine-policy.ts";

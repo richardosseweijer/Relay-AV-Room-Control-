@@ -4,7 +4,7 @@
     "manufacturer": "Relay",
     "model": "Host",
     "type": "host",
-    "notes": "localhost = this process. Other room on AV-LAN: AV IP + listen port (8081) + peer secret in Secret. Other room over venue/NIC2: that room’s live NIC2 IP + HTTPS port (8443 / RELAY_HTTPS_PORT), Peer face Venue (or Auto when IP is on outbound subnet); needs outbound NIC + TLS PEMs. HMAC unchanged. Restart / update / reboot only from this configurator."
+    "notes": "localhost = this process. Other room on AV-LAN: AV IP + listen port (8081) + peer secret in Secret. Other room over venue/NIC2: that room’s live NIC2 IP + HTTPS port (8443 / RELAY_HTTPS_PORT), Peer face Venue (or Auto when IP is on outbound subnet); needs outbound NIC + TLS PEMs. HMAC unchanged. Restart / update / reboot only from this configurator. Per-device NIC face (nicFace) is for general bind on other drivers; HMAC peers keep using Peer face (peerFace), not nicFace."
   },
   "transports": {
     "lan": {

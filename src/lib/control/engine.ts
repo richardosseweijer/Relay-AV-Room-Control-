@@ -20,6 +20,7 @@ import { sendWol } from "./wol";
 import { rtpMidiPoolSize } from "./rtp-midi";
 import { encodeMtcQf, encodeMtcSysex } from "./midi-in";
 import { roomLanBind } from "./nics";
+import { DEVICE_VENUE_SKIP_CLEARTEXT, deviceHostAllowed, planDeviceBindForDevice, readNicFace } from "./device-face";
 import { planPeerTransportForDevice } from "./peer-venue";
 import { allowedLanHost, pushTrace, safeLanHttpUrl, sleep } from "./engine-policy";
 import { applySim, guardOk, mapCommandValue, parseFeedback, parseInventoryItems, pickJsonField, renderPayload } from "./engine-payload";
@@ -125,13 +126,20 @@ export async function authenticateDevice(opts: { config: RoomConfig; drivers: Re
   const driver = opts.drivers[device.driver];
   if (!driver) return { ok: false, message: "No driver" };
   const host = opts.host ?? device.host;
-  if (!allowedLanHost(host, { localOk: device.driver === "relay-host.json" || driver.device.type === "host" })) {
-    return { ok: false, message: "Host not on room LAN" };
+  {
+    const hostGate = deviceHostAllowed(readNicFace(device), host, {
+      localOk: device.driver === "relay-host.json" || driver.device.type === "host",
+    });
+    if (!hostGate.ok) return hostGate;
   }
-  const bind = roomLanBind(opts.config);
+  const face = readNicFace(device);
+  const bind = planDeviceBindForDevice(device, opts.config);
   if (!bind.ok) return bind;
   const localAddress = bind.localAddress;
   const steps = inferPairingSteps(driver.auth?.pairing);
+  if (face === "outbound" && steps.some((s) => (s.action === "http-get" || s.action === "http-post") && !s.tls)) {
+    return { ok: false, message: DEVICE_VENUE_SKIP_CLEARTEXT };
+  }
   if (!steps.length) {
     const ping = await pingReachable({ host, port: device.port ?? driver.transports.lan?.port, localAddress });
     return { ok: ping.ok, message: ping.ok ? "Reachable (no pairing steps)" : ping.message };
@@ -319,18 +327,25 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
       if (!res.ok) return { ok: false, message: res.message };
       raw = res.message;
     } else if (resource.httpPath) {
-      if (!allowedLanHost(device.host)) return { ok: false, message: "Host not on room LAN" };
+      const face = readNicFace(device);
+      // Inventory httpPath is cleartext HTTP today — refuse on venue face.
+      if (face === "outbound") {
+        return { ok: false, message: DEVICE_VENUE_SKIP_CLEARTEXT };
+      }
+      const hostGate = deviceHostAllowed(face, device.host);
+      if (!hostGate.ok) return hostGate;
       const path = renderPayload(resource.httpPath, undefined, device.auth, { host: device.host, port: device.port, id: device.id });
       const port = driver.status?.port ?? device.port ?? driver.transports.lan?.port ?? 80;
       const built = safeLanHttpUrl("http", device.host, port, path);
       if (!built.ok) return { ok: false, message: built.message };
       const inventoryLimit = 2 * 1024 * 1024;
-      const bind = roomLanBind(opts.config);
+      const bind = planDeviceBindForDevice(device, opts.config);
       if (!bind.ok) return bind;
       const res = await sendHttp(built.url, resource.httpMethod || "GET", "", 8000, {
         maxBytes: inventoryLimit,
         maxMessageChars: inventoryLimit,
         localAddress: bind.localAddress,
+        rejectUnauthorized: bind.rejectUnauthorized,
       });
       if (!res.ok) return { ok: false, message: res.message };
       raw = res.message;
@@ -436,9 +451,22 @@ export async function readMonitorValue(opts: {
   if (statusUrl) {
     const url = statusUrl;
     try {
-      const bind = roomLanBind(opts.config);
+      const face = readNicFace(wired);
+      if (face === "outbound" && url.startsWith("http://")) {
+        return { ok: false, value: "", message: DEVICE_VENUE_SKIP_CLEARTEXT };
+      }
+      const bind = planDeviceBindForDevice(wired, opts.config);
       if (!bind.ok) return { ok: false, value: "", message: bind.message };
-      const response = await requestHttpExact(url, "GET", "", {}, 2000, DEFAULT_MAX_RESPONSE_BYTES, bind.localAddress);
+      const response = await requestHttpExact(
+        url,
+        "GET",
+        "",
+        {},
+        2000,
+        DEFAULT_MAX_RESPONSE_BYTES,
+        bind.localAddress,
+        bind.rejectUnauthorized,
+      );
       if (!response.ok) return { ok: false, value: "", message: response.text || String(response.status) };
       const text = response.text;
       const parsed = parseFeedback(fb.parse, text);
@@ -614,7 +642,7 @@ export async function executeCommand(opts: {
   const path = command.httpPath ? renderPayload(command.httpPath, value, wired.auth, ctx) : command.httpPath;
   const wiredCommand = path ? { ...command, httpPath: path } : command;
   if (command.wake?.protocol === "wol") {
-    const bind = roomLanBind(opts.config);
+    const bind = planDeviceBindForDevice(wired, opts.config);
     if (!bind.ok) return bind;
     const wol = await sendWol(device.auth?.mac || "", wired.host, bind.localAddress);
     pushTrace(device.id, "note", wol.message);

@@ -15,7 +15,12 @@ import { sendOscCommand } from "./osc";
 import { sendSacnCommand } from "./sacn";
 import { sendIpmidi } from "./ipmidi";
 import { sendRtpMidiCommand } from "./rtp-midi";
-import { roomLanBind } from "./nics";
+import {
+  deviceHostAllowed,
+  nicFaceProtocolGate,
+  planDeviceBindForDevice,
+  readNicFace,
+} from "./device-face";
 import { allowedLanHost, pushTrace, safeLanHttpUrl } from "./engine-policy";
 import { renderPayload } from "./engine-payload";
 import { paceDevice, wireEncoding, encodeWire, tcpWrite, tcpSessionWrite } from "./engine-wire";
@@ -44,7 +49,7 @@ export async function sendHttp(
   method: string,
   body: string,
   timeout: number,
-  limits: { maxBytes?: number; maxMessageChars?: number; headers?: Record<string, string>; localAddress?: string } = {},
+  limits: { maxBytes?: number; maxMessageChars?: number; headers?: Record<string, string>; localAddress?: string; rejectUnauthorized?: boolean } = {},
 ): Promise<CommandResult> {
   try {
     const verb = method.toUpperCase();
@@ -53,7 +58,16 @@ export async function sendHttp(
       target += (url.includes("?") ? "&" : "?") + body.replace(/^\?/, "");
     }
     const headers = limits.headers ?? { "content-type": "application/json" };
-    const res = await requestHttpExact(target, verb, verb === "GET" || verb === "HEAD" ? "" : body, headers, timeout, limits.maxBytes ?? DEFAULT_MAX_RESPONSE_BYTES, limits.localAddress);
+    const res = await requestHttpExact(
+      target,
+      verb,
+      verb === "GET" || verb === "HEAD" ? "" : body,
+      headers,
+      timeout,
+      limits.maxBytes ?? DEFAULT_MAX_RESPONSE_BYTES,
+      limits.localAddress,
+      limits.rejectUnauthorized ?? true,
+    );
     return { ok: res.ok, message: res.text.slice(0, limits.maxMessageChars ?? 400) || String(res.status) };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "http failed" };
@@ -100,13 +114,19 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
   if (!proto || /[/\\:]/.test(proto)) return { ok: false, message: "Unknown protocol" };
   const known = new Set(["tcp", "udp", "http", "https", "websocket", "tls-websocket", "pjlink", "cast", "wol", "osc", "sacn", "ipmidi", "rtp-midi"]);
   if (!known.has(proto)) return { ok: false, message: "Unknown protocol" };
-  const bind = roomLanBind(config);
+  const face = readNicFace(device);
+  const protoGate = nicFaceProtocolGate(face, proto, lan);
+  if (!protoGate.ok) return protoGate;
+  const bind = planDeviceBindForDevice(device, config);
   if (!bind.ok) return bind;
   const localAddress = bind.localAddress;
+  const rejectUnauthorized = bind.rejectUnauthorized;
   const host = device.host;
   const skipUnicastHost = proto === "sacn" || (proto === "ipmidi" && lan.multicast !== false);
-  if (!skipUnicastHost && !allowedLanHost(host, { localOk: device.driver === "relay-host.json" || driver.device.type === "host" })) {
-    return { ok: false, message: "Host not on room LAN" };
+  const localOk = device.driver === "relay-host.json" || driver.device.type === "host";
+  if (!skipUnicastHost) {
+    const hostGate = deviceHostAllowed(face, host, { localOk });
+    if (!hostGate.ok) return hostGate;
   }
   const port = device.port ?? lan.port;
   const timeout = lan.timeoutMs ?? 3000;
@@ -138,6 +158,7 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
       maxMessageChars: lan.http?.contentType?.includes("xml") ? 64 * 1024 : undefined,
       headers,
       localAddress,
+      rejectUnauthorized,
     });
   } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") {
     if (/[/:]/.test(String(lan.protocol))) result = { ok: false, message: "Unknown protocol" };

@@ -186,24 +186,25 @@ test("F3 allowedLanHost rejects non-LAN and loopback; accepts RFC1918", () => {
   assert.equal(allowedLanHost("172.16.0.1"), true);
 });
 
-test("F3 authenticateDevice gates host with allowedLanHost before pairing fetch", () => {
+test("F3 authenticateDevice gates host with deviceHostAllowed before pairing fetch", () => {
   const fn = sliceFn(engineSrc(), "authenticateDevice");
-  const gate = fn.indexOf("allowedLanHost(host");
+  // B4: deviceHostAllowed (AV RFC1918 / venue IPv4) before pairing I/O
+  const gate = fn.indexOf("deviceHostAllowed(");
   const fetchAt = fn.indexOf("await fetch(");
   const wsAt = fn.indexOf("sendControlSocket");
-  assert.ok(gate >= 0, "authenticateDevice must call allowedLanHost");
-  assert.match(fn, /Host not on room LAN/);
+  assert.ok(gate >= 0, "authenticateDevice must call deviceHostAllowed");
+  assert.match(fn, /deviceHostAllowed|Host not on room LAN|DEVICE_VENUE_SKIP_BAD_HOST/);
   assert.ok(fetchAt < 0 || gate < fetchAt, "LAN gate before pairing fetch");
   assert.ok(wsAt < 0 || gate < wsAt, "LAN gate before websocket pairing");
 });
 
-test("F3 syncInventory HTTP path gates with allowedLanHost before sendHttp", () => {
+test("F3 syncInventory HTTP path gates with deviceHostAllowed before sendHttp", () => {
   const fn = sliceFn(engineSrc(), "syncInventory");
   const httpBranch = fn.slice(fn.indexOf("resource.httpPath"));
-  const gate = httpBranch.indexOf("allowedLanHost(device.host)");
+  const gate = httpBranch.indexOf("deviceHostAllowed(");
   const send = httpBranch.indexOf("sendHttp(");
-  assert.ok(gate >= 0, "inventory httpPath must call allowedLanHost");
-  assert.match(httpBranch, /Host not on room LAN/);
+  assert.ok(gate >= 0, "inventory httpPath must call deviceHostAllowed");
+  assert.match(httpBranch, /deviceHostAllowed|Host not on room LAN|DEVICE_VENUE_SKIP_CLEARTEXT/);
   assert.ok(send >= 0 && gate < send, "LAN gate before sendHttp");
 });
 
