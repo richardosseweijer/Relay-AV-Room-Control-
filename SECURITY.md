@@ -6,7 +6,7 @@ Contact the maintainer privately. Do not file a public issue with exploit detail
 
 ## Scope
 
-Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds to the **AV-LAN IPv4** (never `0.0.0.0`). Dev is port 8080 (`npm run dev`). Production is port 8081 (`npm start`). HTTP on AV-LAN today (issue #15). **Shipped:** optional file-based HTTPS on the venue NIC is **B1** (when `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath` are set and outbound NIC is not None), plus **B3** venue HMAC peer and **B4** `nicFace`. **Let’s Encrypt / ACME / DNS-01 is PARKED permanently** for this product shape (guest LAN, no admin DNS rights, $0, no Cloudflare/LE accounts) — do not treat LE as the default or next path. **Planned (C1–C4, not shipped):** in-box **Generate** venue CA + leaf. Do not port-forward 8080, 8081, or 8082. A host firewall that allows the panel port only from the AV-LAN CIDR is part of the install, not optional advice. Inventory and roadmap: [Venue TLS inventory](#venue-tls-inventory-c0).
+Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds to the **AV-LAN IPv4** (never `0.0.0.0`). Dev is port 8080 (`npm run dev`). Production is port 8081 (`npm start`). HTTP on AV-LAN today (issue #15). **Shipped:** optional file-based HTTPS on the venue NIC is **B1** (when `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath` are set and outbound NIC is not None), plus **B3** venue HMAC peer and **B4** `nicFace`. **Let’s Encrypt / ACME / DNS-01 is PARKED permanently** for this product shape (guest LAN, no admin DNS rights, $0, no Cloudflare/LE accounts) — do not treat LE as the default or next path. **Shipped (C1):** in-box **Generate** venue CA + leaf via admin API (auto-wires B1 paths). **Planned (C2–C4):** Networks UI / CA download / regenerate UX / doc checkpoint. Do not port-forward 8080, 8081, or 8082. A host firewall that allows the panel port only from the AV-LAN CIDR is part of the install, not optional advice. Inventory and roadmap: [Venue TLS inventory](#venue-tls-inventory-c0).
 
 ### Dual-NIC trust model
 
@@ -26,7 +26,7 @@ Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds t
 3. AV unset → `127.0.0.1` + warning (loopback only).
 4. AV set but missing / no IPv4 → refuse listen (never widen to all interfaces).
 
-Tablet URL (AV): `http://<av-lan-ip>:8081` (or configured `PORT`). Optional venue URL when B1 certs are present: `https://<outbound-ip>:8443` (`RELAY_HTTPS_PORT`). LE/ACME parked; in-box PEMs now; Generate planned (C1–C4).
+Tablet URL (AV): `http://<av-lan-ip>:8081` (or configured `PORT`). Optional venue URL when B1 certs are present: `https://<outbound-ip>:8443` (`RELAY_HTTPS_PORT`). LE/ACME parked; in-box PEMs now; Generate shipped (C1 API).
 
 Outbound **None** → **Update from GitHub** is disabled / refused with a clear reason. Update needs an outbound NIC.
 
@@ -92,7 +92,7 @@ Foyer (optional) on this PC: occupancy GET and calendar-session GET on loopback.
 
 ## Venue TLS inventory (C0)
 
-Canonical dual-NIC + venue TLS map. Prefer this section over older “LE = B2” wording elsewhere. Docs-only phase — **no cert generation code in C0**.
+Canonical dual-NIC + venue TLS map. Prefer this section over older “LE = B2” wording elsewhere. C0 was docs-only; **C1 ships Generate**.
 
 ### Shipped (A + B through `v0.9.45`)
 
@@ -109,22 +109,31 @@ Canonical dual-NIC + venue TLS map. Prefer this section over older “LE = B2”
 
 **Wire split:** AV cleartext HTTP (`:8081`) vs venue optional HTTPS (`:8443`) vs `nicFace`/`peerFace` bind planners. AV must not depend on venue certs.
 
-**Current PEM drop (B1):** point `RELAY_TLS_CERT` + `RELAY_TLS_KEY` (env wins) or room `tlsCertPath` + `tlsKeyPath` at readable PEM files on disk. No default path under `data/` today — operator chooses paths. Missing/unreadable ⇒ soft-skip venue HTTPS only.
+**Current PEM drop (B1):** point `RELAY_TLS_CERT` + `RELAY_TLS_KEY` (env wins) or room `tlsCertPath` + `tlsKeyPath` at readable PEM files on disk. **C1 Generate** writes `data/tls/venue/server.{cert,key}.pem` and wires the room paths. Missing/unreadable ⇒ soft-skip venue HTTPS only.
 
 ### PARKED (not the product path)
 
 **Let’s Encrypt / ACME / DNS-01 / public FQDN** — parked permanently for this product shape: guest / venue LAN, no admin DNS rights, $0 budget, no Cloudflare or LE accounts. Do **not** reintroduce LE as the default story, “next” milestone, or install prerequisite.
 
-### Planned — upcoming C1–C4 (NOT shipped; do not document as live)
+### Shipped — C1 (in-box Generate)
+
+| Item | Behaviour |
+|---|---|
+| **C1 Generate** | Admin API (`generateVenueTls` / `getVenueTlsStatus`, config-token gated) builds an **ECDSA P-256** private CA (~10y) + server leaf (~2y) with **IP SAN** = live outbound/NIC2 IPv4 |
+| **Storage** | Fixed paths under `data/tls/venue/` (`ca.cert.pem`, `ca.key.pem`, `server.cert.pem`, `server.key.pem`); keys `0600`; never commit; private keys never enter room JSON export |
+| **B1 wire** | Sets room `tlsCertPath` / `tlsKeyPath` to the server PEM pair (env `RELAY_TLS_*` still wins if set) |
+| **Reload** | Reloads venue HTTPS listener only; AV HTTP untouched. Soft-skip when outbound None / no IPv4 |
+| **Crypto** | Node `crypto` only (no openssl shell-out; no ACME/LE) |
+
+### Planned — C2–C4 (NOT shipped)
 
 | Phase | TARGET |
 |---|---|
-| **C1** | In-box **Generate** venue CA + leaf for the **live NIC2 IPv4** (button / operator action) |
-| **C2** | Auto-wire generated PEMs into the B1 HTTPS listener paths |
-| **C3** | CA download from **NIC2 HTTPS** after browser click-through (no AV-LAN hop for CA trust) |
-| **C4** | Regenerate on NIC2 IP drift; integrator-light UX |
+| **C2** | Networks UI **Generate** button, CA download link/page, IP-mismatch banners, OS install hints |
+| **C3** | Regenerate UX, expiry reminders, richer lifecycle |
+| **C4** | Full doc audit + checkpoint tag |
 
-Until C1 ships, operators use drop-in file PEMs for B1. Generate UI, cert crypto, and CA download endpoints are **out of scope for C0**.
+Operators may still drop in file PEMs for B1. C2 owns UI polish; C1 API is complete and testable.
 
 ### Doc crawl (where dual-NIC / TLS / LE lived)
 
@@ -168,6 +177,6 @@ Persist writes a `relay-room.json.transaction` journal, then secrets, then room 
 - Optional venue HTTPS (B1): `RELAY_TLS_CERT` + `RELAY_TLS_KEY` (or room `tlsCertPath`/`tlsKeyPath`) with outbound NIC set. Port `RELAY_HTTPS_PORT` (default 8443). Missing certs ⇒ skip venue HTTPS only — AV HTTP stays up. LE/ACME parked — not required.
 - Venue peer (B3): same PEMs + outbound NIC; HMAC peer over HTTPS. Soft-skip venue peer if None/no PEMs; AV peers unchanged.
 - Device `nicFace` (B4): venue bind only when needed; soft-fail that device if None/no IPv4; no cleartext HTTP/WS on venue.
-- Phase B software checkpoint (B5): A1–A4 + B1/B3/B4 tagged at `v0.9.45`. Soft TLS verify for file PEMs. **Planned C1–C4:** in-box Generate venue CA (not live yet).
+- Phase B software checkpoint (B5): A1–A4 + B1/B3/B4 tagged at `v0.9.45`. Soft TLS verify for file PEMs. **C1 shipped:** in-box Generate venue CA via API. **Planned C2–C4:** UI / CA download / regenerate / doc tag.
 - Do not port-forward the panel port to venue/WAN. Do not port-forward 8080, 8081, or 8082. Foyer (if installed) is a separate process; HMAC between Relay and Foyer is loopback only.
 - Do not set `RELAY_LISTEN_HOST=0.0.0.0` on a room PC.
