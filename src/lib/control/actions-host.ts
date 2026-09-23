@@ -228,3 +228,204 @@ export const applyAvLanIp = createServerFn({ method: "POST" })
           : null,
     };
   });
+
+export const listVideoOutputs = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    const { ensureLoaded, validToken } = await loadControl();
+    await ensureLoaded();
+    if (!validToken(data.token, "config")) {
+      return { ok: false as const, message: "Config lock required", outputs: [] as { index: number; name: string; connected: boolean; label: string }[] };
+    }
+    const { listVideoOutputs: scan } = await import("./video-outputs");
+    return { ok: true as const, outputs: scan() };
+  });
+
+export const applyPanelHdmi = createServerFn({ method: "POST" })
+  .validator((data: {
+    token: string;
+    pin: string;
+    enabled: boolean;
+    outputName?: string | null;
+    outputIndex?: number | null;
+    restart?: boolean;
+  }) => data)
+  .handler(async ({ data }) => {
+    const {
+      ensureLoaded,
+      memory,
+      verifyStoredPin,
+      validToken,
+      installRoomConfig,
+      persistNow,
+    } = await loadControl();
+    await ensureLoaded();
+    if (!validToken(data.token, "config")) return { ok: false as const, message: "Config lock required" };
+    if (!verifyStoredPin(data.pin, memory().config.room.configPin)) {
+      return { ok: false as const, message: "PIN did not match" };
+    }
+
+    const { platformGate, enableLocalOutput } = await import("./kiosk");
+    const { listVideoOutputs: scan, resolveVideoOutput } = await import("./video-outputs");
+    const { writeRelayKioskEnv, livePanelKioskUrl } = await import("./panel-kiosk-env");
+
+    const outputs = scan();
+    const enabled = Boolean(data.enabled);
+    let outputName: string | null = data.outputName != null && String(data.outputName).trim()
+      ? String(data.outputName).trim()
+      : null;
+    let outputIndex: number | null =
+      data.outputIndex != null && Number.isFinite(Number(data.outputIndex))
+        ? Number(data.outputIndex)
+        : null;
+
+    if (enabled) {
+      const row = resolveVideoOutput(
+        { panelHdmiOutputName: outputName, panelHdmiOutputIndex: outputIndex },
+        outputs,
+      );
+      if (!row || row.name === "local") {
+        return {
+          ok: false as const,
+          message: "Pick a local video output (HDMI/DP). None listed — check /sys/class/drm on Linux.",
+        };
+      }
+      outputName = row.name;
+      outputIndex = row.index;
+    }
+
+    const mem = memory();
+    const nextConfig = {
+      ...mem.config,
+      room: {
+        ...mem.config.room,
+        panelHdmiEnabled: enabled,
+        panelHdmiOutputName: enabled ? outputName : null,
+        panelHdmiOutputIndex: enabled ? outputIndex : null,
+      },
+    };
+    installRoomConfig(nextConfig);
+
+    let kioskUrl: string | null = null;
+    if (enabled) {
+      const written = writeRelayKioskEnv(nextConfig.room, { outputs });
+      if (!written.ok) {
+        try {
+          await persistNow();
+        } catch {
+          /* still report URL failure */
+        }
+        return {
+          ok: false as const,
+          message: written.reason,
+        };
+      }
+      kioskUrl = written.url;
+    }
+
+    try {
+      await persistNow();
+    } catch {
+      return { ok: false as const, message: "Could not save room HDMI settings to disk." };
+    }
+
+    if (!enabled) {
+      return {
+        ok: true as const,
+        message: "Local HDMI panel disabled (saved). Kiosk unit was not restarted.",
+        kioskUrl: null as string | null,
+        restarted: false,
+      };
+    }
+
+    const urlPreview = livePanelKioskUrl(nextConfig.room);
+    if (urlPreview.ok) kioskUrl = urlPreview.url;
+
+    const wantRestart = data.restart !== false;
+    if (!wantRestart) {
+      return {
+        ok: true as const,
+        message: `Saved. Kiosk URL ${kioskUrl}. Start/restart when ready.`,
+        kioskUrl,
+        restarted: false,
+      };
+    }
+
+    const plat = platformGate();
+    if (!plat.ok) {
+      return {
+        ok: true as const,
+        message: `${plat.message} Settings and env saved${kioskUrl ? ` (${kioskUrl})` : ""}.`,
+        kioskUrl,
+        restarted: false,
+      };
+    }
+
+    const restart = enableLocalOutput();
+    if (!restart.ok) {
+      return {
+        ok: false as const,
+        message: `Saved env (${kioskUrl}), but kiosk restart failed: ${restart.detail}`,
+        kioskUrl,
+        restarted: false,
+      };
+    }
+    return {
+      ok: true as const,
+      message: `Panel kiosk restarted on ${outputName}. URL ${kioskUrl}`,
+      kioskUrl,
+      restarted: true,
+      via: restart.via,
+    };
+  });
+
+export const restartPanelKiosk = createServerFn({ method: "POST" })
+  .validator((data: { token: string; pin: string }) => data)
+  .handler(async ({ data }) => {
+    const {
+      ensureLoaded,
+      memory,
+      verifyStoredPin,
+      validToken,
+      persistNow,
+    } = await loadControl();
+    await ensureLoaded();
+    if (!validToken(data.token, "config")) return { ok: false as const, message: "Config lock required" };
+    if (!verifyStoredPin(data.pin, memory().config.room.configPin)) {
+      return { ok: false as const, message: "PIN did not match" };
+    }
+
+    const room = memory().config.room;
+    if (!room.panelHdmiEnabled) {
+      return { ok: false as const, message: "Local HDMI panel is disabled. Enable it under Room → Local display, then retry." };
+    }
+
+    const { writeRelayKioskEnv } = await import("./panel-kiosk-env");
+    const { platformGate, enableLocalOutput } = await import("./kiosk");
+
+    const written = writeRelayKioskEnv(room);
+    if (!written.ok) return { ok: false as const, message: written.reason };
+    try {
+      await persistNow();
+    } catch {
+      /* env already on disk; room unchanged */
+    }
+
+    const plat = platformGate();
+    if (!plat.ok) return { ok: false as const, message: plat.message, kioskUrl: written.url };
+
+    const restart = enableLocalOutput();
+    if (!restart.ok) {
+      return {
+        ok: false as const,
+        message: `Env written (${written.url}), but restart failed: ${restart.detail}`,
+        kioskUrl: written.url,
+      };
+    }
+    return {
+      ok: true as const,
+      message: `Panel kiosk restarted. URL ${written.url}`,
+      kioskUrl: written.url,
+      via: restart.via,
+    };
+  });

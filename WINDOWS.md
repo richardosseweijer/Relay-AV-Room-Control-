@@ -1,6 +1,6 @@
 # Relay — Windows
 
-Relay **0.9.50** (beta). Windows 10/11. Command Prompt or PowerShell.
+Relay **0.9.51** (beta). Windows 10/11. Command Prompt or PowerShell.
 
 Default configurator PIN: `1234`. The app then requires a stronger PIN. Tablets stay paired until Forget on Security.
 
@@ -128,3 +128,8 @@ taskkill /PID <id> /F
 ```
 
 Or Task Manager → end the `node.exe` bound to 8081.
+
+## Local HDMI panel kiosk
+
+**Linux-only.** The cage / tty1 Chromium unit (`relay-kiosk.service`) does not run on Windows. In the lab, open the AV-LAN panel URL in a normal browser. Room → Local display still saves HDMI preferences for the Linux room PC.
+
