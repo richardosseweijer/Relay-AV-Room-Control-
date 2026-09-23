@@ -688,18 +688,24 @@ sudo systemctl status relay-kiosk --no-pager
 
 Room → **Local display (HDMI)** saves `data/relay-kiosk.env` (`RELAY_VIDEO_OUTPUT` + `RELAY_KIOSK_URL`) and can restart this unit. Wrong output can blank the console page; SSH stays up.
 
-Configurator restart needs passwordless systemctl for this unit only:
+Configurator restart needs passwordless `systemctl` for this unit only. Relay stays non-root and runs `sudo -n systemctl restart relay-kiosk.service`. Missing sudoers → clear operator error pointing here (not raw polkit text).
 
 ```bash
-USER_NAME="$(whoami)"
-sudo tee /etc/sudoers.d/relay-kiosk >/dev/null <<EOF
-${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start relay-kiosk.service, /usr/bin/systemctl restart relay-kiosk.service, /usr/bin/systemctl try-restart relay-kiosk.service, /usr/bin/systemctl stop relay-kiosk.service
-EOF
-sudo chmod 440 /etc/sudoers.d/relay-kiosk
-sudo visudo -c
+# Use the systemd User= for relay.service (often the account you SSH as)
+USER_NAME="$(whoami)"   # or: USER_NAME=pi
+# From the repo checkout (replace USER in the template):
+sudo cp deploy/sudoers.relay-kiosk /etc/sudoers.d/relay-kiosk
+sudo sed -i "s/^USER /${USER_NAME} /" /etc/sudoers.d/relay-kiosk
+sudo chown root:root /etc/sudoers.d/relay-kiosk
+sudo chmod 0440 /etc/sudoers.d/relay-kiosk
+sudo visudo -cf /etc/sudoers.d/relay-kiosk
+# Smoke-check as the service user (must NOT ask for a password):
+sudo -u "$USER_NAME" sudo -n /usr/bin/systemctl is-active relay-kiosk.service || true
 ```
 
-Templates: `deploy/relay-kiosk.service`, `deploy/sudoers.relay-kiosk`.
+Templates: `deploy/relay-kiosk.service`, `deploy/sudoers.relay-kiosk`. Keep this drop-in beside `/etc/sudoers.d/relay-nmcli` (AV-LAN Apply) — do **not** merge into `NOPASSWD: ALL`.
+
+**Relay-only HDMI:** operators who paint the panel with Relay’s own kiosk (not Foyer) need this drop-in for Room → Local display → save/restart. **Foyer dual-head:** leave `relay-kiosk` off (§7a); sudoers is harmless while the unit is disabled.
 
 cage `-d` skips client decorations. It does **not** use `-s` (that flag allows switching back to the text console).
 
