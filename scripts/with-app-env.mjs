@@ -24,6 +24,7 @@ import { readFileSync, realpathSync } from "node:fs";
 import { constants as osConstants } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { bootResolveHttpListenHost } from "./http-listen-host.mjs";
 
 export const APP_ENV_REL_PATH = ".grok/app-env.json";
 
@@ -104,21 +105,63 @@ export function isMainModule(moduleUrl) {
   }
 }
 
+/** Whether argv looks like a Vite listen command (dev / preview). */
+function isViteListenCommand(command, args) {
+  const all = [command, ...args].map(String);
+  if (all.includes("dev") || all.includes("preview")) return true;
+  // `vite` binary with subcommand in args
+  return /vite/.test(command) && (args.includes("dev") || args.includes("preview"));
+}
+
+/**
+ * Ensure --host matches resolved AV listen host. Drops a prior --host / value pair.
+ * @param {string[]} args
+ * @param {string} host
+ */
+function withListenHostArg(args, host) {
+  const out = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--host") {
+      i += 1; // skip value
+      continue;
+    }
+    if (String(args[i]).startsWith("--host=")) continue;
+    out.push(args[i]);
+  }
+  out.push("--host", host);
+  return out;
+}
+
 function main(argv) {
   const [command, ...args] = argv;
   if (!command) {
     console.error("usage: node scripts/with-app-env.mjs <command> [args…]");
     process.exit(2);
   }
-  const env = mergeAppEnv(readAppEnv(projectRoot()), process.env);
-  const bin = join(projectRoot(), "node_modules", ".bin");
+  const root = projectRoot();
+  const env = mergeAppEnv(readAppEnv(root), process.env);
+  const bin = join(root, "node_modules", ".bin");
   env.PATH = `${bin}${env.Path ? ";" : ":"}${env.PATH || env.Path || ""}`;
   env.Path = env.PATH;
-  const child = spawn(command, args, {
+
+  let spawnArgs = args;
+  if (isViteListenCommand(command, args)) {
+    const listen = bootResolveHttpListenHost(root, env);
+    if (!listen.ok) {
+      console.error(`[with-app-env] ${listen.reason}`);
+      process.exit(1);
+    }
+    if (listen.warning) console.warn(`[with-app-env] ${listen.warning}`);
+    env.RELAY_LISTEN_HOST = listen.host;
+    spawnArgs = withListenHostArg(args, listen.host);
+    console.info(`[with-app-env] HTTP listen host ${listen.host}`);
+  }
+
+  const child = spawn(command, spawnArgs, {
     stdio: "inherit",
     env,
     shell: process.platform === "win32",
-    cwd: projectRoot(),
+    cwd: root,
   });
   // The dev server is long-running and is stopped by signalling this wrapper.
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {

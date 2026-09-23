@@ -279,6 +279,7 @@ export async function applyHost(
     const { spawn } = await import("node:child_process");
     const fs = await import("node:fs");
     const path = await import("node:path");
+    const { bootResolveHttpListenHost } = await import("../../../scripts/http-listen-host.mjs");
     let root = process.cwd();
     for (let i = 0; i < 6; i++) {
       if (fs.existsSync(path.join(root, "package.json")) && fs.existsSync(path.join(root, "src", "lib", "control"))) break;
@@ -287,6 +288,10 @@ export async function applyHost(
       root = parent;
     }
     const port = process.env.PORT || process.argv.find((a, i, all) => all[i - 1] === "--port") || "8081";
+    const listen = bootResolveHttpListenHost(root, process.env);
+    if (!listen.ok) return { ok: false, message: listen.reason };
+    if (listen.warning) console.warn(`[relay] ${listen.warning}`);
+    const host = listen.host;
     if (process.env.INVOCATION_ID && process.platform !== "win32") {
       setTimeout(() => process.exit(1), 400);
       return { ok: true, message: "Restarting (systemd Restart=always)" };
@@ -294,18 +299,18 @@ export async function applyHost(
     const preview = process.env.npm_lifecycle_event === "start" || process.argv.includes("preview") || process.env.NODE_ENV === "production";
     const viteJs = path.join(root, "node_modules", "vite", "bin", "vite.js");
     const args = preview
-      ? (fs.existsSync(viteJs) ? [viteJs, "preview", "--host", "0.0.0.0", "--port", String(port)] : ["--yes", "vite", "preview", "--host", "0.0.0.0", "--port", String(port)])
-      : (fs.existsSync(viteJs) ? [viteJs, "dev", "--host", "0.0.0.0", "--port", String(port)] : ["--yes", "vite", "dev", "--host", "0.0.0.0", "--port", String(port)]);
+      ? (fs.existsSync(viteJs) ? [viteJs, "preview", "--host", host, "--port", String(port)] : ["--yes", "vite", "preview", "--host", host, "--port", String(port)])
+      : (fs.existsSync(viteJs) ? [viteJs, "dev", "--host", host, "--port", String(port)] : ["--yes", "vite", "dev", "--host", host, "--port", String(port)]);
     const cmd = fs.existsSync(viteJs) ? process.execPath : "npx";
     spawn(cmd, args, {
       detached: true,
       stdio: "ignore",
       cwd: root,
       shell: !fs.existsSync(viteJs),
-      env: { ...process.env, CHOKIDAR_USEPOLLING: "1" },
+      env: { ...process.env, CHOKIDAR_USEPOLLING: "1", RELAY_LISTEN_HOST: host },
     }).unref();
     setTimeout(() => process.exit(0), 400);
-    return { ok: true, message: preview ? `Relay preview restarting in ${root}` : `Relay restarting in ${root}` };
+    return { ok: true, message: preview ? `Relay preview restarting in ${root} on ${host}` : `Relay restarting in ${root} on ${host}` };
   }
   else if (commandId === "system.update") {
     if (!flags?.allowAdmin) return { ok: false, message: "Update only from configurator" };
