@@ -77,10 +77,10 @@ Default URLs (loopback only):
 
 | Client setting | Default |
 |---|---|
-| Foyer Setup → Relay URL | `http://127.0.0.1:8081` |
+| Foyer Setup → Relay URL | `http://<av-lan-ipv4>:8081` (live AV NIC; Room → Occupancy shows the paste URL). Soft-fail if AV unset / no IPv4. Lab: `http://127.0.0.1:8081` only with `RELAY_LISTEN_HOST=127.0.0.1`. |
 | Relay Room tab → Foyer URL | `http://127.0.0.1:8080` |
 
-A non-loopback URL is **fail closed** (client does not send). Loopback hostnames: `127.0.0.1`, `localhost`, `::1`.
+Allowed Relay URL hosts: **loopback** (`127.0.0.1` / `localhost` / `::1`) **or** this PC’s live **AV-LAN IPv4** (same address Relay listens on). Other hosts are **fail closed** (client does not send).
 
 Foyer door `:8082` **denies** `/api/peer`. Calendar GET is welcome `:8080` only.
 
@@ -114,7 +114,7 @@ Aliases Relay accepts when writing: `open`/`free`/`idle`/`false` → open; `inse
 
 ```
 GET /api/peer HTTP/1.1
-Host: 127.0.0.1:8081
+Host: <av-lan-ipv4>:8081
 ```
 
 No body. Clients **do not send HMAC** on this GET (a mismatched pasted secret must not 401 the plate). HMAC, if a client ever sends `x-relay-auth` / `x-relay-ts`, must verify.
@@ -176,7 +176,7 @@ Foyer Setup occupancy:
 
 The agenda (`now` / `next` / following) still paints when occupancy is forced. Occupancy is the **status chip**, not the calendar.
 
-HTTP 4xx/5xx, timeout, bad JSON, `ok: false`, or a non-loopback URL: keep **last-good** occupancy snapshot. Do not invent `available`.
+HTTP 4xx/5xx, timeout, bad JSON, `ok: false`, or a disallowed URL (not loopback and not this PC’s AV-LAN IPv4): keep **last-good** occupancy snapshot. Do not invent `available`.
 
 ---
 
@@ -277,7 +277,7 @@ Not editable on the Logic tab. Room tab Occupancy / Foyer card shows the live li
 | Relay `:8081/api/peer` | Allow | Must verify against Relay peer secret | Allowed **only** with valid HMAC (Relay-to-Relay). Foyer client never uses this. |
 | Foyer `:8080/api/peer` | Allow | Must verify against Foyer `relaySecret` | **Deny** (even with HMAC) |
 
-Loopback test: **TCP `remoteAddress`** of the accepted socket (`127.0.0.1` / `::1` / `::ffff:127.0.0.1`). Missing or unreadable peer → not loopback. `Host`, `X-Forwarded-For`, and `X-Forwarded-Host` are **not** loopback. Relay listens on the **AV-LAN IPv4** only (A2). A socket bound to that IPv4 does **not** accept `127.0.0.1` connections. Foyer’s default Relay URL remains `http://127.0.0.1:8081` and fail-closes non-loopback — so on a dual-NIC room PC, either leave a documented escape (`RELAY_LISTEN_HOST=127.0.0.1` for lab only) or resolve dual-bind / Foyer URL in a later train; do not widen production to `0.0.0.0`. Unsigned GET is denied unless the TCP peer is loopback. Foyer may still listen on `0.0.0.0` for welcome/setup — that is Foyer’s binding, not Relay’s.
+Local peer test: **TCP `remoteAddress`** of the accepted socket is loopback (`127.0.0.1` / `::1` / `::ffff:127.0.0.1`) **or equals the HTTP listen host** (same-PC hairpin to the AV-LAN IPv4). Missing or unreadable peer → not local. `Host`, `X-Forwarded-For`, and `X-Forwarded-Host` are **not** local. Relay listens on the **AV-LAN IPv4** only (A2) — never `0.0.0.0`. Foyer’s default Relay URL is that live AV IPv4 (`http://<av-lan-ipv4>:8081`); Room → Occupancy shows the paste value. Soft-fail when AV unset / no IPv4 (message, not a wrong loopback URL). Lab escape: `RELAY_LISTEN_HOST=127.0.0.1`. Unsigned GET is allowed only for a local peer (loopback or listen-host hairpin). Foyer may still listen on `0.0.0.0` for welcome/setup — that is Foyer’s binding, not Relay’s.
 
 
 ### 6.2 HMAC formula (when headers are sent)
@@ -312,7 +312,7 @@ After **Update from GitHub** on both apps:
 1. **Foyer Setup**
    - Occupancy = **Auto**
    - **Read occupancy from Relay on this PC** on
-   - Relay URL `http://127.0.0.1:8081`
+   - Relay URL `http://<av-lan-ipv4>:8081` (copy from Relay Room → Occupancy; not `127.0.0.1` on dual-NIC)
    - Peer secret may stay blank
 2. **Relay Configurator → Room → Occupancy / Foyer**
    - Set occupancy with the Occupancy var (`0`–`3`) or a Relay Occupancy command / macro
@@ -332,7 +332,7 @@ Relay stays on “No session” → Foyer has no live or upcoming event, Foyer i
 | Timeout / network error | Keep last-good | Keep previous vars |
 | HTTP not 2xx / `ok: false` | Keep last-good | Keep previous vars |
 | Bad JSON | Keep last-good | Keep previous vars |
-| Non-loopback URL | Do not send; last-good | Do not send; previous vars |
+| Disallowed URL (not loopback / not AV listen IP) | Do not send; last-good | Do not send; previous vars |
 | Poll switch off / empty URL | Last-good / skip | Skip (`foyer.*` unchanged) |
 | `session: null` with `ok: true` | — | Write `none` + empty |
 | Missing `occupancy` and not locked | No Relay value; hours/calendar | — |

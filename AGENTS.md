@@ -44,7 +44,7 @@ Shipped truth through **B5 / `v0.9.45`** and **venue TLS C4 / `v0.9.46`**: A1 ou
 Hard rules for future turns:
 
 - **Do not reintroduce Let’s Encrypt / ACME / DNS-01** as the default, required, or “next” cert story. It is **PARKED** for guest/venue LAN + no admin DNS + $0 + no Cloudflare/LE accounts.
-- **Do not listen on `0.0.0.0`** in production paths. AV panel/API stay on AV-LAN IPv4 (else loopback). Preview escape `RELAY_LISTEN_HOST=0.0.0.0` is explicit and not the room-PC default.
+- **Default/control URL for panel + Foyer hints prefers live AV-LAN IPv4 (`controlBaseUrlFrom`); soft-fail if AV unset / no IPv4 — do not advertise loopback as the production URL. Do not listen on `0.0.0.0`** in production paths. AV panel/API stay on AV-LAN IPv4 (else loopback). Preview escape `RELAY_LISTEN_HOST=0.0.0.0` is explicit and not the room-PC default.
 - **AV must not depend on venue certs.** Missing PEMs / outbound None / Generate failure → soft-skip venue HTTPS / venue peer / venue nicFace only; AV HTTP stays up.
 - **C0 was docs-only; C1–C4 are shipped** (Generate API + ECDSA PEMs + B1 wire + Networks UI Generate / CA download / mismatch+expiry banners / regenerate confirm / OS hints + docs consistency / tag `v0.9.46`). Do not reopen LE or invent silent auto-reissue / strict peer verify unless the operator names that train.
 - Prefer factual edits to existing canonical docs over new markdown sprawl.

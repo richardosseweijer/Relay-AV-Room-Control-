@@ -11,7 +11,7 @@ import {
   FOYER_START_ID,
   FOYER_END_ID,
 } from "../src/lib/control/foyer-peer.ts";
-import { authorizePeerGet, isLoopbackIp, isTcpLoopback, tcpPeerAddress, signPeer } from "../src/lib/control/peer-auth.ts";
+import { authorizePeerGet, isLoopbackIp, isTcpLoopback, isTcpLocalPeer, tcpPeerAddress, signPeer } from "../src/lib/control/peer-auth.ts";
 import { buildPeerOccupancyGet, occupancyOf } from "../src/lib/control/peer-payload.ts";
 
 test("foyer peer URL is loopback /api/peer only", () => {
@@ -112,4 +112,19 @@ test("unsigned occupancy GET body has no vars or macros", () => {
   assert.equal(json.includes("macros"), false);
   assert.equal(json.includes("pageId"), false);
   assert.equal(occupancyOf({ occupancy: "dnd" }), "do-not-disturb");
+});
+
+
+test("unsigned GET allowed for same-host AV hairpin (listen host peer)", () => {
+  const hairpin = new Request("http://10.0.25.10:8081/api/peer", { method: "GET" });
+  Object.assign(hairpin, { runtime: { node: { req: { socket: { remoteAddress: "10.0.25.10" } } } } });
+  assert.equal(isTcpLoopback(hairpin), false);
+  assert.equal(isTcpLocalPeer(hairpin, "10.0.25.10"), true);
+  assert.equal(authorizePeerGet({ key: "", request: hairpin, listenHost: "10.0.25.10" }), true);
+  assert.equal(authorizePeerGet({ key: "secret", request: hairpin, listenHost: "10.0.25.10" }), true);
+  // Other AV-LAN client still needs HMAC
+  const other = new Request("http://10.0.25.10:8081/api/peer", { method: "GET" });
+  Object.assign(other, { runtime: { node: { req: { socket: { remoteAddress: "10.0.25.50" } } } } });
+  assert.equal(isTcpLocalPeer(other, "10.0.25.10"), false);
+  assert.equal(authorizePeerGet({ key: "secret", request: other, listenHost: "10.0.25.10" }), false);
 });
