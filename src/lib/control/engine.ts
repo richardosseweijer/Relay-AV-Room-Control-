@@ -76,7 +76,13 @@ function statusPlane(driver: DriverSpec, device: DeviceInstance) {
   return `${proto}://${device.host}:${port}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-export async function pingReachable(opts: { host: string; port?: number; path?: string; timeoutMs?: number }): Promise<CommandResult> {
+export async function pingReachable(opts: {
+  host: string;
+  port?: number;
+  path?: string;
+  timeoutMs?: number;
+  localAddress?: string;
+}): Promise<CommandResult> {
   if (!opts.host) return { ok: false, message: "No host" };
   const local = /^(localhost|127\.0\.0\.1|::1)$/i.test(opts.host.trim());
   if (!allowedLanHost(opts.host, { localOk: local })) return { ok: false, message: "Host not on room LAN" };
@@ -87,25 +93,30 @@ export async function pingReachable(opts: { host: string; port?: number; path?: 
   const httpPorts = new Set([80, 443, 8001, 8080, 8443]);
   if (httpPorts.has(port) || path.startsWith("/api")) {
     try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), timeout);
-      const res = await fetch(`http://${opts.host}:${port}${path.startsWith("/") ? path : `/${path}`}`, { signal: ctrl.signal });
-      clearTimeout(t);
-      await res.text();
-      return { ok: true, message: String(res.status) };
+      const res = await requestHttpExact(
+        `http://${opts.host}:${port}${path.startsWith("/") ? path : `/${path}`}`,
+        "GET",
+        "",
+        {},
+        timeout,
+        DEFAULT_MAX_RESPONSE_BYTES,
+        opts.localAddress,
+      );
+      if (res.status > 0) return { ok: true, message: String(res.status) };
     } catch {
       /* fall through to TCP */
     }
   }
   return new Promise((resolve) => {
     import("node:net").then((net) => {
-      const sock = net.connect({ host: opts.host, port }); // loopback-or-unbound ping
+      const sock = net.connect({ host: opts.host, port, localAddress: opts.localAddress });
       const timer = setTimeout(() => { sock.destroy(); resolve({ ok: false, message: `closed ${port}` }); }, timeout);
       sock.on("connect", () => { clearTimeout(timer); sock.end(); resolve({ ok: true, message: `open ${port}` }); });
       sock.on("error", (err) => { clearTimeout(timer); resolve({ ok: false, message: err.message }); });
     });
   });
 }
+
 
 export async function authenticateDevice(opts: { config: RoomConfig; drivers: Record<string, DriverSpec>; deviceId: string; host?: string }): Promise<CommandResult & { pairedToken?: string; pairedPort?: number }> {
   const device = opts.config.devices.find((d) => d.id === opts.deviceId);
@@ -116,9 +127,12 @@ export async function authenticateDevice(opts: { config: RoomConfig; drivers: Re
   if (!allowedLanHost(host, { localOk: device.driver === "relay-host.json" || driver.device.type === "host" })) {
     return { ok: false, message: "Host not on room LAN" };
   }
+  const bind = roomLanBind(opts.config);
+  if (!bind.ok) return bind;
+  const localAddress = bind.localAddress;
   const steps = inferPairingSteps(driver.auth?.pairing);
   if (!steps.length) {
-    const ping = await pingReachable({ host, port: device.port ?? driver.transports.lan?.port });
+    const ping = await pingReachable({ host, port: device.port ?? driver.transports.lan?.port, localAddress });
     return { ok: ping.ok, message: ping.ok ? "Reachable (no pairing steps)" : ping.message };
   }
   for (const step of steps) {
@@ -126,12 +140,16 @@ export async function authenticateDevice(opts: { config: RoomConfig; drivers: Re
     const path = step.path || "/";
     if (step.action === "http-get" || step.action === "http-post") {
       try {
-        const res = await fetch(`http://${host}:${port}${path.startsWith("/") ? path : `/${path}`}`, {
-          method: step.action === "http-post" ? "POST" : "GET",
-          body: step.action === "http-post" ? (step.body || "{\"devicetype\":\"relay#room\"}") : undefined,
-          headers: { "content-type": "application/json" },
-        });
-        const text = await res.text();
+        const res = await requestHttpExact(
+          `http://${host}:${port}${path.startsWith("/") ? path : `/${path}`}`,
+          step.action === "http-post" ? "POST" : "GET",
+          step.action === "http-post" ? (step.body || "{\"devicetype\":\"relay#room\"}") : "",
+          { "content-type": "application/json" },
+          step.timeoutMs ?? 8000,
+          DEFAULT_MAX_RESPONSE_BYTES,
+          localAddress,
+        );
+        const text = res.text;
         const token = pickJsonField(text, step.tokenJsonPath || "username") || text.match(/"username"\s*:\s*"([^"]+)"/)?.[1] || text.match(/"token"\s*:\s*"([^"]+)"/)?.[1];
         if (token) return { ok: true, message: "Paired", pairedToken: token, pairedPort: step.nextPort ?? port };
         if (/link button|not pressed/i.test(text)) return { ok: false, message: "Press the device button, then Authenticate again" };
@@ -160,6 +178,7 @@ export async function authenticateDevice(opts: { config: RoomConfig; drivers: Re
           waitContains: step.waitContains || lan?.handshake?.waitContains || pairing?.waitContains,
           delayMs: lan?.handshake?.delayMs,
         },
+        localAddress,
       });
       const tokenPath = step.tokenJsonPath || pairing?.tokenJsonPath || "token";
       const token = pickJsonField(result.message, tokenPath)
@@ -174,11 +193,11 @@ export async function authenticateDevice(opts: { config: RoomConfig; drivers: Re
   return { ok: false, message: "No token from pairing steps" };
 }
 
-export async function scanDevicePorts(host: string, ports?: number[]) {
+export async function scanDevicePorts(host: string, ports?: number[], localAddress?: string) {
   const list = ports ?? [80, 23, 2001, 2002, 4352, 8001, 8002, 8008, 8009, 53484, 53595, 51325, 51326, 51327];
   const open: number[] = [];
   for (const port of list) {
-    const res = await pingReachable({ host, port, timeoutMs: 400 });
+    const res = await pingReachable({ host, port, timeoutMs: 400, localAddress });
     if (res.ok) open.push(port);
   }
   return { ok: open.length > 0, message: open.join(", ") || "none open", open };

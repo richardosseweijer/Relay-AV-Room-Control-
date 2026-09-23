@@ -21,7 +21,7 @@ export type HttpListenHostResult =
   | { ok: true; host: string; warning?: string }
   | { ok: false; reason: string };
 
-/** Phase 0 inventory (bind later): udp.ts, wol.ts, engine tcp/session/ping, pjlink.ts, ws.ts (net+tls), rtp-midi.ts, http-client.ts, cast.ts tls.connect. listHostInterfaces = serial/GPIO/MIDI, not NICs. */
+/** NIC-split Phase A (A1–A4): outbound None (A1), HTTP listen pin (A2), trust-model docs (A3), remaining AV-LAN bind gaps (A4: UDP multicast listen, ping, RPC). Device/control defaults to roomLanBind. listHostInterfaces = serial/GPIO/MIDI, not NICs. Phase B = HTTPS/LE/peers/nicFace (not started). */
 
 export type LanNic = {
   index: number;
