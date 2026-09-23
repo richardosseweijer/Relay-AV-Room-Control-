@@ -2,6 +2,10 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
+## Unreleased
+
+- **Docs C0 (venue TLS inventory):** crawl dual-NIC / venue TLS / certs / LE / listen-bind docs; correct drift vs shipped A+B (`v0.9.45`). **LE/ACME/DNS-01 marked PARKED** (not deferred B2 / not default). **Planned C1–C4** documented for in-box Generate venue CA + leaf → auto-wire B1 → NIC2 CA download after click-through → regenerate on IP drift — clearly labeled **not shipped**. No cert generation code, UI, or version bump in C0. Canonical section: [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0); agent bans in `AGENTS.md`; install notes in `LINUX.md`.
+
 ## 0.9.45 — 2026-09-23
 - Tag `v0.9.45`. Phase B software checkpoint (B5): hardening audit + docs/tests alignment. B2 Let’s Encrypt / ACME / FQDN remains deferred. Same Foyer pair (`v0.2.2`). Foyer loopback vs AV-only bind foot-gun documented, not fixed.
 - B5 hardening: inventory `httpPath` cleartext on `nicFace=outbound` returns a pointed error; soft-skip / nicFace / peerFace coverage kept green. Docs: SECURITY / LINUX / ARCHITECTURE / CONTEXT / KNOWN_ISSUES / CHANGELOG aligned with A+B (raw IP OK; `rejectUnauthorized: false` for file PEMs until LE).

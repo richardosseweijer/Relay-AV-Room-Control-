@@ -1,10 +1,10 @@
 # Relay — Linux / Raspberry Pi from a blank install
 
-Install **`main`** from GitHub (that is the supported tree). Current package version is **0.9.42** (beta). Confirm with the Room tab version field or `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
+Install **`main`** from GitHub (that is the supported tree). Current package version is **0.9.45** (beta; Phase B checkpoint). Confirm with the Room tab version field or `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
 
 Default configurator PIN after first start: `1234`. Open `/config` once and set a stronger PIN. New rooms default to **Panel PIN**: every tablet unlocks with that PIN and gets its own session (30 days, sliding). **Open on LAN** is a separate Security setting that skips the panel PIN for anyone who can reach port 8081 — use it only on the room VLAN. Do not confuse it with **open LAN control** (unauthenticated `fireCommand`). See `SECURITY.md`.
 
-This host binds the cleartext panel/API to the **AV-LAN IPv4** only (never `0.0.0.0`). Tablet URL: `http://<av-lan-ip>:8081` (or your configured port). Before you call the install finished, finish the dual-NIC / firewall checklist in §5b. Do not port-forward 8081 to venue/WAN. Optional **file-based HTTPS** on the venue NIC is **Phase B1** (set `RELAY_TLS_CERT`/`RELAY_TLS_KEY`, outbound NIC not None; default port 8443). **Let’s Encrypt is Phase B2** (not in this release).
+This host binds the cleartext panel/API to the **AV-LAN IPv4** only (never `0.0.0.0`). Tablet URL: `http://<av-lan-ip>:8081` (or your configured port). Before you call the install finished, finish the dual-NIC / firewall checklist in §5b. Do not port-forward 8081 to venue/WAN. Optional **file-based HTTPS** on the venue NIC is **shipped B1** (set `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath`, outbound NIC not None; default port 8443). **Let’s Encrypt / ACME / DNS-01 is PARKED** — not required. **Planned (not live):** in-box **Generate** venue CA (C1–C4). See [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
 
 Commands below are run in a terminal as a normal user that can use `sudo`.
 
@@ -90,7 +90,7 @@ Wiring is 3.3 V TTL, not RS-232 levels. A projector or Denon on the header needs
 
 ## 4. Clone Relay (`main`)
 
-Do **not** use a zip, an old tag (`v0.7.3`), or a copy of `dist/` from another machine. The in-app update and this guide both track **`origin/main`**. `v0.9.42` is a snapshot of this beta.
+Do **not** use a zip, an old tag (`v0.7.3`), or a copy of `dist/` from another machine. The in-app update and this guide both track **`origin/main`**. `v0.9.45` is a snapshot of this beta (Phase B software checkpoint).
 
 ```bash
 cd ~
@@ -161,7 +161,7 @@ On a two-NIC Ubuntu room PC:
 
 - AV-LAN has **no default route**.
 - NIC2 (venue) has the **default route**, **or** is **None**.
-- NIC2 down / None / a future Let’s Encrypt failure must **not** break NIC1.
+- NIC2 down / None / missing PEMs / a future venue-TLS Generate failure must **not** break NIC1.
 - No IP forward and no bridge between the two NICs.
 - Same NIC on both pickers is allowed on a test box only.
 
@@ -207,7 +207,30 @@ sudo ufw status
 
 Outbound **None** ⇒ Room → **Update from GitHub** unavailable until you pick a venue NIC. That is intentional.
 
-Optional venue HTTPS (B1, file certs): `https://<outbound-ip>:8443` when outbound NIC + `RELAY_TLS_CERT`/`RELAY_TLS_KEY` are set. LE/ACME is B2 (deferred). AV tablet URL remains `http://<av-lan-ip>:8081`. B3: HMAC peer over that venue HTTPS (`peerFace`). B4: per-device `nicFace` bind (AV default; venue soft-fails if outbound None). Soft TLS verify for file PEMs until B2. Raw venue IPv4 is fine (Networks UI live IP).
+#### Venue HTTPS (shipped B1) — PEM drop paths
+
+Optional venue HTTPS: `https://<outbound-ip>:8443` when outbound NIC is set **and** PEMs are readable.
+
+| How | Paths |
+|---|---|
+| Env (wins) | `RELAY_TLS_CERT` + `RELAY_TLS_KEY` → absolute PEM file paths |
+| Room fields | `tlsCertPath` + `tlsKeyPath` on the room object (same idea) |
+| Port | `RELAY_HTTPS_PORT` (default **8443**) |
+
+There is **no** baked-in default under `data/` today — drop PEMs where you like (e.g. `/var/lib/relay/tls/cert.pem` + `key.pem`) and point the env/room fields at them. Missing/unreadable PEMs ⇒ soft-skip venue HTTPS only; **AV HTTP stays up**. Soft TLS verify (`rejectUnauthorized: false`) for these file PEMs. Raw venue IPv4 is fine (Networks UI live IP). B3: HMAC peer over that venue HTTPS (`peerFace`). B4: per-device `nicFace` bind (AV default; venue soft-fails if outbound None).
+
+**Guest / venue LAN reality:** NIC2 is often a guest or venue segment with no admin DNS, no Cloudflare, and no LE account. **LE/ACME/DNS-01 is PARKED permanently** for this product — do not require public FQDN for venue HTTPS.
+
+#### Planned Generate flow (C1–C4 — NOT shipped)
+
+Documented target only; **C0 does not implement buttons or crypto**.
+
+1. **C1** — Operator clicks **Generate** → in-box venue CA + leaf for the **live NIC2 IPv4**.
+2. **C2** — Generated PEMs auto-wire into B1 (`tlsCertPath`/`tlsKeyPath` or equivalent).
+3. **C3** — Browser on the venue side: click-through the leaf warning, then **download the CA from NIC2 HTTPS** (no AV-LAN hop for trust).
+4. **C4** — Regenerate when NIC2 IP drifts; keep the flow integrator-light.
+
+Until Generate ships, use the PEM drop table above. AV tablet URL remains `http://<av-lan-ip>:8081`. Full inventory: [`SECURITY.md`](SECURITY.md#venue-tls-inventory-c0).
 
 Foyer (optional, separate process) owns `:8080` / `:8082`; Relay production is `:8081`. Foyer ↔ Relay is loopback only — [`FOYER-RELAY.md`](FOYER-RELAY.md). Foyer occupancy is the Occupancy variable (`0` closed, `1` open, `2` in session, `3` do not disturb) or a Relay Occupancy command. Foyer GETs `/api/peer` and reads the string `occupancy` field. Room names do not need to match.
 
