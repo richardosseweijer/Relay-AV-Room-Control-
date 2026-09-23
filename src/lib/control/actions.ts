@@ -38,3 +38,8 @@ export {
   debugSend,
   wipeLog,
 } from "./actions-host";
+
+export {
+  getVenueTlsStatus,
+  generateVenueTls,
+} from "./actions-venue-tls";
