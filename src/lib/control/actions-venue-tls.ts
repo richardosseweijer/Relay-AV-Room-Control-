@@ -18,7 +18,14 @@ export const getVenueTlsStatus = createServerFn({ method: "POST" })
     }
     const { readVenueTlsStatus } = await import("../../../scripts/venue-tls-generate.mjs");
     const status = readVenueTlsStatus(process.cwd());
-    return { ok: true as const, status };
+    let active = Boolean(status.present);
+    try {
+      const { getHttpsVenueRuntime } = await import("../../../scripts/https-venue-runtime.mjs");
+      active = Boolean(status.present && getHttpsVenueRuntime().server);
+    } catch {
+      /* soft: present-only when runtime module unavailable */
+    }
+    return { ok: true as const, status: { ...status, active } };
   });
 
 export const generateVenueTls = createServerFn({ method: "POST" })
