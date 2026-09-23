@@ -244,7 +244,7 @@ In-box **ECDSA P-256** private CA (~10y) + server leaf (~2y) with IP SAN = live 
 
 File PEM drop (table above) still works. AV tablet URL remains `http://<av-lan-ip>:8081`. Inventory: [`SECURITY.md`](SECURITY.md#venue-tls-inventory-c0).
 
-Foyer (optional, separate process) owns `:8080` / `:8082`; Relay production is `:8081`. Foyer ↔ Relay is loopback only — [`FOYER-RELAY.md`](FOYER-RELAY.md). Foyer occupancy is the Occupancy variable (`0` closed, `1` open, `2` in session, `3` do not disturb) or a Relay Occupancy command. Foyer GETs `/api/peer` and reads the string `occupancy` field. Room names do not need to match.
+Foyer (optional, separate process) owns `:8080` / `:8082`; Relay production is `:8081`. Occupancy: Foyer GETs Relay on this PC’s **AV-LAN IPv4 `:8081`** (loopback lab escape); calendar session: Relay GETs Foyer on loopback `:8080` — [`FOYER-RELAY.md`](FOYER-RELAY.md). Foyer occupancy is the Occupancy variable (`0` closed, `1` open, `2` in session, `3` do not disturb) or a Relay Occupancy command. Foyer GETs `/api/peer` and reads the string `occupancy` field. Room names do not need to match.
 
 **Foyer control URL:** prefers the live AV-LAN IPv4 (`http://<av-lan-ipv4>:8081`) — Room → Occupancy shows the paste URL. Soft-fails if AV unset / no IPv4. Same-PC hairpin to that listen address is allowed for unsigned occupancy GET. Do not widen listen to `0.0.0.0`. Lab only: `RELAY_LISTEN_HOST=127.0.0.1`. See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 
