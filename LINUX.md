@@ -217,7 +217,7 @@ Optional venue HTTPS: `https://<outbound-ip>:8443` when outbound NIC is set **an
 | Room fields | `tlsCertPath` + `tlsKeyPath` on the room object (same idea) |
 | Port | `RELAY_HTTPS_PORT` (default **8443**) |
 
-**C1 Generate** also writes `data/tls/venue/server.{cert,key}.pem` and wires room paths. You may still drop PEMs where you like (e.g. `/var/lib/relay/tls/cert.pem` + `key.pem`) and point the env/room fields at them. Missing/unreadable PEMs ⇒ soft-skip venue HTTPS only; **AV HTTP stays up**. Raw venue IPv4 is fine (Networks UI live IP). B3: HMAC peer over that venue HTTPS (`peerFace`) with **strict trusted peer CA** (Devices → Trusted peer CA path = remote **Download CA** PEM; fail-closed if missing). B4: per-device `nicFace` bind (AV default; venue soft-fails if outbound None). Device HTTPS/TLS-WS: set **Device trusted CA path** or **sha256 pin** (venue fail-closed if missing; `v0.9.48`). Cast stays AV-only.
+**C1 Generate** also writes `data/tls/venue/server.{cert,key}.pem` and wires room paths. You may still drop PEMs where you like (e.g. `/var/lib/relay/tls/cert.pem` + `key.pem`) and point the env/room fields at them. Missing/unreadable PEMs ⇒ soft-skip venue HTTPS only; **AV HTTP stays up**. Raw venue IPv4 is fine (Networks UI live IP). B3: HMAC peer over that venue HTTPS (`peerFace`) with **strict trusted peer CA** (Devices → Trusted peer CA path = remote **Download CA** PEM; fail-closed if missing). B4: per-device `nicFace` bind (AV default; venue soft-fails if outbound None). Device HTTPS/TLS-WS: set **Device trusted CA path** or **sha256 pin** (venue fail-closed if missing; `v0.9.48`). Cast stays AV-only. Lab Samsung pair: `node scripts/samsung-pair.mjs <tv-ip> 8002 --fingerprint=<sha256>` (or `--insecure` once to print fingerprint; fail-closed without trust; `v0.9.49`).
 
 **Guest / venue LAN reality:** NIC2 is often a guest or venue segment with no admin DNS, no Cloudflare, and no LE account. **LE/ACME/DNS-01 is PARKED permanently** for this product — do not require public FQDN for venue HTTPS.
 
@@ -240,7 +240,7 @@ In-box **ECDSA P-256** private CA (~10y) + server leaf (~2y) with IP SAN = live 
 
 **Room-to-room CA exchange (venue peers):** On room B, Networks → **Download CA** → save PEM on room A (e.g. `data/tls/peers/room-b-ca.cert.pem`). On room A’s `relay-host` device pointing at B’s NIC2 IP:8443, set Peer face Venue (or Auto) and **Trusted peer CA path** to that file (or paste / `RELAY_PEER_TRUSTED_CA`). Reverse for B→A. Same-install loop: use this room’s `data/tls/venue/ca.cert.pem`. Venue peer TLS failure soft-fails that peer only — AV control stays up.
 
-**C4 shipped:** docs consistency + checkpoint tag `v0.9.46`. **Strict peer TLS** (`v0.9.47`) + **strict device TLS** (`v0.9.48`). No silent auto-reissue (by design). Foyer control URL prefers AV live IP (footgun fixed).
+**C4 shipped:** docs consistency + checkpoint tag `v0.9.46`. **Strict peer TLS** (`v0.9.47`) + **strict device TLS** (`v0.9.48`) + **strict samsung-pair TLS** (`v0.9.49`). No silent auto-reissue (by design). Foyer control URL prefers AV live IP (footgun fixed).
 
 File PEM drop (table above) still works. AV tablet URL remains `http://<av-lan-ip>:8081`. Inventory: [`SECURITY.md`](SECURITY.md#venue-tls-inventory-c0).
 
@@ -467,3 +467,4 @@ Room configuration is stored in `data/relay-room.json` (layout, IPs) and `data/r
 - Serial, GPIO, and CEC only work on the machine that has the hardware.
 - Supported run: `npm start` on AV-LAN `:8081` after `npm run build`. Dev is `npm run dev` on `:8080` (same listen rules).
 - Check a driver file: `npm run driver:check -- data/library/samsung-qe50q65t.json`
+- Samsung lab pair (TLS fail-closed): `node scripts/samsung-pair.mjs <tv-ip> 8002 --insecure` then re-run with `--fingerprint=<printed>` (or `--ca=<pem>`).

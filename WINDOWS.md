@@ -1,6 +1,6 @@
 # Relay — Windows
 
-Relay **0.9.47** (beta). Windows 10/11. Command Prompt or PowerShell.
+Relay **0.9.49** (beta). Windows 10/11. Command Prompt or PowerShell.
 
 Default configurator PIN: `1234`. The app then requires a stronger PIN. Tablets stay paired until Forget on Security.
 
@@ -79,7 +79,7 @@ If the phone cannot connect: Windows Security → Firewall → allow `node.exe` 
 1. Open `/config`, PIN `1234`. Set a new PIN when asked. Optionally set a different room PIN on Security.
 2. Room tab: name, Save all. **AV-LAN** / **LAN (internet)** pickers are the same as Linux; both may point at one NIC on a test box. The locked production host is Ubuntu Server.
 3. Devices: add driver from library, set IP, turn Simulate off for real hardware.
-4. Authenticate if the driver has pairing (Samsung: Allow on the TV, port 8002, save token).
+4. Authenticate if the driver has pairing (Samsung: Allow on the TV, port 8002, save token). Lab helper: `node scripts/samsung-pair.mjs <tv-ip> 8002 --fingerprint=<sha256>` (or `--insecure` once to print the fingerprint; TLS fail-closed without trust).
 5. Pages / Macros: bind buttons.
 6. Open `/` on the tablet.
 

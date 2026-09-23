@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.48** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.49** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -209,7 +209,7 @@ Save all calls `persistNow()`. Secrets and room JSON are written through a journ
 | Peer HMAC | `x-relay-ts` + `x-relay-auth` (64 lowercase hex). Replay cache keys the digest for 90s. Peer secret only — not the PIN. Host restart/update/reboot use that same first check. |
 | Export / import / update / reboot / ping | Configurator session required. |
 
-Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue NICs. **Wire split:** cleartext HTTP on AV-LAN only; optional file HTTPS on venue (B1) + HMAC peer over that HTTPS (B3) + per-device `nicFace` bind (B4). Venue **peers** use **strict TLS verify** against a trusted peer CA (`peerTrustedCaPath`; fail-closed if missing). Third-party **device** HTTPS / tls-websocket use per-device CA or sha256 pin (`deviceTrustedCaPath` / `tlsFingerprintSha256`; venue fail-closed if missing). Soft `rejectUnauthorized: false` is not a venue happy path (AV Cast exception only). LE/ACME/FQDN **parked**. B5 / C4 / peer TLS `v0.9.47` / device TLS `v0.9.48`. Generate / venue TLS / peer or device CA failures must not make AV depend on venue certs.
+Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue NICs. **Wire split:** cleartext HTTP on AV-LAN only; optional file HTTPS on venue (B1) + HMAC peer over that HTTPS (B3) + per-device `nicFace` bind (B4). Venue **peers** use **strict TLS verify** against a trusted peer CA (`peerTrustedCaPath`; fail-closed if missing). Third-party **device** HTTPS / tls-websocket use per-device CA or sha256 pin (`deviceTrustedCaPath` / `tlsFingerprintSha256`; venue fail-closed if missing). Soft `rejectUnauthorized: false` is not a venue happy path (AV Cast exception only). Manual `scripts/samsung-pair.mjs` is fail-closed on 8002 unless `--ca` / `--fingerprint` (or `--insecure` discover). LE/ACME/FQDN **parked**. B5 / C4 / peer TLS `v0.9.47` / device TLS `v0.9.48` / samsung-pair `v0.9.49`. Generate / venue TLS / peer or device CA failures must not make AV depend on venue certs.
 
 ---
 
