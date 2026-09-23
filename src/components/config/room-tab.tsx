@@ -20,9 +20,16 @@ function nicKey(name?: string | null, index?: number | null) {
 
 function withStoredNic(nics: NicRow[], name?: string | null, index?: number | null): NicRow[] {
   const trimmed = String(name ?? "").trim();
-  if (!trimmed) return nics;
+  if (!trimmed || trimmed === "__none__") return nics;
   if (nics.some((row) => row.name === trimmed)) return nics;
   return [...nics, { index: index ?? -1, name: trimmed, ipv4: null, label: `${trimmed} (not listed now)` }];
+}
+
+function isOutboundNone(name?: string | null, index?: number | null) {
+  const trimmed = String(name ?? "").trim();
+  if (trimmed === "__none__") return true;
+  if (trimmed) return false;
+  return index == null || !Number.isFinite(Number(index));
 }
 
 export function RoomTab(props: {
@@ -64,13 +71,14 @@ export function RoomTab(props: {
     ),
     [nics, draft.room.avLanNicName, draft.room.avLanNicIndex, draft.room.outboundNicName, draft.room.outboundNicIndex],
   );
-  const sameNic = Boolean(
+  const outboundNone = isOutboundNone(draft.room.outboundNicName, draft.room.outboundNicIndex);
+  const sameNic = !outboundNone && Boolean(
     (draft.room.avLanNicName && draft.room.outboundNicName && draft.room.avLanNicName === draft.room.outboundNicName)
     || (draft.room.avLanNicName == null && draft.room.outboundNicName == null
       && draft.room.avLanNicIndex != null && draft.room.avLanNicIndex === draft.room.outboundNicIndex),
   );
   const outboundPick = nicChoices.find((row) => nicKey(row.name, row.index) === nicKey(draft.room.outboundNicName, draft.room.outboundNicIndex));
-  const outboundNoIp = Boolean(draft.room.outboundNicName || draft.room.outboundNicIndex != null) && outboundPick != null && !outboundPick.ipv4;
+  const outboundNoIp = !outboundNone && outboundPick != null && !outboundPick.ipv4;
   const pickNic = (which: "av" | "out", key: string) => {
     update((c) => {
       if (!key) {
@@ -111,7 +119,7 @@ export function RoomTab(props: {
                 <p className="text-[11px] uppercase tracking-[0.2em] text-subtle">Networks</p>
                 <Button size="sm" variant="secondary" onClick={() => void loadNics()}>Refresh NICs</Button>
               </div>
-              <p className="sm:col-span-2 text-xs text-muted">Leave Default (kernel) on a one-NIC box. On two NICs, bind device I/O to AV-LAN and GitHub update to LAN (internet). Same NIC is allowed for testing.</p>
+              <p className="sm:col-span-2 text-xs text-muted">On two NICs, bind device I/O to AV-LAN and GitHub update to LAN (internet). On a one-NIC box pick that NIC for update, or None for air-gapped rooms. Same NIC is allowed for testing.</p>
               <label className="grid gap-1 text-sm text-muted">AV-LAN
                 <select className={fieldClass()} value={nicKey(draft.room.avLanNicName, draft.room.avLanNicIndex)} onChange={(e) => pickNic("av", e.target.value)}>
                   <option value="">Default (kernel)</option>
@@ -120,15 +128,16 @@ export function RoomTab(props: {
                 <span className="text-xs">Device sockets and tablets. No default route on a two-NIC room PC.</span>
               </label>
               <label className="grid gap-1 text-sm text-muted">LAN (internet)
-                <select className={fieldClass()} value={nicKey(draft.room.outboundNicName, draft.room.outboundNicIndex)} onChange={(e) => pickNic("out", e.target.value)}>
-                  <option value="">Default (kernel)</option>
+                <select className={fieldClass()} value={outboundNone ? "" : nicKey(draft.room.outboundNicName, draft.room.outboundNicIndex)} onChange={(e) => pickNic("out", e.target.value)}>
+                  <option value="">None</option>
                   {nicChoices.map((nic) => <option key={`out-${nic.name}`} value={nicKey(nic.name, nic.index)}>{nic.label}</option>)}
                 </select>
-                <span className="text-xs">GitHub update only. Not used for device I/O.</span>
+                <span className="text-xs">Venue/internet NIC for GitHub update. None = no internet-facing NIC; Update disabled. Not used for device I/O.</span>
               </label>
               {nicError ? <p className="sm:col-span-2 text-xs text-clay">{nicError}</p> : null}
               {sameNic ? <p className="sm:col-span-2 text-xs text-muted">Same NIC on both pickers (test box). Allowed.</p> : null}
-              {outboundNoIp ? <p className="sm:col-span-2 text-xs text-clay">LAN (internet) has no IPv4. Update from GitHub will refuse until you pick a NIC with an address, or Default (kernel).</p> : null}
+              {outboundNone ? <p className="sm:col-span-2 text-xs text-muted">Outbound is None — Update from GitHub is disabled until you pick a venue/internet NIC.</p> : null}
+              {outboundNoIp ? <p className="sm:col-span-2 text-xs text-clay">LAN (internet) has no IPv4. Update from GitHub will refuse until you pick a NIC with an address.</p> : null}
             </article>
 
             <article className="sm:col-span-2 grid gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2">
@@ -183,7 +192,11 @@ export function RoomTab(props: {
                 const res = await restartHost({ data: { token: token || "", pin } });
                 flash(res.ok ? "Restarting Relay" : "Restart failed", res.message);
               }}>Restart Relay</Button>
-              <Button variant="secondary" onClick={async () => {
+              <Button variant="secondary" disabled={outboundNone || outboundNoIp} title={outboundNone ? "Outbound NIC is None — pick a venue/internet NIC to enable Update." : outboundNoIp ? "LAN (internet) has no IPv4." : undefined} onClick={async () => {
+                if (outboundNone || outboundNoIp) {
+                  flash("Update failed", outboundNone ? "Outbound NIC is None — Update requires a venue/internet NIC." : "LAN (internet) has no IPv4.");
+                  return;
+                }
                 if (!window.confirm("Update Relay from GitHub?\n\nSave all first. The room will go offline for a minute.")) return;
                 const pin = window.prompt("Config PIN") || "";
                 const res = await updateHost({ data: { token: token || "", pin } });

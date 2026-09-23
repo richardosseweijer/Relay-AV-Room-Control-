@@ -23,9 +23,10 @@ export const updateHost = createServerFn({ method: "POST" })
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
     if (!verifyStoredPin(data.pin, memory().config.room.configPin)) return { ok: false, message: "PIN did not match" };
-    const { roomOutboundBind } = await import("./nics");
+    const { roomOutboundBind, OUTBOUND_NONE_UPDATE_MESSAGE } = await import("./nics");
     const bind = roomOutboundBind(memory().config);
     if (!bind.ok) return { ok: false, message: bind.message };
+    if (bind.none) return { ok: false, message: OUTBOUND_NONE_UPDATE_MESSAGE };
     return applyHost("system.update", undefined, memory().host, memory().vars, { allowAdmin: true });
   });
 

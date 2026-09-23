@@ -78,6 +78,18 @@ export function resolveNic(nics: LanNic[], pick: NicPick): LanNic | null {
   return null;
 }
 
+/** Explicit outbound None sentinel (air-gap / no venue NIC). Empty/null pick is also None for outbound. */
+export const OUTBOUND_NONE_NAME = "__none__";
+
+export const OUTBOUND_NONE_UPDATE_MESSAGE =
+  "Outbound NIC is None — Update requires a venue/internet NIC.";
+
+export function isOutboundNonePick(pick: NicPick): boolean {
+  const name = String(pick.name ?? "").trim();
+  if (name === OUTBOUND_NONE_NAME) return true;
+  return !pickSet(pick);
+}
+
 export function outboundAddress(
   nics: LanNic[],
   pick: NicPick,
@@ -104,9 +116,23 @@ export function roomLanBind(config?: RoomConfig): { ok: true; localAddress?: str
   return avLanBind(listLanNics(), { name: config.room.avLanNicName, index: config.room.avLanNicIndex ?? null });
 }
 
-export function roomOutboundBind(config?: RoomConfig): { ok: true; localAddress?: string } | { ok: false; message: string } {
-  if (!config) return { ok: true };
-  return avLanBind(listLanNics(), { name: config.room.outboundNicName, index: config.room.outboundNicIndex ?? null });
+export type OutboundBindResult =
+  | { ok: true; localAddress?: string; none?: false }
+  | { ok: true; none: true }
+  | { ok: false; message: string };
+
+/** Outbound / NIC2 bind. Unset or __none__ => none (no venue NIC); not kernel default. */
+export function outboundBindFrom(nics: LanNic[], pick: NicPick): OutboundBindResult {
+  if (isOutboundNonePick(pick)) return { ok: true, none: true };
+  return avLanBind(nics, pick);
+}
+
+export function roomOutboundBind(config?: RoomConfig): OutboundBindResult {
+  if (!config) return { ok: true, none: true };
+  return outboundBindFrom(listLanNics(), {
+    name: config.room.outboundNicName,
+    index: config.room.outboundNicIndex ?? null,
+  });
 }
 
 export function cidrContains(ip: string, cidr: string): boolean {
