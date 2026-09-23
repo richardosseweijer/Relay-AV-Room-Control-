@@ -17,6 +17,8 @@ export {
   resolveHttpListenHost,
 };
 
+export { liveNicIpv4Label, type LiveNicIpv4Label } from "./nic-live-ip.ts";
+
 export type HttpListenHostResult =
   | { ok: true; host: string; warning?: string }
   | { ok: false; reason: string };
@@ -211,6 +213,7 @@ export function previewBindAddrs(destIp: string, config?: RoomConfig): Array<str
     { name: config.room.outboundNicName, index: config.room.outboundNicIndex ?? null },
   );
 }
+
 
 /** Resolve HTTP listen host from saved room config + live NIC list. Outbound/NIC2 ignored. */
 export function roomHttpListenHost(config?: RoomConfig, nics: LanNic[] = listLanNics()): HttpListenHostResult {
