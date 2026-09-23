@@ -23,7 +23,7 @@ export type HttpListenHostResult =
   | { ok: true; host: string; warning?: string }
   | { ok: false; reason: string };
 
-/** NIC-split Phase A (A1–A4) done; B1 = venue HTTPS listen; B3 = peer over venue HTTPS (peer-venue.ts); B4 = per-device nicFace (device-face.ts); B5 = hardening/docs checkpoint. B2 = LE/ACME (deferred). Device/control defaults to roomLanBind / nicFace=av. listHostInterfaces = serial/GPIO/MIDI, not NICs. */
+/** NIC-split Phase A (A1–A4) done; B1 = venue HTTPS listen; B3 = peer over venue HTTPS (peer-venue.ts); B4 = per-device nicFace (device-face.ts); B5 = hardening/docs checkpoint. B2 LE/ACME PARKED. Device/control defaults to roomLanBind / nicFace=av. listHostInterfaces = serial/GPIO/MIDI, not NICs. */
 
 export type LanNic = {
   index: number;

@@ -1,6 +1,6 @@
 # Relay
 
-Relay **0.9.45** (beta). Room controller for local AV devices. Private LAN only. Tag `v0.9.45` is a snapshot of this tree (Phase B checkpoint); install and update from **`main`**. After Update, Configurator → Room shows `0.9.45 (<git sha>)`. Versions are three-part from this release.
+Relay **0.9.46** (beta). Room controller for local AV devices. Private LAN only. Tag `v0.9.46` is a snapshot of this tree (venue TLS C0–C4 checkpoint); install and update from **`main`**. After Update, Configurator → Room shows `0.9.46 (<git sha>)`. Versions are three-part from this release.
 
 Clone is unused until you start it. First boot writes `data/relay-room.json` and `data/relay-secrets.json` on the host. Those files are not in git.
 
@@ -15,7 +15,7 @@ npm ci
 | Dev | `npm run dev` | AV-LAN IPv4 `:8080` (else loopback) | Local edit / App Builder preview |
 | Production | `npm run build` then `npm start` | AV-LAN IPv4 `:8081` (else loopback) | Pi / 24/7 |
 
-Panel today: `http://<av-lan-ip>:PORT/` — configurator `/config`. Never binds `0.0.0.0`. Optional venue HTTPS (B1 file PEMs) is shipped; LE/ACME parked; in-box Generate is Planned (C1–C4). See [SECURITY.md](SECURITY.md#venue-tls-inventory-c0).
+Panel today: `http://<av-lan-ip>:PORT/` — configurator `/config`. Never binds `0.0.0.0`. Optional venue HTTPS (B1 file PEMs) is shipped; LE/ACME parked; in-box Generate + Networks UI / CA download / regenerate lifecycle (C1–C3) shipped; C4 docs checkpoint at `v0.9.46`. See [SECURITY.md](SECURITY.md#venue-tls-inventory-c0).
 
 Room tab **AV-LAN** (required trust LAN; panel listen) / **LAN (internet)** (optional outbound for Update; **None** = air-gap). Same NIC is allowed (test box). See [SECURITY.md](SECURITY.md) and [LINUX.md](LINUX.md) §5b. Foyer signage is an optional second process (`:8080` / `:8082`). How they talk: **[FOYER-RELAY.md](FOYER-RELAY.md)**.
 

@@ -23,7 +23,7 @@ admin commands.
   `LINUX.md`, `WINDOWS.md`, and this file when rules drift.
 - No drive-by refactors outside the current phase allow-list.
 - No new dependencies unless a phase requires one and `npm ci` still works.
-- Do not invent a second process, a cloud API, or a language rewrite. Venue HTTPS (B1 file PEMs) already exists — do not invent Let’s Encrypt/ACME/DNS-01 as a “fix” or default path (LE is PARKED). C1–C3 Generate (API + Networks UI / CA download / regenerate confirm / expiry) is shipped — do not re-litigate LE; do not expand into C4 doc-tag unless the operator names **C4**.
+- Do not invent a second process, a cloud API, or a language rewrite. Venue HTTPS (B1 file PEMs) already exists — do not invent Let’s Encrypt/ACME/DNS-01 as a “fix” or default path (LE is PARKED). C1–C4 in-box venue TLS (Generate + Networks UI / CA download / regenerate + docs checkpoint) is shipped — do not re-litigate LE; do not reopen C4 unless the operator names a new train.
 - Do not weaken security to make a test pass.
 - Do not invent tools (`imagine_*` or otherwise) that are not in your tool list.
 - Do not add Grok/xAI API calls (`XAI_API_KEY` spends the owner’s quota).
@@ -39,14 +39,14 @@ admin commands.
 
 ## Dual-NIC / venue TLS (agents — read once)
 
-Shipped truth through **B5 / `v0.9.45`**: A1 outbound None soft-fail; A2 AV-LAN IPv4 listen only; B1 optional venue HTTPS from file PEMs; B3 `peerFace`; B4 `nicFace`; live NIC IPs in Networks UI. Canonical map: [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
+Shipped truth through **B5 / `v0.9.45`** and **venue TLS C4 / `v0.9.46`**: A1 outbound None soft-fail; A2 AV-LAN IPv4 listen only; B1 optional venue HTTPS from file PEMs; B3 `peerFace`; B4 `nicFace`; live NIC IPs in Networks UI; C1–C3 Generate + UI + lifecycle; C4 docs checkpoint. Canonical map: [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
 
 Hard rules for future turns:
 
 - **Do not reintroduce Let’s Encrypt / ACME / DNS-01** as the default, required, or “next” cert story. It is **PARKED** for guest/venue LAN + no admin DNS + $0 + no Cloudflare/LE accounts.
 - **Do not listen on `0.0.0.0`** in production paths. AV panel/API stay on AV-LAN IPv4 (else loopback). Preview escape `RELAY_LISTEN_HOST=0.0.0.0` is explicit and not the room-PC default.
 - **AV must not depend on venue certs.** Missing PEMs / outbound None / Generate failure → soft-skip venue HTTPS / venue peer / venue nicFace only; AV HTTP stays up.
-- **C0 was docs-only; C1–C3 are shipped** (Generate API + ECDSA PEMs + B1 wire + Networks UI Generate / CA download / mismatch+expiry banners / regenerate confirm / OS hints). **C4 Planned:** full doc consistency audit + checkpoint tag. Do not claim C4 as live.
+- **C0 was docs-only; C1–C4 are shipped** (Generate API + ECDSA PEMs + B1 wire + Networks UI Generate / CA download / mismatch+expiry banners / regenerate confirm / OS hints + docs consistency / tag `v0.9.46`). Do not reopen LE or invent silent auto-reissue / strict peer verify unless the operator names that train.
 - Prefer factual edits to existing canonical docs over new markdown sprawl.
 
 ## Two runtimes (read this once)

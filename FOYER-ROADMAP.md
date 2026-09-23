@@ -13,7 +13,7 @@ Do not heap this into `engine.ts` — new files only, thin call-sites.
 - Host: Ubuntu Server 24.04. Pi/Windows stay until parked later.
 - Foyer `:8080` / `:8082`. Relay production `:8081`. Do **not** move Foyer.
 - Grok sandbox: Relay `npm run dev` stays `:8080`. Room PC: `npm start` (`:8081`).
-- HTTP listen was originally `0.0.0.0` + **ufw**. **Superseded by NIC-split A2**: Relay binds AV-LAN IPv4 only (never `0.0.0.0`); ufw still AV CIDR. No dual Node sockets. HTTPS venue = Phase B (B1 file PEMs shipped; LE parked; Generate = Planned C1–C4 — see `SECURITY.md` Venue TLS inventory).
+- HTTP listen was originally `0.0.0.0` + **ufw**. **Superseded by NIC-split A2**: Relay binds AV-LAN IPv4 only (never `0.0.0.0`); ufw still AV CIDR. No dual Node sockets. HTTPS venue = Phase B/C (B1 file PEMs shipped; LE parked; Generate + Networks UI / lifecycle C1–C3 shipped; C4 docs checkpoint — see `SECURITY.md` Venue TLS inventory).
 - Occupancy writer: Foyer polls Relay `GET /api/peer`. **No Relay POST occupancy.** Relay polls Foyer `GET :8080/api/peer` for the current or next calendar session (`foyer-peer.ts`, loopback-only).
 - Do **not** match room names. Do **not** map occupancy through vars for Foyer.
 - NIC pickers independent (standalone). Same NIC allowed; warn, do not block.
