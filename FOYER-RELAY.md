@@ -37,7 +37,7 @@ Relay [`FOYER-ROADMAP.md`](https://github.com/richardosseweijer/Relay-AV-Room-Co
 - [ ] **Packages / units** — Foyer `foyer` + `foyer-panel` enabled; seatd / sway / Chromium per INSTALL §7; Relay `relay` enabled on AV-LAN `:8081` (LINUX §6). Do not enable `relay-kiosk` on this host.
 - [ ] **Foyer sudoers (once)** — from the Foyer checkout: `sudo bash scripts/install-host-sudoers.sh` → `/etc/sudoers.d/foyer-kiosk` (Update / pull / reboot do **not** install this).
 - [ ] **Relay sudoers (once)** — from the Relay checkout: `sudo bash scripts/install-host-sudoers.sh` → `/etc/sudoers.d/relay-kiosk` + `/etc/sudoers.d/relay-nmcli` (same: not installed by Update / pull / reboot).
-- [ ] **Disable Relay kiosk** — `sudo systemctl disable --now relay-kiosk` so Foyer alone owns tty1 / DRM (LINUX §7a).
+- [ ] **Disable Relay kiosk** — Configurator → Room → Local display: leave **Enable** unchecked (or uncheck + Save) so Relay runs `systemctl disable --now relay-kiosk`; CLI fallback: `sudo systemctl disable --now relay-kiosk`. Foyer alone owns tty1 / DRM (LINUX §7a).
 - [ ] **AV-LAN bind + Room-panel URL** — Relay listens on live AV-LAN IPv4 `:8081`; Foyer Setup Relay URL / Room panel URL = `http://<av-lan-ipv4>:8081` (never `0.0.0.0`; not `127.0.0.1` for peer occupancy on dual-NIC).
 - [ ] **Enable Foyer kiosk** — Setup picks **Welcome HDMI** and/or **Room panel HDMI** (different connectors if both); `sudo systemctl enable --now foyer-kiosk` (INSTALL §7a / §7c).
 - [ ] **Verify** — Welcome head shows Foyer `http://127.0.0.1:8080/`; Room panel head shows Relay control UI from the AV-LAN URL; `systemctl status foyer-kiosk` active; `relay-kiosk` disabled / inactive.
@@ -350,7 +350,7 @@ After **Update from GitHub** on both apps:
    - Set occupancy with the Occupancy var (`0`–`3`) or a Relay Occupancy command / macro
    - Foyer URL `http://127.0.0.1:8080`
    - Within a few seconds the card shows `now`/`next` plus title and times, or “No session from Foyer yet.”
-   - **Local display (HDMI):** keep disabled when Foyer paints the Room panel head (`sudo systemctl disable --now relay-kiosk` if the unit was enabled).
+   - **Local display (HDMI):** keep **Enable** unchecked when Foyer paints the Room panel head (Save runs `systemctl disable --now relay-kiosk`; CLI: `sudo systemctl disable --now relay-kiosk` if needed).
 
 Plate ignores Relay → Foyer occupancy is not Auto, or the occupancy poll is off, or Relay is down (last-good / empty).
 

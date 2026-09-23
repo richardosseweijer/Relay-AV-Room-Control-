@@ -595,6 +595,7 @@ export function RoomTab(props: {
                 Show the <span className="font-medium text-fg">user panel</span> on a local HDMI/DP output (Linux + cage). Same idea as Foyer welcome kiosk.
                 Chromium opens the live AV-LAN panel URL — never <span className="font-mono">0.0.0.0</span> and not <span className="font-mono">127.0.0.1</span> once AV-LAN is set.
                 Needs packages + <span className="font-mono">relay-kiosk.service</span> from LINUX.md. Wrong output can blank the console page; SSH stays up.
+                Uncheck Enable and Save to <span className="font-mono">disable --now</span> the unit (required when Foyer owns the panel head).
               </p>
               <label className="flex items-center gap-3 text-sm text-muted sm:col-span-2">
                 <input
