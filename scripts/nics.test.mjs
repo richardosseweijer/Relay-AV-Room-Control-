@@ -11,6 +11,10 @@ import {
   cidrContains,
   previewBindAddrsFrom,
   hostLanContains,
+  httpListenHostFrom,
+  resolveHttpListenHost,
+  roomHttpListenHost,
+  AV_UNSET_LISTEN_WARNING,
 } from "../src/lib/control/nics.ts";
 
 const EM = "\u2014";
@@ -165,3 +169,81 @@ test("previewBindAddrsFrom with outbound None still binds AV only", () => {
   assert.deepEqual(previewBindAddrsFrom(nics, "10.0.25.40", av, out), ["10.0.25.10"]);
   assert.deepEqual(previewBindAddrsFrom(nics, "8.8.8.8", av, out), ["10.0.25.10", undefined]);
 });
+
+test("httpListenHostFrom: AV set → that IPv4", () => {
+  const nics = listLanNicsFrom(fixture);
+  const res = httpListenHostFrom(nics, { name: "enp1s0" });
+  assert.equal(res.ok, true);
+  if (res.ok) {
+    assert.equal(res.host, "10.0.25.10");
+    assert.equal(res.warning, undefined);
+  }
+});
+
+test("httpListenHostFrom: AV unset → 127.0.0.1 + warning (not 0.0.0.0)", () => {
+  const nics = listLanNicsFrom(fixture);
+  const res = httpListenHostFrom(nics, {});
+  assert.equal(res.ok, true);
+  if (res.ok) {
+    assert.equal(res.host, "127.0.0.1");
+    assert.equal(res.host === "0.0.0.0", false);
+    assert.match(String(res.warning), /AV-LAN NIC is unset/);
+    assert.equal(res.warning, AV_UNSET_LISTEN_WARNING);
+  }
+});
+
+test("httpListenHostFrom: AV set missing IPv4 → refuse (not 0.0.0.0)", () => {
+  const nics = listLanNicsFrom({
+    enp1s0: [{ address: "fe80::1", family: "IPv6", internal: false }],
+  });
+  const res = httpListenHostFrom(nics, { name: "enp1s0" });
+  assert.equal(res.ok, false);
+  if (!res.ok) {
+    assert.match(res.reason, /no IPv4/i);
+    assert.match(res.reason, /0\.0\.0\.0/);
+  }
+});
+
+test("httpListenHostFrom: AV set unknown NIC → refuse", () => {
+  const nics = listLanNicsFrom(fixture);
+  const res = httpListenHostFrom(nics, { name: "missing0" });
+  assert.equal(res.ok, false);
+  if (!res.ok) assert.match(res.reason, /not found/i);
+});
+
+test("httpListenHostFrom: outbound/NIC2 irrelevant — AV still binds", () => {
+  const nics = listLanNicsFrom(fixture);
+  const res = httpListenHostFrom(nics, { name: "enp1s0" });
+  assert.equal(res.ok, true);
+  if (res.ok) assert.equal(res.host, "10.0.25.10");
+});
+
+test("resolveHttpListenHost: RELAY_LISTEN_HOST override wins", () => {
+  const nics = listLanNicsFrom(fixture);
+  const res = resolveHttpListenHost({
+    envHost: "192.168.9.9",
+    roomJson: { config: { room: { avLanNicName: "enp1s0" } } },
+    nics,
+  });
+  assert.equal(res.ok, true);
+  if (res.ok) assert.equal(res.host, "192.168.9.9");
+});
+
+test("resolveHttpListenHost: room store AV pick", () => {
+  const nics = listLanNicsFrom(fixture);
+  const res = resolveHttpListenHost({
+    envHost: "",
+    roomJson: { config: { room: { avLanNicName: "enp2s0", outboundNicName: null } } },
+    nics,
+  });
+  assert.equal(res.ok, true);
+  if (res.ok) assert.equal(res.host, "192.168.1.40");
+});
+
+test("roomHttpListenHost: no config → loopback", () => {
+  const nics = listLanNicsFrom(fixture);
+  const res = roomHttpListenHost(undefined, nics);
+  assert.equal(res.ok, true);
+  if (res.ok) assert.equal(res.host, "127.0.0.1");
+});
+
