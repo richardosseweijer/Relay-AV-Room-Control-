@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { isListenHostPeer, normalizePeerIp } from "../../../scripts/control-base-url.mjs";
 
 const used = new Map<string, number>();
 
@@ -32,6 +33,14 @@ export function isTcpLoopback(request: Request) {
   const ip = tcpPeerAddress(request);
   if (!ip) return false;
   return isLoopbackIp(ip);
+}
+
+/** Loopback or same-host hairpin to the HTTP listen address (AV IPv4). */
+export function isTcpLocalPeer(request: Request, listenHost?: string | null) {
+  if (isTcpLoopback(request)) return true;
+  const ip = tcpPeerAddress(request);
+  if (!ip) return false;
+  return isListenHostPeer(normalizePeerIp(ip), listenHost ?? null);
 }
 
 export function signPeer(key: string, method: string, path: string, ts: string, body: string) {
@@ -93,11 +102,11 @@ export function varsRequestAllowed(opts: {
   return opts.externalControl === true && opts.method.toUpperCase() === "GET";
 }
 
-/** Unsigned GET only if the TCP peer is loopback. HMAC, if sent, must match. POST still requires HMAC. */
-export function authorizePeerGet(opts: { key: string; request: Request; path?: string }) {
+/** Unsigned GET only if TCP peer is loopback or the HTTP listen host (same-PC AV hairpin). HMAC, if sent, must match. POST still requires HMAC. */
+export function authorizePeerGet(opts: { key: string; request: Request; path?: string; listenHost?: string | null }) {
   const sig = opts.request.headers.get("x-relay-auth") || "";
   const ts = opts.request.headers.get("x-relay-ts") || "";
-  if (isTcpLoopback(opts.request) && !sig && !ts) return true;
+  if (isTcpLocalPeer(opts.request, opts.listenHost) && !sig && !ts) return true;
   if (!opts.key) return false;
   return verifyPeerRequest({
     key: opts.key,
