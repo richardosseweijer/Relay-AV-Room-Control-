@@ -593,6 +593,8 @@ HTTP listen is unchanged in either model: AV-LAN IPv4 only (`http://<av-lan-ipv4
 
 ### 7a. Panel via Foyer — disable Relay `relay-kiosk`
 
+**Start here for same-host dual-head:** the ordered day-one checklist lives in [`FOYER-RELAY.md`](FOYER-RELAY.md) → **Day-one dual-head (same host)** (identical copy in the Foyer repo). Use that first; this section keeps the disable steps.
+
 Supported path when Foyer and Relay share one PC and Foyer Setup has a **Room panel HDMI** pick (Welcome + Room panel, or Room-panel-only). Foyer owns the displays; Relay only answers on AV-LAN.
 
 Operator steps:

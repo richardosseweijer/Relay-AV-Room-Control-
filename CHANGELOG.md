@@ -4,6 +4,8 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Docs (K5): single **Day-one dual-head (same host)** checklist in [`FOYER-RELAY.md`](FOYER-RELAY.md) (byte-identical with Foyer); [`LINUX.md`](LINUX.md) §7a points “start here”. Docs-only; no version bump.
+
 - Ops (K1+K2): [`scripts/install-host-sudoers.sh`](scripts/install-host-sudoers.sh) installs `/etc/sudoers.d/relay-kiosk` + `/etc/sudoers.d/relay-nmcli` from [`deploy/sudoers.relay-kiosk`](deploy/sudoers.relay-kiosk) + new [`deploy/sudoers.relay-nmcli`](deploy/sudoers.relay-nmcli) (USER substitute, mode 0440, `visudo -cf` pre/post; root required). [`LINUX.md`](LINUX.md) §5b / §7c / §8 point at the script; Update/pull/reboot still do **not** install host drop-ins. No app/code change; no version bump.
 
 - Docs (K0): [`LINUX.md`](LINUX.md) header version **0.9.53** (match package); dual-head / disable `relay-kiosk` narrative stays §7a (shared with Foyer [`FOYER-RELAY.md`](FOYER-RELAY.md)). No app/code change; no version bump.
