@@ -15,6 +15,7 @@ import {
   resolveHttpListenHost,
   roomHttpListenHost,
   AV_UNSET_LISTEN_WARNING,
+  liveNicIpv4Label,
 } from "../src/lib/control/nics.ts";
 
 const EM = "\u2014";
@@ -247,3 +248,14 @@ test("roomHttpListenHost: no config → loopback", () => {
   if (res.ok) assert.equal(res.host, "127.0.0.1");
 });
 
+test("liveNicIpv4Label: unset / waiting / ip, never invents", () => {
+  assert.deepEqual(liveNicIpv4Label({ unset: true }), { kind: "unset", text: "No IP", ipv4: null });
+  assert.deepEqual(liveNicIpv4Label({ unset: true, unsetText: "—" }), { kind: "unset", text: "—", ipv4: null });
+  assert.deepEqual(liveNicIpv4Label({ unset: false, ipv4: null }), { kind: "waiting", text: "No IPv4 — waiting", ipv4: null });
+  assert.deepEqual(liveNicIpv4Label({ unset: false, ipv4: "" }), { kind: "waiting", text: "No IPv4 — waiting", ipv4: null });
+  assert.deepEqual(liveNicIpv4Label({ unset: false, ipv4: "  " }), { kind: "waiting", text: "No IPv4 — waiting", ipv4: null });
+  assert.deepEqual(liveNicIpv4Label({ unset: false, ipv4: "203.0.113.9" }), { kind: "ip", text: "203.0.113.9", ipv4: "203.0.113.9" });
+  assert.deepEqual(liveNicIpv4Label({ unset: false, ipv4: " 10.0.25.10 " }), { kind: "ip", text: "10.0.25.10", ipv4: "10.0.25.10" });
+  // unset wins even if an ipv4 is passed (defensive)
+  assert.equal(liveNicIpv4Label({ unset: true, ipv4: "10.0.0.1" }).kind, "unset");
+});

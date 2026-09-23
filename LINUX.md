@@ -155,7 +155,7 @@ Relay binds HTTP to the **AV-LAN IPv4** only. ufw still limits who may connect. 
 | Picker | Role |
 |---|---|
 | **AV-LAN** | Trusted offline control LAN. Panel/API listen. Device sockets (except protocols already designed for open LAN such as Cast / Hue). Tablets live here. |
-| **LAN (internet)** | Optional venue/outbound NIC for **Update from GitHub**. Choose **None** for air-gap or single-NIC rooms — Update is then disabled/refused with a clear reason. |
+| **LAN (internet)** | Optional venue/outbound NIC for **Update from GitHub**. Choose **None** for air-gap or single-NIC rooms — Update is then disabled/refused with a clear reason. When set and up, the Room tab shows that NIC’s live IPv4 (Refresh NICs) so you can copy the raw address without DNS/LE. |
 
 On a two-NIC Ubuntu room PC:
 
