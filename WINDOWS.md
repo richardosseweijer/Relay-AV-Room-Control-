@@ -45,7 +45,7 @@ Several minutes the first time. npm deprecation warnings are normal.
 | Dev | `npm run dev` | AV-LAN IPv4 `:8080` (else loopback) | Edit |
 | Production | `npm run build` then `npm start` | AV-LAN IPv4 `:8081` (else loopback) | 24/7 |
 
-Never binds `0.0.0.0`. Set Room → **AV-LAN** before expecting tablets on the LAN. **LAN (internet)** **None** disables Update. See [SECURITY.md](SECURITY.md).
+Never binds `0.0.0.0`. Set Room → **AV-LAN** before expecting tablets on the LAN. **LAN (internet)** **None** disables Update. Optional venue HTTPS = B1 file PEMs (LE parked; Generate planned). See [SECURITY.md](SECURITY.md#venue-tls-inventory-c0).
 
 ```bat
 cd C:\relay

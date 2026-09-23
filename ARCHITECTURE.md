@@ -30,7 +30,7 @@ There is no separate device-gateway process. Device I/O is opened from `src/lib/
 
 A second browser (wall tablet and desk tablet) may attach to the same origin. Both share one configuration and one variable store. Tablets belong on AV-LAN.
 
-HTTP listen is the **AV-LAN IPv4** only (dev `:8080`, production `:8081`) — never `0.0.0.0`. Resolution: `RELAY_LISTEN_HOST` if set; else AV pick → IPv4; AV unset → `127.0.0.1` + warning; AV set without IPv4 → refuse. Outbound / NIC2 None or down does not change AV listen. ufw still limits clients to the AV CIDR. Optional file HTTPS on the venue NIC is **B1** (shipped); HMAC peer over that HTTPS is **B3**; per-device `nicFace` bind is **B4**. **Let’s Encrypt / ACME / FQDN = B2 (deferred).** Phase B software checkpoint is **B5**. See section 8 and [`SECURITY.md`](SECURITY.md).
+HTTP listen is the **AV-LAN IPv4** only (dev `:8080`, production `:8081`) — never `0.0.0.0`. Resolution: `RELAY_LISTEN_HOST` if set; else AV pick → IPv4; AV unset → `127.0.0.1` + warning; AV set without IPv4 → refuse. Outbound / NIC2 None or down does not change AV listen. ufw still limits clients to the AV CIDR. Optional file HTTPS on the venue NIC is **B1** (shipped); HMAC peer over that HTTPS is **B3**; per-device `nicFace` bind is **B4**. Phase B software checkpoint is **B5** (`v0.9.45`). **Let’s Encrypt / ACME / DNS-01 is PARKED** (not the product path). **Planned C1–C4:** in-box Generate venue CA + leaf (not shipped). See section 8 and [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
 
 ```
 Operator browser          Integrator browser
@@ -209,7 +209,7 @@ Save all calls `persistNow()`. Secrets and room JSON are written through a journ
 | Peer HMAC | `x-relay-ts` + `x-relay-auth` (64 lowercase hex). Replay cache keys the digest for 90s. Peer secret only — not the PIN. Host restart/update/reboot use that same first check. |
 | Export / import / update / reboot / ping | Configurator session required. |
 
-Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue NICs. HTTP on AV-LAN; optional file HTTPS on venue (B1) + HMAC peer over that HTTPS (B3) + per-device `nicFace` bind (B4). Soft TLS verify (`rejectUnauthorized: false`) for file PEMs until LE. LE/ACME / FQDN = B2 (deferred) — not a cleartext panel on venue. B5 tags the Phase B software close (B2 excluded).
+Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue NICs. **Wire split:** cleartext HTTP on AV-LAN only; optional file HTTPS on venue (B1) + HMAC peer over that HTTPS (B3) + per-device `nicFace` bind (B4). Soft TLS verify (`rejectUnauthorized: false`) for file / planned venue-CA PEMs. LE/ACME/FQDN **parked** — not a cleartext panel on venue, and not the next cert path. B5 tags the Phase B software close. Planned Generate (C1–C4) must not make AV depend on venue certs.
 
 ---
 
@@ -279,7 +279,8 @@ Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue
 | File | Responsibility |
 |---|---|
 | `scripts/update-relay.mjs` | Git pull, dependency install, relaunch. |
-| `LINUX.md` | Debian / Raspberry Pi packages, dual-NIC checklist, systemd unit, update procedure. |
+| `LINUX.md` | Debian / Raspberry Pi packages, dual-NIC checklist, B1 PEM drop + planned Generate notes, systemd unit, update procedure. |
+| `SECURITY.md` | Dual-NIC trust model + [Venue TLS inventory (C0)](SECURITY.md#venue-tls-inventory-c0) (Shipped vs Planned vs PARKED LE). |
 | `WINDOWS.md` | Windows install and update procedure. |
 | `DRIVER-PROMPT.md` | Instructions for generating a driver JSON without this source tree. |
 | `CHANGELOG.md` | Notable changes. |
