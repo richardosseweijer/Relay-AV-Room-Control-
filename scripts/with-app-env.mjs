@@ -20,6 +20,7 @@
  * `process.env`, which is why the merge has to happen before Vite starts.
  */
 import { spawn } from "node:child_process";
+import { setTimeout as delay } from "node:timers/promises";
 import { readFileSync, realpathSync } from "node:fs";
 import { constants as osConstants } from "node:os";
 import { dirname, join } from "node:path";
@@ -132,7 +133,29 @@ function withListenHostArg(args, host) {
   return out;
 }
 
-function main(argv) {
+/**
+ * Resolve listen host; when the chosen AV NIC has no IPv4 yet (common on first
+ * cable/DHCP), wait and retry instead of exiting unbound forever. Never widen to 0.0.0.0.
+ * @param {string} root
+ * @param {NodeJS.ProcessEnv} env
+ * @param {{ attempts?: number, delayMs?: number }} [opts]
+ */
+export async function resolveListenHostForBoot(root, env, opts = {}) {
+  const attempts = opts.attempts ?? 15;
+  const delayMs = opts.delayMs ?? 2000;
+  let last = bootResolveHttpListenHost(root, env);
+  for (let i = 0; i < attempts; i++) {
+    last = bootResolveHttpListenHost(root, env);
+    if (last.ok) return last;
+    const reason = String(last.reason ?? "");
+    if (!/no IPv4/i.test(reason)) return last;
+    console.warn(`[with-app-env] ${reason} (retry ${i + 1}/${attempts})`);
+    await delay(delayMs);
+  }
+  return last;
+}
+
+async function main(argv) {
   const [command, ...args] = argv;
   if (!command) {
     console.error("usage: node scripts/with-app-env.mjs <command> [args…]");
@@ -146,7 +169,7 @@ function main(argv) {
 
   let spawnArgs = args;
   if (isViteListenCommand(command, args)) {
-    const listen = bootResolveHttpListenHost(root, env);
+    const listen = await resolveListenHostForBoot(root, env);
     if (!listen.ok) {
       console.error(`[with-app-env] ${listen.reason}`);
       process.exit(1);
@@ -177,5 +200,8 @@ function main(argv) {
 }
 
 if (isMainModule(import.meta.url)) {
-  main(process.argv.slice(2));
+  main(process.argv.slice(2)).catch((err) => {
+    console.error("[with-app-env]", err?.message || err);
+    process.exit(1);
+  });
 }
