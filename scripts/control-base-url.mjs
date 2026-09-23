@@ -1,8 +1,9 @@
 /**
  * Default/control base URL for panel + Foyer Relay URL hints.
- * Prefers live AV-LAN IPv4 (same address HTTP listens on). Never advertises
- * loopback as the production default when AV is unset / has no IPv4 — soft-fail
- * with a clear reason instead. Lab escape: RELAY_LISTEN_HOST=127.0.0.1.
+ * Prefers live AV-LAN IPv4 (same address HTTP listens on). When AV pick is
+ * unset/invalid, uses the same first-scanned auto-map as HTTP listen. Soft-fail
+ * only when no scanned NICs exist or the chosen iface has no IPv4 yet.
+ * Never advertises loopback as the production default. Lab escape: RELAY_LISTEN_HOST=127.0.0.1.
  *
  * Does not widen listen; listen stays AV-only (or the env override).
  */
@@ -10,12 +11,13 @@ import {
   httpListenHostFrom,
   listLanNicsFrom,
   avLanPickFromRoomStore,
+  effectiveAvLanPick,
 } from "./http-listen-host.mjs";
 
 export const DEFAULT_PRODUCTION_CONTROL_PORT = 8081;
 
 export const AV_UNSET_CONTROL_URL_REASON =
-  "AV-LAN NIC is unset — no panel/Foyer control URL until AV-LAN has an IPv4 (lab: RELAY_LISTEN_HOST=127.0.0.1).";
+  "No scanned NIC for AV-LAN — no panel/Foyer control URL (lab: RELAY_LISTEN_HOST=127.0.0.1).";
 
 /**
  * @param {string} [name]
@@ -30,24 +32,6 @@ export function avNoIpv4ControlUrlReason(name) {
  * @typedef {{ name?: string | null, index?: number | null }} NicPick
  * @typedef {{ ok: true, url: string, host: string, warning?: string } | { ok: false, reason: string }} ControlBaseUrlResult
  */
-
-function pickSet(/** @type {NicPick} */ pick) {
-  if (String(pick?.name ?? "").trim()) return true;
-  return pick?.index != null && Number.isFinite(Number(pick.index));
-}
-
-function resolveNic(/** @type {LanNic[]} */ nics, /** @type {NicPick} */ pick) {
-  const name = String(pick?.name ?? "").trim();
-  if (name) {
-    const hit = nics.find((nic) => nic.name === name);
-    if (hit) return hit;
-  }
-  if (pick?.index != null && Number.isFinite(Number(pick.index))) {
-    const hit = nics.find((nic) => nic.index === Number(pick.index));
-    if (hit) return hit;
-  }
-  return null;
-}
 
 /** @param {string} host */
 function isLoopbackHost(host) {
@@ -84,27 +68,27 @@ export function controlBaseUrlFrom(opts) {
     return ok;
   }
   const pick = opts.pick ?? {};
-  if (!pickSet(pick)) {
+  const eff = effectiveAvLanPick(opts.nics, pick);
+  if (!eff.nic) {
     return { ok: false, reason: AV_UNSET_CONTROL_URL_REASON };
   }
-  const nic = resolveNic(opts.nics, pick);
-  if (!nic) {
-    return { ok: false, reason: "AV-LAN NIC not found — no panel/Foyer control URL." };
+  if (!eff.nic.ipv4) {
+    return { ok: false, reason: avNoIpv4ControlUrlReason(eff.nic.name) };
   }
-  if (!nic.ipv4) {
-    return { ok: false, reason: avNoIpv4ControlUrlReason(nic.name) };
-  }
-  return {
+  /** @type {{ ok: true, url: string, host: string, warning?: string }} */
+  const ok = {
     ok: true,
-    url: `${protocol}://${nic.ipv4}:${port}`,
-    host: nic.ipv4,
+    url: `${protocol}://${eff.nic.ipv4}:${port}`,
+    host: eff.nic.ipv4,
   };
+  if (eff.autoMapped && eff.warning) ok.warning = eff.warning;
+  return ok;
 }
 
 /**
  * Same selection as listen host when env override is set; otherwise AV live IPv4
- * for the advertised URL (soft-fail when AV unset / no IPv4 — unlike listen, which
- * falls back to 127.0.0.1 with a warning).
+ * for the advertised URL (same auto-map as listen when AV unset/invalid; soft-fail
+ * when no scanned NICs / no IPv4).
  * @param {{ envHost?: string | null, roomJson?: unknown, nics: LanNic[], port?: number | string | null, protocol?: "http" | "https" }} opts
  * @returns {ControlBaseUrlResult}
  */

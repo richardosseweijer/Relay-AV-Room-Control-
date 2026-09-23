@@ -15,6 +15,10 @@ import {
   resolveHttpListenHost,
   roomHttpListenHost,
   AV_UNSET_LISTEN_WARNING,
+  AV_AUTOMAP_LISTEN_WARNING_PREFIX,
+  isVirtualLanNicName,
+  firstScannedAvLanNic,
+  effectiveAvLanPick,
   liveNicIpv4Label,
 } from "../src/lib/control/nics.ts";
 
@@ -181,14 +185,25 @@ test("httpListenHostFrom: AV set → that IPv4", () => {
   }
 });
 
-test("httpListenHostFrom: AV unset → 127.0.0.1 + warning (not 0.0.0.0)", () => {
+test("httpListenHostFrom: AV unset → first scanned physical (not 0.0.0.0 / not docker0)", () => {
   const nics = listLanNicsFrom(fixture);
   const res = httpListenHostFrom(nics, {});
   assert.equal(res.ok, true);
   if (res.ok) {
-    assert.equal(res.host, "127.0.0.1");
+    assert.equal(res.host, "10.0.25.10"); // enp1s0 — first physical in A–Z scan
     assert.equal(res.host === "0.0.0.0", false);
-    assert.match(String(res.warning), /AV-LAN NIC is unset/);
+    assert.equal(res.host === "127.0.0.1", false);
+    assert.equal(res.autoMapped, true);
+    assert.match(String(res.warning), new RegExp(AV_AUTOMAP_LISTEN_WARNING_PREFIX));
+    assert.match(String(res.warning), /enp1s0/);
+  }
+});
+
+test("httpListenHostFrom: no scanned NICs → 127.0.0.1 + warning (not 0.0.0.0)", () => {
+  const res = httpListenHostFrom([], {});
+  assert.equal(res.ok, true);
+  if (res.ok) {
+    assert.equal(res.host, "127.0.0.1");
     assert.equal(res.warning, AV_UNSET_LISTEN_WARNING);
   }
 });
@@ -205,11 +220,14 @@ test("httpListenHostFrom: AV set missing IPv4 → refuse (not 0.0.0.0)", () => {
   }
 });
 
-test("httpListenHostFrom: AV set unknown NIC → refuse", () => {
+test("httpListenHostFrom: AV set unknown NIC → auto-map first scanned", () => {
   const nics = listLanNicsFrom(fixture);
   const res = httpListenHostFrom(nics, { name: "missing0" });
-  assert.equal(res.ok, false);
-  if (!res.ok) assert.match(res.reason, /not found/i);
+  assert.equal(res.ok, true);
+  if (res.ok) {
+    assert.equal(res.host, "10.0.25.10");
+    assert.equal(res.autoMapped, true);
+  }
 });
 
 test("httpListenHostFrom: outbound/NIC2 irrelevant — AV still binds", () => {
@@ -241,11 +259,60 @@ test("resolveHttpListenHost: room store AV pick", () => {
   if (res.ok) assert.equal(res.host, "192.168.1.40");
 });
 
-test("roomHttpListenHost: no config → loopback", () => {
+test("roomHttpListenHost: no config → first scanned physical", () => {
   const nics = listLanNicsFrom(fixture);
   const res = roomHttpListenHost(undefined, nics);
   assert.equal(res.ok, true);
-  if (res.ok) assert.equal(res.host, "127.0.0.1");
+  if (res.ok) {
+    assert.equal(res.host, "10.0.25.10");
+    assert.equal(res.autoMapped, true);
+  }
+});
+
+test("firstScannedAvLanNic: prefers physical over docker0; fallback to virtual-only", () => {
+  const nics = listLanNicsFrom(fixture);
+  assert.equal(firstScannedAvLanNic(nics)?.name, "enp1s0");
+  assert.equal(isVirtualLanNicName("docker0"), true);
+  assert.equal(isVirtualLanNicName("veth0"), true);
+  assert.equal(isVirtualLanNicName("br0"), true);
+  assert.equal(isVirtualLanNicName("br-abc"), true);
+  assert.equal(isVirtualLanNicName("enp1s0"), false);
+  assert.equal(isVirtualLanNicName("eth0"), false);
+  const onlyVirt = listLanNicsFrom({
+    lo: [{ address: "127.0.0.1", family: "IPv4", internal: true }],
+    docker0: [{ address: "172.17.0.1", family: "IPv4", internal: false }],
+  });
+  assert.equal(firstScannedAvLanNic(onlyVirt)?.name, "docker0");
+});
+
+test("effectiveAvLanPick: valid saved unchanged; empty/invalid → first scanned", () => {
+  const nics = listLanNicsFrom(fixture);
+  const kept = effectiveAvLanPick(nics, { name: "enp2s0", index: 0 });
+  assert.equal(kept.autoMapped, false);
+  assert.equal(kept.nic?.name, "enp2s0");
+  const empty = effectiveAvLanPick(nics, {});
+  assert.equal(empty.autoMapped, true);
+  assert.equal(empty.nic?.name, "enp1s0");
+  const blank = effectiveAvLanPick(nics, { name: "  ", index: null });
+  assert.equal(blank.autoMapped, true);
+  assert.equal(blank.nic?.name, "enp1s0");
+  const bad = effectiveAvLanPick(nics, { name: "missing0" });
+  assert.equal(bad.autoMapped, true);
+  assert.equal(bad.nic?.name, "enp1s0");
+});
+
+test("httpListenHostFrom: valid saved with no IPv4 stays refuse (not re-picked)", () => {
+  const nics = listLanNicsFrom({
+    enp1s0: [{ address: "fe80::1", family: "IPv6", internal: false }],
+    enp2s0: [{ address: "10.0.25.10", family: "IPv4", internal: false }],
+  });
+  const res = httpListenHostFrom(nics, { name: "enp1s0" });
+  assert.equal(res.ok, false);
+  if (!res.ok) {
+    assert.match(res.reason, /enp1s0/);
+    assert.match(res.reason, /no IPv4/i);
+    assert.equal(res.autoMapped, false);
+  }
 });
 
 test("liveNicIpv4Label: unset / waiting / ip, never invents", () => {
@@ -258,4 +325,30 @@ test("liveNicIpv4Label: unset / waiting / ip, never invents", () => {
   assert.deepEqual(liveNicIpv4Label({ unset: false, ipv4: " 10.0.25.10 " }), { kind: "ip", text: "10.0.25.10", ipv4: "10.0.25.10" });
   // unset wins even if an ipv4 is passed (defensive)
   assert.equal(liveNicIpv4Label({ unset: true, ipv4: "10.0.0.1" }).kind, "unset");
+});
+
+test("persistAvLanAutoMap: writes name+index when room exists; no-op when missing", async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { persistAvLanAutoMap } = await import("../src/lib/control/nics.ts");
+  const root = mkdtempSync(join(tmpdir(), "relay-avmap-"));
+  try {
+    assert.equal(persistAvLanAutoMap(root, { name: "enp1s0", index: 0 }), false);
+    mkdirSync(join(root, "data"), { recursive: true });
+    const roomPath = join(root, "data", "relay-room.json");
+    writeFileSync(
+      roomPath,
+      JSON.stringify({ config: { room: { name: "New room", avLanNicName: null, avLanNicIndex: null, outboundNicName: null } } }, null, 2),
+    );
+    assert.equal(persistAvLanAutoMap(root, { name: "enp1s0", index: 1 }), true);
+    const saved = JSON.parse(readFileSync(roomPath, "utf8"));
+    assert.equal(saved.config.room.avLanNicName, "enp1s0");
+    assert.equal(saved.config.room.avLanNicIndex, 1);
+    assert.equal(saved.config.room.outboundNicName, null);
+    // idempotent
+    assert.equal(persistAvLanAutoMap(root, { name: "enp1s0", index: 1 }), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

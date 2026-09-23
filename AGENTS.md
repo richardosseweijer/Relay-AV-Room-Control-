@@ -44,7 +44,7 @@ Shipped truth through **B5 / `v0.9.45`**, **venue TLS C4 / `v0.9.46`**, **strict
 Hard rules for future turns:
 
 - **Do not reintroduce Let’s Encrypt / ACME / DNS-01** as the default, required, or “next” cert story. It is **PARKED** for guest/venue LAN + no admin DNS + $0 + no Cloudflare/LE accounts.
-- **Default/control URL for panel + Foyer hints prefers live AV-LAN IPv4 (`controlBaseUrlFrom`); soft-fail if AV unset / no IPv4 — do not advertise loopback as the production URL. Do not listen on `0.0.0.0`** in production paths. AV panel/API stay on AV-LAN IPv4 (else loopback). Preview escape `RELAY_LISTEN_HOST=0.0.0.0` is explicit and not the room-PC default.
+- **Default/control URL for panel + Foyer hints prefers live AV-LAN IPv4 (`controlBaseUrlFrom`); soft-fail if no NICs / no IPv4 (unset uses same first-scanned auto-map as listen) — do not advertise loopback as the production URL. Do not listen on `0.0.0.0`** in production paths. AV panel/API stay on AV-LAN IPv4 (auto-map first scanned when AV unset/invalid; else loopback if no NICs). Preview escape `RELAY_LISTEN_HOST=0.0.0.0` is explicit and not the room-PC default.
 - **Local HDMI panel kiosk** is Linux/systemd only (cage). Kiosk URL must be AV-LAN IPv4 panel root — never widen listen to `0.0.0.0` for Chromium. On a Foyer+Relay dual-head box, **panel via Foyer** is the supported model — leave `relay-kiosk` optional/off ([`LINUX.md`](LINUX.md) §7a); do not invent a second kiosk stack.
 - **Apply AV-LAN IPv4** is Linux/nmcli only (narrow sudoers). Do not add Windows OS apply, AV gateway/default route, NIC2 apply, netplan/raw `ip`, auto-ufw, or listen on `0.0.0.0`.
 - **AV must not depend on venue certs.** Missing server PEMs / outbound None / Generate failure / missing trusted peer CA → soft-skip venue HTTPS / venue peer / venue nicFace only; AV HTTP stays up.
@@ -60,7 +60,7 @@ chrome in Phase 1 after gates pass.
 **B. App Builder sandbox / chat preview**  
 You are on someone else’s preview host. Extra boot rules, *only* in this mode:
 
-- Keep the app reachable via `npm run dev` while you work. Default listen is AV-LAN IPv4 or loopback (never auto-`0.0.0.0`). On a preview host that needs all-interfaces, set `RELAY_LISTEN_HOST=0.0.0.0` explicitly — do not assume production does this.
+- Keep the app reachable via `npm run dev` while you work. Default listen is AV-LAN IPv4 (first-scanned auto-map when unset) or loopback if no NICs (never auto-`0.0.0.0`). On a preview host that needs all-interfaces, set `RELAY_LISTEN_HOST=0.0.0.0` explicitly — do not assume production does this.
 - Do not delete `startup.sh`. Keep it starting `npm run dev`, not raw Vite.
 - Do not delete `scripts/with-app-env.mjs`.
 - If removing `scripts/grok-pwa-*`, `public/__grok/`, branding, or
