@@ -1,3 +1,4 @@
+# Replace USER / paths to match the appliance account (install-host-units.sh does this).
 [Unit]
 Description=Relay room controller
 After=network-online.target
@@ -7,8 +8,8 @@ StartLimitIntervalSec=60
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/Relay-AV-Room-Control-
+User=USER
+WorkingDirectory=/home/USER/Relay-AV-Room-Control-
 Environment=PATH=/usr/bin:/usr/local/bin
 Environment=PORT=8081
 Environment=NODE_ENV=production

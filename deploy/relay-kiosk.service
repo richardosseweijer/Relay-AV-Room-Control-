@@ -1,7 +1,7 @@
 # Takes tty1 from the Ubuntu Server console so cage paints over the login TTY.
 # HDMI must be connected before this unit starts.
 # Configurator writes data/relay-kiosk.env (RELAY_VIDEO_OUTPUT + RELAY_KIOSK_URL) then restarts this unit.
-# Replace USER / paths to match deploy/relay.service.
+# Replace USER / paths to match deploy/relay.service (install-host-units.sh does this).
 [Unit]
 Description=Relay panel kiosk (local HDMI)
 After=relay.service systemd-user-sessions.service plymouth-quit-wait.service
