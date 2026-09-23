@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- **Foyer / control URL footgun:** default panel + Foyer Relay URL now prefers the live AV-LAN IPv4 (`scripts/control-base-url.mjs` / Room → Occupancy hint). Soft-fails with a clear reason when AV is unset or has no IPv4 (does not advertise loopback as the production URL). Unsigned `/api/peer` GET also allows same-PC hairpin when the TCP peer equals the HTTP listen host. Lab escape unchanged: `RELAY_LISTEN_HOST=127.0.0.1`. Listen still never `0.0.0.0`.
+
+## Unreleased
+
 ## 0.9.46 — 2026-09-23
 - Tag `v0.9.46`. Venue TLS **C4** docs/hardening checkpoint — closes in-box venue TLS train C0–C4. Same Foyer pair (`v0.2.2`). No LE/ACME; no silent auto-reissue; no strict peer TLS verify.
 - **C4:** full doc consistency audit (SECURITY / LINUX / ARCHITECTURE / AGENTS / CONTEXT / KNOWN_ISSUES / README / WINDOWS / CHANGELOG / FOYER-ROADMAP). Current-state sections now say C1–C3 Generate / UI / lifecycle **shipped**; C4 checkpoint **shipped**; LE **PARKED** (not “B2 next”). Light comment hardening: leftover “until B2 LE” / “B2 deferred” strings aligned to PARKED. Residual known: Foyer loopback URL vs AV-only listen; soft `rejectUnauthorized: false` (optional strict peer verify not implemented).

@@ -88,7 +88,7 @@ HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex 
 
 Foyer (optional) on this PC: occupancy GET and calendar-session GET on loopback. See [`FOYER-RELAY.md`](FOYER-RELAY.md). Unsigned GET is allowed only when the **TCP peer** is loopback (`127.0.0.1` / `::1`); the body is occupancy + `host.locked` only. `Host` / `X-Forwarded-*` are not loopback. HMAC GET (LAN or loopback) returns the full peer snapshot. POST still requires HMAC. Room names do not need to match.
 
-**Foyer ↔ AV-only listen foot-gun (intentional through B5):** Relay production binds HTTP to the AV-LAN IPv4 only (never `0.0.0.0`, never dual-bind). Foyer’s default Relay URL is `http://127.0.0.1:8081` and fail-closes non-loopback — so occupancy pull does **not** work on a dual-NIC room PC until a later dual-bind / Foyer URL train. Lab escape only: `RELAY_LISTEN_HOST=127.0.0.1` (not for production). Do not “fix” this by widening listen to all interfaces. See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
+**Foyer control URL (fixed):** Relay production still binds HTTP to the AV-LAN IPv4 only (never `0.0.0.0`). The advertised panel / Foyer Relay URL prefers that live AV IPv4 (`controlBaseUrlFrom`; Room → Occupancy paste hint). Soft-fail when AV unset / no IPv4. Unsigned `/api/peer` GET treats TCP peer == listen host as local (same-PC hairpin), same as loopback. Lab escape only: `RELAY_LISTEN_HOST=127.0.0.1`. Do not widen listen to all interfaces. See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 
 ## Venue TLS inventory (C0)
 
@@ -150,7 +150,7 @@ Canonical dual-NIC + venue TLS map. Prefer this section over older “LE = B2”
 |---|---|
 | **C4** | Full doc consistency audit across SECURITY / LINUX / ARCHITECTURE / AGENTS / CONTEXT / KNOWN_ISSUES / README / WINDOWS / CHANGELOG / FOYER-ROADMAP; light comment hardening (LE = PARKED, not “next B2”); checkpoint package + annotated tag `v0.9.46` |
 
-Operators may still drop in file PEMs for B1. **C0–C4 closed.** True leftovers (not this train): Foyer loopback URL vs AV-only listen; optional strict peer TLS verify.
+Operators may still drop in file PEMs for B1. **C0–C4 closed.** True leftover (not this train): optional strict peer TLS verify. Foyer loopback-vs-AV URL footgun is fixed (AV live IP default + local hairpin).
 
 ### Doc crawl (where dual-NIC / TLS / LE lived)
 
