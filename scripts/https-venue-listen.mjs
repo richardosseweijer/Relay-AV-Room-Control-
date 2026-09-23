@@ -1,7 +1,7 @@
 /**
  * Phase B1 — optional HTTPS listener on the outbound/venue NIC IPv4 only.
  * Cert/key from env (RELAY_TLS_CERT / RELAY_TLS_KEY) or room tlsCertPath / tlsKeyPath.
- * No ACME/Let’s Encrypt (B2). Never binds 0.0.0.0.
+ * No ACME/Let’s Encrypt (PARKED). Never binds 0.0.0.0.
  * Soft-skip when outbound is None, missing IPv4, or certs missing/unreadable —
  * AV-LAN HTTP listen must stay up.
  *
@@ -23,7 +23,7 @@ export const HTTPS_VENUE_SKIP_OUTBOUND_NONE =
   "HTTPS venue listener skipped: outbound NIC is None (air-gap / no venue NIC).";
 
 export const HTTPS_VENUE_SKIP_NO_CERTS =
-  "HTTPS venue listener skipped: TLS cert/key not configured (set RELAY_TLS_CERT + RELAY_TLS_KEY, or room tlsCertPath + tlsKeyPath). Let’s Encrypt is Phase B2.";
+  "HTTPS venue listener skipped: TLS cert/key not configured (set RELAY_TLS_CERT + RELAY_TLS_KEY, or room tlsCertPath + tlsKeyPath). Let’s Encrypt is PARKED; in-box Generate is C1.";
 
 /**
  * @typedef {{ listen: false, reason: string }} HttpsVenueSkip
