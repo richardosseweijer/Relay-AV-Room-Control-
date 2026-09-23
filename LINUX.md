@@ -207,9 +207,11 @@ sudo ufw status
 
 Outbound **None** ⇒ Room → **Update from GitHub** unavailable until you pick a venue NIC. That is intentional.
 
-Optional venue HTTPS (B1, file certs): `https://<outbound-ip>:8443` when outbound NIC + `RELAY_TLS_CERT`/`RELAY_TLS_KEY` are set. LE/ACME is B2. AV tablet URL remains `http://<av-lan-ip>:8081`.
+Optional venue HTTPS (B1, file certs): `https://<outbound-ip>:8443` when outbound NIC + `RELAY_TLS_CERT`/`RELAY_TLS_KEY` are set. LE/ACME is B2 (deferred). AV tablet URL remains `http://<av-lan-ip>:8081`. B3: HMAC peer over that venue HTTPS (`peerFace`). B4: per-device `nicFace` bind (AV default; venue soft-fails if outbound None). Soft TLS verify for file PEMs until B2. Raw venue IPv4 is fine (Networks UI live IP).
 
 Foyer (optional, separate process) owns `:8080` / `:8082`; Relay production is `:8081`. Foyer ↔ Relay is loopback only — [`FOYER-RELAY.md`](FOYER-RELAY.md). Foyer occupancy is the Occupancy variable (`0` closed, `1` open, `2` in session, `3` do not disturb) or a Relay Occupancy command. Foyer GETs `/api/peer` and reads the string `occupancy` field. Room names do not need to match.
+
+**Foyer foot-gun:** Relay listens on AV-LAN IPv4 only. Foyer’s default `http://127.0.0.1:8081` does not reach that bind on a dual-NIC room PC (fail-closed). Occupancy pull stays broken until a later dual-bind / URL train — do not widen Relay to `0.0.0.0`. Lab only: `RELAY_LISTEN_HOST=127.0.0.1`. See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 
 If Foyer is installed on this host, also allow the door/welcome ports from AV-LAN (still do not forward them):
 
