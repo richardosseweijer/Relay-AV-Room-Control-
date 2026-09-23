@@ -4,6 +4,8 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Docs: sync [`FOYER-RELAY.md`](FOYER-RELAY.md) with Foyer main (Foyer #2/#3) — occupancy is AV-LAN HTTP (`http://<AV-IPv4>:8081`), not loopback-only; pair table Relay **0.9.47+** / Foyer rewrite-on-load + `http:` allowlist. Calendar session pull stays `http://127.0.0.1:8080`. LINUX / SECURITY / CONTEXT stop saying Foyer↔Relay occupancy must be loopback-only. No version bump (docs-only).
+
 ## 0.9.49
 
 - Tag `v0.9.49`. **Strict samsung-pair.mjs TLS** — closes the residual soft `rejectUnauthorized: false` footgun on the manual Samsung Tizen pairing helper (not the runtime device path; that was already strict in `v0.9.48`). Same Foyer pair (`v0.2.2`). No LE/ACME; Cast soft verify still AV-only.

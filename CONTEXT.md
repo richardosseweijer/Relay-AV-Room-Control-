@@ -51,7 +51,7 @@ Do not grep the whole repo to “get context.” If the table above is missing a
 ## Live notes (still true at 0.9.49)
 
 - Occupancy var is `0` closed, `1` open, `2` in-session, `3` DND. Foyer GET still reads the **string** field. Save-all must not apply `draft.room.occupancy`.
-- Unsigned `GET /api/peer` is TCP loopback only (real `remoteAddress`, not `Host`). HMAC GET is the full snapshot.
+- Unsigned `GET /api/peer` is TCP loopback **or listen-host hairpin** (real `remoteAddress`, not `Host`). HMAC GET is the full snapshot.
 - Foyer calendar poll is Relay → loopback Foyer `:8080` only.
 - Generic LAN TCP is connect-write-close (issue #4). Gateway sockets are the reused path.
 - Panel PIN ≠ config PIN unless `panelAcceptsConfigPin` (default off).
