@@ -11,8 +11,8 @@ Change both trees in the same train. If this file and the code disagree, **the c
 |---|---|
 | Contract | 1 |
 | Date | 2026-09-23 |
-| Relay | **0.9.42** (`v0.9.42`) |
-| Foyer | **0.2.2** (`v0.2.2`) |
+| Relay | **0.9.47+** (prefer `v0.9.49`; AV listen + `controlBaseUrlFrom` from Relay #127) |
+| Foyer | **0.2.2** (`v0.2.2`) — occupancy URL rewrite-on-load + `http:` allowlist |
 
 Relay [`FOYER-ROADMAP.md`](https://github.com/richardosseweijer/Relay-AV-Room-Control-/blob/main/FOYER-ROADMAP.md) is implementation history. This file is the live wire.
 
@@ -37,12 +37,12 @@ Room names in the two apps **do not have to match**. There is no name join, no o
 
 | Shared | Not shared |
 |---|---|
-| This PC (loopback `127.0.0.1`) | `data/relay-*.json` and `data/foyer-*.json` |
-| HTTP `GET /api/peer` on loopback | PINs, ICS URLs, display tokens, device tokens |
+| This PC (same box; AV-LAN IPv4 and/or loopback) | `data/relay-*.json` and `data/foyer-*.json` |
+| HTTP `GET /api/peer` (occupancy on Relay AV `:8081`; session on Foyer loopback `:8080`) | PINs, ICS URLs, display tokens, device tokens |
 | Occupancy enum (below) | NIC pickers (each app lists `os.networkInterfaces()` itself) |
 | Optional peer secret (HMAC POST / signed GET) | Package imports, JSON drivers, secret files |
 
-HMAC, when used, is **loopback only**. Do not put the peer secret on AV-LAN, guest Wi-Fi, or a NIC address. Do not port-forward `8080`, `8081`, or `8082`.
+Do not put the peer secret on guest Wi-Fi or a foreign NIC. Do not port-forward `8080`, `8081`, or `8082`. Occupancy client URL is **`http:` only** to loopback or this PC’s AV-LAN IPv4.
 
 ---
 
@@ -73,14 +73,14 @@ Two **pulls**. Neither side pushes occupancy or calendar.
 
 Foyer also refreshes occupancy after each calendar ingest (calendar ingest itself is 30 s).
 
-Default URLs (loopback only):
+Default URLs:
 
 | Client setting | Default |
 |---|---|
-| Foyer Setup → Relay URL | `http://<av-lan-ipv4>:8081` (live AV NIC; Room → Occupancy shows the paste URL). Soft-fail if AV unset / no IPv4. Lab: `http://127.0.0.1:8081` only with `RELAY_LISTEN_HOST=127.0.0.1`. |
+| Foyer Setup → Relay URL | `http://<av-lan-ipv4>:8081` (live AV NIC; Room → Occupancy shows the paste URL). Soft-fail if AV unset / no IPv4. Lab: `http://127.0.0.1:8081` only with `RELAY_LISTEN_HOST=127.0.0.1`. On every Foyer load, empty or loopback Relay URL is rewritten to the live AV URL when AV IPv4 is set; a deliberately set non-loopback URL is left alone. |
 | Relay Room tab → Foyer URL | `http://127.0.0.1:8080` |
 
-Allowed Relay URL hosts: **loopback** (`127.0.0.1` / `localhost` / `::1`) **or** this PC’s live **AV-LAN IPv4** (same address Relay listens on). Other hosts are **fail closed** (client does not send).
+Allowed Foyer→Relay URL: scheme **`http:` only** (reject `https://`); host **loopback** (`127.0.0.1` / `localhost` / `::1`) **or** this PC’s live **AV-LAN IPv4** (same address Relay listens on). Other hosts / schemes are **fail closed** (client does not send).
 
 Foyer door `:8082` **denies** `/api/peer`. Calendar GET is welcome `:8080` only.
 
@@ -119,7 +119,7 @@ Host: <av-lan-ipv4>:8081
 
 No body. Clients **do not send HMAC** on this GET (a mismatched pasted secret must not 401 the plate). HMAC, if a client ever sends `x-relay-auth` / `x-relay-ts`, must verify.
 
-Foyer only sends when **Read occupancy from Relay on this PC** is on and the URL is loopback. First boot and loopback migrate turn that switch on.
+Foyer only sends when **Read occupancy from Relay on this PC** is on and the URL is allowed (`http:` + loopback or this PC’s AV IPv4). First boot and Relay-defaults (including rewrite-on-load) turn that switch on when the URL is allowed.
 
 ### 4.3 Response (Relay)
 
@@ -362,7 +362,7 @@ Relay-to-Relay HMAC macros stay allowed on Relay `:8081`; they are a different A
 
 ## 10. Source (do not cross-import)
 
-**Relay 0.9.38**
+**Relay 0.9.47+**
 
 | Piece | File |
 |---|---|
