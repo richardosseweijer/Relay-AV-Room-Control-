@@ -71,6 +71,7 @@ HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex 
 - Never cleartext HTTP on the venue face. Soft-skip venue peer when outbound is **None** or TLS PEMs are missing — AV-LAN peers keep working.
 - Inbound peer on the B1 HTTPS listener uses the same `/api/peer` + HMAC middleware when certs are present.
 - Operator: point a remote `relay-host` device at the other room’s live NIC2 IP (Networks UI) + 8443, set Peer face **Venue** (or Auto when the IP is on your outbound subnet). No ACME/FQDN (B2).
+- File PEMs (self-signed / private CA) use `rejectUnauthorized: false` on the venue face until Let’s Encrypt (B2). Raw IPv4 is OK; DNS names are refused on venue until B2.
 
 ### Device NIC face (B4)
 
@@ -82,8 +83,12 @@ HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex 
 - **vs peerFace:** `peerFace` is relay-host HMAC only (`auto` + HTTP↔HTTPS). `nicFace` is bind-only for general devices (no auto; default `av`). Do not use `nicFace` instead of Peer face for HMAC peers.
 - No cleartext HTTP/WebSocket on venue. sACN and ipMIDI multicast stay AV-only (clear error if `nicFace=outbound`). Cast / HTTPS / TLS-WebSocket may use venue bind.
 - Soft-fail venue face must not take AV devices down.
+- Inventory `httpPath` is cleartext HTTP today — refused on `nicFace=outbound` with a clear error (keep AV face for inventory HTTP).
+- Venue device HTTPS also uses soft TLS verify (`rejectUnauthorized: false`) until B2 LE.
 
 Foyer (optional) on this PC: occupancy GET and calendar-session GET on loopback. See [`FOYER-RELAY.md`](FOYER-RELAY.md). Unsigned GET is allowed only when the **TCP peer** is loopback (`127.0.0.1` / `::1`); the body is occupancy + `host.locked` only. `Host` / `X-Forwarded-*` are not loopback. HMAC GET (LAN or loopback) returns the full peer snapshot. POST still requires HMAC. Room names do not need to match.
+
+**Foyer ↔ AV-only listen foot-gun (intentional through B5):** Relay production binds HTTP to the AV-LAN IPv4 only (never `0.0.0.0`, never dual-bind). Foyer’s default Relay URL is `http://127.0.0.1:8081` and fail-closes non-loopback — so occupancy pull does **not** work on a dual-NIC room PC until a later dual-bind / Foyer URL train. Lab escape only: `RELAY_LISTEN_HOST=127.0.0.1` (not for production). Do not “fix” this by widening listen to all interfaces. See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 
 ## Secrets on disk
 
@@ -112,5 +117,7 @@ Persist writes a `relay-room.json.transaction` journal, then secrets, then room 
 - Outbound **None** ⇒ Update from GitHub unavailable (expected); venue HTTPS also skipped.
 - Optional venue HTTPS (B1): `RELAY_TLS_CERT` + `RELAY_TLS_KEY` (or room `tlsCertPath`/`tlsKeyPath`) with outbound NIC set. Port `RELAY_HTTPS_PORT` (default 8443). Missing certs ⇒ skip venue HTTPS only — AV HTTP stays up. No ACME yet (B2).
 - Venue peer (B3): same PEMs + outbound NIC; HMAC peer over HTTPS. Soft-skip venue peer if None/no PEMs; AV peers unchanged.
+- Device `nicFace` (B4): venue bind only when needed; soft-fail that device if None/no IPv4; no cleartext HTTP/WS on venue.
+- Phase B software checkpoint (B5): A1–A4 + B1/B3/B4 tagged; **B2 Let’s Encrypt / ACME / FQDN remains deferred**. Soft TLS verify for file PEMs until B2.
 - Do not port-forward the panel port to venue/WAN. Do not port-forward 8080, 8081, or 8082. Foyer (if installed) is a separate process; HMAC between Relay and Foyer is loopback only.
 - Do not set `RELAY_LISTEN_HOST=0.0.0.0` on a room PC.

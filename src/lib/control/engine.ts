@@ -20,7 +20,7 @@ import { sendWol } from "./wol";
 import { rtpMidiPoolSize } from "./rtp-midi";
 import { encodeMtcQf, encodeMtcSysex } from "./midi-in";
 import { roomLanBind } from "./nics";
-import { DEVICE_VENUE_SKIP_CLEARTEXT, deviceHostAllowed, planDeviceBindForDevice, readNicFace } from "./device-face";
+import { DEVICE_VENUE_SKIP_CLEARTEXT, DEVICE_VENUE_SKIP_INVENTORY_CLEARTEXT, deviceHostAllowed, planDeviceBindForDevice, readNicFace } from "./device-face";
 import { planPeerTransportForDevice } from "./peer-venue";
 import { allowedLanHost, pushTrace, safeLanHttpUrl, sleep } from "./engine-policy";
 import { applySim, guardOk, mapCommandValue, parseFeedback, parseInventoryItems, pickJsonField, renderPayload } from "./engine-payload";
@@ -328,9 +328,9 @@ export async function syncInventory(opts: { config: RoomConfig; drivers: Record<
       raw = res.message;
     } else if (resource.httpPath) {
       const face = readNicFace(device);
-      // Inventory httpPath is cleartext HTTP today — refuse on venue face.
+      // Inventory httpPath is cleartext HTTP today — refuse on venue face (pointed error).
       if (face === "outbound") {
-        return { ok: false, message: DEVICE_VENUE_SKIP_CLEARTEXT };
+        return { ok: false, message: DEVICE_VENUE_SKIP_INVENTORY_CLEARTEXT };
       }
       const hostGate = deviceHostAllowed(face, device.host);
       if (!hostGate.ok) return hostGate;
