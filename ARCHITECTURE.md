@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.51** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.52** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -34,7 +34,7 @@ There is no separate device-gateway process. Device I/O is opened from `src/lib/
 
 A second browser (wall tablet and desk tablet) may attach to the same origin. Both share one configuration and one variable store. Tablets belong on AV-LAN.
 
-HTTP listen is the **AV-LAN IPv4** only (dev `:8080`, production `:8081`) — never `0.0.0.0`. Resolution: `RELAY_LISTEN_HOST` if set; else AV pick → IPv4; AV unset → `127.0.0.1` + warning; AV set without IPv4 → refuse. Outbound / NIC2 None or down does not change AV listen. ufw still limits clients to the AV CIDR. Optional file HTTPS on the venue NIC is **B1** (shipped); HMAC peer over that HTTPS is **B3**; per-device `nicFace` bind is **B4**. Phase B software checkpoint is **B5** (`v0.9.45`). **Let’s Encrypt / ACME / DNS-01 is PARKED** (not the product path). **Shipped C1–C3:** in-box Generate venue CA + leaf + Networks UI / CA download / regenerate lifecycle; **C4** docs checkpoint at `v0.9.46`. See section 8 and [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
+HTTP listen is the **AV-LAN IPv4** only (dev `:8080`, production `:8081`) — never `0.0.0.0`. Resolution: `RELAY_LISTEN_HOST` if set; else AV pick → IPv4; AV unset/invalid → **auto-map first scanned NIC** (physical before docker/veth/bridges; persist into room config); mapped/saved iface without IPv4 → refuse + wait/retry at boot; no scanned NICs → `127.0.0.1` + warning. Outbound / NIC2 None or down does not change AV listen. ufw still limits clients to the AV CIDR. Optional file HTTPS on the venue NIC is **B1** (shipped); HMAC peer over that HTTPS is **B3**; per-device `nicFace` bind is **B4**. Phase B software checkpoint is **B5** (`v0.9.45`). **Let’s Encrypt / ACME / DNS-01 is PARKED** (not the product path). **Shipped C1–C3:** in-box Generate venue CA + leaf + Networks UI / CA download / regenerate lifecycle; **C4** docs checkpoint at `v0.9.46`. See section 8 and [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
 
 ```
 Operator browser          Integrator browser
@@ -238,7 +238,7 @@ Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue
 | `src/lib/control/actions-host.ts` | Host restart/update/reboot, Apply AV-LAN IP (nmcli), NIC/port list, debug. |
 | `src/lib/control/nics.ts` | NIC list, AV/outbound pick helpers, outbound None (A1), re-exports listen host. |
 | `scripts/http-listen-host.mjs` | Pure AV → HTTP listen host (A2). Never returns `0.0.0.0`. |
-| `scripts/control-base-url.mjs` | Advertised panel / Foyer Relay base URL from live AV IPv4; soft-fail if AV unset / no IPv4. |
+| `scripts/control-base-url.mjs` | Advertised panel / Foyer Relay base URL from live AV IPv4 (same auto-map as listen); soft-fail if no NICs / no IPv4. |
 | `scripts/https-venue-listen.mjs` | B1 optional HTTPS listen on outbound/venue IPv4 (file PEMs; soft-skip). |
 | `src/lib/control/peer-venue.ts` | B3 HMAC peer AV HTTP vs venue HTTPS planner (`peerFace`) + strict trusted peer CA. |
 | `src/lib/control/device-face.ts` | B4 per-device `nicFace` bind planner (AV vs venue; cleartext gate). |
