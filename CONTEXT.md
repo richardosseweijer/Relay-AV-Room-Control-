@@ -8,7 +8,7 @@ Keep this file short. If it grows past ~150 lines, cut history — do not append
 ## Product
 
 Relay **0.9.42** (beta). Single-process LAN AV room controller.
-TanStack Start + Vite. Dev `0.0.0.0:8080` (`npm run dev`). Prod `0.0.0.0:8081` (`npm start`).
+TanStack Start + Vite. Dev `:8080` / prod `:8081` bind to **AV-LAN IPv4** (else loopback). Never `0.0.0.0`. `RELAY_LISTEN_HOST` overrides.
 Not a grok.me / Vercel host — those have no writable `data/`.
 
 Companion signage: [Foyer-Room-Signage](https://github.com/richardosseweijer/Foyer-Room-Signage) `v0.2.2`.
@@ -35,6 +35,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Stock drivers | `data/library/*.json` + `index.json` |
 | This room’s copies | `data/drivers/*.json` (not git) |
 | New driver syntax | `DRIVER-PROMPT.md`, then `npm run driver:check -- data/library/<file>.json` |
+| NIC pick / listen host | `nics.ts`, `scripts/http-listen-host.mjs`, `scripts/with-app-env.mjs`, Room tab Networks |
 | Install / firewall | `LINUX.md`, `WINDOWS.md`, `SECURITY.md` |
 
 ## Do not open unless the operator names them
@@ -53,7 +54,7 @@ Do not grep the whole repo to “get context.” If the table above is missing a
 - Panel PIN ≠ config PIN unless `panelAcceptsConfigPin` (default off).
 - Open-on-LAN (no panel PIN) is not `externalControl` (unauthenticated fire\*).
 - `system.restart|update|reboot` need a config session even if open LAN is on.
-- No TLS. Listen is `0.0.0.0`. Firewall the port to the room VLAN (#15).
+- No TLS yet (HTTPS/LE venue = Phase B). Listen is AV-LAN IPv4 only — never `0.0.0.0`. Firewall panel port to AV CIDR (#15). Outbound None ⇒ Update refused (A1).
 - Do not add xAI / Grok API calls. Do not print PINs. Do not commit `data/relay-secrets.json` or `.env`.
 - Do not start raw `npx vite`. Use `npm run dev` / `npm start`.
 
@@ -63,7 +64,7 @@ Do not grep the whole repo to “get context.” If the table above is missing a
 | --- | --- |
 | 4 | Generic TCP still connect-write-close |
 | 14 | Secrets file holds peer secret, device tokens, session secrets |
-| 15 | No TLS; HTTP on `0.0.0.0` |
+| 15 | No TLS yet; HTTP on AV-LAN IPv4 only (Phase B = HTTPS venue) |
 | 16 | Config tab labels are raw ids |
 | 37 | PIN lockout is process memory, one counter per gate |
 | 38 | Trigger engine still has false-path / hold / delay |
