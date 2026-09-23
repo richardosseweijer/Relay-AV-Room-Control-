@@ -114,6 +114,11 @@ function waitCast(sock: import("node:tls").TLSSocket, timeout: number, test: (bu
   });
 }
 
+/**
+ * Cast TLS is AV-only (blocked on nicFace=outbound). Google Cast device certs are not
+ * verifiable via a normal operator CA; soft verify remains the AV Cast exception only.
+ * Do not use this path on the venue face.
+ */
 async function ensureCast(host: string, port: number, timeout: number, localAddress?: string): Promise<CastLive> {
   const key = `${host}:${port}`;
   const live = keepCast.get(key);
@@ -128,6 +133,7 @@ async function ensureCast(host: string, port: number, timeout: number, localAddr
     }
   }
   const tls = await import("node:tls");
+  // AV-only Cast exception: soft verify (documented residual). Venue blocked in nicFaceProtocolGate.
   const sock = tls.connect({ host, port, rejectUnauthorized: false, localAddress } as import("node:tls").ConnectionOptions);
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Cast connect timeout")), timeout);
