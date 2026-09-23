@@ -4,7 +4,7 @@ Install **`main`** from GitHub (that is the supported tree). Current package ver
 
 Default configurator PIN after first start: `1234`. Open `/config` once and set a stronger PIN. New rooms default to **Panel PIN**: every tablet unlocks with that PIN and gets its own session (30 days, sliding). **Open on LAN** is a separate Security setting that skips the panel PIN for anyone who can reach port 8081 — use it only on the room VLAN. Do not confuse it with **open LAN control** (unauthenticated `fireCommand`). See `SECURITY.md`.
 
-This host binds the cleartext panel/API to the **AV-LAN IPv4** only (never `0.0.0.0`). Tablet URL: `http://<av-lan-ip>:8081` (or your configured port). Before you call the install finished, finish the dual-NIC / firewall checklist in §5b. Do not port-forward 8081 to venue/WAN. HTTPS on the venue NIC is **Phase B** (not in this release).
+This host binds the cleartext panel/API to the **AV-LAN IPv4** only (never `0.0.0.0`). Tablet URL: `http://<av-lan-ip>:8081` (or your configured port). Before you call the install finished, finish the dual-NIC / firewall checklist in §5b. Do not port-forward 8081 to venue/WAN. Optional **file-based HTTPS** on the venue NIC is **Phase B1** (set `RELAY_TLS_CERT`/`RELAY_TLS_KEY`, outbound NIC not None; default port 8443). **Let’s Encrypt is Phase B2** (not in this release).
 
 Commands below are run in a terminal as a normal user that can use `sudo`.
 
@@ -207,7 +207,7 @@ sudo ufw status
 
 Outbound **None** ⇒ Room → **Update from GitHub** unavailable until you pick a venue NIC. That is intentional.
 
-HTTPS / LE on the venue NIC is **Phase B** (upcoming). Today the only tablet URL is `http://<av-lan-ip>:8081`.
+Optional venue HTTPS (B1, file certs): `https://<outbound-ip>:8443` when outbound NIC + `RELAY_TLS_CERT`/`RELAY_TLS_KEY` are set. LE/ACME is B2. AV tablet URL remains `http://<av-lan-ip>:8081`.
 
 Foyer (optional, separate process) owns `:8080` / `:8082`; Relay production is `:8081`. Foyer ↔ Relay is loopback only — [`FOYER-RELAY.md`](FOYER-RELAY.md). Foyer occupancy is the Occupancy variable (`0` closed, `1` open, `2` in session, `3` do not disturb) or a Relay Occupancy command. Foyer GETs `/api/peer` and reads the string `occupancy` field. Room names do not need to match.
 

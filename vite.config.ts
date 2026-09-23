@@ -12,6 +12,8 @@ import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
 import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
 import { bootResolveHttpListenHost } from "./scripts/http-listen-host.mjs";
+// @ts-expect-error JS plugin alongside the TS vite config
+import { httpsVenuePlugin } from "./scripts/https-venue-plugin.mjs";
 
 /** The files `src/lib/db.ts` globs — same directory, same non-recursive scope. */
 function hasGlobbedMigrations(root: string): boolean {
@@ -189,6 +191,7 @@ export default defineConfig(({ command, isPreview }) => {
   resolve: { tsconfigPaths: true },
   plugins: [
     appEnvPlugin(),
+    httpsVenuePlugin(),
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.
     grokPwaPlugin(),
     tailwindcss(),

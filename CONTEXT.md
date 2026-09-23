@@ -35,7 +35,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Stock drivers | `data/library/*.json` + `index.json` |
 | This room’s copies | `data/drivers/*.json` (not git) |
 | New driver syntax | `DRIVER-PROMPT.md`, then `npm run driver:check -- data/library/<file>.json` |
-| NIC pick / listen host | `nics.ts`, `scripts/http-listen-host.mjs`, `scripts/with-app-env.mjs`, Room tab Networks |
+| NIC pick / listen host | `nics.ts`, `scripts/http-listen-host.mjs`, `scripts/https-venue-listen.mjs` (B1), `scripts/with-app-env.mjs`, Room tab Networks |
 | Install / firewall | `LINUX.md`, `WINDOWS.md`, `SECURITY.md` |
 
 ## Do not open unless the operator names them
@@ -54,7 +54,7 @@ Do not grep the whole repo to “get context.” If the table above is missing a
 - Panel PIN ≠ config PIN unless `panelAcceptsConfigPin` (default off).
 - Open-on-LAN (no panel PIN) is not `externalControl` (unauthenticated fire\*).
 - `system.restart|update|reboot` need a config session even if open LAN is on.
-- No TLS yet (HTTPS/LE venue = Phase B). Listen is AV-LAN IPv4 only — never `0.0.0.0`. Firewall panel port to AV CIDR (#15). Outbound None ⇒ Update refused (A1).
+- Listen is AV-LAN IPv4 only — never `0.0.0.0`. Optional venue HTTPS (B1) when outbound NIC + file certs (`RELAY_TLS_CERT`/`RELAY_TLS_KEY`); LE = B2. Firewall panel port to AV CIDR (#15). Outbound None ⇒ Update refused (A1) and venue HTTPS skipped.
 - Do not add xAI / Grok API calls. Do not print PINs. Do not commit `data/relay-secrets.json` or `.env`.
 - Do not start raw `npx vite`. Use `npm run dev` / `npm start`.
 
@@ -64,7 +64,7 @@ Do not grep the whole repo to “get context.” If the table above is missing a
 | --- | --- |
 | 4 | Generic TCP still connect-write-close |
 | 14 | Secrets file holds peer secret, device tokens, session secrets |
-| 15 | No TLS yet; HTTP on AV-LAN IPv4 only (Phase B = HTTPS venue) |
+| 15 | HTTP on AV-LAN; optional file HTTPS on venue (B1); LE = B2 |
 | 16 | Config tab labels are raw ids |
 | 37 | PIN lockout is process memory, one counter per gate |
 | 38 | Trigger engine still has false-path / hold / delay |
