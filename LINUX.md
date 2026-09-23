@@ -165,6 +165,29 @@ On a two-NIC Ubuntu room PC:
 - No IP forward and no bridge between the two NICs.
 - Same NIC on both pickers is allowed on a test box only.
 
+#### Apply AV-LAN IPv4 (Linux / NetworkManager)
+
+Room → Networks → **AV-LAN IPv4 (Linux)** can set **static** or **DHCP** on the saved AV-LAN interface only (not LAN/internet). Confirm dialog + **Config PIN** (same bar as Restart / Update). On success Relay **restarts** so HTTP re-binds to the new AV IPv4 (never `0.0.0.0`).
+
+- Requires **NetworkManager** (`nmcli` on `PATH`) and a managed connection on the AV iface.
+- Apply always clears gateway on that connection and sets `ipv4.never-default yes` — AV-LAN must not take the default route.
+- Demo/default `room.network.gateway` is **not** applied to AV.
+- DNS / hostname / NTP / NIC2 address are out of scope.
+- Windows / non-Linux: Apply returns a clear error (no silent success).
+- If `RELAY_LISTEN_HOST` is set and would disagree with the new address, Apply **refuses**.
+- Changing prefix/network: update **ufw** to the new AV CIDR (Apply does not edit ufw).
+
+Privilege: Relay stays non-root. Install a narrow sudoers drop-in so the service user can run nmcli without a password:
+
+```bash
+# Replace $USER with the systemd User= (often pi)
+echo "$USER ALL=NOPASSWD: /usr/bin/nmcli" | sudo tee /etc/sudoers.d/relay-nmcli
+sudo chmod 440 /etc/sudoers.d/relay-nmcli
+sudo visudo -cf /etc/sudoers.d/relay-nmcli
+```
+
+Apply spawns `sudo -n nmcli …` (argv allowlist, no shell). Missing sudoers → clear operator error pointing here. Do **not** run Relay as root; MR1 does not use `AmbientCapabilities` / `CAP_NET_ADMIN`.
+
 ```bash
 # No forward / no bridge between AV and venue
 sudo sysctl -w net.ipv4.ip_forward=0
@@ -452,6 +475,8 @@ echo "$USER ALL=NOPASSWD: /bin/systemctl restart relay" | sudo tee /etc/sudoers.
 ```
 
 The default path does not need that: `system.restart` is `process.exit(1)` and systemd starts it again.
+
+For **Apply AV-LAN IP**, also install the nmcli sudoers drop-in in §5b (`/etc/sudoers.d/relay-nmcli`). You may keep both drop-ins.
 
 ---
 
