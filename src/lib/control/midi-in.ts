@@ -4,7 +4,7 @@ import { midiPortOk } from "./midi.ts";
 import { listenUdpMulticast } from "./udp.ts";
 import { IPMIDI_GROUP, IPMIDI_PORT } from "./ipmidi.ts";
 import { setRtpMidiBytesHandler } from "./rtp-midi.ts";
-import { roomLanBind } from "./nics.ts";
+import { nicFaceProtocolGate, planDeviceBindForDevice, readNicFace } from "./device-face.ts";
 
 export type MidiMsg = {
   kind: MidiWatchKind;
@@ -304,7 +304,9 @@ export function syncMidiWatchers(opts: {
       if (port && !usbChildren.has(device.id)) startUsbMidiIn(device.id, port, watch, opts.state);
     }
     if (proto === "ipmidi" && !ipmidiClosers.has(device.id)) {
-      const bind = roomLanBind(opts.config);
+      const face = readNicFace(device);
+      if (!nicFaceProtocolGate(face, "ipmidi", driver.transports.lan).ok) continue;
+      const bind = planDeviceBindForDevice(device, opts.config);
       if (!bind.ok) continue;
       startIpmidiIn(device.id, watch, opts.state, driver.transports.lan?.port, bind.localAddress).catch(() => undefined);
     }

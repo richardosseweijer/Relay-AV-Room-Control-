@@ -124,9 +124,23 @@ export function DevicesTab(props: {
                                     <option value="av">AV-LAN HTTP</option>
                                     <option value="outbound">Venue / NIC2 HTTPS</option>
                                   </select>
-                                  <span className="text-xs text-muted">Other room over venue: set its live NIC2 IP + port 8443 (or RELAY_HTTPS_PORT), face Venue. Needs outbound NIC + TLS PEMs (B1). HMAC unchanged.</span>
+                                  <span className="text-xs text-muted">HMAC peer transport only (B3). Auto/HTTP↔HTTPS. Distinct from NIC face below. Other room over venue: live NIC2 IP + 8443, Peer face Venue. Needs outbound NIC + TLS PEMs.</span>
                                 </label>
                               ) : null}
+                              <label className="grid gap-1 text-sm text-muted">NIC face
+                                <select
+                                  className={fieldClass()}
+                                  value={device.nicFace ?? "av"}
+                                  onChange={(e) => update((c) => {
+                                    const v = e.target.value;
+                                    c.devices[index]!.nicFace = v === "outbound" ? "outbound" : "av";
+                                  })}
+                                >
+                                  <option value="av">AV-LAN (default)</option>
+                                  <option value="outbound">Venue / NIC2</option>
+                                </select>
+                                <span className="text-xs text-muted">Bind source NIC for this device (B4). Default AV. Venue soft-fails if outbound None / no IPv4. No cleartext HTTP/WS on venue; sACN / ipMIDI multicast stay AV-only. Cast/HTTPS OK. Relay HMAC peers use Peer face, not this.</span>
+                              </label>
                             </>
                           ) : null}
                           {kind === "serial" || comSlot ? (

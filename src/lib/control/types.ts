@@ -430,11 +430,18 @@ export type DeviceInstance = {
   simulate: boolean;
   inventory?: DeviceInventory;
   /**
-   * B3 narrow peer face for relay-host remotes (not full nicFace / B4).
+   * B3 narrow peer face for relay-host remotes (HMAC transport).
    * unset = auto (host on outbound subnet → venue HTTPS; else AV HTTP).
    * "outbound" = venue HTTPS + outbound bind; "av" = AV HTTP.
+   * Distinct from nicFace (B4): peerFace has auto and switches scheme; nicFace is bind-only.
    */
   peerFace?: "av" | "outbound" | null;
+  /**
+   * B4 per-device NIC face for general device I/O bind (localAddress).
+   * unset / "av" = AV-LAN bind (default, back-compat). "outbound" = venue/NIC2 bind.
+   * Soft-fails when outbound None / no IPv4. No auto. Does not replace peerFace for HMAC peers.
+   */
+  nicFace?: "av" | "outbound" | null;
 };
 
 export type Macro = {

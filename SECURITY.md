@@ -12,8 +12,8 @@ Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds t
 
 | NIC | Role | Required? |
 |---|---|---|
-| **NIC1 AV-LAN** | Trusted offline control LAN. Panel/API listen here. Device/control protocols stay on AV unless already designed for open LAN (Cast, Hue, etc.). | Required |
-| **NIC2 venue/internet** | Outbound GitHub Update + optional Phase B1 HTTPS (file certs) + B3 HMAC peer over that HTTPS. Picker **None** = air-gap / single-NIC (no venue HTTPS / no venue peer). | Optional |
+| **NIC1 AV-LAN** | Trusted offline control LAN. Panel/API listen here. Device/control defaults to AV (`nicFace=av`). Cast/Hue etc. stay AV unless operator sets venue face (no cleartext on venue). | Required |
+| **NIC2 venue/internet** | Outbound GitHub Update + optional Phase B1 HTTPS (file certs) + B3 HMAC peer over that HTTPS + B4 per-device `nicFace=outbound` bind. Picker **None** = air-gap / single-NIC (no venue HTTPS / no venue peer / venue nicFace soft-fails). | Optional |
 
 - NIC2 down, **None**, or a future LE failure must **not** break NIC1 / AV listen.
 - No IP forwarding or bridge between NICs (`ip_forward=0`, no `br-*` joining AV and venue).
@@ -70,7 +70,18 @@ HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex 
 
 - Never cleartext HTTP on the venue face. Soft-skip venue peer when outbound is **None** or TLS PEMs are missing — AV-LAN peers keep working.
 - Inbound peer on the B1 HTTPS listener uses the same `/api/peer` + HMAC middleware when certs are present.
-- Operator: point a remote `relay-host` device at the other room’s live NIC2 IP (Networks UI) + 8443, set Peer face **Venue** (or Auto when the IP is on your outbound subnet). No ACME/FQDN (B2). Per-device nicFace matrix is B4.
+- Operator: point a remote `relay-host` device at the other room’s live NIC2 IP (Networks UI) + 8443, set Peer face **Venue** (or Auto when the IP is on your outbound subnet). No ACME/FQDN (B2).
+
+### Device NIC face (B4)
+
+| Face | When | Wire |
+|---|---|---|
+| **AV-LAN** (default) | `nicFace` unset / `av` | Device sockets bind AV IPv4 (unchanged) |
+| **Venue / NIC2** | `nicFace=outbound` | Bind outbound IPv4; soft-fail that device if outbound None / no IPv4 |
+
+- **vs peerFace:** `peerFace` is relay-host HMAC only (`auto` + HTTP↔HTTPS). `nicFace` is bind-only for general devices (no auto; default `av`). Do not use `nicFace` instead of Peer face for HMAC peers.
+- No cleartext HTTP/WebSocket on venue. sACN and ipMIDI multicast stay AV-only (clear error if `nicFace=outbound`). Cast / HTTPS / TLS-WebSocket may use venue bind.
+- Soft-fail venue face must not take AV devices down.
 
 Foyer (optional) on this PC: occupancy GET and calendar-session GET on loopback. See [`FOYER-RELAY.md`](FOYER-RELAY.md). Unsigned GET is allowed only when the **TCP peer** is loopback (`127.0.0.1` / `::1`); the body is occupancy + `host.locked` only. `Host` / `X-Forwarded-*` are not loopback. HMAC GET (LAN or loopback) returns the full peer snapshot. POST still requires HMAC. Room names do not need to match.
 
