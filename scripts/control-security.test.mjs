@@ -206,6 +206,9 @@ test("F3 syncInventory HTTP path gates with deviceHostAllowed before sendHttp", 
   assert.ok(gate >= 0, "inventory httpPath must call deviceHostAllowed");
   assert.match(httpBranch, /deviceHostAllowed|Host not on room LAN|DEVICE_VENUE_SKIP_CLEARTEXT/);
   assert.ok(send >= 0 && gate < send, "LAN gate before sendHttp");
+  // B5: venue face must refuse inventory cleartext with a pointed constant (not silent).
+  assert.match(httpBranch, /face === ["']outbound["']/);
+  assert.match(httpBranch, /DEVICE_VENUE_SKIP_INVENTORY_CLEARTEXT|DEVICE_VENUE_SKIP_CLEARTEXT/);
 });
 
 test("F3 signedPeerFetch gates peer host before network I/O", () => {
