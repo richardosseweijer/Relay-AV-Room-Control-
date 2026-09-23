@@ -4,6 +4,11 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.53
+
+- Tag `v0.9.53`. **Relay HDMI kiosk restart sudoers:** Room → Local display saves `data/relay-kiosk.env` then restarts `relay-kiosk.service`. Bare `systemctl` hits polkit (“interactive authentication”); without `/etc/sudoers.d/relay-kiosk` the UI only showed that raw error. Now classify auth/sudo failures and point at LINUX.md §7; keep `sudo -n systemctl …`. Extend `deploy/sudoers.relay-kiosk` with start/stop/restart/try-restart/status/is-active/enable/disable (unit only — never NOPASSWD ALL). Docs: install with `chown root:root`, `chmod 0440`, `visudo -cf`. Relay-only HDMI operators need the drop-in; Foyer dual-head still leaves the unit off (§7a).
+- Tests: polkit/missing-sudoers → clear LINUX.md hint; sudoers allowlist verbs.
+
 ## 0.9.52
 
 - Tag `v0.9.52`. **Fresh-install AV-LAN auto-map:** when Room → AV-LAN is unset/blank/invalid, Relay maps to the **first scanned NIC** (same Networks scan; prefer physical eth/en* over docker/veth/bridges; fall back to virtual only if that is all that exists), **persists** the pick (outbound/NIC2 untouched), and binds HTTP panel/API to that IPv4. Valid saved AV-LAN is left alone. If the chosen iface has no IPv4 yet, boot logs clearly and waits/retries — never binds `0.0.0.0`. No scanned NICs → loopback + warning (lab). Docs: LINUX Networks / listen resolution; AGENTS / ARCHITECTURE / SECURITY / CONTEXT / KNOWN_ISSUES.
