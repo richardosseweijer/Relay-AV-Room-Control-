@@ -429,6 +429,12 @@ export type DeviceInstance = {
   enabledFeatures: string[];
   simulate: boolean;
   inventory?: DeviceInventory;
+  /**
+   * B3 narrow peer face for relay-host remotes (not full nicFace / B4).
+   * unset = auto (host on outbound subnet → venue HTTPS; else AV HTTP).
+   * "outbound" = venue HTTPS + outbound bind; "av" = AV HTTP.
+   */
+  peerFace?: "av" | "outbound" | null;
 };
 
 export type Macro = {
@@ -471,6 +477,9 @@ export type RoomConfig = {
     avLanNicName?: string | null;
     outboundNicIndex?: number | null;
     outboundNicName?: string | null;
+    /** B1 venue HTTPS PEM paths (optional; env RELAY_TLS_* wins). */
+    tlsCertPath?: string | null;
+    tlsKeyPath?: string | null;
     occupancy?: Occupancy;
     foyerPeerUrl?: string | null;
     network: {

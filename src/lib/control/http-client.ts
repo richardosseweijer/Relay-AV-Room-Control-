@@ -58,6 +58,8 @@ export function requestHttpExact(
   timeout: number,
   maxBytes = DEFAULT_MAX_RESPONSE_BYTES,
   localAddress?: string,
+  /** Venue peer self-signed PEMs until B2 LE; default verifies. */
+  rejectUnauthorized = true,
 ): Promise<{ ok: boolean; status: number; text: string }> {
   return new Promise((resolve) => {
     let parsed: URL;
@@ -81,6 +83,7 @@ export function requestHttpExact(
       method: method.toUpperCase(),
       headers: hdrs,
       localAddress,
+      ...(parsed.protocol === "https:" ? { rejectUnauthorized } : {}),
     }, (res) => {
       const chunks: Buffer[] = [];
       let size = 0;

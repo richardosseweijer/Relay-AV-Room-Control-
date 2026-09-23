@@ -11,7 +11,7 @@
 
 - Grok publish / serverless hosts are unsupported. No writable `data/`. Do not use them as a room.
 - Panel/API listen is the **AV-LAN IPv4** (else loopback). Never `0.0.0.0`. Do not port-forward the panel to venue/WAN. Restrict 8081 to the AV-LAN CIDR on the host firewall (`LINUX.md` §5b). Outbound **None** disables Update. Unsigned `GET /api/peer` is allowed only from TCP loopback, not because `Host` says localhost.
-- HTTP only today. No TLS on the panel yet — HTTPS/LE on the venue NIC is Phase B. See issue #15.
+- Panel/API cleartext is AV-LAN only. Optional venue HTTPS (B1 file PEMs) + HMAC peer over that HTTPS (B3). LE/ACME = B2. See issue #15.
 - AV-LAN listen (A2) does not accept `127.0.0.1`. Foyer’s default Relay URL is still `http://127.0.0.1:8081` and fail-closes non-loopback — occupancy pull breaks until dual-bind / URL story is fixed (not A3). Lab escape: `RELAY_LISTEN_HOST=127.0.0.1` (not for production dual-NIC).
 - Panel access default is **Panel PIN**. **Open on LAN** skips the PIN and mints a shared panel session for anyone who can reach `/`. That is not the same switch as open LAN control (`externalControl`), which is off unless enabled on Security. Then `fireCommand` / `fireMacro` / `setVariable` accept unauthenticated LAN calls.
 - Config PIN works on the panel only if Security → `panelAcceptsConfigPin` is on (default off).
