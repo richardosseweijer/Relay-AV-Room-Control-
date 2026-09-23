@@ -110,6 +110,23 @@ export function DevicesTab(props: {
                               <label className="grid gap-1 text-sm text-muted">Port
                                 <InputNum placeholder={String(driver?.transports.lan?.port ?? 80)} value={device.port} onNumber={(n) => update((c) => { c.devices[index]!.port = n; })} />
                               </label>
+                              {driver?.device.type === "host" || device.driver === "relay-host.json" ? (
+                                <label className="grid gap-1 text-sm text-muted">Peer face
+                                  <select
+                                    className={fieldClass()}
+                                    value={device.peerFace ?? ""}
+                                    onChange={(e) => update((c) => {
+                                      const v = e.target.value;
+                                      c.devices[index]!.peerFace = v === "av" || v === "outbound" ? v : null;
+                                    })}
+                                  >
+                                    <option value="">Auto (AV LAN, or venue if IP on outbound NIC)</option>
+                                    <option value="av">AV-LAN HTTP</option>
+                                    <option value="outbound">Venue / NIC2 HTTPS</option>
+                                  </select>
+                                  <span className="text-xs text-muted">Other room over venue: set its live NIC2 IP + port 8443 (or RELAY_HTTPS_PORT), face Venue. Needs outbound NIC + TLS PEMs (B1). HMAC unchanged.</span>
+                                </label>
+                              ) : null}
                             </>
                           ) : null}
                           {kind === "serial" || comSlot ? (

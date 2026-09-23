@@ -25,6 +25,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Types / empty room | `types.ts`, `defaults.ts`, `schema.ts`, `vars.ts` |
 | PIN / session | `pins.ts`, `pins.server.ts`, `session.server.ts`, `session-expire.ts`, `panel-token.ts`, `panel-unlock-rule.ts` |
 | Occupancy / Foyer GET | `peer-payload.ts`, `peer-auth.ts`, `src/routes/api/peer.ts`, `FOYER-RELAY.md` |
+| Peer AV vs venue (B3) | `peer-venue.ts`, `engine.ts` (`signedPeerFetch`), Devices tab Peer face |
 | Foyer calendar poll | `foyer-peer.ts` |
 | Preview tile | `preview-grab.ts`, `src/components/panel/preview-tile.tsx`, `src/routes/api/preview.ts` |
 | Panel UI | `src/components/panel/control-panel.tsx` |
@@ -35,7 +36,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Stock drivers | `data/library/*.json` + `index.json` |
 | This room’s copies | `data/drivers/*.json` (not git) |
 | New driver syntax | `DRIVER-PROMPT.md`, then `npm run driver:check -- data/library/<file>.json` |
-| NIC pick / listen host | `nics.ts`, `scripts/http-listen-host.mjs`, `scripts/https-venue-listen.mjs` (B1), `scripts/with-app-env.mjs`, Room tab Networks |
+| NIC pick / listen host | `nics.ts`, `scripts/http-listen-host.mjs`, `scripts/https-venue-listen.mjs` (B1), `peer-venue.ts` (B3), `scripts/with-app-env.mjs`, Room tab Networks |
 | Install / firewall | `LINUX.md`, `WINDOWS.md`, `SECURITY.md` |
 
 ## Do not open unless the operator names them
@@ -54,7 +55,7 @@ Do not grep the whole repo to “get context.” If the table above is missing a
 - Panel PIN ≠ config PIN unless `panelAcceptsConfigPin` (default off).
 - Open-on-LAN (no panel PIN) is not `externalControl` (unauthenticated fire\*).
 - `system.restart|update|reboot` need a config session even if open LAN is on.
-- Listen is AV-LAN IPv4 only — never `0.0.0.0`. Optional venue HTTPS (B1) when outbound NIC + file certs (`RELAY_TLS_CERT`/`RELAY_TLS_KEY`); LE = B2. Firewall panel port to AV CIDR (#15). Outbound None ⇒ Update refused (A1) and venue HTTPS skipped.
+- Listen is AV-LAN IPv4 only — never `0.0.0.0`. Optional venue HTTPS (B1) when outbound NIC + file certs (`RELAY_TLS_CERT`/`RELAY_TLS_KEY`); LE = B2. B3: HMAC peer over that HTTPS (`peer-venue.ts`); soft-skip venue peer if None/no PEMs. Firewall panel port to AV CIDR (#15). Outbound None ⇒ Update refused (A1) and venue HTTPS / venue peer skipped.
 - Do not add xAI / Grok API calls. Do not print PINs. Do not commit `data/relay-secrets.json` or `.env`.
 - Do not start raw `npx vite`. Use `npm run dev` / `npm start`.
 
@@ -64,7 +65,7 @@ Do not grep the whole repo to “get context.” If the table above is missing a
 | --- | --- |
 | 4 | Generic TCP still connect-write-close |
 | 14 | Secrets file holds peer secret, device tokens, session secrets |
-| 15 | HTTP on AV-LAN; optional file HTTPS on venue (B1); LE = B2 |
+| 15 | HTTP on AV-LAN; optional file HTTPS on venue (B1); peer over venue (B3); LE = B2 |
 | 16 | Config tab labels are raw ids |
 | 37 | PIN lockout is process memory, one counter per gate |
 | 38 | Trigger engine still has false-path / hold / delay |
