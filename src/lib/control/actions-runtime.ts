@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authenticateDevice, executeCommand, pingReachable, runMacro, syncInventory } from "./engine";
+import { roomLanBind } from "./nics";
 import { NONE_MACRO_ID } from "./types";
 import { clampVar } from "./vars";
 import { actionPermitted } from "./control-policy";
@@ -217,9 +218,12 @@ export const pullInventory = createServerFn({ method: "POST" })
 export const pingDevice = createServerFn({ method: "POST" })
   .validator((data: { token: string; host: string; port?: number; path?: string }) => data)
   .handler(async ({ data }) => {
-  const { validToken } = await loadControl();
+  const { validToken, ensureLoaded, memory } = await loadControl();
     if (!validToken(data.token, "config")) return { ok: false, message: "Config lock required" };
-    return pingReachable({ host: data.host, port: data.port, path: data.path, timeoutMs: 800 });
+    await ensureLoaded();
+    const bind = roomLanBind(memory().config);
+    if (!bind.ok) return bind;
+    return pingReachable({ host: data.host, port: data.port, path: data.path, timeoutMs: 800, localAddress: bind.localAddress });
   });
 
 export const clearDeviceError = createServerFn({ method: "POST" })

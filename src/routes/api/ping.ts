@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { pingReachable } from "@/lib/control/engine";
-import { ensureLoaded } from "@/lib/control/store.server";
+import { roomLanBind } from "@/lib/control/nics";
+import { ensureLoaded, memory } from "@/lib/control/store.server";
 import { validToken } from "@/lib/control/session.server";
 
 export const Route = createFileRoute("/api/ping")({
@@ -16,11 +17,14 @@ export const Route = createFileRoute("/api/ping")({
           if (!validToken(token, "config")) {
             return Response.json({ ok: false, message: "Config lock required" }, { status: 401 });
           }
+          const bind = roomLanBind(memory().config);
+          if (!bind.ok) return Response.json(bind);
           const result = await pingReachable({
             host: body.host ?? "",
             port: body.port,
             path: body.path,
             timeoutMs: 2500,
+            localAddress: bind.localAddress,
           });
           return Response.json(result);
         } catch (err) {
