@@ -12,6 +12,7 @@ import {
   DEVICE_VENUE_SKIP_INVENTORY_CLEARTEXT,
   DEVICE_VENUE_AV_ONLY,
   DEVICE_VENUE_SKIP_BAD_HOST,
+  DEVICE_TLS_SKIP_NO_TRUST,
 } from "../src/lib/control/device-face.ts";
 import { listLanNicsFrom, OUTBOUND_NONE_NAME } from "../src/lib/control/nics.ts";
 
@@ -42,13 +43,26 @@ test("planDeviceBind AV: AV localAddress", () => {
   assert.equal(plan.rejectUnauthorized, true);
 });
 
-test("planDeviceBind outbound: venue bind + soft TLS", () => {
+test("planDeviceBind outbound non-TLS: venue bind, no soft default", () => {
   const plan = planDeviceBind({ face: "outbound", nics, avPick, outboundPick: outPick });
   assert.equal(plan.ok, true);
   if (!plan.ok) return;
   assert.equal(plan.face, "outbound");
   assert.equal(plan.localAddress, "192.168.1.40");
-  assert.equal(plan.rejectUnauthorized, false);
+  assert.equal(plan.rejectUnauthorized, true);
+});
+
+test("planDeviceBind outbound TLS without trust: fail-closed", () => {
+  const plan = planDeviceBind({
+    face: "outbound",
+    nics,
+    avPick,
+    outboundPick: outPick,
+    needsTls: true,
+  });
+  assert.equal(plan.ok, false);
+  if (plan.ok) return;
+  assert.equal(plan.message, DEVICE_TLS_SKIP_NO_TRUST);
 });
 
 test("planDeviceBind outbound soft-skips when None", () => {
@@ -97,12 +111,14 @@ test("planDeviceBindForDevice default av from room picks", () => {
   assert.equal(plan.localAddress, "10.0.25.10");
 });
 
-test("nicFaceProtocolGate blocks cleartext and multicast on venue", () => {
+test("nicFaceProtocolGate blocks cleartext, multicast, and cast on venue", () => {
   assert.equal(nicFaceProtocolGate("av", "http").ok, true);
   assert.equal(nicFaceProtocolGate("outbound", "https").ok, true);
-  assert.equal(nicFaceProtocolGate("outbound", "cast").ok, true);
   assert.equal(nicFaceProtocolGate("outbound", "tls-websocket").ok, true);
   assert.equal(nicFaceProtocolGate("outbound", "tcp").ok, true);
+  const cast = nicFaceProtocolGate("outbound", "cast");
+  assert.equal(cast.ok, false);
+  if (!cast.ok) assert.match(cast.message, /Cast/);
   const http = nicFaceProtocolGate("outbound", "http");
   assert.equal(http.ok, false);
   if (!http.ok) assert.equal(http.message, DEVICE_VENUE_SKIP_CLEARTEXT);

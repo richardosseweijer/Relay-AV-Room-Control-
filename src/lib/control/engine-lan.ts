@@ -19,6 +19,7 @@ import {
   deviceHostAllowed,
   nicFaceProtocolGate,
   planDeviceBindForDevice,
+  protocolNeedsTls,
   readNicFace,
 } from "./device-face";
 import { allowedLanHost, pushTrace, safeLanHttpUrl } from "./engine-policy";
@@ -49,7 +50,15 @@ export async function sendHttp(
   method: string,
   body: string,
   timeout: number,
-  limits: { maxBytes?: number; maxMessageChars?: number; headers?: Record<string, string>; localAddress?: string; rejectUnauthorized?: boolean } = {},
+  limits: {
+    maxBytes?: number;
+    maxMessageChars?: number;
+    headers?: Record<string, string>;
+    localAddress?: string;
+    rejectUnauthorized?: boolean;
+    ca?: string | Buffer;
+    checkServerIdentity?: (host: string, cert: import("node:tls").PeerCertificate) => Error | undefined;
+  } = {},
 ): Promise<CommandResult> {
   try {
     const verb = method.toUpperCase();
@@ -67,6 +76,8 @@ export async function sendHttp(
       limits.maxBytes ?? DEFAULT_MAX_RESPONSE_BYTES,
       limits.localAddress,
       limits.rejectUnauthorized ?? true,
+      limits.ca,
+      limits.checkServerIdentity,
     );
     return { ok: res.ok, message: res.text.slice(0, limits.maxMessageChars ?? 400) || String(res.status) };
   } catch (err) {
@@ -117,10 +128,13 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
   const face = readNicFace(device);
   const protoGate = nicFaceProtocolGate(face, proto, lan);
   if (!protoGate.ok) return protoGate;
-  const bind = planDeviceBindForDevice(device, config);
+  const needsTls = protocolNeedsTls(proto);
+  const bind = planDeviceBindForDevice(device, config, undefined, { needsTls });
   if (!bind.ok) return bind;
   const localAddress = bind.localAddress;
   const rejectUnauthorized = bind.rejectUnauthorized;
+  const tlsCa = bind.ca;
+  const tlsPinCheck = bind.checkServerIdentity;
   const host = device.host;
   const skipUnicastHost = proto === "sacn" || (proto === "ipmidi" && lan.multicast !== false);
   const localOk = device.driver === "relay-host.json" || driver.device.type === "host";
@@ -159,6 +173,8 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
       headers,
       localAddress,
       rejectUnauthorized,
+      ca: tlsCa,
+      checkServerIdentity: tlsPinCheck,
     });
   } else if (lan.protocol === "websocket" || lan.protocol === "tls-websocket") {
     if (/[/:]/.test(String(lan.protocol))) result = { ok: false, message: "Unknown protocol" };
@@ -181,6 +197,9 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
         alsoSend: lan.alsoSend,
         alsoSendRaw: command?.alsoSend,
         localAddress,
+        rejectUnauthorized: lan.protocol === "tls-websocket" ? rejectUnauthorized : true,
+        ca: lan.protocol === "tls-websocket" ? tlsCa : undefined,
+        checkServerIdentity: lan.protocol === "tls-websocket" ? tlsPinCheck : undefined,
       });
     }
   }
