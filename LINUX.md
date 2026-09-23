@@ -220,14 +220,16 @@ Room → Networks → **AV-LAN IPv4 (Linux)** can set **static** or **DHCP** on 
 - If `RELAY_LISTEN_HOST` is set and would disagree with the new address, Apply **refuses**.
 - Changing prefix/network: **re-check and update ufw** to the new AV CIDR (Apply does not edit ufw).
 
-Privilege: Relay stays non-root. Install a narrow sudoers drop-in so the service user can run nmcli without a password:
+Privilege: Relay stays non-root. Install a narrow sudoers drop-in so the service user can run nmcli without a password. Prefer the host installer (also installs the §7c kiosk drop-in):
 
 ```bash
-# Replace $USER with the systemd User= (often pi)
-echo "$USER ALL=NOPASSWD: /usr/bin/nmcli" | sudo tee /etc/sudoers.d/relay-nmcli
-sudo chmod 440 /etc/sudoers.d/relay-nmcli
-sudo visudo -cf /etc/sudoers.d/relay-nmcli
+# From the repo checkout — replaces USER in deploy/sudoers.relay-nmcli (+ relay-kiosk).
+# Default user: invoking account under sudo, or set RELAY_USER / SUDOERS_USER.
+sudo bash scripts/install-host-sudoers.sh
+# Or: sudo RELAY_USER=pi bash scripts/install-host-sudoers.sh
 ```
+
+Template only: `deploy/sudoers.relay-nmcli` → `/etc/sudoers.d/relay-nmcli` (mode 0440, `visudo -cf`). **One-time host step** — `git pull`, in-app **Update from GitHub**, and reboot do **not** install this drop-in; re-run if `User=` on `relay.service` changes.
 
 Apply spawns `sudo -n nmcli …` (argv allowlist, no shell). Missing sudoers → clear operator error pointing here. Do **not** run Relay as root; MR1 does not use `AmbientCapabilities` / `CAP_NET_ADMIN`.
 
@@ -690,22 +692,18 @@ Room → **Local display (HDMI)** saves `data/relay-kiosk.env` (`RELAY_VIDEO_OUT
 
 Configurator restart needs passwordless `systemctl` for this unit only. Relay stays non-root and runs `sudo -n systemctl restart relay-kiosk.service`. Missing sudoers → clear operator error pointing here (not raw polkit text).
 
-**Required once on the appliance** (host `/etc`, not the git tree): Room → Local display **Save** can write `data/relay-kiosk.env` successfully while **restart** still fails with polkit “interactive authentication” / Access denied if `/etc/sudoers.d/relay-kiosk` is missing. `git pull`, in-app **Update from GitHub**, and reboot refresh code (`main` / `v0.9.53+`) — they do **not** create or refresh this drop-in. Install it once below; re-run if `User=` on `relay.service` / `relay-kiosk.service` changes.
+**Required once on the appliance** (host `/etc`, not the git tree): Room → Local display **Save** can write `data/relay-kiosk.env` successfully while **restart** still fails with polkit “interactive authentication” / Access denied if `/etc/sudoers.d/relay-kiosk` is missing. `git pull`, in-app **Update from GitHub**, and reboot refresh code (`main` / `v0.9.53+`) — they do **not** create or refresh this drop-in. Install once below; re-run if `User=` on `relay.service` / `relay-kiosk.service` changes.
 
 ```bash
-# Use the systemd User= for relay.service (often the account you SSH as)
-USER_NAME="$(whoami)"   # or: USER_NAME=pi
-# From the repo checkout (replace USER in the template):
-sudo cp deploy/sudoers.relay-kiosk /etc/sudoers.d/relay-kiosk
-sudo sed -i "s/^USER /${USER_NAME} /" /etc/sudoers.d/relay-kiosk
-sudo chown root:root /etc/sudoers.d/relay-kiosk
-sudo chmod 0440 /etc/sudoers.d/relay-kiosk
-sudo visudo -cf /etc/sudoers.d/relay-kiosk
-# Smoke-check as the service user (must NOT ask for a password):
-sudo -u "$USER_NAME" sudo -n /usr/bin/systemctl is-active relay-kiosk.service || true
+# From the repo checkout — substitutes USER in both deploy templates, installs
+# /etc/sudoers.d/relay-kiosk and /etc/sudoers.d/relay-nmcli (0440, visudo-checked).
+sudo bash scripts/install-host-sudoers.sh
+# Or: sudo RELAY_USER=pi bash scripts/install-host-sudoers.sh
+# Smoke-check (must NOT ask for a password):
+sudo -u "$(whoami)" sudo -n /usr/bin/systemctl is-active relay-kiosk.service || true
 ```
 
-Templates: `deploy/relay-kiosk.service`, `deploy/sudoers.relay-kiosk`. Keep this drop-in beside `/etc/sudoers.d/relay-nmcli` (AV-LAN Apply) — do **not** merge into `NOPASSWD: ALL`.
+Templates: `deploy/relay-kiosk.service`, `deploy/sudoers.relay-kiosk`, `deploy/sudoers.relay-nmcli`. Keep the two drop-ins separate — do **not** merge into `NOPASSWD: ALL`.
 
 **Relay-only HDMI:** operators who paint the panel with Relay’s own kiosk (not Foyer) need this drop-in for Room → Local display → save/restart. **Foyer dual-head:** leave `relay-kiosk` off (§7a); sudoers is harmless while the unit is disabled.
 
@@ -770,8 +768,9 @@ echo "$USER ALL=NOPASSWD: /bin/systemctl restart relay" | sudo tee /etc/sudoers.
 
 The default path does not need that: `system.restart` is `process.exit(1)` and systemd starts it again.
 
-**After Update / reboot — host sudoers checklist:** Update refreshes the checkout only. If Room → Local display **Save** still fails auth (polkit / Access denied), (re)install the §7c drop-in (`/etc/sudoers.d/relay-kiosk`). Same for **Apply AV-LAN IP** → §5b (`/etc/sudoers.d/relay-nmcli`). You may keep both drop-ins; neither is installed by pull/reboot.
+**After Update / reboot — host sudoers checklist:** Update refreshes the checkout only. If Room → Local display **Save** still fails auth (polkit / Access denied), or **Apply AV-LAN IP** fails nmcli auth, (re)run `sudo bash scripts/install-host-sudoers.sh` (§5b / §7c). You may keep both drop-ins; neither is installed by pull/reboot.
 
+- [ ] Ran `sudo bash scripts/install-host-sudoers.sh` (or verified drop-ins present)
 - [ ] `/etc/sudoers.d/relay-nmcli` — AV-LAN Apply (§5b)
 - [ ] `/etc/sudoers.d/relay-kiosk` — Local display restart (`relay-kiosk.service`, §7c)
 
