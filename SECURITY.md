@@ -6,7 +6,7 @@ Contact the maintainer privately. Do not file a public issue with exploit detail
 
 ## Scope
 
-Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds to the **AV-LAN IPv4** (never `0.0.0.0`). Dev is port 8080 (`npm run dev`). Production is port 8081 (`npm start`). HTTP on AV-LAN today (issue #15). **Shipped:** optional file-based HTTPS on the venue NIC is **B1** (when `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath` are set and outbound NIC is not None), plus **B3** venue HMAC peer and **B4** `nicFace`. **Let’s Encrypt / ACME / DNS-01 is PARKED permanently** for this product shape (guest LAN, no admin DNS rights, $0, no Cloudflare/LE accounts) — do not treat LE as the default or next path. **Shipped (C1–C3):** in-box **Generate** venue CA + leaf (API + Networks UI), CA download, IP-mismatch / expiry banners, regenerate confirm, OS install hints. **Planned (C4):** full doc consistency audit + checkpoint tag. Do not port-forward 8080, 8081, or 8082. A host firewall that allows the panel port only from the AV-LAN CIDR is part of the install, not optional advice. Inventory and roadmap: [Venue TLS inventory](#venue-tls-inventory-c0).
+Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds to the **AV-LAN IPv4** (never `0.0.0.0`). Dev is port 8080 (`npm run dev`). Production is port 8081 (`npm start`). HTTP on AV-LAN today (issue #15). **Shipped:** optional file-based HTTPS on the venue NIC is **B1** (when `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath` are set and outbound NIC is not None), plus **B3** venue HMAC peer and **B4** `nicFace`. **Let’s Encrypt / ACME / DNS-01 is PARKED permanently** for this product shape (guest LAN, no admin DNS rights, $0, no Cloudflare/LE accounts) — do not treat LE as the default or next path. **Shipped (C1–C4):** in-box **Generate** venue CA + leaf (API + Networks UI), CA download, IP-mismatch / expiry banners, regenerate confirm, OS install hints; C4 docs consistency + checkpoint tag `v0.9.46`. Do not port-forward 8080, 8081, or 8082. A host firewall that allows the panel port only from the AV-LAN CIDR is part of the install, not optional advice. Inventory and roadmap: [Venue TLS inventory](#venue-tls-inventory-c0).
 
 ### Dual-NIC trust model
 
@@ -26,7 +26,7 @@ Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds t
 3. AV unset → `127.0.0.1` + warning (loopback only).
 4. AV set but missing / no IPv4 → refuse listen (never widen to all interfaces).
 
-Tablet URL (AV): `http://<av-lan-ip>:8081` (or configured `PORT`). Optional venue URL when B1 certs are present: `https://<outbound-ip>:8443` (`RELAY_HTTPS_PORT`). LE/ACME parked; in-box PEMs now; Generate + Networks UI / CA download / regenerate lifecycle shipped (C1–C3).
+Tablet URL (AV): `http://<av-lan-ip>:8081` (or configured `PORT`). Optional venue URL when B1 certs are present: `https://<outbound-ip>:8443` (`RELAY_HTTPS_PORT`). LE/ACME parked; in-box PEMs now; Generate + Networks UI / CA download / regenerate lifecycle shipped (C1–C3); C4 docs checkpoint `v0.9.46`.
 
 Outbound **None** → **Update from GitHub** is disabled / refused with a clear reason. Update needs an outbound NIC.
 
@@ -71,7 +71,7 @@ HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex 
 - Never cleartext HTTP on the venue face. Soft-skip venue peer when outbound is **None** or TLS PEMs are missing — AV-LAN peers keep working.
 - Inbound peer on the B1 HTTPS listener uses the same `/api/peer` + HMAC middleware when certs are present.
 - Operator: point a remote `relay-host` device at the other room’s live NIC2 IP (Networks UI) + 8443, set Peer face **Venue** (or Auto when the IP is on your outbound subnet). No ACME/FQDN (LE parked).
-- File PEMs (self-signed / private CA, drop-in today or Generate planned) use `rejectUnauthorized: false` on the venue face for this product shape. Raw IPv4 is OK; public DNS/FQDN is not required.
+- File PEMs (self-signed / private CA, drop-in or in-box Generate) use `rejectUnauthorized: false` on the venue face for this product shape (optional strict peer verify not implemented). Raw IPv4 is OK; public DNS/FQDN is not required.
 
 ### Device NIC face (B4)
 
@@ -92,7 +92,7 @@ Foyer (optional) on this PC: occupancy GET and calendar-session GET on loopback.
 
 ## Venue TLS inventory (C0)
 
-Canonical dual-NIC + venue TLS map. Prefer this section over older “LE = B2” wording elsewhere. C0 was docs-only; **C1 ships Generate**; **C2 ships Networks UI**; **C3 ships regenerate lifecycle**.
+Canonical dual-NIC + venue TLS map. Prefer this section over older “LE = B2” wording elsewhere. C0 was docs-only; **C1–C3 shipped** (Generate + Networks UI + regenerate lifecycle); **C4** is the docs/hardening checkpoint (`v0.9.46`).
 
 ### Shipped (A + B through `v0.9.45`)
 
@@ -144,22 +144,22 @@ Canonical dual-NIC + venue TLS map. Prefer this section over older “LE = B2”
 | **IP drift** | Strengthened mismatch banner → confirm → Regenerate with new SAN |
 | **Light auto-check** | On Networks load and Refresh NICs, recompute mismatch / expiry flags — **no silent auto-reissue** |
 
-### Planned — C4 (NOT shipped)
+### Shipped — C4 (docs checkpoint)
 
-| Phase | TARGET |
+| Item | Behaviour |
 |---|---|
-| **C4** | Full doc consistency audit + checkpoint version tag |
+| **C4** | Full doc consistency audit across SECURITY / LINUX / ARCHITECTURE / AGENTS / CONTEXT / KNOWN_ISSUES / README / WINDOWS / CHANGELOG / FOYER-ROADMAP; light comment hardening (LE = PARKED, not “next B2”); checkpoint package + annotated tag `v0.9.46` |
 
-Operators may still drop in file PEMs for B1. C1–C3 are shipped; C4 is the doc/tag checkpoint.
+Operators may still drop in file PEMs for B1. **C0–C4 closed.** True leftovers (not this train): Foyer loopback URL vs AV-only listen; optional strict peer TLS verify.
 
 ### Doc crawl (where dual-NIC / TLS / LE lived)
 
 | File | Role after C0 |
 |---|---|
-| `SECURITY.md` (this file) | Canonical trust model + inventory + Planned vs Shipped |
+| `SECURITY.md` (this file) | Canonical trust model + inventory (Shipped C0–C4 vs PARKED LE vs residual leftovers) |
 | `LINUX.md` §5b / venue HTTPS notes | Install: dual-NIC, ufw, PEM drop, Generate + NIC2 CA download click-through |
 | `ARCHITECTURE.md` §2 / §8 | Process listen + access control aligned with AV HTTP vs venue HTTPS |
-| `CONTEXT.md` / `AGENTS.md` | Agent map + bans: no LE default; no `0.0.0.0`; AV ≠ venue certs; C1–C3 Generate + UI + lifecycle shipped |
+| `CONTEXT.md` / `AGENTS.md` | Agent map + bans: no LE default; no `0.0.0.0`; AV ≠ venue certs; C1–C4 Generate + UI + lifecycle + docs checkpoint shipped |
 | `KNOWN_ISSUES.md` | Still-true listen / venue TLS bullets |
 | `README.md` / `WINDOWS.md` | Short pointers; never claim LE as default |
 | `CHANGELOG.md` | C0 under Unreleased (docs); historical B2 wording left in past releases |
@@ -194,6 +194,6 @@ Persist writes a `relay-room.json.transaction` journal, then secrets, then room 
 - Optional venue HTTPS (B1): `RELAY_TLS_CERT` + `RELAY_TLS_KEY` (or room `tlsCertPath`/`tlsKeyPath`) with outbound NIC set. Port `RELAY_HTTPS_PORT` (default 8443). Missing certs ⇒ skip venue HTTPS only — AV HTTP stays up. LE/ACME parked — not required.
 - Venue peer (B3): same PEMs + outbound NIC; HMAC peer over HTTPS. Soft-skip venue peer if None/no PEMs; AV peers unchanged.
 - Device `nicFace` (B4): venue bind only when needed; soft-fail that device if None/no IPv4; no cleartext HTTP/WS on venue.
-- Phase B software checkpoint (B5): A1–A4 + B1/B3/B4 tagged at `v0.9.45`. Soft TLS verify for file PEMs. **C1–C3 shipped:** Generate API + Networks UI / CA download / mismatch+expiry banners / regenerate confirm / OS hints. **Planned C4:** full doc audit + checkpoint tag.
+- Phase B software checkpoint (B5): A1–A4 + B1/B3/B4 tagged at `v0.9.45`. Soft TLS verify for file PEMs. **C1–C4 shipped:** Generate API + Networks UI / CA download / mismatch+expiry banners / regenerate confirm / OS hints; docs consistency + tag `v0.9.46`.
 - Do not port-forward the panel port to venue/WAN. Do not port-forward 8080, 8081, or 8082. Foyer (if installed) is a separate process; HMAC between Relay and Foyer is loopback only.
 - Do not set `RELAY_LISTEN_HOST=0.0.0.0` on a room PC.

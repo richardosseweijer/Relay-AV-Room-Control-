@@ -2,7 +2,7 @@
  * Phase B3 — plan Relay↔Relay peer transport: AV-LAN HTTP vs venue/NIC2 HTTPS.
  * B4 nicFace (device-face.ts) is the general device bind face; peerFace stays here
  * for HMAC peers (auto | av | outbound + HTTP/HTTPS). Do not regress auto.
- * No ACME (B2). Never cleartext on the venue face.
+ * LE/ACME PARKED (was B2). Never cleartext on the venue face.
  *
  * Operator model:
  * - Point a remote relay-host device at the other room’s AV IP:8081 → AV HTTP + HMAC.
@@ -103,7 +103,7 @@ export type PeerTransportPlan =
       host: string;
       port: number;
       localAddress?: string;
-      /** Venue self-signed file certs until B2 LE. */
+      /** Venue self-signed / venue-CA file certs (LE PARKED). */
       rejectUnauthorized: boolean;
     }
   | { ok: false; face: PeerFace; message: string };
@@ -140,7 +140,7 @@ export function planPeerTransport(opts: {
     if (bind.none || !bind.localAddress) {
       return { ok: false, face: "outbound", message: PEER_VENUE_SKIP_NO_BIND };
     }
-    // Venue: raw IPv4 only until B2 FQDN (public or private). Never cleartext.
+    // Venue: raw IPv4 only (LE/FQDN PARKED). Never cleartext.
     if (!isIpv4Literal(host)) {
       return { ok: false, face: "outbound", message: PEER_VENUE_SKIP_BAD_HOST };
     }
