@@ -3,10 +3,15 @@ import type { RoomConfig } from "./types";
 import { allowedLanHost } from "./engine-policy.ts";
 import {
   AV_UNSET_LISTEN_WARNING,
+  AV_AUTOMAP_LISTEN_WARNING_PREFIX,
   httpListenHostFrom,
   avLanPickFromRoomStore,
   readRoomStoreSync,
   resolveHttpListenHost,
+  isVirtualLanNicName,
+  firstScannedAvLanNic,
+  effectiveAvLanPick,
+  persistAvLanAutoMap,
 } from "../../../scripts/http-listen-host.mjs";
 
 import {
@@ -31,10 +36,15 @@ export {
 
 export {
   AV_UNSET_LISTEN_WARNING,
+  AV_AUTOMAP_LISTEN_WARNING_PREFIX,
   httpListenHostFrom,
   avLanPickFromRoomStore,
   readRoomStoreSync,
   resolveHttpListenHost,
+  isVirtualLanNicName,
+  firstScannedAvLanNic,
+  effectiveAvLanPick,
+  persistAvLanAutoMap,
 };
 
 export { liveNicIpv4Label, type LiveNicIpv4Label } from "./nic-live-ip.ts";

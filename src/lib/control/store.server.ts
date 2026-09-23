@@ -20,7 +20,8 @@ import {
   applySecrets,
   readSecretCandidate,
 } from "./store-secrets";
-import { FILE_STORE } from "./store-persist";
+import { FILE_STORE, persist } from "./store-persist";
+import { listLanNics, effectiveAvLanPick } from "./nics";
 import {
   normalize,
   normalizedConfig,
@@ -347,6 +348,21 @@ function startScheduler() {
 }
 
 let boot: Promise<Memory> | null = null;
+/** When AV-LAN is unset/blank/invalid, map to first scanned NIC and persist (not outbound). */
+function seedAvLanFromScan(mem: Memory): boolean {
+  const room = mem.config?.room;
+  if (!room) return false;
+  const nics = listLanNics();
+  const eff = effectiveAvLanPick(nics, {
+    name: room.avLanNicName,
+    index: room.avLanNicIndex ?? null,
+  });
+  if (!eff.autoMapped || !eff.nic) return false;
+  room.avLanNicName = eff.nic.name;
+  room.avLanNicIndex = eff.nic.index;
+  return true;
+}
+
 export function ensureLoaded() {
   if (!boot) {
     boot = loadPersisted()
@@ -358,6 +374,9 @@ export function ensureLoaded() {
           mem.library = await loadLibraryIndex();
         }
         if (!mem.config?.room) installRoomConfig(emptyRoomConfig());
+        if (seedAvLanFromScan(mem)) {
+          try { await persist(); } catch { /* keep memory pick; next boot retries */ }
+        }
         startScheduler();
         return mem;
       })
@@ -367,6 +386,9 @@ export function ensureLoaded() {
         mem.drivers = hostDriverSeed();
         mem.library = await loadLibraryIndex();
         mem.vars = seedVars(mem.config, mem.vars);
+        if (seedAvLanFromScan(mem)) {
+          try { await persist(); } catch { /* keep memory pick; next boot retries */ }
+        }
         startScheduler();
         return mem;
       });

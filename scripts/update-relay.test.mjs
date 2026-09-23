@@ -34,6 +34,7 @@ test("failed staged install leaves the running checkout untouched", { skip: proc
   mkdirSync(join(root, "bin"));
   cpSync(join(repo, "scripts", "update-relay.mjs"), join(root, "scripts", "update-relay.mjs"));
   cpSync(join(repo, "scripts", "http-listen-host.mjs"), join(root, "scripts", "http-listen-host.mjs"));
+  cpSync(join(repo, "scripts", "write-atomic.mjs"), join(root, "scripts", "write-atomic.mjs"));
   writeFileSync(join(root, ".vercel", "output", "marker"), "running-build");
   writeFileSync(join(root, "node_modules", "marker"), "running-dependencies");
   writeFileSync(join(root, "bin", "git"), `#!/bin/sh

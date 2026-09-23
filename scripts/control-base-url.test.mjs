@@ -27,9 +27,19 @@ test("controlBaseUrlFrom: AV set → http://AV:8081", () => {
   }
 });
 
-test("controlBaseUrlFrom: AV unset → soft-fail (not loopback URL)", () => {
+test("controlBaseUrlFrom: AV unset → first scanned (same as listen; not loopback URL)", () => {
   const nics = listLanNicsFrom(fixture);
   const res = controlBaseUrlFrom({ nics, pick: {}, port: 8081 });
+  assert.equal(res.ok, true);
+  if (res.ok) {
+    assert.equal(res.host, "10.0.25.10");
+    assert.equal(res.url, "http://10.0.25.10:8081");
+    assert.match(String(res.warning), /auto-mapped/i);
+  }
+});
+
+test("controlBaseUrlFrom: no scanned NICs → soft-fail (not loopback URL)", () => {
+  const res = controlBaseUrlFrom({ nics: [], pick: {}, port: 8081 });
   assert.equal(res.ok, false);
   if (!res.ok) {
     assert.equal(res.reason, AV_UNSET_CONTROL_URL_REASON);
