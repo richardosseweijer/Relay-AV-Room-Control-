@@ -7,7 +7,7 @@ Keep this file short. If it grows past ~150 lines, cut history — do not append
 
 ## Product
 
-Relay **0.9.42** (beta). Single-process LAN AV room controller.
+Relay **0.9.45** (beta). Single-process LAN AV room controller.
 TanStack Start + Vite. Dev `:8080` / prod `:8081` bind to **AV-LAN IPv4** (else loopback). Never `0.0.0.0`. `RELAY_LISTEN_HOST` overrides.
 Not a grok.me / Vercel host — those have no writable `data/`.
 
@@ -26,6 +26,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | PIN / session | `pins.ts`, `pins.server.ts`, `session.server.ts`, `session-expire.ts`, `panel-token.ts`, `panel-unlock-rule.ts` |
 | Occupancy / Foyer GET | `peer-payload.ts`, `peer-auth.ts`, `src/routes/api/peer.ts`, `FOYER-RELAY.md` |
 | Peer AV vs venue (B3) | `peer-venue.ts`, `engine.ts` (`signedPeerFetch`), Devices tab Peer face |
+| Device nicFace (B4) | `device-face.ts`, `engine-lan.ts` (`sendLan`), Devices tab NIC face |
 | Foyer calendar poll | `foyer-peer.ts` |
 | Preview tile | `preview-grab.ts`, `src/components/panel/preview-tile.tsx`, `src/routes/api/preview.ts` |
 | Panel UI | `src/components/panel/control-panel.tsx` |
@@ -36,7 +37,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Stock drivers | `data/library/*.json` + `index.json` |
 | This room’s copies | `data/drivers/*.json` (not git) |
 | New driver syntax | `DRIVER-PROMPT.md`, then `npm run driver:check -- data/library/<file>.json` |
-| NIC pick / listen host | `nics.ts`, `scripts/http-listen-host.mjs`, `scripts/https-venue-listen.mjs` (B1), `peer-venue.ts` (B3), `scripts/with-app-env.mjs`, Room tab Networks |
+| NIC pick / listen host | `nics.ts`, `scripts/http-listen-host.mjs`, `scripts/https-venue-listen.mjs` (B1), `peer-venue.ts` (B3), `device-face.ts` (B4), `scripts/with-app-env.mjs`, Room tab Networks |
 | Install / firewall | `LINUX.md`, `WINDOWS.md`, `SECURITY.md` |
 
 ## Do not open unless the operator names them
@@ -46,7 +47,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 
 Do not grep the whole repo to “get context.” If the table above is missing a file, ask.
 
-## Live foot-guns (still true at 0.9.42)
+## Live foot-guns (still true at 0.9.45)
 
 - Occupancy var is `0` closed, `1` open, `2` in-session, `3` DND. Foyer GET still reads the **string** field. Save-all must not apply `draft.room.occupancy`.
 - Unsigned `GET /api/peer` is TCP loopback only (real `remoteAddress`, not `Host`). HMAC GET is the full snapshot.
@@ -55,7 +56,7 @@ Do not grep the whole repo to “get context.” If the table above is missing a
 - Panel PIN ≠ config PIN unless `panelAcceptsConfigPin` (default off).
 - Open-on-LAN (no panel PIN) is not `externalControl` (unauthenticated fire\*).
 - `system.restart|update|reboot` need a config session even if open LAN is on.
-- Listen is AV-LAN IPv4 only — never `0.0.0.0`. Optional venue HTTPS (B1) when outbound NIC + file certs (`RELAY_TLS_CERT`/`RELAY_TLS_KEY`); LE = B2. B3: HMAC peer over that HTTPS (`peer-venue.ts`); soft-skip venue peer if None/no PEMs. Firewall panel port to AV CIDR (#15). Outbound None ⇒ Update refused (A1) and venue HTTPS / venue peer skipped.
+- Listen is AV-LAN IPv4 only — never `0.0.0.0`. Optional venue HTTPS (B1) when outbound NIC + file certs (`RELAY_TLS_CERT`/`RELAY_TLS_KEY`); LE = B2. B3: HMAC peer over that HTTPS (`peer-venue.ts`); soft-skip venue peer if None/no PEMs. B4: per-device `nicFace` (`device-face.ts`) bind AV vs venue; soft-fail venue face if None/no IPv4; no cleartext HTTP/WS on venue. Firewall panel port to AV CIDR (#15). Outbound None ⇒ Update refused (A1) and venue HTTPS / venue peer / venue nicFace skipped.
 - Do not add xAI / Grok API calls. Do not print PINs. Do not commit `data/relay-secrets.json` or `.env`.
 - Do not start raw `npx vite`. Use `npm run dev` / `npm start`.
 
