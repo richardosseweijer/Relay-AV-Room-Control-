@@ -58,7 +58,7 @@ export function requestHttpExact(
   timeout: number,
   maxBytes = DEFAULT_MAX_RESPONSE_BYTES,
   localAddress?: string,
-  /** Venue peer self-signed PEMs until B2 LE; default verifies. */
+  /** Venue peer self-signed / venue-CA PEMs (LE PARKED); soft verify; default verifies. */
   rejectUnauthorized = true,
 ): Promise<{ ok: boolean; status: number; text: string }> {
   return new Promise((resolve) => {
