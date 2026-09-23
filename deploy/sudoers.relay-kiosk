@@ -1,6 +1,6 @@
 # Copy to /etc/sudoers.d/relay-kiosk (visudo -cf first).
 # Replace USER with the Relay service account (same as deploy/relay.service User=).
-# Configurator "Start / restart panel on HDMI" uses: sudo -n systemctl restart relay-kiosk.service
+# Configurator Local display: enable → restart; uncheck → disable --now.
 # Least privilege — this unit only. Do not grant unrestricted NOPASSWD.
 USER ALL=(root) NOPASSWD: \
   /usr/bin/systemctl start relay-kiosk.service, \
@@ -10,4 +10,6 @@ USER ALL=(root) NOPASSWD: \
   /usr/bin/systemctl status relay-kiosk.service, \
   /usr/bin/systemctl is-active relay-kiosk.service, \
   /usr/bin/systemctl enable relay-kiosk.service, \
-  /usr/bin/systemctl disable relay-kiosk.service
+  /usr/bin/systemctl enable --now relay-kiosk.service, \
+  /usr/bin/systemctl disable relay-kiosk.service, \
+  /usr/bin/systemctl disable --now relay-kiosk.service

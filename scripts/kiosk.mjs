@@ -1,5 +1,5 @@
 /**
- * Local HDMI panel kiosk — restart relay-kiosk.service with fixed argv only.
+ * Local HDMI panel kiosk — restart / disable relay-kiosk.service with fixed argv only.
  * Same privilege style as Foyer / AV-LAN nmcli: try systemctl, then sudo -n systemctl.
  * Missing sudoers → clear operator error pointing at LINUX.md (not raw polkit text).
  */
@@ -12,10 +12,10 @@ export const KIOSK_LINUX_ONLY =
   "Panel HDMI kiosk is Linux-only (cage / systemd). Windows lab: use a browser on the AV panel URL.";
 
 export const KIOSK_UNIT_MISSING =
-  "relay-kiosk.service is not installed or could not be restarted. See LINUX.md §7 (local panel display).";
+  "relay-kiosk.service is not installed or could not be controlled. See LINUX.md §7 (local panel display).";
 
 export const KIOSK_SUDOERS =
-  "sudo systemctl was refused (missing sudoers, password required, or polkit interactive auth). Install deploy/sudoers.relay-kiosk as /etc/sudoers.d/relay-kiosk (replace USER; visudo -cf; root:root mode 0440) per LINUX.md §7.";
+  "sudo systemctl was refused (missing sudoers, password required, or polkit interactive auth). Run sudo bash scripts/install-host-sudoers.sh (or install deploy/sudoers.relay-kiosk as /etc/sudoers.d/relay-kiosk; replace USER; visudo -cf; root:root mode 0440) per LINUX.md §7.";
 
 /** @param {string} [platform] */
 export function platformGate(platform = process.platform) {
@@ -44,8 +44,18 @@ export function kioskRestartCommands() {
   ];
 }
 
+/** Fixed argv: disable --now so the unit cannot fight Foyer dual-head after save-off. */
+export function kioskDisableCommands() {
+  const systemctl = systemctlBin();
+  return [
+    { bin: systemctl, args: ["disable", "--now", KIOSK_UNIT] },
+    { bin: sudoBin(), args: ["-n", systemctl, "disable", "--now", KIOSK_UNIT] },
+  ];
+}
+
 /**
  * Detect missing sudoers / polkit interactive auth vs unit-not-installed.
+ * Shared by restart and disable --now paths.
  * @param {string[]} errors
  */
 export function classifyKioskRestartFailure(errors) {
@@ -69,13 +79,13 @@ export function classifyKioskRestartFailure(errors) {
 
 /**
  * @param {{ spawnSync?: typeof spawnSync, platform?: string }} [opts]
+ * @param {ReturnType<typeof kioskRestartCommands>} attempts
  */
-export function enableLocalOutput(opts = {}) {
+function runKioskSystemctl(attempts, opts = {}) {
   const plat = platformGate(opts.platform ?? process.platform);
   if (!plat.ok) return { ok: false, reason: "platform", detail: plat.message };
 
   const run = opts.spawnSync ?? spawnSync;
-  const attempts = kioskRestartCommands();
   /** @type {string[]} */
   const errors = [];
   for (const step of attempts) {
@@ -90,4 +100,19 @@ export function enableLocalOutput(opts = {}) {
     reason: classified.kind === "sudo" ? "sudoers" : "kiosk-unit",
     detail: classified.message,
   };
+}
+
+/**
+ * @param {{ spawnSync?: typeof spawnSync, platform?: string }} [opts]
+ */
+export function enableLocalOutput(opts = {}) {
+  return runKioskSystemctl(kioskRestartCommands(), opts);
+}
+
+/**
+ * Stop and disable relay-kiosk so it cannot fight Foyer dual-head after Local display uncheck.
+ * @param {{ spawnSync?: typeof spawnSync, platform?: string }} [opts]
+ */
+export function disableLocalOutput(opts = {}) {
+  return runKioskSystemctl(kioskDisableCommands(), opts);
 }
