@@ -1,8 +1,10 @@
 /** Local HDMI panel kiosk restart — re-export scripts/kiosk.mjs. */
 export {
   KIOSK_LINUX_ONLY,
+  KIOSK_SUDOERS,
   KIOSK_UNIT,
   KIOSK_UNIT_MISSING,
+  classifyKioskRestartFailure,
   enableLocalOutput,
   kioskRestartCommands,
   platformGate,
