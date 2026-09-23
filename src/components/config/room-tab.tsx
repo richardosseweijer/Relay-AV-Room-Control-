@@ -1,7 +1,13 @@
 import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getEditorConfig, importBundle, listLanNics, rebootHost, restartHost, updateHost } from "@/lib/control/actions";
+import { generateVenueTls, getEditorConfig, getVenueTlsStatus, importBundle, listLanNics, rebootHost, restartHost, updateHost } from "@/lib/control/actions";
 import { liveNicIpv4Label } from "@/lib/control/nic-live-ip";
+import {
+  venueTlsCaInstallHintList,
+  venueTlsGenerateGate,
+  venueTlsSanMismatch,
+  venueTlsStatusLines,
+} from "@/lib/control/venue-tls-ui";
 import type { RoomConfig, RoomSnapshot } from "@/lib/control/types";
 import { FOYER_END_ID, FOYER_KIND_ID, FOYER_START_ID, FOYER_TITLE_ID } from "@/lib/control/foyer-peer";
 import { Button } from "@/components/ui/button";
@@ -64,6 +70,34 @@ export function RoomTab(props: {
     }
   }, [token]);
   useEffect(() => { void loadNics(); }, [loadNics]);
+
+  type VenueTlsStatusView = {
+    present?: boolean;
+    active?: boolean;
+    sanIp?: string | null;
+    leafNotAfter?: string | null;
+    leafFingerprint256?: string | null;
+  } | null;
+  const [venueTls, setVenueTls] = useState<VenueTlsStatusView>(null);
+  const [venueTlsBusy, setVenueTlsBusy] = useState(false);
+  const [venueTlsMsg, setVenueTlsMsg] = useState("");
+  const loadVenueTls = useCallback(async () => {
+    try {
+      const res = await getVenueTlsStatus({ data: { token: token || "" } });
+      if (res.ok) {
+        setVenueTls(res.status as VenueTlsStatusView);
+        setVenueTlsMsg("");
+      } else {
+        setVenueTls(null);
+        setVenueTlsMsg(res.message || "Unlock config to read venue TLS status.");
+      }
+    } catch {
+      setVenueTls(null);
+      setVenueTlsMsg("Could not load venue TLS status.");
+    }
+  }, [token]);
+  useEffect(() => { void loadVenueTls(); }, [loadVenueTls]);
+
   const nicChoices = useMemo(
     () => withStoredNic(
       withStoredNic(nics, draft.room.avLanNicName, draft.room.avLanNicIndex),
@@ -84,6 +118,76 @@ export function RoomTab(props: {
   const avPick = nicChoices.find((row) => nicKey(row.name, row.index) === nicKey(draft.room.avLanNicName, draft.room.avLanNicIndex));
   const avLiveIp = liveNicIpv4Label({ unset: avUnset, ipv4: avPick?.ipv4, unsetText: "—" });
   const outboundLiveIp = liveNicIpv4Label({ unset: outboundNone, ipv4: outboundPick?.ipv4 });
+  const generateGate = venueTlsGenerateGate({
+    outboundNone,
+    liveIpv4: outboundLiveIp.kind === "ip" ? outboundLiveIp.ipv4 : null,
+  });
+  const sanMismatch = venueTlsSanMismatch({
+    present: Boolean(venueTls?.present),
+    sanIp: venueTls?.sanIp ?? null,
+    liveIpv4: outboundLiveIp.kind === "ip" ? outboundLiveIp.ipv4 : null,
+  });
+  const tlsLines = venueTlsStatusLines(venueTls ?? { present: false });
+  const caHints = venueTlsCaInstallHintList();
+  const downloadVenueCa = async () => {
+    if (!token) {
+      flash("Download failed", "Config lock required");
+      return;
+    }
+    try {
+      const res = await fetch("/api/venue-tls-ca", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { message?: string };
+        flash("Download failed", body.message || `HTTP ${res.status}`);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "relay-venue-ca.cert.pem";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      flash("CA download started", "Install on tablets that will open the venue HTTPS URL. Same origin as this page (works after NIC2 click-through).");
+    } catch {
+      flash("Download failed", "Could not fetch CA cert from this origin.");
+    }
+  };
+  const runGenerateVenueTls = async () => {
+    if (!generateGate.allowed) {
+      flash("Generate skipped", generateGate.reason || "Cannot generate");
+      return;
+    }
+    setVenueTlsBusy(true);
+    setVenueTlsMsg("");
+    try {
+      const res = await generateVenueTls({ data: { token: token || "" } });
+      if (res.ok) {
+        setVenueTls(("status" in res ? res.status : null) as VenueTlsStatusView);
+        const reloadNote =
+          "reload" in res && res.reload?.reloaded
+            ? "Venue HTTPS reloaded."
+            : "reload" in res && res.reload?.skipped
+              ? `Venue HTTPS: ${res.reload.reason || "skipped"}`
+              : "";
+        flash("Venue certificate generated", reloadNote || "PEMs written and room paths wired.");
+        await loadVenueTls();
+      } else {
+        const msg = res.message || "Generate failed";
+        setVenueTlsMsg(msg);
+        flash("Generate failed", msg);
+      }
+    } catch {
+      setVenueTlsMsg("Generate failed");
+      flash("Generate failed", "Request error");
+    } finally {
+      setVenueTlsBusy(false);
+    }
+  };
   const pickNic = (which: "av" | "out", key: string) => {
     update((c) => {
       if (!key) {
@@ -155,6 +259,58 @@ export function RoomTab(props: {
               {sameNic ? <p className="sm:col-span-2 text-xs text-muted">Same NIC on both pickers (test box). Allowed.</p> : null}
               {outboundNone ? <p className="sm:col-span-2 text-xs text-muted">Outbound is None — Update from GitHub is disabled until you pick a venue/internet NIC.</p> : null}
               {outboundNoIp ? <p className="sm:col-span-2 text-xs text-clay">LAN (internet) has no IPv4. Update from GitHub will refuse until you pick a NIC with an address.</p> : null}
+
+              <div className="sm:col-span-2 grid gap-2 rounded-lg border border-border bg-raised/40 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-subtle">Venue TLS</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={venueTlsBusy || !generateGate.allowed}
+                      title={generateGate.reason ?? undefined}
+                      onClick={() => void runGenerateVenueTls()}
+                    >
+                      Generate venue certificate
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={!venueTls?.present || venueTlsBusy}
+                      title={!venueTls?.present ? "Generate first to create the room CA." : "Download ca.cert.pem from this origin"}
+                      onClick={() => void downloadVenueCa()}
+                    >
+                      Download CA
+                    </Button>
+                  </div>
+                </div>
+                {!generateGate.allowed ? (
+                  <p className="text-xs text-muted">{generateGate.reason}</p>
+                ) : null}
+                <p className="text-xs text-muted">
+                  Active: <span className="font-mono text-fg">{tlsLines.activeLabel}</span>
+                  {" · "}SAN IP:{" "}
+                  <span className="font-mono text-fg select-all">{tlsLines.sanIp}</span>
+                  {" · "}Leaf expiry:{" "}
+                  <span className="font-mono text-fg">{tlsLines.expiry}</span>
+                  {" · "}Fingerprint:{" "}
+                  <span className="font-mono text-fg select-all" title={venueTls?.leafFingerprint256 ?? undefined}>{tlsLines.fingerprint}</span>
+                </p>
+                {sanMismatch.mismatch ? (
+                  <p className="text-xs text-clay">
+                    Regenerate needed — {sanMismatch.message} Use Generate again (confirm flow arrives in C3).
+                  </p>
+                ) : null}
+                {venueTlsMsg ? <p className="text-xs text-clay">{venueTlsMsg}</p> : null}
+                <div className="grid gap-1">
+                  <p className="text-[11px] uppercase tracking-[0.15em] text-subtle">Install CA on tablets</p>
+                  <ul className="list-disc space-y-1 pl-4 text-xs text-muted">
+                    {caHints.map((hint) => (
+                      <li key={hint.id}>{hint.text}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             </article>
 
             <article className="sm:col-span-2 grid gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2">
