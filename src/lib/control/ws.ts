@@ -188,6 +188,10 @@ export async function sendControlSocket(opts: {
   alsoSend?: { replace: Record<string, string> }[];
   alsoSendRaw?: string[];
   localAddress?: string;
+  /** Device TLS: default true. Pin mode may pass false + checkServerIdentity. */
+  rejectUnauthorized?: boolean;
+  ca?: string | Buffer;
+  checkServerIdentity?: (host: string, cert: import("node:tls").PeerCertificate) => Error | undefined;
 }): Promise<CommandResult> {
   const key = `${opts.host}:${opts.port}:${opts.path.split("?")[0]}`;
   const live = keepWs.get(key);
@@ -206,7 +210,14 @@ export async function sendControlSocket(opts: {
   const req = `GET ${opts.path} HTTP/1.1\r\nHost: ${opts.host}:${opts.port}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${cryptoKey}\r\nSec-WebSocket-Version: 13\r\n\r\n`;
   return new Promise((resolve) => {
     const sock = opts.tls
-      ? (mod as typeof import("node:tls")).connect({ host: opts.host, port: opts.port, rejectUnauthorized: false, localAddress: opts.localAddress } as import("node:tls").ConnectionOptions)
+      ? (mod as typeof import("node:tls")).connect({
+          host: opts.host,
+          port: opts.port,
+          localAddress: opts.localAddress,
+          rejectUnauthorized: opts.rejectUnauthorized ?? true,
+          ...(opts.ca != null && String(opts.ca).length ? { ca: opts.ca } : {}),
+          ...(opts.checkServerIdentity ? { checkServerIdentity: opts.checkServerIdentity } : {}),
+        } as import("node:tls").ConnectionOptions)
       : (mod as typeof import("node:net")).connect({ host: opts.host, port: opts.port, localAddress: opts.localAddress });
     let buf = Buffer.alloc(0);
     let upgraded = false;
@@ -243,7 +254,22 @@ export async function sendControlSocket(opts: {
     };
     sock.on("error", (err) => { sock.off("data", onData); clearTimeout(timer); keepWs.delete(key); if (!done) { done = true; resolve({ ok: false, message: err.message }); } });
     sock.on("connect", () => { if (!opts.tls) sock.write(req); });
-    sock.on("secureConnect", () => sock.write(req));
+    sock.on("secureConnect", () => {
+      if (opts.checkServerIdentity) {
+        try {
+          const cert = (sock as import("node:tls").TLSSocket).getPeerCertificate();
+          const err = opts.checkServerIdentity(opts.host, cert);
+          if (err) {
+            sock.destroy(err);
+            return;
+          }
+        } catch (e) {
+          sock.destroy(e instanceof Error ? e : new Error("TLS pin check failed"));
+          return;
+        }
+      }
+      sock.write(req);
+    });
     const fire = () => {
       try { sock.write(maskWsFrame(opts.payload)); } catch { /* ignore */ }
       for (const extra of opts.alsoSend ?? []) {

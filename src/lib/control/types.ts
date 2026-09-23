@@ -453,6 +453,22 @@ export type DeviceInstance = {
    * Soft-fails when outbound None / no IPv4. No auto. Does not replace peerFace for HMAC peers.
    */
   nicFace?: "av" | "outbound" | null;
+  /**
+   * Trusted CA for third-party device HTTPS / tls-websocket (strict TLS).
+   * Path to a PEM (device CA or leaf-as-trust-anchor). Required on nicFace=outbound
+   * for HTTPS/TLS-WS when no tlsFingerprintSha256. Also auth.deviceTrustedCaPath.
+   */
+  deviceTrustedCaPath?: string | null;
+  /**
+   * Optional inline device CA/leaf PEM paste (same trust as deviceTrustedCaPath).
+   * Prefer path in room JSON. Also auth.deviceTrustedCaPem.
+   */
+  deviceTrustedCaPem?: string | null;
+  /**
+   * Optional SHA-256 certificate pin (colon-hex or bare hex). Explicit trust for
+   * self-signed device leaves when no CA PEM. Also auth.tlsFingerprintSha256.
+   */
+  tlsFingerprintSha256?: string | null;
 };
 
 export type Macro = {

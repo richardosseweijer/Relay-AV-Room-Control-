@@ -4,9 +4,13 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
-- **Foyer / control URL footgun:** default panel + Foyer Relay URL now prefers the live AV-LAN IPv4 (`scripts/control-base-url.mjs` / Room → Occupancy hint). Soft-fails with a clear reason when AV is unset or has no IPv4 (does not advertise loopback as the production URL). Unsigned `/api/peer` GET also allows same-PC hairpin when the TCP peer equals the HTTP listen host. Lab escape unchanged: `RELAY_LISTEN_HOST=127.0.0.1`. Listen still never `0.0.0.0`.
+## 0.9.48
 
-## Unreleased
+- Tag `v0.9.48`. **Strict third-party device HTTPS / TLS-WebSocket verify** — closes the remaining soft `rejectUnauthorized: false` footgun on venue (and general) device HTTPS. Peer path already strict in `v0.9.47`. Same Foyer pair (`v0.2.2`). No LE/ACME; no silent auto-reissue.
+- **Trust model:** per-device `deviceTrustedCaPath` / PEM paste and/or `tlsFingerprintSha256` pin. Venue (`nicFace=outbound`) HTTPS/TLS-WS **fail-closed** when trust missing (“configure device CA / pin”). Happy path: `rejectUnauthorized: true` + Node `ca`, or explicit sha256 pin (pin checker enforced on connect). AV without CA/pin uses the system trust store (self-signed needs CA or pin).
+- **Cast:** AV-only — blocked on `nicFace=outbound` (Google Cast TLS cannot use a normal operator CA). Soft verify remains the documented AV Cast exception only.
+- Devices UI: **Device trusted CA path** + **Device cert sha256 pin** next to NIC face. Docs: SECURITY / LINUX / AGENTS / ARCHITECTURE / CONTEXT / KNOWN_ISSUES / CHANGELOG / README.
+- Tests: planner fail-closed; CA success / reject wrong CA; pin success / mismatch (`device-tls-verify.test.mjs`).
 
 ## 0.9.47
 
