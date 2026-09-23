@@ -30,7 +30,7 @@ There is no separate device-gateway process. Device I/O is opened from `src/lib/
 
 A second browser (wall tablet and desk tablet) may attach to the same origin. Both share one configuration and one variable store. Tablets belong on AV-LAN.
 
-HTTP listen is `0.0.0.0` (dev `:8080`, production `:8081`) plus ufw. See section 8.
+HTTP listen is the **AV-LAN IPv4** only (dev `:8080`, production `:8081`) — never `0.0.0.0`. Resolution: `RELAY_LISTEN_HOST` if set; else AV pick → IPv4; AV unset → `127.0.0.1` + warning; AV set without IPv4 → refuse. Outbound / NIC2 None or down does not change AV listen. ufw still limits clients to the AV CIDR. HTTPS on the venue NIC is Phase B. See section 8 and [`SECURITY.md`](SECURITY.md).
 
 ```
 Operator browser          Integrator browser
@@ -209,7 +209,7 @@ Save all calls `persistNow()`. Secrets and room JSON are written through a journ
 | Peer HMAC | `x-relay-ts` + `x-relay-auth` (64 lowercase hex). Replay cache keys the digest for 90s. Peer secret only — not the PIN. Host restart/update/reboot use that same first check. |
 | Export / import / update / reboot / ping | Configurator session required. |
 
-Do not publish port 8081 to the public internet. HTTP only (issue #15).
+Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue NICs. HTTP only today (issue #15); Phase B adds HTTPS/LE on the venue NIC — not a cleartext panel there.
 
 ---
 
@@ -232,6 +232,8 @@ Do not publish port 8081 to the public internet. HTTP only (issue #15).
 | `src/lib/control/actions-config.ts` | Editor load/save/import/clear/driver library. |
 | `src/lib/control/actions-runtime.ts` | `fireMacro` / `fireCommand` / `setVariable` and related runtime RPCs. |
 | `src/lib/control/actions-host.ts` | Host restart/update/reboot, NIC/port list, debug. |
+| `src/lib/control/nics.ts` | NIC list, AV/outbound pick helpers, outbound None (A1), re-exports listen host. |
+| `scripts/http-listen-host.mjs` | Pure AV → HTTP listen host (A2). Never returns `0.0.0.0`. |
 | `src/lib/control/actions-context.ts` | Shared `loadControl()` → `session.server`. |
 | `src/lib/control/vars.ts` | Variable seeding, clamping, template substitution, enable-when evaluation. |
 | `src/lib/control/schema.ts` | Driver validation and orphan bindings. |
@@ -274,7 +276,7 @@ Do not publish port 8081 to the public internet. HTTP only (issue #15).
 | File | Responsibility |
 |---|---|
 | `scripts/update-relay.mjs` | Git pull, dependency install, relaunch. |
-| `LINUX.md` | Debian / Raspberry Pi packages, systemd unit, update procedure. |
+| `LINUX.md` | Debian / Raspberry Pi packages, dual-NIC checklist, systemd unit, update procedure. |
 | `WINDOWS.md` | Windows install and update procedure. |
 | `DRIVER-PROMPT.md` | Instructions for generating a driver JSON without this source tree. |
 | `CHANGELOG.md` | Notable changes. |

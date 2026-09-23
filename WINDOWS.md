@@ -1,6 +1,6 @@
 # Relay — Windows
 
-Relay **0.9.38** (beta). Windows 10/11. Command Prompt or PowerShell.
+Relay **0.9.42** (beta). Windows 10/11. Command Prompt or PowerShell.
 
 Default configurator PIN: `1234`. The app then requires a stronger PIN. Tablets stay paired until Forget on Security.
 
@@ -42,8 +42,10 @@ Several minutes the first time. npm deprecation warnings are normal.
 
 | Script | Command | Bind | Use |
 | --- | --- | --- | --- |
-| Dev | `npm run dev` | `0.0.0.0:8080` | Edit |
-| Production | `npm run build` then `npm start` | `0.0.0.0:8081` | 24/7 |
+| Dev | `npm run dev` | AV-LAN IPv4 `:8080` (else loopback) | Edit |
+| Production | `npm run build` then `npm start` | AV-LAN IPv4 `:8081` (else loopback) | 24/7 |
+
+Never binds `0.0.0.0`. Set Room → **AV-LAN** before expecting tablets on the LAN. **LAN (internet)** **None** disables Update. See [SECURITY.md](SECURITY.md).
 
 ```bat
 cd C:\relay
@@ -56,21 +58,21 @@ Leave the window open.
 
 ```
 Local:   http://localhost:8081/
-Network: http://YOUR-LAN-IP:8081/
+AV-LAN:  http://<av-lan-ipv4>:8081/
 ```
 
-- This PC: [http://localhost:8081/](http://localhost:8081/)
-- Configurator: [http://localhost:8081/config](http://localhost:8081/config)
+- This PC / tablet: `http://<av-lan-ipv4>:8081/` after Room → AV-LAN is set (loopback only if AV unset or `RELAY_LISTEN_HOST=127.0.0.1`)
+- Configurator: `http://<av-lan-ipv4>:8081/config`
 
-Phone or tablet on the same LAN:
+Phone or tablet on **AV-LAN** (after Room → AV-LAN is set):
 
 ```bat
 ipconfig
 ```
 
-Use **Wireless LAN adapter Wi-Fi → IPv4 Address**, then `http://THAT-IP:8081/`.
+Use the AV adapter’s IPv4 Address, then `http://THAT-IP:8081/`. Do not advertise the venue/internet NIC for the panel.
 
-If the phone cannot connect: Windows Security → Firewall → allow `node.exe`. Do not port-forward 8081 off the LAN.
+If the phone cannot connect: Windows Security → Firewall → allow `node.exe` from the AV subnet only. Do not port-forward 8081 off the LAN / to WAN.
 
 ## 5. First room
 
@@ -93,7 +95,7 @@ Requires a git clone of [Relay-AV-Room-Control-](https://github.com/richardossew
 
 Configurator → Room → **Save all** → **Update from GitHub**.
 
-Builds the fetched release in a separate git worktree, checks its `/api/room` response, and only then switches the live checkout and build. A failed stage leaves the running release untouched. If the switched release fails readiness, the updater restores and restarts the previous release. Log: `data\relay-update.log`. Room tab then shows `0.9.38 (<sha>)`. Tracked uncommitted edits block the update.
+Builds the fetched release in a separate git worktree, checks its `/api/room` response, and only then switches the live checkout and build. A failed stage leaves the running release untouched. If the switched release fails readiness, the updater restores and restarts the previous release. Log: `data\relay-update.log`. Room tab then shows `0.9.42 (<sha>)`. Tracked uncommitted edits block the update.
 
 ```bat
 cd C:\relay
