@@ -4,6 +4,8 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Ops (K1+K2): [`scripts/install-host-sudoers.sh`](scripts/install-host-sudoers.sh) installs `/etc/sudoers.d/relay-kiosk` + `/etc/sudoers.d/relay-nmcli` from [`deploy/sudoers.relay-kiosk`](deploy/sudoers.relay-kiosk) + new [`deploy/sudoers.relay-nmcli`](deploy/sudoers.relay-nmcli) (USER substitute, mode 0440, `visudo -cf` pre/post; root required). [`LINUX.md`](LINUX.md) §5b / §7c / §8 point at the script; Update/pull/reboot still do **not** install host drop-ins. No app/code change; no version bump.
+
 - Docs (K0): [`LINUX.md`](LINUX.md) header version **0.9.53** (match package); dual-head / disable `relay-kiosk` narrative stays §7a (shared with Foyer [`FOYER-RELAY.md`](FOYER-RELAY.md)). No app/code change; no version bump.
 
 - Docs: [`LINUX.md`](LINUX.md) §7c callout that **pull / Update from GitHub / reboot do not install** `/etc/sudoers.d/relay-kiosk` (one-time host step; re-run if `User=` changes); §8 post-update checklist for both `relay-nmcli` and `relay-kiosk` drop-ins. No app/code change; no version bump.
