@@ -20,6 +20,9 @@ test("update readiness allows two minutes and retries boot responses", () => {
   assert.match(source, /checkout", "-f", "-B", "main"/);
   assert.match(source, /:\(exclude\)\.vercel/);
   assert.equal(source.includes("--ff-only"), false);
+  assert.match(source, /bootResolveHttpListenHost/);
+  assert.equal(source.includes('--host", "0.0.0.0"'), false);
+  assert.equal(source.includes("--host', '0.0.0.0'"), false);
 });
 
 test("failed staged install leaves the running checkout untouched", { skip: process.platform === "win32" }, () => {
@@ -30,6 +33,7 @@ test("failed staged install leaves the running checkout untouched", { skip: proc
   mkdirSync(join(root, "node_modules"));
   mkdirSync(join(root, "bin"));
   cpSync(join(repo, "scripts", "update-relay.mjs"), join(root, "scripts", "update-relay.mjs"));
+  cpSync(join(repo, "scripts", "http-listen-host.mjs"), join(root, "scripts", "http-listen-host.mjs"));
   writeFileSync(join(root, ".vercel", "output", "marker"), "running-build");
   writeFileSync(join(root, "node_modules", "marker"), "running-dependencies");
   writeFileSync(join(root, "bin", "git"), `#!/bin/sh
