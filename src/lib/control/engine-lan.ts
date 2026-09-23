@@ -19,6 +19,11 @@ import { roomLanBind } from "./nics";
 import { allowedLanHost, pushTrace, safeLanHttpUrl } from "./engine-policy";
 import { renderPayload } from "./engine-payload";
 import { paceDevice, wireEncoding, encodeWire, tcpWrite, tcpSessionWrite } from "./engine-wire";
+import {
+  smbBindInterfacesConf,
+  netRpcShutdownArgs,
+} from "../../../scripts/rpc-bind.mjs";
+export { smbBindInterfacesConf, netRpcShutdownArgs };
 
 /** Local spawn helper for RPC shutdown only (host local tools live in engine-host.ts). */
 async function runTool(cmd: string, args: string[], timeout = 2000): Promise<CommandResult> {
@@ -55,13 +60,26 @@ export async function sendHttp(
   }
 }
 
-async function sendRpcShutdown(host: string, user: string, password: string): Promise<CommandResult> {
+async function sendRpcShutdown(host: string, user: string, password: string, localAddress?: string): Promise<CommandResult> {
   if (!allowedLanHost(host)) return { ok: false, message: "Host not on room LAN" };
   if (process.platform === "win32") {
+    // Windows shutdown /m uses the routing table; AV-LAN reachability is still gated above.
     return runTool("shutdown", ["/s", "/m", `\\\\${host}`, "/t", "0", "/f"], 8000);
   }
   if (!user) return { ok: false, message: "Set user and password (Windows RPC) or HTTP path" };
-  return runTool("net", ["rpc", "shutdown", "-I", host, "-U", `${user}%${password}`, "-f", "-t", "0"], 8000);
+  if (!localAddress) {
+    return runTool("net", netRpcShutdownArgs(host, user, password), 8000);
+  }
+  const fs = await import("node:fs/promises");
+  const os = await import("node:os");
+  const pathMod = await import("node:path");
+  const confPath = pathMod.join(os.tmpdir(), `relay-smb-bind-${process.pid}.conf`);
+  try {
+    await fs.writeFile(confPath, smbBindInterfacesConf(localAddress), "utf8");
+    return await runTool("net", netRpcShutdownArgs(host, user, password, confPath), 8000);
+  } finally {
+    try { await fs.unlink(confPath); } catch { /* ignore */ }
+  }
 }
 
 export function wsQueryFromDriver(driver: DriverSpec, device: DeviceInstance): Record<string, string> | undefined {
@@ -98,7 +116,7 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
   let result: CommandResult;
   const wire = encodeWire(payload, encoding, lan.lineEnding ?? (lan.protocol === "pjlink" ? "\r" : undefined));
   if ("error" in wire) return { ok: false, message: wire.error };
-  if (command?.httpMethod === "RPC") result = await sendRpcShutdown(host, device.auth?.user || device.auth?.username || "", device.auth?.password || "");
+  if (command?.httpMethod === "RPC") result = await sendRpcShutdown(host, device.auth?.user || device.auth?.username || "", device.auth?.password || "", localAddress);
   else if (lan.protocol === "wol") result = await sendWol(device.auth?.mac || "", host, localAddress);
   else if (lan.protocol === "cast") result = await sendCast(host, port, payload, timeout, command?.namespace, localAddress);
   else if (lan.protocol === "http" || lan.protocol === "https") {

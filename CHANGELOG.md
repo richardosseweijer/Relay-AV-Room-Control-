@@ -2,8 +2,10 @@
 
 Format: date, then bullets. Older work lives in `git log`.
 
-## 0.9.42 — 2026-09-23
+## 0.9.43 — 2026-09-23
+- NIC-split A4: pin UDP multicast listen, ping, and RPC shutdown to AV-LAN when configured; refresh nics Phase-0 header.
 
+## 0.9.42 — 2026-09-23
 - Tag `v0.9.42`. Same Foyer pair (`v0.2.2`). Wire unchanged for occupancy.
 - NIC-split A1: outbound **None** — Update refuses without a venue/internet NIC (#113).
 - NIC-split A2: HTTP panel/API listen pinned to AV-LAN IPv4; never `0.0.0.0` (#114).

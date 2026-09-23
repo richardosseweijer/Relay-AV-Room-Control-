@@ -44,3 +44,13 @@ test("listenUdpMulticast rejects unicast dest", async () => {
   const res = await listenUdpMulticast({ group: "10.0.0.20", port: 21928, onMessage: () => undefined });
   assert.equal("error" in res, true);
 });
+
+test("listenUdpMulticast fails closed when localAddress is not on host", async () => {
+  const res = await listenUdpMulticast({
+    group: "239.255.0.1",
+    port: 51999,
+    localAddress: "192.0.2.8",
+    onMessage: () => undefined,
+  });
+  assert.equal("error" in res, true);
+});
