@@ -4,6 +4,8 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Docs: [`LINUX.md`](LINUX.md) §7c callout that **pull / Update from GitHub / reboot do not install** `/etc/sudoers.d/relay-kiosk` (one-time host step; re-run if `User=` changes); §8 post-update checklist for both `relay-nmcli` and `relay-kiosk` drop-ins. No app/code change; no version bump.
+
 ## 0.9.53
 
 - Tag `v0.9.53`. **Relay HDMI kiosk restart sudoers:** Room → Local display saves `data/relay-kiosk.env` then restarts `relay-kiosk.service`. Bare `systemctl` hits polkit (“interactive authentication”); without `/etc/sudoers.d/relay-kiosk` the UI only showed that raw error. Now classify auth/sudo failures and point at LINUX.md §7; keep `sudo -n systemctl …`. Extend `deploy/sudoers.relay-kiosk` with start/stop/restart/try-restart/status/is-active/enable/disable (unit only — never NOPASSWD ALL). Docs: install with `chown root:root`, `chmod 0440`, `visudo -cf`. Relay-only HDMI operators need the drop-in; Foyer dual-head still leaves the unit off (§7a).
