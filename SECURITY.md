@@ -6,7 +6,7 @@ Contact the maintainer privately. Do not file a public issue with exploit detail
 
 ## Scope
 
-Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds to the **AV-LAN IPv4** (never `0.0.0.0`). Dev is port 8080 (`npm run dev`). Production is port 8081 (`npm start`). HTTP on AV-LAN today (issue #15). **Shipped:** optional file-based HTTPS on the venue NIC is **B1** (when `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath` are set and outbound NIC is not None), plus **B3** venue HMAC peer and **B4** `nicFace`. **Let’s Encrypt / ACME / DNS-01 is PARKED permanently** for this product shape (guest LAN, no admin DNS rights, $0, no Cloudflare/LE accounts) — do not treat LE as the default or next path. **Shipped (C1–C4):** in-box **Generate** venue CA + leaf (API + Networks UI), CA download, IP-mismatch / expiry banners, regenerate confirm, OS install hints; C4 docs consistency + checkpoint tag `v0.9.46`. **Strict peer TLS verify** (`v0.9.47`): trusted peer CA path / fail-closed. Do not port-forward 8080, 8081, or 8082. A host firewall that allows the panel port only from the AV-LAN CIDR is part of the install, not optional advice. Inventory and roadmap: [Venue TLS inventory](#venue-tls-inventory-c0).
+Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds to the **AV-LAN IPv4** (never `0.0.0.0`). Dev is port 8080 (`npm run dev`). Production is port 8081 (`npm start`). HTTP on AV-LAN today (issue #15). **Shipped:** optional file-based HTTPS on the venue NIC is **B1** (when `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath` are set and outbound NIC is not None), plus **B3** venue HMAC peer and **B4** `nicFace`. **Let’s Encrypt / ACME / DNS-01 is PARKED permanently** for this product shape (guest LAN, no admin DNS rights, $0, no Cloudflare/LE accounts) — do not treat LE as the default or next path. **Shipped (C1–C4):** in-box **Generate** venue CA + leaf (API + Networks UI), CA download, IP-mismatch / expiry banners, regenerate confirm, OS install hints; C4 docs consistency + checkpoint tag `v0.9.46`. **Strict peer TLS verify** (`v0.9.47`) + **strict device TLS** (`v0.9.48`): trusted peer CA; per-device CA/pin (fail-closed on venue). Do not port-forward 8080, 8081, or 8082. A host firewall that allows the panel port only from the AV-LAN CIDR is part of the install, not optional advice. Inventory and roadmap: [Venue TLS inventory](#venue-tls-inventory-c0).
 
 ### Dual-NIC trust model
 
@@ -82,10 +82,10 @@ HMAC-SHA256 (`x-relay-ts` + `x-relay-auth`). Signature must be 64 lowercase hex 
 | **Venue / NIC2** | `nicFace=outbound` | Bind outbound IPv4; soft-fail that device if outbound None / no IPv4 |
 
 - **vs peerFace:** `peerFace` is relay-host HMAC only (`auto` + HTTP↔HTTPS). `nicFace` is bind-only for general devices (no auto; default `av`). Do not use `nicFace` instead of Peer face for HMAC peers.
-- No cleartext HTTP/WebSocket on venue. sACN and ipMIDI multicast stay AV-only (clear error if `nicFace=outbound`). Cast / HTTPS / TLS-WebSocket may use venue bind.
+- No cleartext HTTP/WebSocket on venue. sACN, ipMIDI multicast, and **Cast** stay AV-only (clear error if `nicFace=outbound`). HTTPS / TLS-WebSocket may use venue bind **with** device CA or sha256 pin.
 - Soft-fail venue face must not take AV devices down.
 - Inventory `httpPath` is cleartext HTTP today — refused on `nicFace=outbound` with a clear error (keep AV face for inventory HTTP).
-- Venue **device** HTTPS (non-peer gear on `nicFace=outbound`) still uses soft TLS verify (`rejectUnauthorized: false`) — third-party device certs are not the Relay peer CA exchange. Relay↔Relay venue peers use strict CA verify above.
+- **Strict device TLS (shipped `v0.9.48`):** third-party HTTPS / tls-websocket use per-device `deviceTrustedCaPath` / PEM and/or `tlsFingerprintSha256`. Venue without trust → fail-closed (“configure device CA / pin”). Soft `rejectUnauthorized: false` is **not** the venue device happy path. AV without CA/pin uses the system trust store. Cast soft verify is AV-only (documented exception). Relay↔Relay peers use trusted peer CA (`v0.9.47`).
 
 Foyer (optional) on this PC: occupancy GET and calendar-session GET on loopback. See [`FOYER-RELAY.md`](FOYER-RELAY.md). Unsigned GET is allowed only when the **TCP peer** is loopback (`127.0.0.1` / `::1`); the body is occupancy + `host.locked` only. `Host` / `X-Forwarded-*` are not loopback. HMAC GET (LAN or loopback) returns the full peer snapshot. POST still requires HMAC. Room names do not need to match.
 
@@ -161,7 +161,17 @@ Canonical dual-NIC + venue TLS map. Prefer this section over older “LE = B2”
 | **Exchange** | Remote Networks → Download CA → save PEM → set Trusted peer CA path on this device; same-install loop → `data/tls/venue/ca.cert.pem` |
 | **Not in scope** | Let’s Encrypt; silent auto-reissue; changing Foyer; soft-verify as venue peer default |
 
-Operators may still drop in file PEMs for B1. **C0–C4 closed.** **Strict peer TLS verify shipped** (trusted peer CA path / fail-closed). Foyer loopback-vs-AV URL footgun is fixed (AV live IP default + local hairpin). Residual: venue *device* soft TLS for third-party gear (not Relay peers).
+### Shipped — strict device TLS verify (`v0.9.48`)
+
+| Item | Behaviour |
+|---|---|
+| **Trust model** | Per-device **trusted CA** (`deviceTrustedCaPath` / PEM) and/or **sha256 cert pin** (`tlsFingerprintSha256`) |
+| **Venue happy path** | HTTPS / tls-websocket: `rejectUnauthorized: true` + `ca`, or explicit pin checker; **fail-closed** if neither configured |
+| **AV** | System trust store when no CA/pin; self-signed needs CA or pin |
+| **Cast** | AV-only (blocked on `nicFace=outbound`); soft verify remains AV Cast exception only |
+| **Not in scope** | LE; silent auto-reissue; huge PKI UI; bundling Google Cast CA |
+
+Operators may still drop in file PEMs for B1. **C0–C4 closed.** **Strict peer TLS** (`v0.9.47`) + **strict device TLS** (`v0.9.48`) shipped. Foyer loopback-vs-AV URL footgun is fixed (AV live IP default + local hairpin). Residual: AV-only Cast soft TLS (Google Cast; blocked on venue).
 
 ### Doc crawl (where dual-NIC / TLS / LE lived)
 
@@ -204,7 +214,7 @@ Persist writes a `relay-room.json.transaction` journal, then secrets, then room 
 - Outbound **None** ⇒ Update from GitHub unavailable (expected); venue HTTPS also skipped.
 - Optional venue HTTPS (B1): `RELAY_TLS_CERT` + `RELAY_TLS_KEY` (or room `tlsCertPath`/`tlsKeyPath`) with outbound NIC set. Port `RELAY_HTTPS_PORT` (default 8443). Missing certs ⇒ skip venue HTTPS only — AV HTTP stays up. LE/ACME parked — not required.
 - Venue peer (B3): same server PEMs + outbound NIC; HMAC peer over HTTPS; **strict trusted peer CA** (fail-closed if CA missing). Soft-skip venue peer if None/no server PEMs; AV peers unchanged.
-- Device `nicFace` (B4): venue bind only when needed; soft-fail that device if None/no IPv4; no cleartext HTTP/WS on venue. Third-party device HTTPS may still soft-verify.
-- Phase B software checkpoint (B5): A1–A4 + B1/B3/B4 tagged at `v0.9.45`. **C1–C4 shipped** (Generate + UI + lifecycle + docs) at `v0.9.46`. **Strict peer TLS verify** at `v0.9.47`.
+- Device `nicFace` (B4): venue bind only when needed; soft-fail that device if None/no IPv4; no cleartext HTTP/WS on venue; Cast AV-only. Device HTTPS/TLS-WS require CA or sha256 pin on venue (`v0.9.48`).
+- Phase B software checkpoint (B5): A1–A4 + B1/B3/B4 tagged at `v0.9.45`. **C1–C4 shipped** (Generate + UI + lifecycle + docs) at `v0.9.46`. **Strict peer TLS** at `v0.9.47`. **Strict device TLS** at `v0.9.48`.
 - Do not port-forward the panel port to venue/WAN. Do not port-forward 8080, 8081, or 8082. Foyer (if installed) is a separate process; HMAC between Relay and Foyer is loopback only.
 - Do not set `RELAY_LISTEN_HOST=0.0.0.0` on a room PC.

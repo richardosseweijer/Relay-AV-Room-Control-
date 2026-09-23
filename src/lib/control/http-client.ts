@@ -58,10 +58,12 @@ export function requestHttpExact(
   timeout: number,
   maxBytes = DEFAULT_MAX_RESPONSE_BYTES,
   localAddress?: string,
-  /** TLS verify (default true). Venue peers pass true + ca = trusted peer CA PEM. */
+  /** TLS verify (default true). Venue peers / device CA trust pass true + ca PEM. */
   rejectUnauthorized = true,
-  /** Trusted CA PEM for strict venue peer verify (Node tls `ca`). */
+  /** Trusted CA PEM for strict verify (Node tls `ca`). */
   ca?: string | Buffer,
+  /** Optional pin checker (device sha256 pin). */
+  checkServerIdentity?: (host: string, cert: import("node:tls").PeerCertificate) => Error | undefined,
 ): Promise<{ ok: boolean; status: number; text: string }> {
   return new Promise((resolve) => {
     let parsed: URL;
@@ -77,6 +79,9 @@ export function requestHttpExact(
     if (payload && !Object.keys(hdrs).some((k) => k.toLowerCase() === "content-length")) {
       hdrs["Content-Length"] = String(Buffer.byteLength(payload));
     }
+    // Pin mode: rejectUnauthorized false (self-signed) + enforce pin on secureConnect.
+    // Do not pass checkServerIdentity into Node tls opts — with rejectUnauthorized:false
+    // Node ignores a failed identity check; we destroy the request ourselves.
     const tlsOpts =
       parsed.protocol === "https:"
         ? {
@@ -84,6 +89,13 @@ export function requestHttpExact(
             ...(ca != null && String(ca).length ? { ca } : {}),
           }
         : {};
+    let pinFailed: Error | null = null;
+    let settled = false;
+    const settle = (result: { ok: boolean; status: number; text: string }) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
     const req = lib.request({
       protocol: parsed.protocol,
       hostname: parsed.hostname,
@@ -92,8 +104,15 @@ export function requestHttpExact(
       method: method.toUpperCase(),
       headers: hdrs,
       localAddress,
+      // Fresh socket per request so pin checks always see secureConnect (no keep-alive reuse).
+      agent: false,
       ...tlsOpts,
     }, (res) => {
+      if (pinFailed) {
+        settle({ ok: false, status: 0, text: pinFailed.message });
+        res.resume();
+        return;
+      }
       const chunks: Buffer[] = [];
       let size = 0;
       let overflow = false;
@@ -107,19 +126,41 @@ export function requestHttpExact(
         chunks.push(chunk);
       });
       res.on("end", () => {
+        if (pinFailed) {
+          settle({ ok: false, status: 0, text: pinFailed.message });
+          return;
+        }
         if (overflow) {
-          resolve({ ok: false, status: res.statusCode ?? 0, text: "response too large" });
+          settle({ ok: false, status: res.statusCode ?? 0, text: "response too large" });
           return;
         }
         const status = res.statusCode ?? 0;
-        resolve({ ok: status >= 200 && status < 300, status, text: Buffer.concat(chunks).toString("utf8") });
+        settle({ ok: status >= 200 && status < 300, status, text: Buffer.concat(chunks).toString("utf8") });
       });
     });
+    if (parsed.protocol === "https:" && checkServerIdentity) {
+      req.on("socket", (sock) => {
+        const tlsSock = sock as import("node:tls").TLSSocket;
+        tlsSock.once("secureConnect", () => {
+          try {
+            const cert = tlsSock.getPeerCertificate();
+            const err = checkServerIdentity(parsed.hostname, cert);
+            if (err) {
+              pinFailed = err;
+              req.destroy(err);
+            }
+          } catch (e) {
+            pinFailed = e instanceof Error ? e : new Error("TLS pin check failed");
+            req.destroy(pinFailed);
+          }
+        });
+      });
+    }
     req.setTimeout(timeout, () => {
       req.destroy();
-      resolve({ ok: false, status: 0, text: "request timed out" });
+      settle({ ok: false, status: 0, text: "request timed out" });
     });
-    req.on("error", (err) => resolve({ ok: false, status: 0, text: err.message }));
+    req.on("error", (err) => settle({ ok: false, status: 0, text: pinFailed?.message || err.message }));
     if (payload && method.toUpperCase() !== "GET" && method.toUpperCase() !== "HEAD") req.write(payload);
     req.end();
   });

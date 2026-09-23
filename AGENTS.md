@@ -39,14 +39,14 @@ admin commands.
 
 ## Dual-NIC / venue TLS (agents — read once)
 
-Shipped truth through **B5 / `v0.9.45`**, **venue TLS C4 / `v0.9.46`**, and **strict peer TLS / `v0.9.47`**: A1 outbound None soft-fail; A2 AV-LAN IPv4 listen only; B1 optional venue HTTPS from file PEMs; B3 `peerFace` + trusted peer CA (fail-closed); B4 `nicFace`; live NIC IPs in Networks UI; C1–C3 Generate + UI + lifecycle; C4 docs checkpoint. Canonical map: [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
+Shipped truth through **B5 / `v0.9.45`**, **venue TLS C4 / `v0.9.46`**, **strict peer TLS / `v0.9.47`**, and **strict device TLS / `v0.9.48`**: A1 outbound None soft-fail; A2 AV-LAN IPv4 listen only; B1 optional venue HTTPS from file PEMs; B3 `peerFace` + trusted peer CA (fail-closed); B4 `nicFace`; live NIC IPs in Networks UI; C1–C3 Generate + UI + lifecycle; C4 docs checkpoint. Canonical map: [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
 
 Hard rules for future turns:
 
 - **Do not reintroduce Let’s Encrypt / ACME / DNS-01** as the default, required, or “next” cert story. It is **PARKED** for guest/venue LAN + no admin DNS + $0 + no Cloudflare/LE accounts.
 - **Default/control URL for panel + Foyer hints prefers live AV-LAN IPv4 (`controlBaseUrlFrom`); soft-fail if AV unset / no IPv4 — do not advertise loopback as the production URL. Do not listen on `0.0.0.0`** in production paths. AV panel/API stay on AV-LAN IPv4 (else loopback). Preview escape `RELAY_LISTEN_HOST=0.0.0.0` is explicit and not the room-PC default.
 - **AV must not depend on venue certs.** Missing server PEMs / outbound None / Generate failure / missing trusted peer CA → soft-skip venue HTTPS / venue peer / venue nicFace only; AV HTTP stays up.
-- **C0 was docs-only; C1–C4 are shipped** (Generate API + ECDSA PEMs + B1 wire + Networks UI Generate / CA download / mismatch+expiry banners / regenerate confirm / OS hints + docs consistency / tag `v0.9.46`). **Strict peer TLS verify is shipped** (`v0.9.47`) — do not regress to soft `rejectUnauthorized: false` as the venue peer happy path. Do not reopen LE or invent silent auto-reissue.
+- **C0 was docs-only; C1–C4 are shipped** (Generate API + ECDSA PEMs + B1 wire + Networks UI Generate / CA download / mismatch+expiry banners / regenerate confirm / OS hints + docs consistency / tag `v0.9.46`). **Strict peer TLS** (`v0.9.47`) and **strict device TLS** (`v0.9.48`) are shipped — do not regress to soft `rejectUnauthorized: false` as the venue peer or venue device HTTPS happy path. Cast soft verify is AV-only. Do not reopen LE or invent silent auto-reissue.
 - Prefer factual edits to existing canonical docs over new markdown sprawl.
 
 ## Two runtimes (read this once)
