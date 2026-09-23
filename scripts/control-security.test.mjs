@@ -219,6 +219,8 @@ test("F3 signedPeerFetch gates peer host before network I/O", () => {
   assert.ok(gate >= 0, "signedPeerFetch must plan peer transport (allowlist)");
   assert.ok(fetchAt >= 0 && gate < fetchAt, "plan before requestHttpExact");
   assert.match(fn, /cleartext HTTP is not allowed on NIC2|plan\.ok/);
+  assert.match(fn, /plan\.ca/);
+  assert.match(fn, /plan\.rejectUnauthorized/);
   // Callers that rely on signedPeerFetch for remote peers
   const src = engineSrc();
   assert.match(src, /signedPeerFetch\(device/);

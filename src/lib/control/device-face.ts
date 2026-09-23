@@ -62,7 +62,7 @@ export type DeviceBindPlan =
       ok: true;
       face: NicFace;
       localAddress?: string;
-      /** Soft TLS verify for venue HTTPS (LE PARKED; mirrors peer-venue). */
+      /** Soft TLS for third-party venue device HTTPS (not Relay peers — peers use peer-venue strict CA). */
       rejectUnauthorized: boolean;
     }
   | { ok: false; face: NicFace; message: string };
