@@ -1,6 +1,7 @@
 /**
  * Local HDMI panel kiosk — restart relay-kiosk.service with fixed argv only.
- * Same privilege style as Foyer (systemctl, then sudo -n systemctl).
+ * Same privilege style as Foyer / AV-LAN nmcli: try systemctl, then sudo -n systemctl.
+ * Missing sudoers → clear operator error pointing at LINUX.md (not raw polkit text).
  */
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -12,6 +13,9 @@ export const KIOSK_LINUX_ONLY =
 
 export const KIOSK_UNIT_MISSING =
   "relay-kiosk.service is not installed or could not be restarted. See LINUX.md §7 (local panel display).";
+
+export const KIOSK_SUDOERS =
+  "sudo systemctl was refused (missing sudoers, password required, or polkit interactive auth). Install deploy/sudoers.relay-kiosk as /etc/sudoers.d/relay-kiosk (replace USER; visudo -cf; root:root mode 0440) per LINUX.md §7.";
 
 /** @param {string} [platform] */
 export function platformGate(platform = process.platform) {
@@ -41,6 +45,29 @@ export function kioskRestartCommands() {
 }
 
 /**
+ * Detect missing sudoers / polkit interactive auth vs unit-not-installed.
+ * @param {string[]} errors
+ */
+export function classifyKioskRestartFailure(errors) {
+  const text = (errors || []).filter(Boolean).join("\n").toLowerCase();
+  if (!text.trim()) return { kind: "missing", message: KIOSK_UNIT_MISSING };
+  if (
+    /a password is required|sudo: a password is required|not allowed to execute|no password was provided|sorry, user .+ is not allowed|interactive authentication|authentication is required|access denied|polkit|sudoers/i.test(
+      text,
+    )
+  ) {
+    return { kind: "sudo", message: KIOSK_SUDOERS };
+  }
+  if (/not found|could not be found|unit .+ not loaded|failed to (find|get) unit/i.test(text)) {
+    return { kind: "missing", message: KIOSK_UNIT_MISSING };
+  }
+  const detail = String(errors.filter(Boolean)[0] || "")
+    .trim()
+    .slice(0, 280);
+  return { kind: "restart", message: detail || KIOSK_UNIT_MISSING };
+}
+
+/**
  * @param {{ spawnSync?: typeof spawnSync, platform?: string }} [opts]
  */
 export function enableLocalOutput(opts = {}) {
@@ -57,9 +84,10 @@ export function enableLocalOutput(opts = {}) {
     const err = (result.stderr || result.stdout || result.error?.message || "failed").trim();
     errors.push(err);
   }
+  const classified = classifyKioskRestartFailure(errors);
   return {
     ok: false,
-    reason: "kiosk-unit",
-    detail: errors.filter(Boolean)[0] ?? KIOSK_UNIT_MISSING,
+    reason: classified.kind === "sudo" ? "sudoers" : "kiosk-unit",
+    detail: classified.message,
   };
 }
