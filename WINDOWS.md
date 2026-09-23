@@ -1,6 +1,6 @@
 # Relay — Windows
 
-Relay **0.9.42** (beta). Windows 10/11. Command Prompt or PowerShell.
+Relay **0.9.46** (beta). Windows 10/11. Command Prompt or PowerShell.
 
 Default configurator PIN: `1234`. The app then requires a stronger PIN. Tablets stay paired until Forget on Security.
 
@@ -45,7 +45,7 @@ Several minutes the first time. npm deprecation warnings are normal.
 | Dev | `npm run dev` | AV-LAN IPv4 `:8080` (else loopback) | Edit |
 | Production | `npm run build` then `npm start` | AV-LAN IPv4 `:8081` (else loopback) | 24/7 |
 
-Never binds `0.0.0.0`. Set Room → **AV-LAN** before expecting tablets on the LAN. **LAN (internet)** **None** disables Update. Optional venue HTTPS = B1 file PEMs (LE parked; Generate planned). See [SECURITY.md](SECURITY.md#venue-tls-inventory-c0).
+Never binds `0.0.0.0`. Set Room → **AV-LAN** before expecting tablets on the LAN. **LAN (internet)** **None** disables Update. Optional venue HTTPS = B1 file PEMs; LE parked; Generate + Networks UI / CA download / regenerate (C1–C3) shipped. See [SECURITY.md](SECURITY.md#venue-tls-inventory-c0).
 
 ```bat
 cd C:\relay
@@ -95,7 +95,7 @@ Requires a git clone of [Relay-AV-Room-Control-](https://github.com/richardossew
 
 Configurator → Room → **Save all** → **Update from GitHub**.
 
-Builds the fetched release in a separate git worktree, checks its `/api/room` response, and only then switches the live checkout and build. A failed stage leaves the running release untouched. If the switched release fails readiness, the updater restores and restarts the previous release. Log: `data\relay-update.log`. Room tab then shows `0.9.42 (<sha>)`. Tracked uncommitted edits block the update.
+Builds the fetched release in a separate git worktree, checks its `/api/room` response, and only then switches the live checkout and build. A failed stage leaves the running release untouched. If the switched release fails readiness, the updater restores and restarts the previous release. Log: `data\relay-update.log`. Room tab then shows `0.9.46 (<sha>)`. Tracked uncommitted edits block the update.
 
 ```bat
 cd C:\relay
