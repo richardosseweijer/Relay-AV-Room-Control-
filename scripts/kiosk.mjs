@@ -11,7 +11,7 @@ export const KIOSK_LINUX_ONLY =
   "Panel HDMI kiosk is Linux-only (cage / systemd). Windows lab: use a browser on the AV panel URL.";
 
 export const KIOSK_UNIT_MISSING =
-  "relay-kiosk.service is not installed or could not be restarted. See LINUX.md § Panel on local HDMI.";
+  "relay-kiosk.service is not installed or could not be restarted. See LINUX.md §7 (local panel display).";
 
 /** @param {string} [platform] */
 export function platformGate(platform = process.platform) {

@@ -17,7 +17,7 @@ npm ci
 
 Panel today: `http://<av-lan-ip>:PORT/` — configurator `/config`. Never binds `0.0.0.0`. Optional venue HTTPS (B1 file PEMs) is shipped; LE/ACME parked; in-box Generate + Networks UI / CA download / regenerate lifecycle (C1–C3) shipped; C4 docs checkpoint at `v0.9.46`; strict peer TLS at `v0.9.47`; strict device TLS at `v0.9.48`; strict samsung-pair TLS at `v0.9.49`. See [SECURITY.md](SECURITY.md#venue-tls-inventory-c0).
 
-Room tab **AV-LAN** (required trust LAN; panel listen) / **LAN (internet)** (optional outbound for Update; **None** = air-gap). Same NIC is allowed (test box). See [SECURITY.md](SECURITY.md) and [LINUX.md](LINUX.md) §5b. Foyer signage is an optional second process (`:8080` / `:8082`). How they talk: **[FOYER-RELAY.md](FOYER-RELAY.md)**.
+Room tab **AV-LAN** (required trust LAN; panel listen) / **LAN (internet)** (optional outbound for Update; **None** = air-gap). Same NIC is allowed (test box). See [SECURITY.md](SECURITY.md) and [LINUX.md](LINUX.md) §5b. Foyer signage is an optional second process (`:8080` / `:8082`). How they talk: **[FOYER-RELAY.md](FOYER-RELAY.md)**. Same-host dual display: prefer **panel via Foyer** (Foyer owns HDMI; leave Relay `relay-kiosk` off) — [LINUX.md](LINUX.md) §7a.
 
 Do not start with raw `npx vite`. Scripts run `scripts/with-app-env.mjs`.
 
