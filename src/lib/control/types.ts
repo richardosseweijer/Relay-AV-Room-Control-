@@ -506,6 +506,10 @@ export type RoomConfig = {
     idleDimSeconds: number;
     keepAwake?: boolean;
     panelFullscreen?: boolean;
+    /** Local HDMI panel kiosk (cage). Not the in-browser fullscreen prompt. */
+    panelHdmiEnabled?: boolean;
+    panelHdmiOutputIndex?: number | null;
+    panelHdmiOutputName?: string | null;
     grid: { cols: number; rows: number };
     avLanNicIndex?: number | null;
     avLanNicName?: string | null;

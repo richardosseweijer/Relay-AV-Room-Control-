@@ -4,7 +4,12 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
-- **Apply AV-LAN IPv4** from Room → Networks (Linux + NetworkManager): static or DHCP on the saved AV-LAN NIC; confirm + Config PIN; `sudo -n nmcli` with gateway cleared + `ipv4.never-default`; persist `room.network` then restart Relay to re-bind listen. Windows/non-Linux clear error. No gateway/DNS UI; no NIC2 apply; never `0.0.0.0`.
+- Docs: expand [`LINUX.md`](LINUX.md) §5b into a detailed **one-NIC / two-NIC firewall** chapter (overview table, prerequisites, copy-paste ufw, shared checklist, troubleshooting). Optional pointer in [`SECURITY.md`](SECURITY.md). No app/code change; no version bump.
+
+## 0.9.51
+
+- Tag `v0.9.51`. **Local HDMI panel kiosk** (Linux): Room → Local display lists DRM outputs, saves `panelHdmiEnabled` / `panelHdmiOutputName` / `panelHdmiOutputIndex` + `data/relay-kiosk.env` (`RELAY_VIDEO_OUTPUT` / `RELAY_KIOSK_URL`), restarts `relay-kiosk.service` (cage + Chromium). Kiosk URL is the live AV-LAN panel root — never `0.0.0.0`. Docs: LINUX §7, WINDOWS Linux-only note. Tests: DRM fixture, resolve, env body, restart argv, URL builder.
+- Also notes **Apply AV-LAN IPv4** from #133 (landed on `0.9.50` without a ticker): Room → Networks static/DHCP via nmcli; confirm + Config PIN; persist `room.network` then restart Relay.
 
 ## 0.9.50
 
