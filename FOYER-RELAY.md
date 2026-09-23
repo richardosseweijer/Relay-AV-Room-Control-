@@ -18,6 +18,33 @@ Relay [`FOYER-ROADMAP.md`](https://github.com/richardosseweijer/Relay-AV-Room-Co
 
 ---
 
+## Day-one dual-head (same host)
+
+**Start here** on a **Dell Wyse 5070 / Ubuntu Server** room PC with dual DisplayPort (or HDMI) when Foyer and Relay share one box. One checklist; details stay in Foyer [`INSTALL.md`](https://github.com/richardosseweijer/Foyer-Room-Signage/blob/main/INSTALL.md) §7 / §7c and Relay [`LINUX.md`](https://github.com/richardosseweijer/Relay-AV-Room-Control-/blob/main/LINUX.md) §5b / §7a. Do **not** invent new units — use the existing `foyer` / `foyer-panel` / `foyer-kiosk` and `relay` services only.
+
+**Production shape (lock this):**
+
+| Piece | Owner |
+|---|---|
+| Displays | **Foyer** — `foyer` + `foyer-panel` + `foyer-kiosk` (sway, up to two Chromiums: Welcome + Room panel) |
+| Panel HTTP | **Relay** — AV-LAN IPv4 `:8081` only (never `0.0.0.0`) |
+| Relay local compositor | **Off** — `systemctl disable --now relay-kiosk` when Foyer paints the Room panel head |
+| Host sudoers (one-time each) | Foyer `scripts/install-host-sudoers.sh`; Relay `scripts/install-host-sudoers.sh` (kiosk + nmcli) |
+| Room-panel URL | Live AV-LAN `http://<av-lan-ipv4>:8081` — never `0.0.0.0`; not loopback for peer occupancy on dual-NIC |
+
+### Checklist
+
+- [ ] **Packages / units** — Foyer `foyer` + `foyer-panel` enabled; seatd / sway / Chromium per INSTALL §7; Relay `relay` enabled on AV-LAN `:8081` (LINUX §6). Do not enable `relay-kiosk` on this host.
+- [ ] **Foyer sudoers (once)** — from the Foyer checkout: `sudo bash scripts/install-host-sudoers.sh` → `/etc/sudoers.d/foyer-kiosk` (Update / pull / reboot do **not** install this).
+- [ ] **Relay sudoers (once)** — from the Relay checkout: `sudo bash scripts/install-host-sudoers.sh` → `/etc/sudoers.d/relay-kiosk` + `/etc/sudoers.d/relay-nmcli` (same: not installed by Update / pull / reboot).
+- [ ] **Disable Relay kiosk** — `sudo systemctl disable --now relay-kiosk` so Foyer alone owns tty1 / DRM (LINUX §7a).
+- [ ] **AV-LAN bind + Room-panel URL** — Relay listens on live AV-LAN IPv4 `:8081`; Foyer Setup Relay URL / Room panel URL = `http://<av-lan-ipv4>:8081` (never `0.0.0.0`; not `127.0.0.1` for peer occupancy on dual-NIC).
+- [ ] **Enable Foyer kiosk** — Setup picks **Welcome HDMI** and/or **Room panel HDMI** (different connectors if both); `sudo systemctl enable --now foyer-kiosk` (INSTALL §7a / §7c).
+- [ ] **Verify** — Welcome head shows Foyer `http://127.0.0.1:8080/`; Room panel head shows Relay control UI from the AV-LAN URL; `systemctl status foyer-kiosk` active; `relay-kiosk` disabled / inactive.
+- [ ] **Firewall** — if not already done: Foyer INSTALL §5 and Relay LINUX §5b (8080/8082 and 8081 from AV CIDR only; never bare `allow …/tcp` from anywhere; no WAN port-forward).
+
+Operator Setup / occupancy paste steps after displays are up: §7 below.
+
 ## 1. Parties
 
 One Ubuntu room PC, one room, two Node processes. They do not import each other. They do not share disk, PIN, ICS URL, or secret file.
