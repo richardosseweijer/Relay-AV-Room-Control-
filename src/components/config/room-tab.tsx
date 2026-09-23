@@ -2,6 +2,7 @@ import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { generateVenueTls, getEditorConfig, getVenueTlsStatus, importBundle, listLanNics, rebootHost, restartHost, updateHost } from "@/lib/control/actions";
 import { liveNicIpv4Label } from "@/lib/control/nic-live-ip";
+import { controlBaseUrlFrom, DEFAULT_PRODUCTION_CONTROL_PORT } from "@/lib/control/nics";
 import {
   venueTlsCaInstallHintList,
   venueTlsGenerateGate,
@@ -118,6 +119,16 @@ export function RoomTab(props: {
   const avUnset = !String(draft.room.avLanNicName ?? "").trim() && (draft.room.avLanNicIndex == null || !Number.isFinite(Number(draft.room.avLanNicIndex)));
   const avPick = nicChoices.find((row) => nicKey(row.name, row.index) === nicKey(draft.room.avLanNicName, draft.room.avLanNicIndex));
   const avLiveIp = liveNicIpv4Label({ unset: avUnset, ipv4: avPick?.ipv4, unsetText: "—" });
+
+  const controlPort = typeof window !== "undefined" && window.location.port
+    ? Number(window.location.port)
+    : DEFAULT_PRODUCTION_CONTROL_PORT;
+  const foyerRelayUrl = controlBaseUrlFrom({
+    nics: nicChoices.map((row) => ({ index: row.index, name: row.name, ipv4: row.ipv4 ?? null })),
+    pick: { name: draft.room.avLanNicName, index: draft.room.avLanNicIndex ?? null },
+    port: Number.isFinite(controlPort) && controlPort > 0 ? controlPort : DEFAULT_PRODUCTION_CONTROL_PORT,
+  });
+
   const outboundLiveIp = liveNicIpv4Label({ unset: outboundNone, ipv4: outboundPick?.ipv4 });
   const liveIpv4 = outboundLiveIp.kind === "ip" ? outboundLiveIp.ipv4 : null;
   const generateGate = venueTlsGenerateGate({
@@ -355,6 +366,15 @@ export function RoomTab(props: {
                 <input className={fieldClass()} value={draft.room.foyerPeerUrl ?? "http://127.0.0.1:8080"} onChange={(e) => update((c) => { c.room.foyerPeerUrl = e.target.value; })} placeholder="http://127.0.0.1:8080" autoComplete="off" spellCheck={false} />
                 <span className="text-xs">Loopback only. Relay reads the current (or next) calendar session from Foyer GET /api/peer. Same peer secret as Security if you set one.</span>
               </label>
+              <p className="sm:col-span-2 text-xs text-muted">
+                Foyer Setup → Relay URL:{" "}
+                {foyerRelayUrl.ok ? (
+                  <span className="font-mono text-fg select-all">{foyerRelayUrl.url}</span>
+                ) : (
+                  <span className="text-clay">{foyerRelayUrl.reason}</span>
+                )}
+                {foyerRelayUrl.ok ? " — paste into Foyer (AV live IP, not 127.0.0.1)." : ""}
+              </p>
               <p className="sm:col-span-2 text-sm text-fg">
                 {String(snap.vars?.[FOYER_KIND_ID] ?? "none") === "none"
                   ? "No session from Foyer yet."
