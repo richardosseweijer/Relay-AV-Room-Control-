@@ -4,7 +4,7 @@ Install **`main`** from GitHub (that is the supported tree). Current package ver
 
 Default configurator PIN after first start: `1234`. Open `/config` once and set a stronger PIN. New rooms default to **Panel PIN**: every tablet unlocks with that PIN and gets its own session (30 days, sliding). **Open on LAN** is a separate Security setting that skips the panel PIN for anyone who can reach port 8081 — use it only on the room VLAN. Do not confuse it with **open LAN control** (unauthenticated `fireCommand`). See `SECURITY.md`.
 
-This host binds the cleartext panel/API to the **AV-LAN IPv4** only (never `0.0.0.0`). Tablet URL: `http://<av-lan-ip>:8081` (or your configured port). Before you call the install finished, finish the dual-NIC / firewall checklist in §5b. Do not port-forward 8081 to venue/WAN. Optional **file-based HTTPS** on the venue NIC is **shipped B1** (set `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath`, outbound NIC not None; default port 8443). **Let’s Encrypt / ACME / DNS-01 is PARKED** — not required. **Shipped (C1–C2):** Generate (API + Networks UI), CA download, mismatch banners, OS hints. **Planned (C3–C4):** regenerate confirm / expiry / doc tag. See [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
+This host binds the cleartext panel/API to the **AV-LAN IPv4** only (never `0.0.0.0`). Tablet URL: `http://<av-lan-ip>:8081` (or your configured port). Before you call the install finished, finish the dual-NIC / firewall checklist in §5b. Do not port-forward 8081 to venue/WAN. Optional **file-based HTTPS** on the venue NIC is **shipped B1** (set `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath`, outbound NIC not None; default port 8443). **Let’s Encrypt / ACME / DNS-01 is PARKED** — not required. **Shipped (C1–C3):** Generate (API + Networks UI), CA download, mismatch / expiry banners, regenerate confirm, OS hints. **Planned (C4):** full doc audit + checkpoint tag. See [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
 
 Commands below are run in a terminal as a normal user that can use `sudo`.
 
@@ -221,24 +221,24 @@ Optional venue HTTPS: `https://<outbound-ip>:8443` when outbound NIC is set **an
 
 **Guest / venue LAN reality:** NIC2 is often a guest or venue segment with no admin DNS, no Cloudflare, and no LE account. **LE/ACME/DNS-01 is PARKED permanently** for this product — do not require public FQDN for venue HTTPS.
 
-#### Generate venue TLS (shipped C1–C2) — API + Networks UI
+#### Generate venue TLS (shipped C1–C3) — API + Networks UI + lifecycle
 
 In-box **ECDSA P-256** private CA (~10y) + server leaf (~2y) with IP SAN = live outbound/NIC2 IPv4. No openssl shell-out; no ACME/LE.
 
 | Step | Detail |
 |---|---|
 | API | Config-token gated `generateVenueTls` / `getVenueTlsStatus` (see `actions-venue-tls.ts`) |
-| Networks UI | Room → Networks: **Generate venue certificate** + status (active / SAN IP / expiry / fingerprint) |
+| Networks UI | Room → Networks: **Generate / Regenerate venue certificate** + status (active / SAN IP / expiry with days-left / fingerprint) |
 | Paths | `data/tls/venue/ca.cert.pem`, `ca.key.pem`, `server.cert.pem`, `server.key.pem` (keys mode `0600`) |
 | B1 wire | Sets room `tlsCertPath` / `tlsKeyPath` to the server pair (env `RELAY_TLS_*` still wins) |
 | Reload | Venue HTTPS reloads; AV HTTP stays up. Soft-skip if outbound is None / no IPv4 |
 | CA download | Same-origin **Download CA** → `GET /api/venue-tls-ca` (config token); PEM only — never private keys. Use on NIC2 HTTPS after browser click-through (no AV-LAN hop). |
-| Mismatch | Banner when live NIC2 IPv4 ∉ leaf SAN → Generate again (C3 adds confirm / expiry reminders) |
+| Mismatch / expiry | Banner when live NIC2 IPv4 ∉ leaf SAN or leaf ≤30d / expired → **Regenerate** (explicit confirm; no silent auto-reissue) |
 | OS hints | Brief iOS / Android / Windows / macOS notes next to Download CA |
 
-**Integrator flow (NIC2):** open `https://<outbound-ip>:8443/config` → accept click-through → unlock → Networks → Generate → Download CA → install CA on tablets → reopen venue URL.
+**Integrator flow (NIC2):** open `https://<outbound-ip>:8443/config` → accept click-through → unlock → Networks → Generate → Download CA → install CA on tablets → reopen venue URL. On IP drift or leaf nearing expiry, **Regenerate** (confirm) → re-Download CA if the CA changed → reinstall on tablets.
 
-**Still Planned (C3–C4):** regenerate confirm flow / expiry reminders / auto-reissue (C3); full doc audit + checkpoint tag (C4).
+**Still Planned (C4):** full doc consistency audit + checkpoint version tag. No silent auto-reissue.
 
 File PEM drop (table above) still works. AV tablet URL remains `http://<av-lan-ip>:8081`. Inventory: [`SECURITY.md`](SECURITY.md#venue-tls-inventory-c0).
 
