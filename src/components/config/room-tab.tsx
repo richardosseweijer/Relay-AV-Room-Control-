@@ -1,6 +1,7 @@
 import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getEditorConfig, importBundle, listLanNics, rebootHost, restartHost, updateHost } from "@/lib/control/actions";
+import { liveNicIpv4Label } from "@/lib/control/nic-live-ip";
 import type { RoomConfig, RoomSnapshot } from "@/lib/control/types";
 import { FOYER_END_ID, FOYER_KIND_ID, FOYER_START_ID, FOYER_TITLE_ID } from "@/lib/control/foyer-peer";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,10 @@ export function RoomTab(props: {
   );
   const outboundPick = nicChoices.find((row) => nicKey(row.name, row.index) === nicKey(draft.room.outboundNicName, draft.room.outboundNicIndex));
   const outboundNoIp = !outboundNone && outboundPick != null && !outboundPick.ipv4;
+  const avUnset = !String(draft.room.avLanNicName ?? "").trim() && (draft.room.avLanNicIndex == null || !Number.isFinite(Number(draft.room.avLanNicIndex)));
+  const avPick = nicChoices.find((row) => nicKey(row.name, row.index) === nicKey(draft.room.avLanNicName, draft.room.avLanNicIndex));
+  const avLiveIp = liveNicIpv4Label({ unset: avUnset, ipv4: avPick?.ipv4, unsetText: "—" });
+  const outboundLiveIp = liveNicIpv4Label({ unset: outboundNone, ipv4: outboundPick?.ipv4 });
   const pickNic = (which: "av" | "out", key: string) => {
     update((c) => {
       if (!key) {
@@ -125,14 +130,26 @@ export function RoomTab(props: {
                   <option value="">Default (kernel)</option>
                   {nicChoices.map((nic) => <option key={`av-${nic.name}`} value={nicKey(nic.name, nic.index)}>{nic.label}</option>)}
                 </select>
-                <span className="text-xs">Device sockets and tablets. No default route on a two-NIC room PC.</span>
+                <span className="text-xs">
+                  Live IP:{" "}
+                  {avLiveIp.kind === "ip"
+                    ? <span className="font-mono text-fg select-all">{avLiveIp.ipv4}</span>
+                    : <span className="text-muted">{avLiveIp.text}</span>}
+                  {" · "}Device sockets and tablets. No default route on a two-NIC room PC.
+                </span>
               </label>
               <label className="grid gap-1 text-sm text-muted">LAN (internet)
                 <select className={fieldClass()} value={outboundNone ? "" : nicKey(draft.room.outboundNicName, draft.room.outboundNicIndex)} onChange={(e) => pickNic("out", e.target.value)}>
                   <option value="">None</option>
                   {nicChoices.map((nic) => <option key={`out-${nic.name}`} value={nicKey(nic.name, nic.index)}>{nic.label}</option>)}
                 </select>
-                <span className="text-xs">Venue/internet NIC for GitHub update. None = no internet-facing NIC; Update disabled. Not used for device I/O.</span>
+                <span className="text-xs">
+                  Live IP:{" "}
+                  {outboundLiveIp.kind === "ip"
+                    ? <span className="font-mono text-fg select-all">{outboundLiveIp.ipv4}</span>
+                    : <span className={outboundLiveIp.kind === "waiting" ? "text-clay" : "text-muted"}>{outboundLiveIp.text}</span>}
+                  {" · "}Venue/internet NIC for GitHub update. None = no internet-facing NIC; Update disabled. Not used for device I/O.
+                </span>
               </label>
               {nicError ? <p className="sm:col-span-2 text-xs text-clay">{nicError}</p> : null}
               {sameNic ? <p className="sm:col-span-2 text-xs text-muted">Same NIC on both pickers (test box). Allowed.</p> : null}
