@@ -4,6 +4,13 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.49
+
+- Tag `v0.9.49`. **Strict samsung-pair.mjs TLS** — closes the residual soft `rejectUnauthorized: false` footgun on the manual Samsung Tizen pairing helper (not the runtime device path; that was already strict in `v0.9.48`). Same Foyer pair (`v0.2.2`). No LE/ACME; Cast soft verify still AV-only.
+- **Trust model:** `--ca=<pem>` and/or `--fingerprint=<sha256>` (aliases `--accept-fingerprint`, env `SAMSUNG_PAIR_CA` / `SAMSUNG_PAIR_FINGERPRINT`). Port **8002** fail-closed when trust missing. Explicit `--insecure` is **discover-only** (prints leaf sha256, exits; no token) — re-run with `--fingerprint=` to pair. Soft TLS is not the pairing happy path.
+- Docs: SECURITY / LINUX / WINDOWS mention the helper; AGENTS / ARCHITECTURE / CONTEXT / KNOWN_ISSUES / README / CHANGELOG version lockstep.
+- Tests: `scripts/samsung-pair-trust.test.mjs` (parse, fail-closed, CA, pin, discover, env).
+
 ## 0.9.48
 
 - Tag `v0.9.48`. **Strict third-party device HTTPS / TLS-WebSocket verify** — closes the remaining soft `rejectUnauthorized: false` footgun on venue (and general) device HTTPS. Peer path already strict in `v0.9.47`. Same Foyer pair (`v0.2.2`). No LE/ACME; no silent auto-reissue.
