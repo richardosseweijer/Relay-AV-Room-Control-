@@ -4,6 +4,8 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- **Apply AV-LAN IPv4** from Room → Networks (Linux + NetworkManager): static or DHCP on the saved AV-LAN NIC; confirm + Config PIN; `sudo -n nmcli` with gateway cleared + `ipv4.never-default`; persist `room.network` then restart Relay to re-bind listen. Windows/non-Linux clear error. No gateway/DNS UI; no NIC2 apply; never `0.0.0.0`.
+
 ## 0.9.50
 
 - Tag `v0.9.50`. Version ticker / docs checkpoint after #131 (Foyer↔Relay AV-LAN occupancy contract sync). Same Foyer pair (`v0.2.2`). Wire unchanged. No LE/ACME; Cast soft verify still AV-only.
