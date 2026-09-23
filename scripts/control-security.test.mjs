@@ -209,15 +209,17 @@ test("F3 syncInventory HTTP path gates with allowedLanHost before sendHttp", () 
 
 test("F3 signedPeerFetch gates peer host before network I/O", () => {
   const fn = sliceFn(engineSrc(), "signedPeerFetch");
-  const gate = fn.indexOf("allowedLanHost(device.host)");
-  const fetchAt = fn.indexOf("fetchTextBounded");
-  assert.ok(gate >= 0, "signedPeerFetch must call allowedLanHost");
-  assert.match(fn, /Host not on room LAN/);
-  assert.ok(fetchAt >= 0 && gate < fetchAt, "LAN gate before fetchTextBounded");
+  // B3: planPeerTransportForDevice (LAN / venue allowlist) before requestHttpExact
+  const gate = fn.indexOf("planPeerTransportForDevice");
+  const fetchAt = fn.indexOf("requestHttpExact");
+  assert.ok(gate >= 0, "signedPeerFetch must plan peer transport (allowlist)");
+  assert.ok(fetchAt >= 0 && gate < fetchAt, "plan before requestHttpExact");
+  assert.match(fn, /cleartext HTTP is not allowed on NIC2|plan\.ok/);
   // Callers that rely on signedPeerFetch for remote peers
   const src = engineSrc();
   assert.match(src, /signedPeerFetch\(device/);
   assert.match(src, /callRelayPeer\(/);
+  assert.match(src, /planPeerTransportForDevice/);
 });
 
 
