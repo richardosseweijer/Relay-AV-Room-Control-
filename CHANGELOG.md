@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.54
+
+- Tag `v0.9.54`. **K6 — disable relay-kiosk on Local display uncheck:** Room → Local display Save with Enable unchecked runs `systemctl disable --now relay-kiosk` (bare, then `sudo -n`), so the unit cannot fight Foyer dual-head after save-off. Reuses K1 error classifier (LINUX.md §7 / `scripts/install-host-sudoers.sh`). Extend [`deploy/sudoers.relay-kiosk`](deploy/sudoers.relay-kiosk) with `enable --now` / `disable --now`. Docs: [`LINUX.md`](LINUX.md) §7a; [`FOYER-RELAY.md`](FOYER-RELAY.md) day-one + operator setup. Tests: disable argv, sudoers failure messages.
+
 - Docs (K5): single **Day-one dual-head (same host)** checklist in [`FOYER-RELAY.md`](FOYER-RELAY.md) (byte-identical with Foyer); [`LINUX.md`](LINUX.md) §7a points “start here”. Docs-only; no version bump.
 
 - Ops (K1+K2): [`scripts/install-host-sudoers.sh`](scripts/install-host-sudoers.sh) installs `/etc/sudoers.d/relay-kiosk` + `/etc/sudoers.d/relay-nmcli` from [`deploy/sudoers.relay-kiosk`](deploy/sudoers.relay-kiosk) + new [`deploy/sudoers.relay-nmcli`](deploy/sudoers.relay-nmcli) (USER substitute, mode 0440, `visudo -cf` pre/post; root required). [`LINUX.md`](LINUX.md) §5b / §7c / §8 point at the script; Update/pull/reboot still do **not** install host drop-ins. No app/code change; no version bump.
