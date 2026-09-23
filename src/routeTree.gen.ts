@@ -18,6 +18,7 @@ import { Route as ApiPingRouteImport } from './routes/api/ping'
 import { Route as ApiPreviewRouteImport } from './routes/api/preview'
 import { Route as ApiRoomRouteImport } from './routes/api/room'
 import { Route as ApiVarsRouteImport } from './routes/api/vars'
+import { Route as ApiVenueTlsCaRouteImport } from './routes/api/venue-tls-ca'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -64,6 +65,11 @@ const ApiVarsRoute = ApiVarsRouteImport.update({
   path: '/api/vars',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVenueTlsCaRoute = ApiVenueTlsCaRouteImport.update({
+  id: '/api/venue-tls-ca',
+  path: '/api/venue-tls-ca',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/api/preview': typeof ApiPreviewRoute
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
+  '/api/venue-tls-ca': typeof ApiVenueTlsCaRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/api/preview': typeof ApiPreviewRoute
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
+  '/api/venue-tls-ca': typeof ApiVenueTlsCaRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/api/preview': typeof ApiPreviewRoute
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
+  '/api/venue-tls-ca': typeof ApiVenueTlsCaRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/api/preview'
     | '/api/room'
     | '/api/vars'
+    | '/api/venue-tls-ca'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/api/preview'
     | '/api/room'
     | '/api/vars'
+    | '/api/venue-tls-ca'
   id:
     | '__root__'
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/api/preview'
     | '/api/room'
     | '/api/vars'
+    | '/api/venue-tls-ca'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,6 +157,7 @@ export interface RootRouteChildren {
   ApiPreviewRoute: typeof ApiPreviewRoute
   ApiRoomRoute: typeof ApiRoomRoute
   ApiVarsRoute: typeof ApiVarsRoute
+  ApiVenueTlsCaRoute: typeof ApiVenueTlsCaRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -212,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVarsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/venue-tls-ca': {
+      id: '/api/venue-tls-ca'
+      path: '/api/venue-tls-ca'
+      fullPath: '/api/venue-tls-ca'
+      preLoaderRoute: typeof ApiVenueTlsCaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -225,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPreviewRoute: ApiPreviewRoute,
   ApiRoomRoute: ApiRoomRoute,
   ApiVarsRoute: ApiVarsRoute,
+  ApiVenueTlsCaRoute: ApiVenueTlsCaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
