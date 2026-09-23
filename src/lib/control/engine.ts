@@ -20,7 +20,7 @@ import { sendWol } from "./wol";
 import { rtpMidiPoolSize } from "./rtp-midi";
 import { encodeMtcQf, encodeMtcSysex } from "./midi-in";
 import { roomLanBind } from "./nics";
-import { DEVICE_VENUE_SKIP_CLEARTEXT, DEVICE_VENUE_SKIP_INVENTORY_CLEARTEXT, deviceHostAllowed, planDeviceBindForDevice, readNicFace } from "./device-face";
+import { DEVICE_VENUE_SKIP_CLEARTEXT, DEVICE_VENUE_SKIP_INVENTORY_CLEARTEXT, deviceHostAllowed, planDeviceBindForDevice, protocolNeedsTls, readNicFace } from "./device-face";
 import { planPeerTransportForDevice } from "./peer-venue";
 import { allowedLanHost, pushTrace, safeLanHttpUrl, sleep } from "./engine-policy";
 import { applySim, guardOk, mapCommandValue, parseFeedback, parseInventoryItems, pickJsonField, renderPayload } from "./engine-payload";
@@ -133,10 +133,12 @@ export async function authenticateDevice(opts: { config: RoomConfig; drivers: Re
     if (!hostGate.ok) return hostGate;
   }
   const face = readNicFace(device);
-  const bind = planDeviceBindForDevice(device, opts.config);
+  const steps = inferPairingSteps(driver.auth?.pairing);
+  const pairNeedsTls = steps.some((s) => Boolean(s.tls) || (s.action === "websocket" && driver.transports.lan?.protocol === "tls-websocket"))
+    || protocolNeedsTls(driver.transports.lan?.protocol);
+  const bind = planDeviceBindForDevice(device, opts.config, undefined, { needsTls: pairNeedsTls });
   if (!bind.ok) return bind;
   const localAddress = bind.localAddress;
-  const steps = inferPairingSteps(driver.auth?.pairing);
   if (face === "outbound" && steps.some((s) => (s.action === "http-get" || s.action === "http-post") && !s.tls)) {
     return { ok: false, message: DEVICE_VENUE_SKIP_CLEARTEXT };
   }
@@ -188,6 +190,9 @@ export async function authenticateDevice(opts: { config: RoomConfig; drivers: Re
           delayMs: lan?.handshake?.delayMs,
         },
         localAddress,
+        rejectUnauthorized: target.tls ? bind.rejectUnauthorized : true,
+        ca: target.tls ? bind.ca : undefined,
+        checkServerIdentity: target.tls ? bind.checkServerIdentity : undefined,
       });
       const tokenPath = step.tokenJsonPath || pairing?.tokenJsonPath || "token";
       const token = pickJsonField(result.message, tokenPath)
@@ -455,7 +460,9 @@ export async function readMonitorValue(opts: {
       if (face === "outbound" && url.startsWith("http://")) {
         return { ok: false, value: "", message: DEVICE_VENUE_SKIP_CLEARTEXT };
       }
-      const bind = planDeviceBindForDevice(wired, opts.config);
+      const bind = planDeviceBindForDevice(wired, opts.config, undefined, {
+        needsTls: protocolNeedsTls(undefined, url),
+      });
       if (!bind.ok) return { ok: false, value: "", message: bind.message };
       const response = await requestHttpExact(
         url,
@@ -466,6 +473,8 @@ export async function readMonitorValue(opts: {
         DEFAULT_MAX_RESPONSE_BYTES,
         bind.localAddress,
         bind.rejectUnauthorized,
+        bind.ca,
+        bind.checkServerIdentity,
       );
       if (!response.ok) return { ok: false, value: "", message: response.text || String(response.status) };
       const text = response.text;
