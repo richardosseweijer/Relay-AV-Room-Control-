@@ -1,6 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { listLanNicsFrom, resolveNic, outboundAddress, cidrContains, previewBindAddrsFrom, hostLanContains } from "../src/lib/control/nics.ts";
+import {
+  listLanNicsFrom,
+  resolveNic,
+  outboundAddress,
+  outboundBindFrom,
+  isOutboundNonePick,
+  OUTBOUND_NONE_NAME,
+  OUTBOUND_NONE_UPDATE_MESSAGE,
+  cidrContains,
+  previewBindAddrsFrom,
+  hostLanContains,
+} from "../src/lib/control/nics.ts";
 
 const EM = "\u2014";
 
@@ -98,4 +109,59 @@ test("previewBindAddrsFrom uses AV NIC when dest is on it, else the other", () =
   assert.deepEqual(previewBindAddrsFrom(nics, "192.168.1.8", av, out), ["192.168.1.40"]);
   assert.deepEqual(previewBindAddrsFrom(nics, "10.0.10.5", av, out), [undefined]);
   assert.deepEqual(previewBindAddrsFrom(nics, "8.8.8.8", av, out), ["10.0.25.10", "192.168.1.40", undefined]);
+});
+
+test("isOutboundNonePick: empty and __none__ are None", () => {
+  assert.equal(isOutboundNonePick({}), true);
+  assert.equal(isOutboundNonePick({ name: null, index: null }), true);
+  assert.equal(isOutboundNonePick({ name: "", index: null }), true);
+  assert.equal(isOutboundNonePick({ name: OUTBOUND_NONE_NAME }), true);
+  assert.equal(isOutboundNonePick({ name: "enp1s0" }), false);
+  assert.equal(isOutboundNonePick({ index: 0 }), false);
+});
+
+test("outboundBindFrom empty pick is None (not kernel default)", () => {
+  const nics = listLanNicsFrom(fixture);
+  const res = outboundBindFrom(nics, {});
+  assert.equal(res.ok, true);
+  if (res.ok) {
+    assert.equal(res.none, true);
+    assert.equal(res.localAddress, undefined);
+  }
+});
+
+test("outboundBindFrom __none__ sentinel is None", () => {
+  const nics = listLanNicsFrom(fixture);
+  const res = outboundBindFrom(nics, { name: OUTBOUND_NONE_NAME, index: 1 });
+  assert.equal(res.ok, true);
+  if (res.ok) assert.equal(res.none, true);
+});
+
+test("outboundBindFrom selected NIC returns localAddress", () => {
+  const nics = listLanNicsFrom(fixture);
+  const res = outboundBindFrom(nics, { name: "enp2s0" });
+  assert.equal(res.ok, true);
+  if (res.ok) {
+    assert.equal(res.none, undefined);
+    assert.equal(res.localAddress, "192.168.1.40");
+  }
+});
+
+test("outboundBindFrom missing NIC fail closed", () => {
+  const nics = listLanNicsFrom(fixture);
+  const res = outboundBindFrom(nics, { name: "missing0" });
+  assert.equal(res.ok, false);
+});
+
+test("OUTBOUND_NONE_UPDATE_MESSAGE is clear", () => {
+  assert.match(OUTBOUND_NONE_UPDATE_MESSAGE, /Outbound NIC is None/);
+  assert.match(OUTBOUND_NONE_UPDATE_MESSAGE, /venue\/internet NIC/);
+});
+
+test("previewBindAddrsFrom with outbound None still binds AV only", () => {
+  const nics = listLanNicsFrom(fixture);
+  const av = { name: "enp1s0" };
+  const out = {};
+  assert.deepEqual(previewBindAddrsFrom(nics, "10.0.25.40", av, out), ["10.0.25.10"]);
+  assert.deepEqual(previewBindAddrsFrom(nics, "8.8.8.8", av, out), ["10.0.25.10", undefined]);
 });
