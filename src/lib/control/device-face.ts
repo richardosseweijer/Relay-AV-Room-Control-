@@ -37,6 +37,10 @@ export const DEVICE_VENUE_SKIP_NO_BIND =
 export const DEVICE_VENUE_SKIP_CLEARTEXT =
   "nicFace=outbound forbids cleartext on venue; use https / tls-websocket / cast, or relay-host Peer face (peerFace) for HMAC peers.";
 
+/** Inventory resource.httpPath is always cleartext HTTP today — refuse on venue with a pointed reason. */
+export const DEVICE_VENUE_SKIP_INVENTORY_CLEARTEXT =
+  "Inventory httpPath is cleartext HTTP — nicFace=outbound forbids cleartext on venue. Use nicFace=av for inventory HTTP, or an HTTPS / Peer-face path for venue.";
+
 export const DEVICE_VENUE_AV_ONLY =
   "Protocol stays on AV-LAN (multicast / AV-only by design); nicFace=outbound is invalid for this driver.";
 

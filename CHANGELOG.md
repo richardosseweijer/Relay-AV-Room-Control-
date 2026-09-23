@@ -3,12 +3,14 @@
 Format: date, then bullets. Older work lives in `git log`.
 
 ## 0.9.45 — 2026-09-23
-- NIC-split B4: per-device `nicFace` (`av` | `outbound`, default `av`) for device I/O bind. Venue soft-fails when outbound None / no IPv4. No cleartext HTTP/WS on venue; sACN / ipMIDI multicast stay AV-only. `peerFace` (B3) unchanged for HMAC peers. No ACME (B2). No tag (B5 ahead).
+- Tag `v0.9.45`. Phase B software checkpoint (B5): hardening audit + docs/tests alignment. B2 Let’s Encrypt / ACME / FQDN remains deferred. Same Foyer pair (`v0.2.2`). Foyer loopback vs AV-only bind foot-gun documented, not fixed.
+- B5 hardening: inventory `httpPath` cleartext on `nicFace=outbound` returns a pointed error; soft-skip / nicFace / peerFace coverage kept green. Docs: SECURITY / LINUX / ARCHITECTURE / CONTEXT / KNOWN_ISSUES / CHANGELOG aligned with A+B (raw IP OK; `rejectUnauthorized: false` for file PEMs until LE).
+- NIC-split B4: per-device `nicFace` (`av` | `outbound`, default `av`) for device I/O bind. Venue soft-fails when outbound None / no IPv4. No cleartext HTTP/WS on venue; sACN / ipMIDI multicast stay AV-only. `peerFace` (B3) unchanged for HMAC peers. No ACME (B2).
 
 ## 0.9.44 — 2026-09-23
 - Networks UI: show live DHCP IPv4 next to LAN (internet) / AV-LAN pickers (read-only; Refresh NICs). No LE/ACME.
 - NIC-split B3: HMAC peer over venue/NIC2 HTTPS (outbound bind + soft-skip when outbound None / no TLS PEMs). AV-LAN HTTP peers unchanged. Narrow `peerFace` on relay-host (auto / av / outbound). No ACME (B2). B4 nicFace shipped in 0.9.45.
-- NIC-split B1: optional HTTPS listener on outbound/venue NIC IPv4 (file certs via `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath`; default port 8443). Soft-skip when outbound is None or certs missing — AV HTTP unchanged. No ACME/LE (B2). No tag yet (prefer wait for B2).
+- NIC-split B1: optional HTTPS listener on outbound/venue NIC IPv4 (file certs via `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath`; default port 8443). Soft-skip when outbound is None or certs missing — AV HTTP unchanged. No ACME/LE (B2 deferred; tagged with B5 at 0.9.45).
 
 ## 0.9.43 — 2026-09-23
 - NIC-split A4: pin UDP multicast listen, ping, and RPC shutdown to AV-LAN when configured; refresh nics Phase-0 header.
