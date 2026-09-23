@@ -1,6 +1,25 @@
 import os from "node:os";
 import type { RoomConfig } from "./types";
 import { allowedLanHost } from "./engine-policy.ts";
+import {
+  AV_UNSET_LISTEN_WARNING,
+  httpListenHostFrom,
+  avLanPickFromRoomStore,
+  readRoomStoreSync,
+  resolveHttpListenHost,
+} from "../../../scripts/http-listen-host.mjs";
+
+export {
+  AV_UNSET_LISTEN_WARNING,
+  httpListenHostFrom,
+  avLanPickFromRoomStore,
+  readRoomStoreSync,
+  resolveHttpListenHost,
+};
+
+export type HttpListenHostResult =
+  | { ok: true; host: string; warning?: string }
+  | { ok: false; reason: string };
 
 /** Phase 0 inventory (bind later): udp.ts, wol.ts, engine tcp/session/ping, pjlink.ts, ws.ts (net+tls), rtp-midi.ts, http-client.ts, cast.ts tls.connect. listHostInterfaces = serial/GPIO/MIDI, not NICs. */
 
@@ -191,5 +210,14 @@ export function previewBindAddrs(destIp: string, config?: RoomConfig): Array<str
     { name: config.room.avLanNicName, index: config.room.avLanNicIndex ?? null },
     { name: config.room.outboundNicName, index: config.room.outboundNicIndex ?? null },
   );
+}
+
+/** Resolve HTTP listen host from saved room config + live NIC list. Outbound/NIC2 ignored. */
+export function roomHttpListenHost(config?: RoomConfig, nics: LanNic[] = listLanNics()): HttpListenHostResult {
+  if (!config) return httpListenHostFrom(nics, {});
+  return httpListenHostFrom(nics, {
+    name: config.room.avLanNicName,
+    index: config.room.avLanNicIndex ?? null,
+  });
 }
 
