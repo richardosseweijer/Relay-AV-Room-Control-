@@ -3,8 +3,9 @@
 Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
+- **Venue TLS C1 (Generate):** in-box ECDSA P-256 venue CA (~10y) + leaf (~2y) with IP SAN for live NIC2/outbound IPv4 via Node `crypto` (no openssl shell-out; no ACME/LE). PEMs at `data/tls/venue/` (keys `0600`); room `tlsCertPath`/`tlsKeyPath` auto-wired; venue HTTPS reload without touching AV HTTP; soft-skip when outbound None / no IPv4. Admin API `generateVenueTls` / `getVenueTlsStatus` (config-token gated). C2–C4 remain Planned (UI / CA download / regenerate / doc tag).
 
-- **Docs C0 (venue TLS inventory):** crawl dual-NIC / venue TLS / certs / LE / listen-bind docs; correct drift vs shipped A+B (`v0.9.45`). **LE/ACME/DNS-01 marked PARKED** (not deferred B2 / not default). **Planned C1–C4** documented for in-box Generate venue CA + leaf → auto-wire B1 → NIC2 CA download after click-through → regenerate on IP drift — clearly labeled **not shipped**. No cert generation code, UI, or version bump in C0. Canonical section: [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0); agent bans in `AGENTS.md`; install notes in `LINUX.md`.
+- **Docs C0 (venue TLS inventory):** crawl dual-NIC / venue TLS / certs / LE / listen-bind docs; correct drift vs shipped A+B (`v0.9.45`). **LE/ACME/DNS-01 marked PARKED** (not deferred B2 / not default). **C1 now shipped** (see Unreleased). C0 itself was docs-only: LE/ACME/DNS-01 PARKED; Planned vs Shipped inventory established. No cert generation code in C0. Canonical section: [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0); agent bans in `AGENTS.md`; install notes in `LINUX.md`.
 
 ## 0.9.45 — 2026-09-23
 - Tag `v0.9.45`. Phase B software checkpoint (B5): hardening audit + docs/tests alignment. B2 Let’s Encrypt / ACME / FQDN remains deferred. Same Foyer pair (`v0.2.2`). Foyer loopback vs AV-only bind foot-gun documented, not fixed.
