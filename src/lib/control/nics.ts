@@ -9,6 +9,26 @@ import {
   resolveHttpListenHost,
 } from "../../../scripts/http-listen-host.mjs";
 
+import {
+  DEFAULT_PRODUCTION_CONTROL_PORT,
+  AV_UNSET_CONTROL_URL_REASON,
+  avNoIpv4ControlUrlReason,
+  controlBaseUrlFrom,
+  resolveControlBaseUrl,
+  normalizePeerIp,
+  isListenHostPeer,
+} from "../../../scripts/control-base-url.mjs";
+
+export {
+  DEFAULT_PRODUCTION_CONTROL_PORT,
+  AV_UNSET_CONTROL_URL_REASON,
+  avNoIpv4ControlUrlReason,
+  controlBaseUrlFrom,
+  resolveControlBaseUrl,
+  normalizePeerIp,
+  isListenHostPeer,
+};
+
 export {
   AV_UNSET_LISTEN_WARNING,
   httpListenHostFrom,
@@ -224,3 +244,19 @@ export function roomHttpListenHost(config?: RoomConfig, nics: LanNic[] = listLan
   });
 }
 
+/** Advertised panel / Foyer Relay base URL from room AV pick + live NICs. Soft-fails when AV unset / no IPv4. */
+export function roomControlBaseUrl(
+  config?: RoomConfig,
+  nics: LanNic[] = listLanNics(),
+  opts?: { port?: number | string | null; envHost?: string | null; protocol?: "http" | "https" },
+) {
+  return controlBaseUrlFrom({
+    nics,
+    pick: config
+      ? { name: config.room.avLanNicName, index: config.room.avLanNicIndex ?? null }
+      : {},
+    port: opts?.port,
+    envHost: opts?.envHost ?? process.env.RELAY_LISTEN_HOST,
+    protocol: opts?.protocol,
+  });
+}

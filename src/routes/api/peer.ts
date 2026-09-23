@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { runMacro } from "@/lib/control/engine";
-import { authorizePeerGet, isTcpLoopback, peerKey, verifyPeerRequest } from "@/lib/control/peer-auth";
+import { authorizePeerGet, isTcpLocalPeer, peerKey, verifyPeerRequest } from "@/lib/control/peer-auth";
+import { roomHttpListenHost, listLanNics } from "@/lib/control/nics";
 import { buildPeerGet, buildPeerOccupancyGet } from "@/lib/control/peer-payload";
 import { ensureLoaded, memory, persist, pushLog } from "@/lib/control/store.server";
 
@@ -9,7 +10,7 @@ async function authorized(request: Request, body: string, path = "/api/peer") {
   const key = peerKey(mem.config.room);
   const sig = request.headers.get("x-relay-auth") || "";
   const ts = request.headers.get("x-relay-ts") || "";
-  if (request.method === "GET") return authorizePeerGet({ key, request, path });
+  if (request.method === "GET") return authorizePeerGet({ key, request, path, listenHost: currentListenHost() });
   if (key) return verifyPeerRequest({ key, method: request.method, path, ts, body, sig });
   return false;
 }
@@ -20,6 +21,15 @@ function hmacOnGet(request: Request) {
   return Boolean(sig || ts);
 }
 
+
+function currentListenHost() {
+  const env = String(process.env.RELAY_LISTEN_HOST ?? "").trim();
+  if (env) return env;
+  const mem = memory();
+  const listen = roomHttpListenHost(mem.config, listLanNics());
+  return listen.ok ? listen.host : null;
+}
+
 export const Route = createFileRoute("/api/peer")({
   server: {
     handlers: {
@@ -27,7 +37,7 @@ export const Route = createFileRoute("/api/peer")({
         await ensureLoaded();
         if (!await authorized(request, "", "/api/peer")) return Response.json({ ok: false, message: "Auth failed" }, { status: 401 });
         const mem = memory();
-        if (!hmacOnGet(request) && isTcpLoopback(request)) {
+        if (!hmacOnGet(request) && isTcpLocalPeer(request, currentListenHost())) {
           return Response.json(buildPeerOccupancyGet({
             room: mem.config.room,
             host: { locked: Boolean(mem.host.locked) },

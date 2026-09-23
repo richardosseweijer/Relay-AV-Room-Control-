@@ -48,7 +48,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 
 Do not grep the whole repo to “get context.” If the table above is missing a file, ask.
 
-## Live foot-guns (still true at 0.9.46)
+## Live notes (still true at 0.9.46)
 
 - Occupancy var is `0` closed, `1` open, `2` in-session, `3` DND. Foyer GET still reads the **string** field. Save-all must not apply `draft.room.occupancy`.
 - Unsigned `GET /api/peer` is TCP loopback only (real `remoteAddress`, not `Host`). HMAC GET is the full snapshot.
@@ -57,7 +57,7 @@ Do not grep the whole repo to “get context.” If the table above is missing a
 - Panel PIN ≠ config PIN unless `panelAcceptsConfigPin` (default off).
 - Open-on-LAN (no panel PIN) is not `externalControl` (unauthenticated fire\*).
 - `system.restart|update|reboot` need a config session even if open LAN is on.
-- Listen is AV-LAN IPv4 only — never `0.0.0.0`. Optional venue HTTPS (B1) when outbound NIC + file certs (`RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room paths); **LE/ACME/DNS-01 PARKED** (not default). **Shipped C1–C4:** in-box Generate venue CA (API + Networks UI / CA download / regenerate confirm / expiry banners) + docs checkpoint `v0.9.46`. B3: HMAC peer over that HTTPS (`peer-venue.ts`); soft-skip venue peer if None/no PEMs; soft TLS verify for file PEMs (optional strict peer verify not implemented). B4: per-device `nicFace` (`device-face.ts`) bind AV vs venue; soft-fail venue face if None/no IPv4; no cleartext HTTP/WS on venue (inventory `httpPath` refused on outbound). B5 = Phase B software checkpoint (tag `v0.9.45`). Firewall panel port to AV CIDR (#15). Outbound None ⇒ Update refused (A1) and venue HTTPS / venue peer / venue nicFace skipped. AV must not depend on venue certs. Foyer default loopback URL vs AV-only bind remains a known foot-gun (separate track). Canonical map: `SECURITY.md` Venue TLS inventory.
+- Listen is AV-LAN IPv4 only — never `0.0.0.0`. Optional venue HTTPS (B1) when outbound NIC + file certs (`RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room paths); **LE/ACME/DNS-01 PARKED** (not default). **Shipped C1–C4:** in-box Generate venue CA (API + Networks UI / CA download / regenerate confirm / expiry banners) + docs checkpoint `v0.9.46`. B3: HMAC peer over that HTTPS (`peer-venue.ts`); soft-skip venue peer if None/no PEMs; soft TLS verify for file PEMs (optional strict peer verify not implemented). B4: per-device `nicFace` (`device-face.ts`) bind AV vs venue; soft-fail venue face if None/no IPv4; no cleartext HTTP/WS on venue (inventory `httpPath` refused on outbound). B5 = Phase B software checkpoint (tag `v0.9.45`). Firewall panel port to AV CIDR (#15). Outbound None ⇒ Update refused (A1) and venue HTTPS / venue peer / venue nicFace skipped. AV must not depend on venue certs. Foyer/default control URL prefers live AV-LAN IPv4 (`controlBaseUrlFrom`); soft-fail if AV unset / no IPv4; unsigned peer GET allows listen-host hairpin. Footgun fixed. Canonical map: `SECURITY.md` Venue TLS inventory.
 - Do not add xAI / Grok API calls. Do not print PINs. Do not commit `data/relay-secrets.json` or `.env`.
 - Do not start raw `npx vite`. Use `npm run dev` / `npm start`.
 
