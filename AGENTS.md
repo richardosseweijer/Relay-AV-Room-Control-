@@ -45,7 +45,7 @@ chrome in Phase 1 after gates pass.
 **B. App Builder sandbox / chat preview**  
 You are on someone else’s preview host. Extra boot rules, *only* in this mode:
 
-- Keep the app reachable on `0.0.0.0:8080` via `npm run dev` while you work.
+- Keep the app reachable via `npm run dev` while you work. Default listen is AV-LAN IPv4 or loopback (never auto-`0.0.0.0`). On a preview host that needs all-interfaces, set `RELAY_LISTEN_HOST=0.0.0.0` explicitly — do not assume production does this.
 - Do not delete `startup.sh`. Keep it starting `npm run dev`, not raw Vite.
 - Do not delete `scripts/with-app-env.mjs`.
 - If removing `scripts/grok-pwa-*`, `public/__grok/`, branding, or

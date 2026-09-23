@@ -4,7 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## 0.9.42 — 2026-09-23
 
-- Tag `v0.9.42`. Same Foyer pair (`v0.2.2`). Wire unchanged.
+- Tag `v0.9.42`. Same Foyer pair (`v0.2.2`). Wire unchanged for occupancy.
+- NIC-split A1: outbound **None** — Update refuses without a venue/internet NIC (#113).
+- NIC-split A2: HTTP panel/API listen pinned to AV-LAN IPv4; never `0.0.0.0` (#114).
+- NIC-split A3: install/security/architecture docs match dual-NIC trust model + A1/A2 (this train). HTTPS/LE venue = Phase B (not shipped).
 - God-file splits (façade-preserving): store leaves drivers/secrets/persist/normalize/monitors/schedules (#96–#101); panel tiles/pin/locked/widget (#102–#105); pages status/preview/enable/bind (#106–#109). No behaviour change.
 
 ## 0.9.41 — 2026-09-23
