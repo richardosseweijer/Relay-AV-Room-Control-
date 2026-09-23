@@ -10,8 +10,8 @@ Change both trees in the same train. If this file and the code disagree, **the c
 | | |
 |---|---|
 | Contract | 1 |
-| Date | 2026-09-22 |
-| Relay | **0.9.38** (`v0.9.38`) |
+| Date | 2026-09-23 |
+| Relay | **0.9.42** (`v0.9.42`) |
 | Foyer | **0.2.2** (`v0.2.2`) |
 
 Relay [`FOYER-ROADMAP.md`](https://github.com/richardosseweijer/Relay-AV-Room-Control-/blob/main/FOYER-ROADMAP.md) is implementation history. This file is the live wire.
@@ -24,7 +24,7 @@ One Ubuntu room PC, one room, two Node processes. They do not import each other.
 
 | Process | Owns | Production listen |
 |---|---|---|
-| **Relay** | Devices, panel, occupancy | `0.0.0.0:8081` (`npm start`) |
+| **Relay** | Devices, panel, occupancy | **AV-LAN IPv4** `:8081` (`npm start`) — never `0.0.0.0`. |
 | **Foyer** | Pictures, calendar, plates | Welcome/Setup `0.0.0.0:8080`; door plate AV-LAN `:8082` |
 
 Relay Grok/dev stays `:8080`. That is not the room-PC contract. On the room PC, Foyer keeps `:8080` / `:8082` and Relay production is `:8081`. Do not move Foyer.
@@ -277,7 +277,7 @@ Not editable on the Logic tab. Room tab Occupancy / Foyer card shows the live li
 | Relay `:8081/api/peer` | Allow | Must verify against Relay peer secret | Allowed **only** with valid HMAC (Relay-to-Relay). Foyer client never uses this. |
 | Foyer `:8080/api/peer` | Allow | Must verify against Foyer `relaySecret` | **Deny** (even with HMAC) |
 
-Loopback test: **TCP `remoteAddress`** of the accepted socket (`127.0.0.1` / `::1` / `::ffff:127.0.0.1`). Missing or unreadable peer → not loopback. `Host`, `X-Forwarded-For`, and `X-Forwarded-Host` are **not** loopback. The process still listens on `0.0.0.0`; unsigned GET is denied unless the TCP peer is loopback.
+Loopback test: **TCP `remoteAddress`** of the accepted socket (`127.0.0.1` / `::1` / `::ffff:127.0.0.1`). Missing or unreadable peer → not loopback. `Host`, `X-Forwarded-For`, and `X-Forwarded-Host` are **not** loopback. Relay listens on the **AV-LAN IPv4** only (A2). A socket bound to that IPv4 does **not** accept `127.0.0.1` connections. Foyer’s default Relay URL remains `http://127.0.0.1:8081` and fail-closes non-loopback — so on a dual-NIC room PC, either leave a documented escape (`RELAY_LISTEN_HOST=127.0.0.1` for lab only) or resolve dual-bind / Foyer URL in a later train; do not widen production to `0.0.0.0`. Unsigned GET is denied unless the TCP peer is loopback. Foyer may still listen on `0.0.0.0` for welcome/setup — that is Foyer’s binding, not Relay’s.
 
 
 ### 6.2 HMAC formula (when headers are sent)

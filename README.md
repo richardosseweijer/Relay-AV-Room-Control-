@@ -1,6 +1,6 @@
 # Relay
 
-Relay **0.9.38** (beta). Room controller for local AV devices. Private LAN only. Tag `v0.9.38` is a snapshot of this tree; install and update from **`main`**. After Update, Configurator → Room shows `0.9.38 (<git sha>)`. Versions are three-part from this release.
+Relay **0.9.42** (beta). Room controller for local AV devices. Private LAN only. Tag `v0.9.42` is a snapshot of this tree; install and update from **`main`**. After Update, Configurator → Room shows `0.9.42 (<git sha>)`. Versions are three-part from this release.
 
 Clone is unused until you start it. First boot writes `data/relay-room.json` and `data/relay-secrets.json` on the host. Those files are not in git.
 
@@ -12,12 +12,12 @@ npm ci
 
 | Script | Command | Bind | Use |
 | --- | --- | --- | --- |
-| Dev | `npm run dev` | `0.0.0.0:8080` | Local edit / App Builder preview |
-| Production | `npm run build` then `npm start` | `0.0.0.0:8081` | Pi / 24/7 |
+| Dev | `npm run dev` | AV-LAN IPv4 `:8080` (else loopback) | Local edit / App Builder preview |
+| Production | `npm run build` then `npm start` | AV-LAN IPv4 `:8081` (else loopback) | Pi / 24/7 |
 
-Room `http://HOST:PORT/` — configurator `http://HOST:PORT/config`
+Panel today: `http://<av-lan-ip>:PORT/` — configurator `/config`. Never binds `0.0.0.0`. HTTPS on the venue NIC is Phase B.
 
-Room tab **AV-LAN** / **LAN (internet)** pickers bind device I/O vs GitHub update. Same NIC is allowed (test box). Foyer signage is an optional second process (`:8080` / `:8082`). How they talk: **[FOYER-RELAY.md](FOYER-RELAY.md)**.
+Room tab **AV-LAN** (required trust LAN; panel listen) / **LAN (internet)** (optional outbound for Update; **None** = air-gap). Same NIC is allowed (test box). See [SECURITY.md](SECURITY.md) and [LINUX.md](LINUX.md) §5b. Foyer signage is an optional second process (`:8080` / `:8082`). How they talk: **[FOYER-RELAY.md](FOYER-RELAY.md)**.
 
 Do not start with raw `npx vite`. Scripts run `scripts/with-app-env.mjs`.
 

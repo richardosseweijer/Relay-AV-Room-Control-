@@ -13,7 +13,7 @@ Do not heap this into `engine.ts` — new files only, thin call-sites.
 - Host: Ubuntu Server 24.04. Pi/Windows stay until parked later.
 - Foyer `:8080` / `:8082`. Relay production `:8081`. Do **not** move Foyer.
 - Grok sandbox: Relay `npm run dev` stays `:8080`. Room PC: `npm start` (`:8081`).
-- HTTP listen `0.0.0.0` + **ufw** (AV-LAN + loopback). No dual Node sockets.
+- HTTP listen was originally `0.0.0.0` + **ufw**. **Superseded by NIC-split A2**: Relay binds AV-LAN IPv4 only (never `0.0.0.0`); ufw still AV CIDR. No dual Node sockets. HTTPS venue = Phase B.
 - Occupancy writer: Foyer polls Relay `GET /api/peer`. **No Relay POST occupancy.** Relay polls Foyer `GET :8080/api/peer` for the current or next calendar session (`foyer-peer.ts`, loopback-only).
 - Do **not** match room names. Do **not** map occupancy through vars for Foyer.
 - NIC pickers independent (standalone). Same NIC allowed; warn, do not block.
@@ -204,7 +204,7 @@ If outbound NIC set and no IPv4 → refuse update. Do not bind `git`. No AV-LAN 
 
 ### Phase 10 — docs
 
-Two NICs + loopback HMAC. Tablet on AV-LAN (drop rack-AP door story). `0.0.0.0:8081` + ufw. Foyer `:8080`/`:8082`. Production `:8081`. Peer secret ≠ PIN. Foyer occupancy = first-class `occupancy`. Room names do not need to match.
+Two NICs + loopback HMAC. Tablet on AV-LAN (drop rack-AP door story). Relay AV-LAN IPv4 `:8081` + ufw (A2; was `0.0.0.0`). Foyer `:8080`/`:8082`. Peer secret ≠ PIN. Foyer occupancy = first-class `occupancy`. Room names do not need to match. Docs train = A3.
 
 ### Phase 11 — full gate
 
