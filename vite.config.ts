@@ -11,6 +11,7 @@ import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
+import { bootResolveHttpListenHost } from "./scripts/http-listen-host.mjs";
 
 /** The files `src/lib/db.ts` globs — same directory, same non-recursive scope. */
 function hasGlobbedMigrations(root: string): boolean {
@@ -142,12 +143,30 @@ function authPopupPlugin(): Plugin {
   };
 }
 
-// `0.0.0.0:8080` is the live-preview contract — don't change host/port.
+// A2: HTTP listen host comes from AV-LAN (see scripts/http-listen-host.mjs).
+// with-app-env sets RELAY_LISTEN_HOST + --host; this default matches when Vite is
+// started without that wrapper. Never fall back to 0.0.0.0 here.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
-export default defineConfig(({ command, isPreview }) => ({
+function viteListenHost(listening: boolean): string {
+  if (!listening) return "127.0.0.1";
+  const envHost = String(process.env.RELAY_LISTEN_HOST ?? "").trim();
+  if (envHost) return envHost;
+  const resolved = bootResolveHttpListenHost(process.cwd(), process.env);
+  if (!resolved.ok) {
+    console.error(`[vite] ${resolved.reason}`);
+    throw new Error(resolved.reason);
+  }
+  if (resolved.warning) console.warn(`[vite] ${resolved.warning}`);
+  return resolved.host;
+}
+
+export default defineConfig(({ command, isPreview }) => {
+  const listening = command === "serve" || Boolean(isPreview);
+  const host = viteListenHost(listening);
+  return {
   server: {
-    host: "0.0.0.0",
+    host,
     port: 8080,
     strictPort: true,
     hmr: { overlay: false },
@@ -163,7 +182,7 @@ export default defineConfig(({ command, isPreview }) => ({
     },
   },
   preview: {
-    host: "127.0.0.1",
+    host,
     port: Number(process.env.NITRO_PORT || 8081),
     strictPort: true,
   },
@@ -187,4 +206,5 @@ export default defineConfig(({ command, isPreview }) => ({
       : []),
     viteReact(),
   ],
-}));
+};
+});

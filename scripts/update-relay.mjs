@@ -4,6 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { bootResolveHttpListenHost } from "./http-listen-host.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const parent = path.dirname(root);
@@ -58,7 +59,7 @@ function cleanup() {
   removeTree(rollback);
 }
 
-function previewEnv(port) {
+function previewEnv(port, host) {
   return {
     ...process.env,
     PORT: String(port),
@@ -66,7 +67,19 @@ function previewEnv(port) {
     VITE_PORT: String(port),
     VITE_PREVIEW_PORT: String(port),
     CHOKIDAR_USEPOLLING: "1",
+    ...(host ? { RELAY_LISTEN_HOST: String(host) } : {}),
   };
+}
+
+/** Production listen host from AV-LAN / RELAY_LISTEN_HOST. Never 0.0.0.0. */
+function productionListenHost() {
+  const listen = bootResolveHttpListenHost(root, process.env);
+  if (!listen.ok) {
+    log(listen.reason);
+    return null;
+  }
+  if (listen.warning) log(listen.warning);
+  return listen.host;
 }
 
 async function verifyStagedBuild() {
@@ -78,7 +91,7 @@ async function verifyStagedBuild() {
   const child = spawn(process.execPath, [viteJs, "preview", "--host", "127.0.0.1", "--port", port, "--strictPort"], {
     cwd: stage,
     stdio: ["ignore", logStream, logStream],
-    env: previewEnv(port),
+    env: previewEnv(port, "127.0.0.1"),
   });
   let ready = false;
   let lastWaitLog = 0;
@@ -109,26 +122,27 @@ async function verifyStagedBuild() {
   return ready;
 }
 
-function startPreview(port) {
+function startPreview(port, host) {
   const viteJs = path.join(root, "node_modules", "vite", "bin", "vite.js");
-  if (!fs.existsSync(viteJs)) return null;
-  const child = spawn(process.execPath, [viteJs, "preview", "--host", "0.0.0.0", "--port", port, "--strictPort"], {
+  if (!fs.existsSync(viteJs) || !host) return null;
+  const child = spawn(process.execPath, [viteJs, "preview", "--host", host, "--port", port, "--strictPort"], {
     cwd: root,
     detached: true,
     stdio: "ignore",
-    env: previewEnv(port),
+    env: previewEnv(port, host),
   });
   child.unref();
   return child;
 }
 
-async function waitForPreview(port, child) {
+async function waitForPreview(port, child, host) {
+  const probe = host || "127.0.0.1";
   const deadline = Date.now() + Number(process.env.RELAY_UPDATE_READY_MS || 120_000);
   while (Date.now() < deadline) {
     if (child.exitCode !== null) return false;
     try {
       const remaining = Math.max(1, deadline - Date.now());
-      const response = await fetch(`http://127.0.0.1:${port}/api/room`, {
+      const response = await fetch(`http://${probe}:${port}/api/room`, {
         signal: AbortSignal.timeout(Math.min(2000, remaining)),
       });
       if (response.ok) return true;
@@ -197,18 +211,24 @@ if (main) {
   await new Promise((resolve) => setTimeout(resolve, 750));
 }
 const port = String(process.env.PORT || "8081");
-const child = startPreview(port);
+const host = productionListenHost();
+if (!host) {
+  restore(oldHead);
+  cleanup();
+  process.exit(1);
+}
+const child = startPreview(port, host);
 if (!child) {
   restore(oldHead);
   cleanup();
   process.exit(1);
 }
-const ready = await waitForPreview(port, child);
+const ready = await waitForPreview(port, child, host);
 if (!ready) {
   try { process.kill(child.pid, "SIGTERM"); } catch { /* already gone */ }
   restore(oldHead);
-  const previous = startPreview(port);
-  const restored = previous ? await waitForPreview(port, previous) : false;
+  const previous = startPreview(port, host);
+  const restored = previous ? await waitForPreview(port, previous, host) : false;
   cleanup();
   log(restored
     ? "new release failed readiness; restored and restarted previous release"
@@ -216,4 +236,4 @@ if (!ready) {
   process.exit(1);
 }
 cleanup();
-log(`serving verified release on ${port}`);
+log(`serving verified release on ${host}:${port}`);

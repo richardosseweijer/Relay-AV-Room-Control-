@@ -9,10 +9,10 @@
     "nf3": "0.3.17"
   },
   "scripts": {
-    "dev": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
+    "dev": "node scripts/with-app-env.mjs vite dev --port 8080",
     "build": "node scripts/with-app-env.mjs vite build",
     "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
-    "start": "node scripts/with-app-env.mjs vite preview --host 0.0.0.0 --port 8081",
+    "start": "node scripts/with-app-env.mjs vite preview --port 8081",
     "preview:restart": "node scripts/preview.mjs restart",
     "preview:stop": "node scripts/preview.mjs stop",
     "typecheck": "tsc --noEmit",
