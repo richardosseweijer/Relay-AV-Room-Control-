@@ -421,7 +421,104 @@ ss -lptn 'sport = :8081'
 
 ---
 
-## 7. Update from GitHub
+
+## 7. Panel on local HDMI (kiosk)
+
+Optional. Same pattern as Foyer welcome kiosk: **cage** on tty1 + Chromium on Wayland, pinned to one DRM connector. The kiosk opens the **live AV-LAN panel URL** (`http://<av-lan-ipv4>:8081/`), not `127.0.0.1` and never `0.0.0.0`. HTTP listen stays AV-LAN only.
+
+Skip until §5 answers on the AV IPv4 and §6 has `relay.service` enabled.
+
+```bash
+sudo apt-get install -y seatd cage wlr-randr fonts-liberation fonts-noto-core mesa-vulkan-drivers libgl1-mesa-dri
+sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser
+sudo systemctl enable --now seatd
+sudo usermod -aG video,render,input,tty "$USER"
+sudo loginctl enable-linger "$USER"
+```
+
+Log out and back in (or reboot) so the `video` / `render` groups apply. `echo $XDG_RUNTIME_DIR` should print `/run/user/$(id -u)`.
+
+If `chromium` is missing, try `chromium-browser`. Snap Chromium under cage often needs `--no-sandbox` on a dedicated PC — set `RELAY_KIOSK_NO_SANDBOX=1` in `data/relay-kiosk.env` only if `journalctl -u relay-kiosk` shows namespace errors. Do not enable it by default.
+
+`unclutter` is X11 and does nothing under cage. Skip it.
+
+Disable blanking and sleep:
+
+```bash
+sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+```
+
+### 7a. Kiosk unit
+
+Cage needs a real HDMI connected **before** start. This unit **takes tty1** from the Ubuntu login prompt so Chromium covers that console. SSH is unchanged.
+
+```bash
+USER_NAME="$(whoami)"
+HOME_DIR="$HOME"
+REPO_DIR="${HOME_DIR}/Relay-AV-Room-Control-"
+chmod +x "${REPO_DIR}/scripts/relay-kiosk.sh"
+sudo tee /etc/systemd/system/relay-kiosk.service >/dev/null <<EOF
+[Unit]
+Description=Relay panel kiosk (local HDMI)
+After=relay.service systemd-user-sessions.service plymouth-quit-wait.service
+Requires=relay.service
+Conflicts=getty@tty1.service
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+User=${USER_NAME}
+SupplementaryGroups=video render input tty
+PAMName=login
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty1
+UnsetEnvironment=TERM
+Environment=XDG_SESSION_TYPE=wayland
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+Environment=WLR_LIBINPUT_NO_DEVICES=1
+EnvironmentFile=-${REPO_DIR}/data/relay-kiosk.env
+ExecStartPre=+/bin/chvt 1
+ExecStart=/usr/bin/cage -d -- ${REPO_DIR}/scripts/relay-kiosk.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now relay-kiosk
+sudo systemctl status relay-kiosk --no-pager
+```
+
+Room → **Local display (HDMI)** saves `data/relay-kiosk.env` (`RELAY_VIDEO_OUTPUT` + `RELAY_KIOSK_URL`) and can restart this unit. Wrong output can blank the console page; SSH stays up.
+
+Configurator restart needs passwordless systemctl for this unit only:
+
+```bash
+USER_NAME="$(whoami)"
+sudo tee /etc/sudoers.d/relay-kiosk >/dev/null <<EOF
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start relay-kiosk.service, /usr/bin/systemctl restart relay-kiosk.service, /usr/bin/systemctl try-restart relay-kiosk.service, /usr/bin/systemctl stop relay-kiosk.service
+EOF
+sudo chmod 440 /etc/sudoers.d/relay-kiosk
+sudo visudo -c
+```
+
+Templates: `deploy/relay-kiosk.service`, `deploy/sudoers.relay-kiosk`.
+
+cage `-d` skips client decorations. It does **not** use `-s` (that flag allows switching back to the text console).
+
+If the kiosk stays on the Ubuntu login TTY: the unit is the old one (no `Conflicts=getty@tty1`). Re-run this section, then `sudo systemctl daemon-reload && sudo systemctl restart relay-kiosk`. Next step: `sudo journalctl -u relay-kiosk -e`. Confirm the panel from a config laptop at `http://<av-lan-ipv4>:8081/` (not loopback once AV-LAN is set).
+
+---
+
+## 8. Update from GitHub
 
 The application directory must be a clone of [Relay-AV-Room-Control-](https://github.com/richardosseweijer/Relay-AV-Room-Control-).
 
@@ -480,7 +577,7 @@ For **Apply AV-LAN IP**, also install the nmcli sudoers drop-in in §5b (`/etc/s
 
 ---
 
-## 8. Data
+## 9. Data
 
 Room configuration is stored in `data/relay-room.json` (layout, IPs) and `data/relay-secrets.json` (PINs, tokens). Copy both off the card before a re-image. Do not put the secrets file in an export or a git repo.
 

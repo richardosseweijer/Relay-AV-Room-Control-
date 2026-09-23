@@ -1,0 +1,37 @@
+# Takes tty1 from the Ubuntu Server console so cage paints over the login TTY.
+# HDMI must be connected before this unit starts.
+# Configurator writes data/relay-kiosk.env (RELAY_VIDEO_OUTPUT + RELAY_KIOSK_URL) then restarts this unit.
+# Replace USER / paths to match deploy/relay.service.
+[Unit]
+Description=Relay panel kiosk (local HDMI)
+After=relay.service systemd-user-sessions.service plymouth-quit-wait.service
+Requires=relay.service
+Conflicts=getty@tty1.service
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+User=USER
+SupplementaryGroups=video render input tty
+PAMName=login
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty1
+UnsetEnvironment=TERM
+Environment=XDG_SESSION_TYPE=wayland
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+Environment=WLR_LIBINPUT_NO_DEVICES=1
+EnvironmentFile=-/home/USER/Relay-AV-Room-Control-/data/relay-kiosk.env
+ExecStartPre=+/bin/chvt 1
+ExecStart=/usr/bin/cage -d -- /home/USER/Relay-AV-Room-Control-/scripts/relay-kiosk.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
