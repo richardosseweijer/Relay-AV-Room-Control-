@@ -63,7 +63,8 @@ export async function listenUdpMulticast(opts: {
   return new Promise((resolve) => {
     const sock = dgram.createSocket({ type: "udp4", reuseAddr: true });
     sock.once("error", (err) => resolve({ error: err.message }));
-    sock.bind(opts.port, () => {
+    // When AV-LAN is set, bind the listen socket to that IPv4 (not host-wide 0.0.0.0).
+    sock.bind(opts.port, opts.localAddress || undefined, () => {
       try {
         sock.addMembership(opts.group, opts.localAddress);
       } catch (err) {

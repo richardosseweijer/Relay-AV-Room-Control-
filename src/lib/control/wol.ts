@@ -21,7 +21,7 @@ export async function sendWol(mac: string, host: string, localAddress?: string):
     const sock = dgram.createSocket({ type: "udp4", reuseAddr: true });
     await new Promise<void>((resolve, reject) => {
       sock.once("error", reject);
-      sock.bind(0, localAddress || "0.0.0.0", () => {
+      sock.bind(0, localAddress || undefined, () => {
         try { sock.setBroadcast(true); } catch { /* ignore */ }
         resolve();
       });
