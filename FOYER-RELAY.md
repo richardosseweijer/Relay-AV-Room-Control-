@@ -12,7 +12,7 @@ Change both trees in the same train. If this file and the code disagree, **the c
 | Contract | 1 |
 | Date | 2026-09-23 |
 | Relay | **0.9.47+** (prefer `v0.9.49`; AV listen + `controlBaseUrlFrom` from Relay #127) |
-| Foyer | **0.2.2** (`v0.2.2`) — occupancy URL rewrite-on-load + `http:` allowlist |
+| Foyer | **0.2.3** (`v0.2.3`) — host unit installer (K7b); occupancy URL rewrite-on-load + `http:` allowlist |
 
 Relay [`FOYER-ROADMAP.md`](https://github.com/richardosseweijer/Relay-AV-Room-Control-/blob/main/FOYER-ROADMAP.md) is implementation history. This file is the live wire.
 
@@ -29,17 +29,17 @@ Relay [`FOYER-ROADMAP.md`](https://github.com/richardosseweijer/Relay-AV-Room-Co
 | Displays | **Foyer** — `foyer` + `foyer-panel` + `foyer-kiosk` (sway, up to two Chromiums: Welcome + Room panel) |
 | Panel HTTP | **Relay** — AV-LAN IPv4 `:8081` only (never `0.0.0.0`) |
 | Relay local compositor | **Off** — `systemctl disable --now relay-kiosk` when Foyer paints the Room panel head |
-| Host sudoers (one-time each) | Foyer `scripts/install-host-sudoers.sh`; Relay `scripts/install-host-sudoers.sh` (kiosk + nmcli) |
+| Host units + sudoers (one-time each) | Foyer `scripts/install-host.sh` (foyer + foyer-panel + foyer-kiosk ON); Relay `scripts/install-host.sh` (relay ON; relay-kiosk left off) |
 | Room-panel URL | Live AV-LAN `http://<av-lan-ipv4>:8081` — never `0.0.0.0`; not loopback for peer occupancy on dual-NIC |
 
 ### Checklist
 
-- [ ] **Packages / units** — Foyer `foyer` + `foyer-panel` enabled; seatd / sway / Chromium per INSTALL §7; Relay `relay` enabled on AV-LAN `:8081` (LINUX §6). Do not enable `relay-kiosk` on this host.
-- [ ] **Foyer sudoers (once)** — from the Foyer checkout: `sudo bash scripts/install-host-sudoers.sh` → `/etc/sudoers.d/foyer-kiosk` (Update / pull / reboot do **not** install this).
-- [ ] **Relay sudoers (once)** — from the Relay checkout: `sudo bash scripts/install-host-sudoers.sh` → `/etc/sudoers.d/relay-kiosk` + `/etc/sudoers.d/relay-nmcli` (same: not installed by Update / pull / reboot).
+- [ ] **Packages** — Foyer seatd / sway / Chromium per INSTALL §7; Relay build + AV-LAN listen per LINUX §4 / §6. Do not enable `relay-kiosk` on this host.
+- [ ] **Foyer host install (once)** — from the Foyer checkout: `sudo bash scripts/install-host.sh` → units `foyer` + `foyer-panel` + `foyer-kiosk` enabled, plus `/etc/sudoers.d/foyer-kiosk` (Update / pull / reboot do **not** install these).
+- [ ] **Relay host install (once)** — from the Relay checkout: `sudo bash scripts/install-host.sh` → `relay` enabled; `relay-kiosk` installed but left **disabled**; sudoers `relay-kiosk` + `relay-nmcli` (same: not installed by Update / pull / reboot).
 - [ ] **Disable Relay kiosk** — Configurator → Room → Local display: leave **Enable** unchecked (or uncheck + Save) so Relay runs `systemctl disable --now relay-kiosk`; CLI fallback: `sudo systemctl disable --now relay-kiosk`. Foyer alone owns tty1 / DRM (LINUX §7a).
 - [ ] **AV-LAN bind + Room-panel URL** — Relay listens on live AV-LAN IPv4 `:8081`; Foyer Setup Relay URL / Room panel URL = `http://<av-lan-ipv4>:8081` (never `0.0.0.0`; not `127.0.0.1` for peer occupancy on dual-NIC).
-- [ ] **Enable Foyer kiosk** — Setup picks **Welcome HDMI** and/or **Room panel HDMI** (different connectors if both); `sudo systemctl enable --now foyer-kiosk` (INSTALL §7a / §7c).
+- [ ] **Foyer kiosk heads** — Setup picks **Welcome HDMI** and/or **Room panel HDMI** (different connectors if both); confirm `systemctl is-enabled foyer-kiosk` (INSTALL §7a / §7c). Re-run Foyer `install-host.sh` if the unit was skipped earlier.
 - [ ] **Verify** — Welcome head shows Foyer `http://127.0.0.1:8080/`; Room panel head shows Relay control UI from the AV-LAN URL; `systemctl status foyer-kiosk` active; `relay-kiosk` disabled / inactive.
 - [ ] **Firewall** — if not already done: Foyer INSTALL §5 and Relay LINUX §5b (8080/8082 and 8081 from AV CIDR only; never bare `allow …/tcp` from anywhere; no WAN port-forward).
 
@@ -407,7 +407,7 @@ Relay-to-Relay HMAC macros stay allowed on Relay `:8081`; they are a different A
 | UI | `src/components/config/room-tab.tsx`, `logic-tab.tsx`, `security-tab.tsx` |
 | Tests | `scripts/peer-occupancy.test.mjs`, `scripts/foyer-peer.test.mjs` |
 
-**Foyer 0.2.2**
+**Foyer 0.2.3**
 
 | Piece | File |
 |---|---|
