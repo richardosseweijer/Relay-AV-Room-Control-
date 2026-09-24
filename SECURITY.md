@@ -95,7 +95,7 @@ Foyer (optional) on this PC: occupancy GET to Relay on **AV-LAN `:8081`** (or lo
 
 ## Venue TLS inventory (C0)
 
-Canonical dual-NIC + venue TLS map. Prefer this section over older “LE = B2” wording elsewhere. C0 was docs-only; **C1–C3 shipped** (Generate + Networks UI + regenerate lifecycle); **C4** is the docs/hardening checkpoint (`v0.9.46`).
+Canonical dual-NIC + venue TLS map. Prefer this section over older “LE = B2” wording elsewhere. `LINUX.md` §5b keeps the room-PC ufw copy-paste and a short optional-venue pointer; **do not** re-expand C1–C4 history there. C0 was docs-only; **C1–C3 shipped** (Generate + Networks UI + regenerate lifecycle); **C4** is the docs/hardening checkpoint (`v0.9.46`).
 
 ### Shipped (A + B through `v0.9.45`)
 
@@ -192,7 +192,7 @@ Operators may still drop in file PEMs for B1. **C0–C4 closed.** **Strict peer 
 | File | Role after C0 |
 |---|---|
 | `SECURITY.md` (this file) | Canonical trust model + inventory (Shipped C0–C4 vs PARKED LE vs residual leftovers) |
-| `LINUX.md` §5b / venue HTTPS notes | Install: one-NIC + two-NIC ufw chapter, PEM drop, Generate + NIC2 CA download click-through |
+| `LINUX.md` §5b | Install: one-NIC + two-NIC ufw chapter; short venue-HTTPS pointer → this inventory (PEM / Generate / CA lifecycle live here) |
 | `ARCHITECTURE.md` §2 / §8 | Process listen + access control aligned with AV HTTP vs venue HTTPS |
 | `CONTEXT.md` / `AGENTS.md` | Agent map + bans: no LE default; no `0.0.0.0`; AV ≠ venue certs; C1–C4 Generate + UI + lifecycle + docs checkpoint shipped |
 | `KNOWN_ISSUES.md` | Still-true listen / venue TLS bullets |
