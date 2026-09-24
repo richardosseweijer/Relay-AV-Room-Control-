@@ -41,9 +41,9 @@ node -v
 npm -v
 ```
 
-`node -v` must print `v22` or newer. If the NodeSource script fails (no outbound HTTPS), install Node 22 from [https://nodejs.org](https://nodejs.org) instead and ensure `node` and `npm` are on `PATH`.
+`node -v` must print `v22` or newer. The repo pins this via `.nvmrc` (`22`) and `package.json` `"engines": { "node": ">=22" }` (npm warns on older Node; we do not set `engine-strict`). If the NodeSource script fails (no outbound HTTPS), install Node 22 from [https://nodejs.org](https://nodejs.org) instead and ensure `node` and `npm` are on `PATH`.
 
-On a Raspberry Pi you may use [nvm](https://github.com/nvm-sh/nvm) instead of NodeSource. If you do, the systemd unit in §6 must include that user’s nvm `bin` directory on `PATH`.
+On a Raspberry Pi you may use [nvm](https://github.com/nvm-sh/nvm) instead of NodeSource (`nvm use` / `.nvmrc`). If you do, the systemd unit in §6 must include that user’s nvm `bin` directory on `PATH` (see §6a preflight).
 
 ---
 
