@@ -4,6 +4,8 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Meta (I5): `package.json` `"engines": { "node": ">=22" }` + `.nvmrc` (`22`); LINUX.md §2 note. No `engine-strict`. No version bump.
+
 ## 0.9.56
 
 - Tag `v0.9.56`. **I4 — install-host-units preflight:** before any write / `daemon-reload` / enable, [`scripts/install-host-units.sh`](scripts/install-host-units.sh) checks `/usr/bin/npm`, Node major ≥ 22 on unit PATH (`/usr/bin:/usr/local/bin`), and `.vercel/output/nitro.json` from `npm run build`. Clear failure points at LINUX.md §2 / §5 (nvm caveat). `--skip-preflight` escape hatch. Lib: [`scripts/install-host-preflight.sh`](scripts/install-host-preflight.sh); tests: [`scripts/install-host-preflight.test.mjs`](scripts/install-host-preflight.test.mjs). Docs: [`LINUX.md`](LINUX.md) §6a.
