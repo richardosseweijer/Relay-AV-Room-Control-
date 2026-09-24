@@ -4,6 +4,8 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Docs (I1): Ubuntu Server prerequisites in [`LINUX.md`](LINUX.md) — NetworkManager + netplan for Apply AV-LAN IP (§5b); Chromium snap + universe for Relay HDMI kiosk (§7b). No version bump.
+
 ## 0.9.55
 
 - Tag `v0.9.55`. **K7 (Relay) — host systemd unit installer:** [`scripts/install-host-units.sh`](scripts/install-host-units.sh) installs `/etc/systemd/system/relay.service` + `relay-kiosk.service` from [`deploy/`](deploy/) with `User=` / checkout-path substitution (`RELAY_USER` / `SUDO_USER` / …), `daemon-reload`, enables **`relay`** only; **`relay-kiosk` stays disabled by default** (`--enable-kiosk` for Relay-only HDMI — Foyer dual-head must leave it off). Thin [`scripts/install-host.sh`](scripts/install-host.sh) chains units + [`install-host-sudoers.sh`](scripts/install-host-sudoers.sh). [`deploy/relay.service`](deploy/relay.service) uses `USER` placeholders (no hard-coded `pi`). Docs: [`LINUX.md`](LINUX.md) §6a preferred path, §7c, checklist / post-Update. Residual: **K7b** Foyer units installer; **K8** hygiene.
