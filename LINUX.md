@@ -220,6 +220,39 @@ Room → Networks → **AV-LAN IPv4 (Linux)** can set **static** or **DHCP** on 
 - If `RELAY_LISTEN_HOST` is set and would disagree with the new address, Apply **refuses**.
 - Changing prefix/network: **re-check and update ufw** to the new AV CIDR (Apply does not edit ufw).
 
+**Without NetworkManager, Relay still runs.** Panel/API listen, tablets, firewall, and Update do not need NM. Only the in-app **Apply AV-LAN IPv4** button needs it. Manual netplan / `ip` addressing remains fine for day-to-day.
+
+##### Ubuntu Server 24.04 — install NetworkManager first (Apply only)
+
+Ubuntu **Desktop** ships NetworkManager. **Ubuntu Server** defaults to **systemd-networkd** via netplan, so `nmcli` is often missing until you install it. Do this **before** the sudoers drop-in below (and before relying on Apply).
+
+```bash
+sudo apt-get install -y network-manager
+```
+
+Point netplan at NetworkManager. Prefer a **local console / HDMI / existing session** — not SSH over the NIC you are reconfiguring (you can lose the session). Minimal safe addition (lexicographically last file wins the `renderer`; keep your existing Ethernet YAML):
+
+```bash
+# Example — adjust only if you already manage renderer elsewhere
+sudo tee /etc/netplan/99-relay-network-manager.yaml >/dev/null <<'EOF'
+network:
+  version: 2
+  renderer: NetworkManager
+EOF
+sudo netplan try
+# If try is unavailable or you accept no timed rollback: sudo netplan apply
+```
+
+Confirm the AV NIC is managed:
+
+```bash
+nmcli device status
+# Expect the AV iface under NetworkManager (connected / connecting) — not "unmanaged"
+# and not only visible to networkctl / systemd-networkd
+```
+
+If `nmcli` is missing or the AV NIC stays unmanaged, fix NM/netplan before `install-host-sudoers.sh`. Relay does **not** auto-switch netplan renderers.
+
 Privilege: Relay stays non-root. Install a narrow sudoers drop-in so the service user can run nmcli without a password. Prefer the host installer (also installs the §7c kiosk drop-in):
 
 ```bash
@@ -368,6 +401,7 @@ Optional Foyer on the same host: same as one-NIC — `8080` / `8082` from **AV C
 - [ ] Two-NIC: `8443` closed **or** scoped to known venue/admin CIDR (never “any”)
 - [ ] Outbound **None** ⇒ expect Update disabled and no venue HTTPS face
 - [ ] After any AV IP Apply / prefix change: ufw CIDR re-checked
+- [ ] Using **Apply AV-LAN IP**? NetworkManager installed + netplan `renderer: NetworkManager`; `nmcli device status` shows the AV NIC managed (**before** sudoers / `install-host.sh`). Ubuntu Server: `apt-get install network-manager` first — Relay still runs without NM; Apply only
 - [ ] Host units (§6a): `sudo bash scripts/install-host.sh` once (`relay` enabled; `relay-kiosk` left disabled by default)
 - [ ] Local panel (§7): dual-head with Foyer → keep `relay-kiosk` disabled (§7a); else optional `--enable-kiosk` / §7b/§7c — local only; no extra inbound ports
 - [ ] Curl from an AV host reaches the panel; curl from the wrong net does not
@@ -601,8 +635,21 @@ Same pattern as a single-head Foyer welcome kiosk: **cage** on tty1 + Chromium o
 
 Skip until §5 answers on the AV IPv4 and §6 has `relay.service` enabled. Skip entirely when §7a applies (Foyer drives the Room panel head).
 
+`seatd`, `cage`, and `wlr-randr` are in Ubuntu **universe** (noble). On a minimal Server image, if `apt-cache policy cage` shows no candidate, enable universe then update:
+
+```bash
+sudo apt-get install -y software-properties-common
+sudo add-apt-repository -y universe
+sudo apt-get update
+```
+
 ```bash
 sudo apt-get install -y seatd cage wlr-randr fonts-liberation fonts-noto-core mesa-vulkan-drivers libgl1-mesa-dri
+# Ubuntu 24.04 (noble): apt chromium / chromium-browser installs the Chromium *snap*
+# (transitional package). Under cage on a dedicated room PC, expect sandbox/namespace
+# errors — set RELAY_KIOSK_NO_SANDBOX=1 in data/relay-kiosk.env (appliance only).
+# Other distros (e.g. Debian) may ship a real Chromium .deb; use that when
+# `which chromium` is a non-snap binary. Do not enable NO_SANDBOX on shared desktops.
 sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser
 sudo systemctl enable --now seatd
 sudo usermod -aG video,render,input,tty "$USER"
@@ -611,7 +658,7 @@ sudo loginctl enable-linger "$USER"
 
 Log out and back in (or reboot) so the `video` / `render` groups apply. `echo $XDG_RUNTIME_DIR` should print `/run/user/$(id -u)`.
 
-If `chromium` is missing, try `chromium-browser`. Snap Chromium under cage often needs `--no-sandbox` on a dedicated PC — set `RELAY_KIOSK_NO_SANDBOX=1` in `data/relay-kiosk.env` only if `journalctl -u relay-kiosk` shows namespace errors. Do not enable it by default.
+**Ubuntu 24.04 Chromium = snap.** After install, `which chromium` / `chromium-browser` usually resolves into `/snap/bin/…`. On this appliance set `RELAY_KIOSK_NO_SANDBOX=1` in `data/relay-kiosk.env` when `journalctl -u relay-kiosk` shows namespace / sandbox errors (typical under cage). Leave it unset until then. Optional non-Ubuntu path: a distro `.deb` Chromium when available — not the noble default.
 
 `unclutter` is X11 and does nothing under cage. Skip it.
 
