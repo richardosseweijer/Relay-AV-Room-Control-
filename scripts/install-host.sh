@@ -7,7 +7,7 @@
 #
 # Usage:
 #   sudo bash scripts/install-host.sh
-#   sudo RELAY_USER=pi bash scripts/install-host.sh
+#   sudo RELAY_USER=ubuntu bash scripts/install-host.sh
 #   sudo bash scripts/install-host.sh --enable-kiosk   # Relay-only HDMI; not for Foyer dual-head
 #
 # Requires root. Update / pull / reboot do NOT run this.
