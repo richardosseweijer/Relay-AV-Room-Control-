@@ -400,7 +400,7 @@ export function RoomTab(props: {
     });
   };
   return (
-    <section className="grid gap-4 sm:grid-cols-2">
+    <section className="grid gap-5 sm:grid-cols-2">
             <label className="grid gap-1 text-sm text-muted">Room name<input className={fieldClass()} value={draft.room.name} onChange={(e) => update((c) => { c.room.name = e.target.value; })} /></label>
             <p className="grid gap-1 text-sm text-muted">Relay version<span className="font-mono text-fg">{snap.version || "—"}</span></p>
             <label className="grid gap-1 text-sm text-muted">Theme
@@ -421,25 +421,30 @@ export function RoomTab(props: {
               <span className="text-xs">Schedules use this host’s clock. Set the OS time if it is wrong.</span>
             </label>
 
-            <article className="sm:col-span-2 grid gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2">
+            <article className="sm:col-span-2 grid gap-4 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2">
               <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-subtle">Networks</p>
+                <div className="grid gap-1">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-subtle">Networks</p>
+                  <p className="text-xs text-muted normal-case tracking-normal">Pick AV-LAN and venue/LAN NICs. Each block below is one side of the split.</p>
+                </div>
                 <Button size="sm" variant="secondary" onClick={() => { void loadNics(); void loadVenueTls(); }}>Refresh NICs</Button>
               </div>
               <p className="sm:col-span-2 text-xs text-muted">On two NICs, bind device I/O to AV-LAN and GitHub update to LAN (internet). On a one-NIC box pick that NIC for update, or None for air-gapped rooms. Same NIC is allowed for testing.</p>
-              <label className="grid gap-1 text-sm text-muted">AV-LAN
-                <select className={fieldClass()} value={nicKey(draft.room.avLanNicName, draft.room.avLanNicIndex)} onChange={(e) => pickNic("av", e.target.value)}>
-                  <option value="">Default (kernel)</option>
-                  {nicChoices.map((nic) => <option key={`av-${nic.name}`} value={nicKey(nic.name, nic.index)}>{nic.label}</option>)}
-                </select>
-                <span className="text-xs">
-                  Live IP:{" "}
-                  {avLiveIp.kind === "ip"
-                    ? <span className="font-mono text-fg select-all">{avLiveIp.ipv4}</span>
-                    : <span className="text-muted">{avLiveIp.text}</span>}
-                  {" · "}Device sockets and tablets. No default route on a two-NIC room PC.
-                </span>
-                <div className="mt-2 grid gap-2 rounded-lg border border-border bg-raised/40 p-3">
+              <div className="grid gap-3 rounded-lg border border-border bg-raised/40 p-3">
+                <label className="grid gap-1 text-sm text-muted">AV-LAN
+                  <select className={fieldClass()} value={nicKey(draft.room.avLanNicName, draft.room.avLanNicIndex)} onChange={(e) => pickNic("av", e.target.value)}>
+                    <option value="">Default (kernel)</option>
+                    {nicChoices.map((nic) => <option key={`av-${nic.name}`} value={nicKey(nic.name, nic.index)}>{nic.label}</option>)}
+                  </select>
+                  <span className="text-xs">
+                    Live IP:{" "}
+                    {avLiveIp.kind === "ip"
+                      ? <span className="font-mono text-fg select-all">{avLiveIp.ipv4}</span>
+                      : <span className="text-muted">{avLiveIp.text}</span>}
+                    {" · "}Device sockets and tablets. No default route on a two-NIC room PC.
+                  </span>
+                </label>
+                <div className="grid gap-2 rounded-md border border-border bg-surface p-3">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-subtle">AV-LAN IPv4 (Linux)</p>
                   <label className="grid gap-1 text-sm text-muted">Mode
                     <select
@@ -497,20 +502,22 @@ export function RoomTab(props: {
                   {avIpHint ? <p className="text-xs text-muted break-all">{avIpHint}</p> : null}
                   <p className="text-xs text-muted">Not part of Save all — Apply writes the OS address, then persists room.network and restarts. No gateway/DNS fields; venue NIC untouched.</p>
                 </div>
-              </label>
-              <label className="grid gap-1 text-sm text-muted">LAN (internet)
-                <select className={fieldClass()} value={outboundNone ? "" : nicKey(draft.room.outboundNicName, draft.room.outboundNicIndex)} onChange={(e) => pickNic("out", e.target.value)}>
-                  <option value="">None</option>
-                  {nicChoices.map((nic) => <option key={`out-${nic.name}`} value={nicKey(nic.name, nic.index)}>{nic.label}</option>)}
-                </select>
-                <span className="text-xs">
-                  Live IP:{" "}
-                  {outboundLiveIp.kind === "ip"
-                    ? <span className="font-mono text-fg select-all">{outboundLiveIp.ipv4}</span>
-                    : <span className={outboundLiveIp.kind === "waiting" ? "text-clay" : "text-muted"}>{outboundLiveIp.text}</span>}
-                  {" · "}Venue/internet NIC for GitHub update. None = no internet-facing NIC; Update disabled. Not used for device I/O.
-                </span>
-              </label>
+              </div>
+              <div className="grid gap-3 self-start rounded-lg border border-border bg-raised/40 p-3">
+                <label className="grid gap-1 text-sm text-muted">LAN (internet)
+                  <select className={fieldClass()} value={outboundNone ? "" : nicKey(draft.room.outboundNicName, draft.room.outboundNicIndex)} onChange={(e) => pickNic("out", e.target.value)}>
+                    <option value="">None</option>
+                    {nicChoices.map((nic) => <option key={`out-${nic.name}`} value={nicKey(nic.name, nic.index)}>{nic.label}</option>)}
+                  </select>
+                  <span className="text-xs">
+                    Live IP:{" "}
+                    {outboundLiveIp.kind === "ip"
+                      ? <span className="font-mono text-fg select-all">{outboundLiveIp.ipv4}</span>
+                      : <span className={outboundLiveIp.kind === "waiting" ? "text-clay" : "text-muted"}>{outboundLiveIp.text}</span>}
+                    {" · "}Venue/internet NIC for GitHub update. None = no internet-facing NIC; Update disabled. Not used for device I/O.
+                  </span>
+                </label>
+              </div>
               {nicError ? <p className="sm:col-span-2 text-xs text-clay">{nicError}</p> : null}
               {sameNic ? <p className="sm:col-span-2 text-xs text-muted">Same NIC on both pickers (test box). Allowed.</p> : null}
               {outboundNone ? <p className="sm:col-span-2 text-xs text-muted">Outbound is None — Update from GitHub is disabled until you pick a venue/internet NIC.</p> : null}
