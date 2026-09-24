@@ -118,42 +118,25 @@ else
   echo "install-host-units: relay-kiosk will be installed but NOT enabled (default; Foyer dual-head)"
 fi
 
-# Escape sed replacement for paths that may contain & \ /
-escape_sed_repl() {
-  printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'
-}
-
-REPO_ESC="$(escape_sed_repl "${REPO_ROOT}")"
-USER_ESC="$(escape_sed_repl "${RELAY_SVC_USER}")"
+# shellcheck source=scripts/install-host-units-render.sh
+source "${SCRIPT_DIR}/install-host-units-render.sh"
 
 render_unit() {
   local template="$1"
   local dest_name="$2"
-  local tmp out
+  local out="${SYSTEMD_DIR}/${dest_name}"
+  local tmp
   tmp="$(mktemp)"
   # shellcheck disable=SC2064
   trap "rm -f '${tmp}'" RETURN
 
   # 1) Replace placeholder checkout paths (USER or legacy pi) with this REPO_ROOT
   # 2) Replace User=USER / User=pi with the resolved service account
-  sed \
-    -e "s|/home/USER/Relay-AV-Room-Control-|${REPO_ESC}|g" \
-    -e "s|/home/pi/Relay-AV-Room-Control-|${REPO_ESC}|g" \
-    -e "s|^User=USER$|User=${USER_ESC}|" \
-    -e "s|^User=pi$|User=${USER_ESC}|" \
-    "${template}" > "${tmp}"
-
-  if ! grep -qE "^User=${RELAY_SVC_USER}$" "${tmp}"; then
-    die "${dest_name}: rendered unit missing User=${RELAY_SVC_USER} (check template placeholders)"
-  fi
-  if grep -qE '^User=(USER|pi)$' "${tmp}"; then
-    die "${dest_name}: User= placeholder not substituted"
-  fi
-  if grep -qE '/home/(USER|pi)/Relay-AV-Room-Control-' "${tmp}"; then
-    die "${dest_name}: path placeholder not substituted"
-  fi
-
-  out="${SYSTEMD_DIR}/${dest_name}"
+  # Validation: literal User=USER / /home/USER/... are unsubstituted failures.
+  # User=pi and /home/pi/... are valid when RELAY_SVC_USER=pi and REPO_ROOT is
+  # under that home (Wyse/testbox) — see install-host-units-render.sh.
+  # Specific errors already printed by relay_validate_rendered_unit.
+  relay_render_unit_file "${template}" "${tmp}" "${REPO_ROOT}" "${RELAY_SVC_USER}" "${dest_name}"
   install -o root -g root -m 0644 "${tmp}" "${out}"
   echo "install-host-units: installed ${out}"
 }
