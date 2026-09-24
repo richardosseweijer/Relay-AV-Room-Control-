@@ -9,8 +9,10 @@
 #   sudo bash scripts/install-host.sh
 #   sudo RELAY_USER=ubuntu bash scripts/install-host.sh
 #   sudo bash scripts/install-host.sh --enable-kiosk   # Relay-only HDMI; not for Foyer dual-head
+#   sudo bash scripts/install-host.sh --skip-preflight # unusual layouts only (see LINUX.md §6a)
 #
 # Requires root. Update / pull / reboot do NOT run this.
+# Forwards flags to install-host-units.sh (preflight + units + sudoers).
 
 set -euo pipefail
 

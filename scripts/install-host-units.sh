@@ -15,7 +15,11 @@
 #   sudo RELAY_USER=ubuntu bash scripts/install-host-units.sh
 #   sudo bash scripts/install-host-units.sh --enable-kiosk
 #   sudo bash scripts/install-host-units.sh --with-sudoers
+#   sudo bash scripts/install-host-units.sh --skip-preflight   # unusual layouts only
 #   sudo bash scripts/install-host.sh          # thin wrapper: units + sudoers
+#
+# Preflight (before any write): Node/npm on unit PATH (/usr/bin:/usr/local/bin)
+# major >= 22, and .vercel/output/nitro.json from `npm run build`. See LINUX.md §6a.
 #
 # Username (service account = systemd User=):
 #   1. RELAY_USER or UNIT_USER if set
@@ -39,23 +43,21 @@ die() {
 
 ENABLE_KIOSK=0
 WITH_SUDOERS=0
+SKIP_PREFLIGHT=0
 for arg in "$@"; do
   case "${arg}" in
     --enable-kiosk) ENABLE_KIOSK=1 ;;
     --with-sudoers) WITH_SUDOERS=1 ;;
+    --skip-preflight) SKIP_PREFLIGHT=1 ;;
     -h|--help)
-      sed -n '2,40p' "$0"
+      sed -n '2,45p' "$0"
       exit 0
       ;;
     *)
-      die "unknown argument: ${arg} (supported: --enable-kiosk, --with-sudoers)"
+      die "unknown argument: ${arg} (supported: --enable-kiosk, --with-sudoers, --skip-preflight)"
       ;;
   esac
 done
-
-if [ "$(id -u)" -ne 0 ]; then
-  die "must run as root (try: sudo bash scripts/install-host-units.sh)"
-fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -64,6 +66,19 @@ SYSTEMD_DIR="/etc/systemd/system"
 
 TEMPLATE_RELAY="${DEPLOY_DIR}/relay.service"
 TEMPLATE_KIOSK="${DEPLOY_DIR}/relay-kiosk.service"
+
+# Preflight before root check / any write so a failure leaves the host untouched.
+# shellcheck source=scripts/install-host-preflight.sh
+source "${SCRIPT_DIR}/install-host-preflight.sh"
+if [ "${SKIP_PREFLIGHT}" -eq 1 ]; then
+  echo "install-host-units: --skip-preflight set (skipping Node/build checks)"
+else
+  relay_preflight_all "${REPO_ROOT}" || exit 1
+fi
+
+if [ "$(id -u)" -ne 0 ]; then
+  die "must run as root (try: sudo bash scripts/install-host-units.sh)"
+fi
 
 [ -f "${TEMPLATE_RELAY}" ] || die "missing template: ${TEMPLATE_RELAY}"
 [ -f "${TEMPLATE_KIOSK}" ] || die "missing template: ${TEMPLATE_KIOSK}"
