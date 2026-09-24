@@ -34,7 +34,7 @@ Relay [`FOYER-ROADMAP.md`](https://github.com/richardosseweijer/Relay-AV-Room-Co
 
 ### Checklist
 
-- [ ] **Packages** — Foyer seatd / sway / Chromium per INSTALL §7; Relay build + AV-LAN listen per LINUX §4 / §6. Do not enable `relay-kiosk` on this host.
+- [ ] **Packages** — Foyer seatd / sway / Chromium per INSTALL §7; Relay clone + build + AV-LAN listen per LINUX §4 / §5 (then host units §6a). Do not enable `relay-kiosk` on this host.
 - [ ] **Foyer host install (once)** — from the Foyer checkout: `sudo bash scripts/install-host.sh` → units `foyer` + `foyer-panel` + `foyer-kiosk` enabled, plus `/etc/sudoers.d/foyer-kiosk` (Update / pull / reboot do **not** install these).
 - [ ] **Relay host install (once)** — from the Relay checkout: `sudo bash scripts/install-host.sh` → `relay` enabled; `relay-kiosk` installed but left **disabled**; sudoers `relay-kiosk` + `relay-nmcli` (same: not installed by Update / pull / reboot).
 - [ ] **Disable Relay kiosk** — Configurator → Room → Local display: leave **Enable** unchecked (or uncheck + Save) so Relay runs `systemctl disable --now relay-kiosk`; CLI fallback: `sudo systemctl disable --now relay-kiosk`. Foyer alone owns tty1 / DRM (LINUX §7a).
