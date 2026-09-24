@@ -4,7 +4,7 @@ Install **`main`** from GitHub (that is the supported tree). Current package ver
 
 Default configurator PIN after first start: `1234`. Open `/config` once and set a stronger PIN. New rooms default to **Panel PIN**: every tablet unlocks with that PIN and gets its own session (30 days, sliding). **Open on LAN** is a separate Security setting that skips the panel PIN for anyone who can reach port 8081 — use it only on the room VLAN. Do not confuse it with **open LAN control** (unauthenticated `fireCommand`). See `SECURITY.md`.
 
-This host binds the cleartext panel/API to the **AV-LAN IPv4** only (never `0.0.0.0`). Tablet URL: `http://<av-lan-ip>:8081` (or your configured port). Before you call the install finished, finish the one-NIC / two-NIC firewall chapter in §5b. Do not port-forward 8081 to venue/WAN. Optional **file-based HTTPS** on the venue NIC is **shipped B1** (set `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath`, outbound NIC not None; default port 8443). **Let’s Encrypt / ACME / DNS-01 is PARKED** — not required. **Shipped (C1–C4):** Generate (API + Networks UI), CA download, mismatch / expiry banners, regenerate confirm, OS hints; docs consistency + checkpoint tag `v0.9.46`. See [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
+This host binds the cleartext panel/API to the **AV-LAN IPv4** only (never `0.0.0.0`). Tablet URL: `http://<av-lan-ip>:8081` (or your configured port). Before you call the install finished, finish the one-NIC / two-NIC firewall chapter in §5b. Do not port-forward 8081 to venue/WAN. Optional venue HTTPS on the outbound NIC (file PEMs or in-app Generate) is documented in [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0) — Let’s Encrypt / ACME is parked and not required.
 
 Commands below are run in a terminal as a normal user that can use `sudo`.
 
@@ -90,11 +90,20 @@ Wiring is 3.3 V TTL, not RS-232 levels. A projector or Denon on the header needs
 
 ## 4. Clone Relay (`main`)
 
-Do **not** use a zip, an old tag (`v0.7.3`), or a copy of `dist/` from another machine. The in-app update and this guide both track **`origin/main`**. `v0.9.46` is a snapshot of this beta (venue TLS C0–C4 checkpoint; Phase B was `v0.9.45`).
+Do **not** use a zip, an old tag, or a copy of `dist/` from another machine. The in-app update and this guide both track **`origin/main`**.
+
+**Do not `rm -rf` an existing checkout.** That deletes `data/` (room config + secrets). If `~/Relay-AV-Room-Control-` already exists — especially if `data/` is present — stop and use **Update from GitHub** / §8 instead of recloning.
 
 ```bash
 cd ~
-rm -rf ~/Relay-AV-Room-Control-
+if [ -d ~/Relay-AV-Room-Control- ]; then
+  echo "Checkout already exists at ~/Relay-AV-Room-Control-."
+  echo "If this room is live (see data/), use Update (§8) — do not delete the tree."
+  echo "Fresh reinstall only after backup, e.g.:"
+  echo "  tar -C ~ -czf relay-data-backup.tgz Relay-AV-Room-Control-/data"
+  echo "Then remove the tree deliberately and re-run this section."
+  exit 1
+fi
 git clone --branch main --single-branch https://github.com/richardosseweijer/Relay-AV-Room-Control-.git
 cd ~/Relay-AV-Room-Control-
 git fetch origin
@@ -106,7 +115,7 @@ npm ci --include=dev
 
 `git log -1` must print a commit on GitHub `main` (after 2026-09-08 this includes `gateway.ts`). `--include=dev` is required: systemd sets `NODE_ENV=production`, and Vite lives in devDependencies.
 
-The clone has no room file and no secrets file. Those appear under `data/` after the first start. Do not copy `data/relay-room.json` or `data/relay-secrets.json` from another machine unless you intend to move that room.
+A fresh clone has no room file and no secrets file. Those appear under `data/` after the first start. Do not copy `data/relay-room.json` or `data/relay-secrets.json` from another machine unless you intend to move that room.
 
 A zip cannot use **Update from GitHub**.
 
@@ -127,7 +136,16 @@ npm run build
 npm start
 ```
 
-Leave that terminal open. You should see `Local: http://localhost:8081/`.
+Leave that terminal open. Watch for a log line like `[with-app-env] HTTP listen host 192.168.25.10` (your AV IPv4). **Do not** treat Vite’s `Local: http://localhost:8081/` as the panel URL — once an AV NIC is mapped, loopback often does not answer. Confirm with:
+
+```bash
+ss -ltnp | grep 8081
+# Expect listen on the AV IPv4 (or 127.0.0.1 only if no scanned NICs) — never 0.0.0.0
+```
+
+Open the Configurator at `http://<that-ip>:8081/config` — PIN `1234`.
+
+**Dual-NIC check (do this before tablets / Foyer):** on a fresh install Relay **auto-maps AV-LAN to the first scanned physical NIC** (A–Z name order; docker/veth/bridges skipped) and **persists** that pick. On a two-NIC box that may be the venue port. In Configurator → Room → **AV-LAN**, confirm the iface is the AV Ethernet; change it and **Save** if wrong, then restart (or re-run `npm start`) so HTTP re-binds. Do not point tablets or Foyer’s Room-panel URL at the venue NIC.
 
 Optional: store secrets off the card you back up.
 
@@ -137,14 +155,12 @@ sudo chown "$USER" /var/lib/relay
 export RELAY_SECRETS_FILE=/var/lib/relay/secrets.json
 ```
 
-- On the host, open the panel via the **AV IPv4** (same as tablets): `http://<av-lan-ipv4>:8081/`. On a fresh install AV-LAN auto-maps to the first scanned NIC so the panel is reachable for first configuration. Loopback `http://127.0.0.1:8081/` only works when no scanned NICs exist or you set `RELAY_LISTEN_HOST=127.0.0.1` (lab only).
-- Wall tablet / other device on **AV-LAN**: `http://<av-lan-ipv4>:8081/`  
-  Print the AV address after setting Room → **AV-LAN** (or `ip -4 addr show <av-iface>`). Do not use the venue/internet NIC address for the panel.
-- Configurator: `http://<av-lan-ipv4>:8081/config` — PIN `1234`.
+- Panel / tablets on **AV-LAN**: `http://<av-lan-ipv4>:8081/` (same IP as the listen-host log / `ss`). Do not use the venue/internet NIC address for the panel.
+- Loopback `http://127.0.0.1:8081/` only when no scanned NICs exist or you set `RELAY_LISTEN_HOST=127.0.0.1` (lab only).
 
 Stop the test process with Ctrl+C.
 
-If the page never loads, check that nothing else is bound to 8081 (`ss -lptn | grep 8081`).
+If the page never loads, re-check the listen host (`ss -ltnp | grep 8081`) and that nothing else owns 8081.
 
 ### 5b. Firewall + NIC layout (required before tablets live on AV-LAN)
 
@@ -426,42 +442,9 @@ sudo ufw allow from 192.168.25.0/24 to any port 8081 proto tcp   # replace CIDR
 sudo ufw status verbose
 ```
 
-#### Venue HTTPS (shipped B1) — PEM drop paths
+#### Venue HTTPS (optional)
 
-Optional venue HTTPS: `https://<outbound-ip>:8443` when outbound NIC is set **and** PEMs are readable. One-NIC with outbound **None** has no venue face — skip this subsection.
-
-| How | Paths |
-|---|---|
-| Env (wins) | `RELAY_TLS_CERT` + `RELAY_TLS_KEY` → absolute PEM file paths |
-| Room fields | `tlsCertPath` + `tlsKeyPath` on the room object (same idea) |
-| Port | `RELAY_HTTPS_PORT` (default **8443**) |
-
-**C1 Generate** also writes `data/tls/venue/server.{cert,key}.pem` and wires room paths. You may still drop PEMs where you like (e.g. `/var/lib/relay/tls/cert.pem` + `key.pem`) and point the env/room fields at them. Missing/unreadable PEMs ⇒ soft-skip venue HTTPS only; **AV HTTP stays up**. Raw venue IPv4 is fine (Networks UI live IP). B3: HMAC peer over that venue HTTPS (`peerFace`) with **strict trusted peer CA** (Devices → Trusted peer CA path = remote **Download CA** PEM; fail-closed if missing). B4: per-device `nicFace` bind (AV default; venue soft-fails if outbound None). Device HTTPS/TLS-WS: set **Device trusted CA path** or **sha256 pin** (venue fail-closed if missing; `v0.9.48`). Cast stays AV-only. Lab Samsung pair: `node scripts/samsung-pair.mjs <tv-ip> 8002 --fingerprint=<sha256>` (or `--insecure` once to print fingerprint; fail-closed without trust; `v0.9.49`).
-
-**Guest / venue LAN reality:** NIC2 is often a guest or venue segment with no admin DNS, no Cloudflare, and no LE account. **LE/ACME/DNS-01 is PARKED permanently** for this product — do not require public FQDN for venue HTTPS.
-
-#### Generate venue TLS (shipped C1–C4) — API + Networks UI + lifecycle
-
-In-box **ECDSA P-256** private CA (~10y) + server leaf (~2y) with IP SAN = live outbound/NIC2 IPv4. No openssl shell-out; no ACME/LE.
-
-| Step | Detail |
-|---|---|
-| API | Config-token gated `generateVenueTls` / `getVenueTlsStatus` (see `actions-venue-tls.ts`) |
-| Networks UI | Room → Networks: **Generate / Regenerate venue certificate** + status (active / SAN IP / expiry with days-left / fingerprint) |
-| Paths | `data/tls/venue/ca.cert.pem`, `ca.key.pem`, `server.cert.pem`, `server.key.pem` (keys mode `0600`) |
-| B1 wire | Sets room `tlsCertPath` / `tlsKeyPath` to the server pair (env `RELAY_TLS_*` still wins) |
-| Reload | Venue HTTPS reloads; AV HTTP stays up. Soft-skip if outbound is None / no IPv4 |
-| CA download | Same-origin **Download CA** → `GET /api/venue-tls-ca` (config token); PEM only — never private keys. Use on NIC2 HTTPS after browser click-through (no AV-LAN hop). |
-| Mismatch / expiry | Banner when live NIC2 IPv4 ∉ leaf SAN or leaf ≤30d / expired → **Regenerate** (explicit confirm; no silent auto-reissue) |
-| OS hints | Brief iOS / Android / Windows / macOS notes next to Download CA |
-
-**Integrator flow (NIC2):** open `https://<outbound-ip>:8443/config` → accept click-through → unlock → Networks → Generate → Download CA → install CA on tablets → reopen venue URL. On IP drift or leaf nearing expiry, **Regenerate** (confirm) → re-Download CA if the CA changed → reinstall on tablets.
-
-**Room-to-room CA exchange (venue peers):** On room B, Networks → **Download CA** → save PEM on room A (e.g. `data/tls/peers/room-b-ca.cert.pem`). On room A’s `relay-host` device pointing at B’s NIC2 IP:8443, set Peer face Venue (or Auto) and **Trusted peer CA path** to that file (or paste / `RELAY_PEER_TRUSTED_CA`). Reverse for B→A. Same-install loop: use this room’s `data/tls/venue/ca.cert.pem`. Venue peer TLS failure soft-fails that peer only — AV control stays up.
-
-**C4 shipped:** docs consistency + checkpoint tag `v0.9.46`. **Strict peer TLS** (`v0.9.47`) + **strict device TLS** (`v0.9.48`) + **strict samsung-pair TLS** (`v0.9.49`). No silent auto-reissue (by design). Foyer control URL prefers AV live IP (footgun fixed).
-
-File PEM drop (table above) still works. AV tablet URL remains `http://<av-lan-ip>:8081`. Inventory: [`SECURITY.md`](SECURITY.md#venue-tls-inventory-c0).
+Optional cleartext-off venue face: `https://<outbound-ip>:8443` when Room → **LAN (internet)** is set **and** PEMs are present (env `RELAY_TLS_*` or in-app **Generate**). One-NIC with outbound **None** has no venue face. ufw for `:8443` stays fail-closed (§B). **Full PEM paths, Generate / CA download / regenerate, peer CA exchange, and LE/ACME parked notes** live in [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0) — keep this install guide to firewall + listen; do not duplicate that inventory here. Missing venue PEMs soft-skip HTTPS only; **AV HTTP stays up**.
 
 Foyer (optional, separate process) owns `:8080` / `:8082`; Relay production is `:8081`. Occupancy: Foyer GETs Relay on this PC’s **AV-LAN IPv4 `:8081`** (loopback lab escape); calendar session: Relay GETs Foyer on loopback `:8080` — [`FOYER-RELAY.md`](FOYER-RELAY.md). Foyer occupancy is the Occupancy variable (`0` closed, `1` open, `2` in session, `3` do not disturb) or a Relay Occupancy command. Foyer GETs `/api/peer` and reads the string `occupancy` field. Room names do not need to match.
 
@@ -525,51 +508,22 @@ sudo systemctl daemon-reload
 sudo systemctl restart relay
 ```
 
-### 6b. Manual fallback (tee / editor)
+### 6b. Manual fallback (only if you cannot run the installer)
 
-Only if you cannot run the installer. Confirm account and home:
+**Prefer §6a.** Hand-typed units drift from [`deploy/`](deploy/) and often hardcode the wrong checkout path.
 
-```bash
-whoami
-echo $HOME
-```
-
-Paste (substitutes current user + home):
+1. Confirm account: `whoami` and `echo $HOME`.
+2. Copy the template: `sudo cp deploy/relay.service /etc/systemd/system/relay.service` (from the §4 checkout).
+3. Edit that file: replace `User=USER` with your login and `/home/USER/Relay-AV-Room-Control-` with the **absolute** checkout path. Do **not** leave `User=pi` unless that is the real account.
+4. Enable:
 
 ```bash
-USER_NAME="$(whoami)"
-HOME_DIR="$HOME"
-sudo tee /etc/systemd/system/relay.service >/dev/null <<EOF
-[Unit]
-Description=Relay room controller
-After=network-online.target
-Wants=network-online.target
-StartLimitBurst=5
-StartLimitIntervalSec=60
-
-[Service]
-Type=simple
-User=${USER_NAME}
-WorkingDirectory=${HOME_DIR}/Relay-AV-Room-Control-
-Environment=PATH=/usr/bin:/usr/local/bin
-Environment=PORT=8081
-Environment=NODE_ENV=production
-ExecStart=/usr/bin/npm run start
-Restart=always
-RestartSec=5
-TimeoutStartSec=120
-
-[Install]
-WantedBy=multi-user.target
-EOF
 sudo systemctl daemon-reload
 sudo systemctl enable --now relay
 sudo systemctl status relay --no-pager
 ```
 
-Or `sudo nano /etc/systemd/system/relay.service` and paste from [`deploy/relay.service`](deploy/relay.service), replacing `USER` with your login and `/home/USER/Relay-AV-Room-Control-` with the §4 checkout path. Do **not** leave `User=pi` unless that is the real account.
-
-Then enable as above. For `relay-kiosk.service`, prefer §7c / the installer — do not enable it on a Foyer dual-head box.
+For `relay-kiosk.service`, prefer §7c / the installer — do not enable it on a Foyer dual-head box.
 
 ### 6c. Is it running?
 
@@ -681,48 +635,11 @@ sudo bash scripts/install-host-units.sh --enable-kiosk
 sudo systemctl status relay-kiosk --no-pager
 ```
 
-Manual tee fallback (same substitutions as §6b):
+#### Manual fallback (only if you cannot run the installer)
+
+**Prefer the installer above.** Copy [`deploy/relay-kiosk.service`](deploy/relay-kiosk.service) to `/etc/systemd/system/relay-kiosk.service`, replace `User=USER` and `/home/USER/Relay-AV-Room-Control-` with the service account and §4 checkout path (same idea as §6b), `chmod +x scripts/relay-kiosk.sh`, then:
 
 ```bash
-USER_NAME="$(whoami)"
-HOME_DIR="$HOME"
-REPO_DIR="${HOME_DIR}/Relay-AV-Room-Control-"
-chmod +x "${REPO_DIR}/scripts/relay-kiosk.sh"
-sudo tee /etc/systemd/system/relay-kiosk.service >/dev/null <<EOF
-[Unit]
-Description=Relay panel kiosk (local HDMI)
-After=relay.service systemd-user-sessions.service plymouth-quit-wait.service
-Requires=relay.service
-Conflicts=getty@tty1.service
-StartLimitBurst=5
-StartLimitIntervalSec=60
-
-[Service]
-Type=simple
-User=${USER_NAME}
-SupplementaryGroups=video render input tty
-PAMName=login
-TTYPath=/dev/tty1
-TTYReset=yes
-TTYVHangup=yes
-TTYVTDisallocate=yes
-StandardInput=tty
-StandardOutput=journal
-StandardError=journal
-UtmpIdentifier=tty1
-UnsetEnvironment=TERM
-Environment=XDG_SESSION_TYPE=wayland
-Environment=XDG_RUNTIME_DIR=/run/user/%U
-Environment=WLR_LIBINPUT_NO_DEVICES=1
-EnvironmentFile=-${REPO_DIR}/data/relay-kiosk.env
-ExecStartPre=+/bin/chvt 1
-ExecStart=/usr/bin/cage -d -- ${REPO_DIR}/scripts/relay-kiosk.sh
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
 sudo systemctl daemon-reload
 sudo systemctl enable --now relay-kiosk
 sudo systemctl status relay-kiosk --no-pager
@@ -759,7 +676,7 @@ The application directory must be a clone of [Relay-AV-Room-Control-](https://gi
 
 Configurator → Room → **Save all**, then **Update from GitHub**. Confirm the warning.
 
-That fetches the release into a separate git worktree, runs `npm ci --include=dev`, builds it, and checks its `/api/room` response before changing the live checkout. A failed stage leaves the running release untouched. After the verified files are switched, systemd restarts Relay; without systemd the updater starts the release and restores and restarts the previous one if readiness fails. Log: `data/relay-update.log`. After a successful update, Room tab version should match `git log -1` (for example `0.9.42 (<sha>)`).
+That fetches the release into a separate git worktree, runs `npm ci --include=dev`, builds it, and checks its `/api/room` response before changing the live checkout. A failed stage leaves the running release untouched. After the verified files are switched, systemd restarts Relay; without systemd the updater starts the release and restores and restarts the previous one if readiness fails. Log: `data/relay-update.log`. After a successful update, Room tab version should match `git log -1` (for example `0.9.55 (<sha>)`).
 
 `NODE_ENV=production` (systemd) would otherwise skip Vite. `--include=dev` keeps it.
 
