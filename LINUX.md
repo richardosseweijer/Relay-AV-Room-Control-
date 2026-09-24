@@ -49,10 +49,12 @@ On a Raspberry Pi you may use [nvm](https://github.com/nvm-sh/nvm) instead of No
 
 ## 3. Optional hardware packages
 
-Install these if this machine will drive GPIO, I2C, CEC, or IR. Skip on a plain PC that only talks LAN.
+Install these if this machine will drive GPIO, I2C, CEC, or IR. Skip on a plain PC that only talks LAN. Add **`ffmpeg`** when you use the preview tile (RTSP remux) — match the table below.
 
 ```bash
 sudo apt-get install -y gpiod i2c-tools cec-utils lirc samba-common-bin
+# Preview tile only:
+# sudo apt-get install -y ffmpeg
 ```
 
 | Function | Tool | Package |
@@ -275,7 +277,7 @@ Privilege: Relay stays non-root. Install a narrow sudoers drop-in so the service
 # From the repo checkout — replaces USER in deploy/sudoers.relay-nmcli (+ relay-kiosk).
 # Default user: invoking account under sudo, or set RELAY_USER / SUDOERS_USER.
 sudo bash scripts/install-host-sudoers.sh
-# Or: sudo RELAY_USER=pi bash scripts/install-host-sudoers.sh
+# Or: sudo RELAY_USER=ubuntu bash scripts/install-host-sudoers.sh
 ```
 
 Template only: `deploy/sudoers.relay-nmcli` → `/etc/sudoers.d/relay-nmcli` (mode 0440, `visudo -cf`). **One-time host step** — `git pull`, in-app **Update from GitHub**, and reboot do **not** install this drop-in; re-run if `User=` on `relay.service` changes.
@@ -418,6 +420,7 @@ Optional Foyer on the same host: same as one-NIC — `8080` / `8082` from **AV C
 - [ ] Outbound **None** ⇒ expect Update disabled and no venue HTTPS face
 - [ ] After any AV IP Apply / prefix change: ufw CIDR re-checked
 - [ ] Using **Apply AV-LAN IP**? NetworkManager installed + netplan `renderer: NetworkManager`; `nmcli device status` shows the AV NIC managed (**before** sudoers / `install-host.sh`). Ubuntu Server: `apt-get install network-manager` first — Relay still runs without NM; Apply only
+- [ ] Built once: §4 `npm ci --include=dev` + §5 `npm run build` **before** `install-host.sh` (unit `enable --now` needs a built tree)
 - [ ] Host units (§6a): `sudo bash scripts/install-host.sh` once (`relay` enabled; `relay-kiosk` left disabled by default)
 - [ ] Local panel (§7): dual-head with Foyer → keep `relay-kiosk` disabled (§7a); else optional `--enable-kiosk` / §7b/§7c — local only; no extra inbound ports
 - [ ] Curl from an AV host reaches the panel; curl from the wrong net does not
@@ -458,7 +461,7 @@ Outbound **None** ⇒ Room → **Update from GitHub** unavailable until you pick
 
 Linux starts background programs from **unit files**. Prefer the host installer (substitutes `User=` + checkout path from `deploy/`, `daemon-reload`, enables `relay.service`). It also installs `relay-kiosk.service` but **does not enable it** by default — Foyer dual-head prefers the kiosk off (§7a).
 
-Stop the test server from §5 first (Ctrl+C) so port 8081 is free. Finish `npm ci --include=dev` + `npm run build` (§4 / §8) before enabling.
+Stop the test server from §5 first (Ctrl+C) so port 8081 is free. Finish `npm ci --include=dev` (§4) + `npm run build` (§5) before enabling.
 
 ### 6a. Prefer the host installer (idempotent)
 
@@ -470,7 +473,7 @@ Stop the test server from §5 first (Ctrl+C) so port 8081 is free. Finish `npm c
 sudo bash scripts/install-host.sh
 # Units only:  sudo bash scripts/install-host-units.sh
 # Units+sudoers is what install-host.sh does (same as --with-sudoers).
-# Or: sudo RELAY_USER=pi bash scripts/install-host.sh
+# Or: sudo RELAY_USER=ubuntu bash scripts/install-host.sh
 #
 # Relay-only HDMI kiosk (NOT for Foyer dual-head):
 #   sudo bash scripts/install-host-units.sh --enable-kiosk
@@ -655,7 +658,7 @@ Configurator restart needs passwordless `systemctl` for this unit only. Relay st
 # From the repo checkout — substitutes USER in both deploy templates, installs
 # /etc/sudoers.d/relay-kiosk and /etc/sudoers.d/relay-nmcli (0440, visudo-checked).
 sudo bash scripts/install-host-sudoers.sh
-# Or: sudo RELAY_USER=pi bash scripts/install-host-sudoers.sh
+# Or: sudo RELAY_USER=ubuntu bash scripts/install-host-sudoers.sh
 # Smoke-check (must NOT ask for a password):
 sudo -u "$(whoami)" sudo -n /usr/bin/systemctl is-active relay-kiosk.service || true
 ```
@@ -739,6 +742,21 @@ The default path does not need that: `system.restart` is `process.exit(1)` and s
 Room configuration is stored in `data/relay-room.json` (layout, IPs) and `data/relay-secrets.json` (PINs, tokens). Copy both off the card before a re-image. Do not put the secrets file in an export or a git repo.
 
 ---
+
+## 10. Uninstall / teardown (host units + sudoers)
+
+The installers are **safe to re-run** (they overwrite units/sudoers from `deploy/`). To remove the host pieces only:
+
+```bash
+sudo systemctl disable --now relay.service relay-kiosk.service 2>/dev/null || true
+sudo rm -f /etc/systemd/system/relay.service /etc/systemd/system/relay-kiosk.service
+sudo systemctl daemon-reload
+sudo rm -f /etc/sudoers.d/relay-kiosk /etc/sudoers.d/relay-nmcli
+# Optional lab-only drop-in from §8:
+# sudo rm -f /etc/sudoers.d/relay
+```
+
+`data/` in the checkout holds room config + secrets (`relay-room.json`, `relay-secrets.json`, TLS PEMs). **Back it up before deleting the checkout** (see §4 / §9). Removing units does not delete `data/`.
 
 ## Notes
 

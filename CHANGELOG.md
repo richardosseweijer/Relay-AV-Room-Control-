@@ -4,6 +4,7 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Docs (I3): cross-ref hygiene (FOYER Day-one §4/§5/§6a; LINUX §6 build-before-units); `ffmpeg` note in §3; uninstall appendix §10; neutral `RELAY_USER=ubuntu` examples. No version bump.
 - Docs (I2): [`LINUX.md`](LINUX.md) first-run footguns + trim — clone-if-missing (no `rm -rf`), listen-host / dual-NIC AV check, demote manual unit tee to `deploy/` templates, move venue-TLS inventory narrative to [`SECURITY.md`](SECURITY.md#venue-tls-inventory-c0). No version bump.
 - Docs (I1): Ubuntu Server prerequisites in [`LINUX.md`](LINUX.md) — NetworkManager + netplan for Apply AV-LAN IP (§5b); Chromium snap + universe for Relay HDMI kiosk (§7b). No version bump.
 
