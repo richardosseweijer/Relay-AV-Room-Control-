@@ -12,7 +12,7 @@
 #
 # Usage (from repo root or any cwd):
 #   sudo bash scripts/install-host-units.sh
-#   sudo RELAY_USER=pi bash scripts/install-host-units.sh
+#   sudo RELAY_USER=ubuntu bash scripts/install-host-units.sh
 #   sudo bash scripts/install-host-units.sh --enable-kiosk
 #   sudo bash scripts/install-host-units.sh --with-sudoers
 #   sudo bash scripts/install-host.sh          # thin wrapper: units + sudoers

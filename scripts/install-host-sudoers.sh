@@ -6,7 +6,7 @@
 #
 # Usage (from repo root or any cwd):
 #   sudo bash scripts/install-host-sudoers.sh
-#   sudo RELAY_USER=pi bash scripts/install-host-sudoers.sh
+#   sudo RELAY_USER=ubuntu bash scripts/install-host-sudoers.sh
 #
 # Username (service account = systemd User= on relay.service / relay-kiosk.service):
 #   1. RELAY_USER or SUDOERS_USER if set
