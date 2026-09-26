@@ -1,6 +1,6 @@
 import type { RoomSnapshot, Widget } from "@/lib/control/types";
 import { gridStyle } from "@/lib/control/page-layout";
-import { resolveBoundNumber } from "@/lib/control/vars";
+import { resolveBoundNumber, resolveWidgetLabel } from "@/lib/control/vars";
 import { nextScheduled } from "@/lib/control/schedule";
 import { resolveStatusAppearance } from "@/lib/control/status-widget";
 import {
@@ -11,7 +11,7 @@ import {
   shouldHideWhenDisabled,
 } from "@/lib/control/panel-widget";
 import { cn } from "@/lib/utils";
-import { WidgetShell } from "./widget-face";
+import { WidgetShell, widgetColorClass } from "./widget-face";
 import { PreviewTile } from "./preview-tile";
 import { ImageTile } from "./image-tile";
 import { PanelSlider } from "./panel-slider";
@@ -45,6 +45,8 @@ export function PanelTile({
   onRun: () => void;
 }) {
   const on = enabled(snap, widget);
+  // Face labels: expand {var}; unresolved tokens omit (empty string).
+  const face = { ...widget, label: resolveWidgetLabel(widget.label, snap.vars ?? {}, snap.config.variables) };
   const varId = sliderVariable(snap, widget);
   const value = varId
     ? String(snap.vars[varId] ?? widget.bind.value ?? "")
@@ -72,7 +74,7 @@ export function PanelTile({
         style={gridStyle(widget)}
       >
         <PanelSlider
-          widget={widget}
+          widget={face}
           min={min}
           max={max}
           value={clamped}
@@ -89,14 +91,15 @@ export function PanelTile({
         data-wide={wide}
         data-type={widget.type}
         className={cn(
-          "widget-text-container flex min-h-0 min-w-0 h-full items-center [overflow-wrap:anywhere] rounded-lg px-3 text-muted",
+          "widget-text-container flex min-h-0 min-w-0 h-full items-center [overflow-wrap:anywhere] rounded-lg border px-3",
+          widgetColorClass[widget.color],
           textAlignClass(widget.textAlign),
           textAlignJustifyClass(widget.textAlign),
           !on && "opacity-40",
         )}
         style={gridStyle(widget)}
       >
-        <span style={widgetLabelTileTextStyle(widget.textSize)}>{widget.label}</span>
+        <span style={widgetLabelTileTextStyle(widget.textSize)}>{face.label}</span>
       </div>
     );
   }
@@ -109,7 +112,7 @@ export function PanelTile({
         className="grid min-h-0 min-w-0 h-full"
         style={gridStyle(widget)}
       >
-        <WidgetShell widget={{ ...widget, label: widget.label === "Next" || widget.label === "Button" || !widget.label ? "Next scheduled task:" : widget.label }}>
+        <WidgetShell widget={{ ...face, label: face.label === "Next" || face.label === "Button" || !face.label ? "Next scheduled task:" : face.label }}>
           {upcoming ? (
             <span className="flex flex-col gap-1">
               <span className="font-medium" style={widgetBodyTextStyle(widget.textSize)}>{upcoming.label}</span>
@@ -130,7 +133,7 @@ export function PanelTile({
         className="grid min-h-0 min-w-0 h-full"
         style={gridStyle(widget)}
       >
-        <PreviewTile widget={widget} token={session} disabled={!on} onClick={onRun} />
+        <PreviewTile widget={face} token={session} disabled={!on} onClick={onRun} />
       </div>
     );
   }
@@ -142,7 +145,7 @@ export function PanelTile({
         className="grid min-h-0 min-w-0 h-full"
         style={gridStyle(widget)}
       >
-        <ImageTile widget={widget} token={session} disabled={!on} onClick={onRun} />
+        <ImageTile widget={face} token={session} disabled={!on} onClick={onRun} />
       </div>
     );
   }
@@ -160,12 +163,12 @@ export function PanelTile({
         style={gridStyle(widget)}
       >
         <WidgetShell
-          widget={{ ...widget, color: appearance.color }}
+          widget={{ ...face, color: appearance.color }}
           disabled={!on}
           active={traffic || lit || waiting}
           onClick={onRun}
         >
-          {appearance.text}
+          {resolveWidgetLabel(appearance.text, snap.vars ?? {}, snap.config.variables)}
         </WidgetShell>
       </div>
     );
@@ -178,7 +181,7 @@ export function PanelTile({
       style={gridStyle(widget)}
     >
       <WidgetShell
-        widget={widget}
+        widget={face}
         disabled={!on}
         active={lit || waiting}
         onClick={onRun}
