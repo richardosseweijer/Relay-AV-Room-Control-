@@ -49,3 +49,11 @@ test("normalizeImageFields is a no-op for non-image widgets", () => {
   };
   assert.equal(normalizeImageFields(button), button);
 });
+
+test("normalizeImageFields coerces imageBorderless to boolean", () => {
+  assert.equal(normalizeImageFields(imageWidget()).imageBorderless, false);
+  assert.equal(normalizeImageFields(imageWidget({ imageBorderless: true })).imageBorderless, true);
+  assert.equal(normalizeImageFields(imageWidget({ imageBorderless: false })).imageBorderless, false);
+  assert.equal(normalizeImageFields(imageWidget({ imageBorderless: 1 })).imageBorderless, false);
+  assert.equal(normalizeImageFields(imageWidget({ imageBorderless: "yes" })).imageBorderless, false);
+});

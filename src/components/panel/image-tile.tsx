@@ -2,6 +2,8 @@
  * Static Image page widget. GET /api/media requires panel|config Bearer (no cookies),
  * so a bare img tag pointing at imageSrc would 401 — fetch with Authorization and use a blob URL
  * (same auth pattern as PreviewTile’s /api/preview fetch).
+ *
+ * imageBorderless: skip WidgetShell button chrome; image/empty state draws flush in the tile.
  */
 import { useEffect, useState } from "react";
 import type { Widget } from "@/lib/control/types";
@@ -76,29 +78,50 @@ export function ImageTile({
   }, [src, token]);
 
   const fit = widget.imageFit === "cover" ? "object-cover" : "object-contain";
+  const borderless = widget.imageBorderless === true;
+
+  const face =
+    status === "empty" ? (
+      <span className="flex h-full min-h-[3rem] items-center justify-center text-sm font-normal text-muted">
+        No image
+      </span>
+    ) : status === "error" ? (
+      <span className="flex h-full min-h-[3rem] items-center justify-center text-sm font-normal text-muted">
+        {token ? "Unavailable" : "Locked"}
+      </span>
+    ) : status === "loading" || !blobUrl ? (
+      <span className="flex h-full min-h-[3rem] items-center justify-center text-sm font-normal text-muted">
+        …
+      </span>
+    ) : (
+      <img
+        src={blobUrl}
+        alt=""
+        draggable={false}
+        className={cn("pointer-events-none absolute inset-0 h-full w-full", fit)}
+      />
+    );
+
+  if (borderless) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onClick}
+        className={cn(
+          "relative flex h-full min-h-0 min-w-0 w-full overflow-hidden bg-transparent p-0 text-left",
+          "active:scale-[0.98]",
+          disabled && "opacity-40",
+        )}
+      >
+        <div className="relative min-h-0 h-full w-full overflow-hidden">{face}</div>
+      </button>
+    );
+  }
 
   return (
     <WidgetShell widget={widget} disabled={disabled} onClick={onClick}>
-      {status === "empty" ? (
-        <span className="flex h-full min-h-[3rem] items-center justify-center text-sm font-normal text-muted">
-          No image
-        </span>
-      ) : status === "error" ? (
-        <span className="flex h-full min-h-[3rem] items-center justify-center text-sm font-normal text-muted">
-          {token ? "Unavailable" : "Locked"}
-        </span>
-      ) : status === "loading" || !blobUrl ? (
-        <span className="flex h-full min-h-[3rem] items-center justify-center text-sm font-normal text-muted">
-          …
-        </span>
-      ) : (
-        <img
-          src={blobUrl}
-          alt=""
-          draggable={false}
-          className={cn("pointer-events-none absolute inset-0 h-full w-full", fit)}
-        />
-      )}
+      {face}
     </WidgetShell>
   );
 }
