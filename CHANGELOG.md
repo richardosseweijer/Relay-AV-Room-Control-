@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.73
+
+- Tag `v0.9.73`. **Telegram reply-to-last monitor:** after successful `message.send`, Relay remembers `message_id` (+ chat) in process runtime ([`telegram.ts`](src/lib/control/telegram.ts)). Feedback `message.lastReply` (string) and `message.replied` (toggle `1`/`0`) short-poll `getUpdates` with offset tracking — only updates in the device `chat_id` that **reply** to that last send. Other chats / non-replies ignored. No webhook; reply text never executed as shell/macros (not a general command channel). Fail-closed if token/chat_id missing. Driver notes + Monitors tab wiring. Tests: [`scripts/telegram.test.mjs`](scripts/telegram.test.mjs).
+
 ## 0.9.72
 
 - Tag `v0.9.72`. **System `{time}` variable:** built-in read-only clock for panel labels via [`resolveTemplate` / `formatSystemTime`](src/lib/control/vars.ts). Id `time` (label Time); value is current **HH:mm** from the machine OS clock and timezone (not `room.network.timezone`). Computed on read; snap overlays for ~4s panel refresh; not persisted. Writes rejected (`writeConfiguredVar` / `var.set` / `setVariable`). Unknown `{var}` still omits. Tests: [`scripts/resolve-template.test.mjs`](scripts/resolve-template.test.mjs).
