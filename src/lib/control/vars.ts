@@ -2,6 +2,49 @@ import type { RoomConfig, RoomVariable } from "./types";
 
 export type VarMap = Record<string, string | number>;
 
+/** Built-in read-only clock for `{time}` labels — OS local TZ, not room.network.timezone. */
+export const SYSTEM_TIME_VAR_ID = "time";
+
+export function systemTimeVarSpec(): RoomVariable {
+  return { id: SYSTEM_TIME_VAR_ID, label: "Time", kind: "text", default: "" };
+}
+
+export function withSystemTimeVar(config: RoomConfig): RoomConfig {
+  const baked = systemTimeVarSpec();
+  const list = [...(config.variables ?? [])];
+  const i = list.findIndex((item) => item.id === SYSTEM_TIME_VAR_ID);
+  if (i < 0) list.unshift({ ...baked, tag: null });
+  else {
+    const cur = list[i]!;
+    list[i] = { ...cur, ...baked, tag: cur.tag ?? null };
+  }
+  return { ...config, variables: list };
+}
+
+/** HH:mm from the machine clock in the OS local timezone (Intl default). */
+export function formatSystemTime(at: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(at);
+  const hour = (parts.find((p) => p.type === "hour")?.value ?? "00").padStart(2, "0");
+  const minute = (parts.find((p) => p.type === "minute")?.value ?? "00").padStart(2, "0");
+  return `${hour}:${minute}`;
+}
+
+function isSystemTimeToken(key: string, variables: RoomVariable[]): boolean {
+  const norm = key.replace(/[_\s]/g, "").toLowerCase();
+  if (norm === SYSTEM_TIME_VAR_ID) return true;
+  const hit = variables.find((v) => v.id === SYSTEM_TIME_VAR_ID);
+  if (!hit) return false;
+  return (
+    hit.label === key ||
+    hit.label.replace(/[_\s]/g, "").toLowerCase() === norm
+  );
+}
+
+
 export function monitorVarId(rule: { id: string; label?: string }) {
   const words = String(rule.label || "").trim().split(/[^A-Za-z0-9]+/).filter(Boolean);
   let slug = words
@@ -25,7 +68,9 @@ export function withMonitorVars(config: RoomConfig): RoomConfig {
 
 export function seedVars(config: RoomConfig, current?: VarMap): VarMap {
   const next: VarMap = { ...(current ?? {}) };
+  delete next[SYSTEM_TIME_VAR_ID];
   for (const v of config.variables ?? []) {
+    if (v.id === SYSTEM_TIME_VAR_ID) continue;
     if (next[v.id] === undefined) next[v.id] = v.default;
   }
   return next;
@@ -36,6 +81,8 @@ export function resolveTemplate(raw: string | number | undefined, vars: VarMap, 
   if (typeof raw === "number") return raw;
   const replaced = raw.replace(/\{([^}]+)\}/g, (_, token: string) => {
     const key = token.trim();
+    // Built-in `{time}`: always compute from OS clock (ignore stored/stale vars).
+    if (isSystemTimeToken(key, variables)) return formatSystemTime();
     if (vars[key] !== undefined) return String(vars[key]);
     const hit = variables.find((v) =>
       v.id === key ||
@@ -95,6 +142,7 @@ export function writeConfiguredVar(
   id: string,
   value: string | number | undefined,
 ): { ok: true; value: string | number } | { ok: false; message: string } {
+  if (id === SYSTEM_TIME_VAR_ID) return { ok: false, message: "Read-only variable" };
   const def = variables.find((v) => v.id === id);
   if (!def) return { ok: false, message: "Unknown variable" };
   return { ok: true, value: clampVar(def, value ?? "") };

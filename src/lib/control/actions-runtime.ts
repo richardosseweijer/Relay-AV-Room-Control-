@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { authenticateDevice, executeCommand, pingReachable, runMacro, syncInventory } from "./engine";
 import { roomLanBind } from "./nics";
 import { NONE_MACRO_ID } from "./types";
-import { clampVar } from "./vars";
+import { clampVar, SYSTEM_TIME_VAR_ID } from "./vars";
 import { actionPermitted } from "./control-policy";
 import { applyOccupancy, occupancyCode, occupancyOf, OCCUPANCY_VAR_ID } from "./peer-payload";
 import { loadControl } from "./actions-context";
@@ -16,6 +16,7 @@ export const setVariable = createServerFn({ method: "POST" })
     await ensureLoaded();
     if (!allowLanControl(data.token)) return { ok: false, message: "External control off" };
     const mem = memory();
+    if (data.id === SYSTEM_TIME_VAR_ID) return { ok: false, message: "Read-only variable" };
     const def = mem.config.variables.find((v) => v.id === data.id);
     if (!def) return { ok: false, message: "Unknown variable" };
     mem.vars[data.id] = clampVar(def, data.value);

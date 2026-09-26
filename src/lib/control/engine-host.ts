@@ -8,6 +8,7 @@ import type {
 import { isGatewayKind } from "./gateway.ts";
 import { sendUsbMidi } from "./midi.ts";
 import { pushTrace } from "./engine-policy.ts";
+import { formatSystemTime, SYSTEM_TIME_VAR_ID } from "./vars.ts";
 
 async function runToolStdin(cmd: string, args: string[], stdin: string, timeout = 2000): Promise<CommandResult> {
   const { spawn } = await import("node:child_process");
@@ -261,6 +262,7 @@ export async function applyHost(
   else if (commandId === "var.get") {
     if (!vars) return { ok: false, message: "No vars" };
     const id = String(value ?? "").split("=")[0] ?? "";
+    if (id === SYSTEM_TIME_VAR_ID) return { ok: true, message: formatSystemTime() };
     return { ok: id in vars, message: String(vars[id] ?? "") };
   }
   else if (commandId === "var.set") {
@@ -271,6 +273,7 @@ export async function applyHost(
     const id = raw.slice(0, eq).trim();
     const next = raw.slice(eq + 1);
     if (!id) return { ok: false, message: "Missing var id" };
+    if (id === SYSTEM_TIME_VAR_ID) return { ok: false, message: "Read-only variable" };
     vars[id] = next;
     return { ok: true, message: `${id}=${next}` };
   }
