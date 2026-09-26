@@ -2,8 +2,8 @@
  * Image widget host media — GET (panel|config, like /api/preview) and DELETE (config).
  *
  * Auth: Bearer sessionStorage/localStorage tokens (no cookies). Panel ImageTile
- * (later MR) must fetch with Authorization like PreviewTile — bare <img src>
- * will not send the token.
+ * fetches with Authorization like PreviewTile — bare <img src> will not send
+ * the token.
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { ensureLoaded } from "@/lib/control/store.server";
