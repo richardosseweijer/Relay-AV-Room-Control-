@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.64
+
+- Tag `v0.9.64`. **Text align for label/button/status:** Pages Button setup select `textAlign` (`left`|`center`|`right`, default Left — matches prior panel look) for `label`, `button`, and `status` only. Normalize fills `left` when missing/invalid ([`text-align-widget.ts`](src/lib/control/text-align-widget.ts)); editor [`pages-editor.tsx`](src/components/config/pages-editor.tsx); panel [`panel-tile.tsx`](src/components/panel/panel-tile.tsx) + [`widget-face.tsx`](src/components/panel/widget-face.tsx). Preview/image/slider/schedule unchanged.
+
 ## 0.9.63
 
 - Tag `v0.9.63`. **Label hide when disabled:** Pages enable-when section for `label` widgets gains a **Hide when disabled** checkbox (`hideWhenDisabled`). When ticked and enable-when fails, the panel omits the label tile (no DOM / no space). Unticked (default) keeps the label visible with muted opacity — existing panels unchanged. Normalize coerces the flag on labels ([`panel-widget.ts`](src/lib/control/panel-widget.ts)); editor [`pages-enable-when.tsx`](src/components/config/pages-enable-when.tsx); panel [`panel-tile.tsx`](src/components/panel/panel-tile.tsx).
