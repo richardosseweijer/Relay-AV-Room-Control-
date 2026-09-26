@@ -65,3 +65,12 @@ test("ImageTile loads media via fetch+blob (Bearer), not bare img src", () => {
   assert.match(tile, /src=\{blobUrl\}/);
   assert.equal(/<img[^>]*src=\{(?:src|widget\.imageSrc)/.test(tile), false);
 });
+
+test("PanelTile hides label when shouldHideWhenDisabled", () => {
+  const leaf = fs.readFileSync("src/components/panel/panel-tile.tsx", "utf8");
+  assert.match(leaf, /shouldHideWhenDisabled/);
+  assert.match(leaf, /widget\.type === "label"/);
+  assert.match(leaf, /return null/);
+  assert.match(leaf, /!on && "opacity-40"/);
+});
+
