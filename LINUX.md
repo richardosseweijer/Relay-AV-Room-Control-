@@ -1,6 +1,6 @@
 # Relay — Linux / Raspberry Pi from a blank install
 
-Install **`main`** from GitHub (that is the supported tree). Current package version is **0.9.56**. Confirm with the Room tab version field or `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
+Install **`main`** from GitHub (that is the supported tree). Current package version is **0.9.57**. Confirm with the Room tab version field or `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
 
 Default configurator PIN after first start: `1234`. Open `/config` once and set a stronger PIN. New rooms default to **Panel PIN**: every tablet unlocks with that PIN and gets its own session (30 days, sliding). **Open on LAN** is a separate Security setting that skips the panel PIN for anyone who can reach port 8081 — use it only on the room VLAN. Do not confuse it with **open LAN control** (unauthenticated `fireCommand`). See `SECURITY.md`.
 
@@ -654,7 +654,7 @@ Room → **Local display (HDMI)** saves `data/relay-kiosk.env` (`RELAY_VIDEO_OUT
 
 Configurator restart needs passwordless `systemctl` for this unit only. Relay stays non-root and runs `sudo -n systemctl restart relay-kiosk.service`. Missing sudoers → clear operator error pointing here (not raw polkit text).
 
-**Required once on the appliance** (host `/etc`, not the git tree): Room → Local display **Save** can write `data/relay-kiosk.env` successfully while **restart** still fails with polkit “interactive authentication” / Access denied if `/etc/sudoers.d/relay-kiosk` is missing. `git pull`, in-app **Update from GitHub**, and reboot refresh code (`main` / `v0.9.56+`) — they do **not** create or refresh this drop-in. Install once below; re-run if `User=` on `relay.service` / `relay-kiosk.service` changes.
+**Required once on the appliance** (host `/etc`, not the git tree): Room → Local display **Save** can write `data/relay-kiosk.env` successfully while **restart** still fails with polkit “interactive authentication” / Access denied if `/etc/sudoers.d/relay-kiosk` is missing. `git pull`, in-app **Update from GitHub**, and reboot refresh code (`main` / `v0.9.57+`) — they do **not** create or refresh this drop-in. Install once below; re-run if `User=` on `relay.service` / `relay-kiosk.service` changes.
 
 ```bash
 # From the repo checkout — substitutes USER in both deploy templates, installs
@@ -681,7 +681,7 @@ The application directory must be a clone of [Relay-AV-Room-Control-](https://gi
 
 Configurator → Room → **Save all**, then **Update from GitHub**. Confirm the warning.
 
-That fetches the release into a separate git worktree, runs `npm ci --include=dev`, builds it, and checks its `/api/room` response before changing the live checkout. A failed stage leaves the running release untouched. After the verified files are switched, systemd restarts Relay; without systemd the updater starts the release and restores and restarts the previous one if readiness fails. Log: `data/relay-update.log`. After a successful update, Room tab version should match `git log -1` (for example `0.9.56 (<sha>)`).
+That fetches the release into a separate git worktree, runs `npm ci --include=dev`, builds it, and checks its `/api/room` response before changing the live checkout. A failed stage leaves the running release untouched. After the verified files are switched, systemd restarts Relay; without systemd the updater starts the release and restores and restarts the previous one if readiness fails. Log: `data/relay-update.log`. After a successful update, Room tab version should match `git log -1` (for example `0.9.57 (<sha>)`).
 
 `NODE_ENV=production` (systemd) would otherwise skip Vite. `--include=dev` keeps it.
 
