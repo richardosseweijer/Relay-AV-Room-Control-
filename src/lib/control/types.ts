@@ -313,7 +313,7 @@ export type Widget = {
   imageFit?: "contain" | "cover";
   /** Optional. Image only: draw flush without WidgetShell button chrome. Default false. */
   imageBorderless?: boolean;
-  /** Optional. Button/slider/label/status/schedule text size. Missing = md. Ignored for preview/image. */
+  /** Optional. Button/label/status/schedule text size. Missing = md. Ignored for preview/image/slider. */
   textSize?: WidgetTextSize;
   /** Optional. Label/button/status horizontal text align. Missing = left. Ignored for other types. */
   textAlign?: WidgetTextAlign;

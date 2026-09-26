@@ -28,9 +28,9 @@ function widget(type, extra = {}) {
   };
 }
 
-test("supportsTextSize excludes preview and image", () => {
+test("supportsTextSize excludes preview, image, and slider", () => {
   assert.equal(supportsTextSize("button"), true);
-  assert.equal(supportsTextSize("slider"), true);
+  assert.equal(supportsTextSize("slider"), false);
   assert.equal(supportsTextSize("label"), true);
   assert.equal(supportsTextSize("status"), true);
   assert.equal(supportsTextSize("schedule"), true);
@@ -47,10 +47,15 @@ test("coerceTextSize defaults invalid/missing to md", () => {
   assert.equal(coerceTextSize("lg"), "lg");
 });
 
-test("normalizeTextSizeFields fills md for button family; no-op for preview/image", () => {
+test("normalizeTextSizeFields fills md for button family; strips slider; no-op for preview/image", () => {
   assert.equal(normalizeTextSizeFields(widget("button")).textSize, "md");
-  assert.equal(normalizeTextSizeFields(widget("slider", { textSize: "lg" })).textSize, "lg");
+  assert.equal(normalizeTextSizeFields(widget("label", { textSize: "lg" })).textSize, "lg");
   assert.equal(normalizeTextSizeFields(widget("status", { textSize: "nope" })).textSize, "md");
+  const sliderKeep = widget("slider");
+  assert.equal(normalizeTextSizeFields(sliderKeep), sliderKeep);
+  const sliderStrip = normalizeTextSizeFields(widget("slider", { textSize: "lg" }));
+  assert.equal(sliderStrip.textSize, undefined);
+  assert.equal("textSize" in sliderStrip, false);
   const preview = widget("preview", { streamUrl: "" });
   assert.equal(normalizeTextSizeFields(preview), preview);
   const image = widget("image");

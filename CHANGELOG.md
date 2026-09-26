@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.65
+
+- Tag `v0.9.65`. **Slider text size removed:** Pages Text size select no longer applies to `slider` widgets; panel slider face restored to fixed `text-xl` / `text-[11px]` sizing (pre-0.9.61). Normalize strips leftover `textSize` on sliders. Label/button/status/schedule textSize unchanged.
+
 ## 0.9.64
 
 - Tag `v0.9.64`. **Text align for label/button/status:** Pages Button setup select `textAlign` (`left`|`center`|`right`, default Left — matches prior panel look) for `label`, `button`, and `status` only. Normalize fills `left` when missing/invalid ([`text-align-widget.ts`](src/lib/control/text-align-widget.ts)); editor [`pages-editor.tsx`](src/components/config/pages-editor.tsx); panel [`panel-tile.tsx`](src/components/panel/panel-tile.tsx) + [`widget-face.tsx`](src/components/panel/widget-face.tsx). Preview/image/slider/schedule unchanged.
