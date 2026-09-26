@@ -1,4 +1,5 @@
 import type { RoomSnapshot, Widget } from "@/lib/control/types";
+import { cn } from "@/lib/utils";
 import { gridStyle } from "@/lib/control/page-layout";
 import { resolveBoundNumber } from "@/lib/control/vars";
 import { nextScheduled } from "@/lib/control/schedule";
@@ -13,6 +14,11 @@ import { WidgetShell } from "./widget-face";
 import { PreviewTile } from "./preview-tile";
 import { ImageTile } from "./image-tile";
 import { PanelSlider } from "./panel-slider";
+import {
+  widgetBodyTextClass,
+  widgetLabelTileTextClass,
+  widgetSecondaryTextClass,
+} from "@/lib/control/text-size-widget";
 
 /** One grid cell: slider / label / schedule / preview / image / status / button branches. */
 export function PanelTile({
@@ -79,7 +85,7 @@ export function PanelTile({
       <div
         data-wide={wide}
         data-type={widget.type}
-        className="flex min-w-0 items-center [overflow-wrap:anywhere] rounded-lg px-3 text-sm text-muted"
+        className={cn("flex min-w-0 items-center [overflow-wrap:anywhere] rounded-lg px-3 text-muted", widgetLabelTileTextClass(widget.textSize))}
         style={gridStyle(widget)}
       >
         {widget.label}
@@ -98,11 +104,11 @@ export function PanelTile({
         <WidgetShell widget={{ ...widget, label: widget.label === "Next" || widget.label === "Button" || !widget.label ? "Next scheduled task:" : widget.label }}>
           {upcoming ? (
             <span className="flex flex-col gap-1">
-              <span className="text-xl font-medium leading-tight">{upcoming.label}</span>
-              <span className="text-base text-muted">{upcoming.when}</span>
+              <span className={cn(widgetBodyTextClass(widget.textSize), "font-medium leading-tight")}>{upcoming.label}</span>
+              <span className={cn(widgetSecondaryTextClass(widget.textSize), "text-muted")}>{upcoming.when}</span>
             </span>
           ) : (
-            <span className="text-xl font-medium">Nothing scheduled</span>
+            <span className={cn(widgetBodyTextClass(widget.textSize), "font-medium")}>Nothing scheduled</span>
           )}
         </WidgetShell>
       </div>
