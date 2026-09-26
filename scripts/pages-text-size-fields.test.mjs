@@ -35,6 +35,8 @@ test("panel tiles apply height-relative textSize styles (not preview/image/slide
   assert.match(face, /widget\.type === "status" \? buttonFace/);
   // Status readout stacks from the top, same as a button label. Other faces stay split.
   assert.match(face, /widget\.type === "status" \? "justify-start" : "justify-between"/);
+  // A blank caption must not reserve a gap above the readout.
+  assert.match(face, /widget\.label\?\.trim\(\)/);
   assert.match(tile, /widgetLabelTileTextStyle\(widget\.textSize\)/);
   assert.match(tile, /widgetBodyTextStyle\(widget\.textSize\)/);
   assert.match(tile, /widgetSecondaryTextStyle\(widget\.textSize\)/);

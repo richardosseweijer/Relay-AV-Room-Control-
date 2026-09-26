@@ -70,6 +70,7 @@ export function WidgetShell({
   const bodyStyle = widgetBodyTextStyle(widget.textSize);
   const canAlign = supportsTextAlign(widget.type);
   const align = canAlign ? widget.textAlign : undefined;
+  const caption = widget.label?.trim() ?? "";
   return (
     <button
       type="button"
@@ -94,21 +95,23 @@ export function WidgetShell({
           )}
         />
       ) : null}
-      <div className={cn(
-        "relative z-[1] flex w-full items-start gap-2",
-        canAlign
-          ? (align === "center" ? "justify-center" : align === "right" ? "justify-end" : "justify-start")
-          : "justify-between",
-        widget.icon && !image && "pr-10",
-        image && "px-2 pt-1",
-      )}>
-        <span
-          className={cn(buttonFace, disabled ? "opacity-60" : active ? "text-bg/70" : "text-muted")}
-          style={labelStyle}
-        >
-          {widget.label}
-        </span>
-      </div>
+      {caption ? (
+        <div className={cn(
+          "relative z-[1] flex w-full items-start gap-2",
+          canAlign
+            ? (align === "center" ? "justify-center" : align === "right" ? "justify-end" : "justify-start")
+            : "justify-between",
+          widget.icon && !image && "pr-10",
+          image && "px-2 pt-1",
+        )}>
+          <span
+            className={cn(buttonFace, disabled ? "opacity-60" : active ? "text-bg/70" : "text-muted")}
+            style={labelStyle}
+          >
+            {widget.label}
+          </span>
+        </div>
+      ) : null}
       <div
         className={cn(
           "relative z-[1]",
