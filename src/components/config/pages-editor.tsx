@@ -288,14 +288,15 @@ export function PagesEditor({
             <label className="grid gap-1 text-sm text-muted">Text size
               <select
                 className={fieldClass()}
-                value={selected.textSize === "sm" || selected.textSize === "lg" ? selected.textSize : "md"}
+                value={selected.textSize === "xs" || selected.textSize === "sm" || selected.textSize === "lg" ? selected.textSize : "md"}
                 onChange={(e) => update((c) => {
                   const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
                   if (!w) return;
                   const next = e.target.value;
-                  w.textSize = next === "sm" || next === "lg" ? next : "md";
+                  w.textSize = next === "xs" || next === "sm" || next === "lg" ? next : "md";
                 })}
               >
+                <option value="xs">Extra small</option>
                 <option value="sm">Small</option>
                 <option value="md">Medium</option>
                 <option value="lg">Large</option>
