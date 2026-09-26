@@ -225,6 +225,9 @@ export type PanelAccess = "open" | "pin";
 /** "preview" is the optional 720p RTSP tile (ffmpeg remux). Drop it with the preview files.
  *  "image" is a static image tile (host media under data/media/; /api/media). */
 export type WidgetType = "button" | "slider" | "label" | "status" | "schedule" | "preview" | "image";
+
+/** Panel tile label/body text size. Missing = md (current default look). Not used by preview/image. */
+export type WidgetTextSize = "sm" | "md" | "lg";
 export type BindKind = "command" | "feedback" | "macro" | "gotoPage" | "range" | "variable";
 export type FailKind = "macro" | "gotoPage" | "none";
 export type WidgetColor = "steel" | "sage" | "clay" | "fog" | "ink" | "ocean" | "pine" | "rust" | "sand" | "slate" | "rose";
@@ -306,6 +309,8 @@ export type Widget = {
   imageFit?: "contain" | "cover";
   /** Optional. Image only: draw flush without WidgetShell button chrome. Default false. */
   imageBorderless?: boolean;
+  /** Optional. Button/slider/label/status/schedule text size. Missing = md. Ignored for preview/image. */
+  textSize?: WidgetTextSize;
   bind: WidgetBind;
 };
 

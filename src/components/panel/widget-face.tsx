@@ -1,6 +1,7 @@
 import { NamedIcon } from "@/components/icons";
 import type { Widget, WidgetColor } from "@/lib/control/types";
 import { cn } from "@/lib/utils";
+import { widgetBodyTextClass, widgetChipTextClass } from "@/lib/control/text-size-widget";
 
 const colorClass: Record<WidgetColor, string> = {
   steel: "bg-steel/25 border-steel/30 text-fg",
@@ -83,7 +84,7 @@ export function WidgetShell({
         />
       ) : null}
       <div className={cn("relative z-[1] flex items-start justify-between gap-2", widget.icon && !image && "pr-10", image && "px-2 pt-1")}>
-        <span className={cn("text-[11px] font-medium tracking-[0.16em] uppercase", disabled ? "opacity-60" : active ? "text-bg/70" : "text-muted")}>
+        <span className={cn(widgetChipTextClass(widget.textSize), "font-medium tracking-[0.16em] uppercase", disabled ? "opacity-60" : active ? "text-bg/70" : "text-muted")}>
           {widget.label}
         </span>
       </div>
@@ -92,7 +93,7 @@ export function WidgetShell({
           "relative z-[1]",
           image
             ? "min-h-0 flex-1 overflow-hidden rounded-lg bg-bg/30"
-            : cn("min-h-6 font-medium leading-tight tracking-tight", status ? "text-3xl" : "text-xl"),
+            : cn("min-h-6 font-medium leading-tight tracking-tight", widgetBodyTextClass(widget.textSize, { status })),
         )}
       >
         {children}
