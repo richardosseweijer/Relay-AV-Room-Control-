@@ -4,9 +4,13 @@ import {
   coerceTextSize,
   normalizeTextSizeFields,
   supportsTextSize,
-  widgetBodyTextClass,
-  widgetChipTextClass,
-  widgetLabelTileTextClass,
+  TEXT_SIZE_PAD_FRAC,
+  widgetTextHeightFraction,
+  widgetTextSizeStyle,
+  widgetBodyTextStyle,
+  widgetChipTextStyle,
+  widgetLabelTileTextStyle,
+  widgetSecondaryTextStyle,
 } from "../src/lib/control/text-size-widget.ts";
 
 function widget(type, extra = {}) {
@@ -53,11 +57,31 @@ test("normalizeTextSizeFields fills md for button family; no-op for preview/imag
   assert.equal(normalizeTextSizeFields(image), image);
 });
 
-test("widget text class helpers keep md as prior defaults", () => {
-  assert.equal(widgetBodyTextClass("md"), "text-xl");
-  assert.equal(widgetBodyTextClass("md", { status: true }), "text-3xl");
-  assert.equal(widgetBodyTextClass("sm"), "text-base");
-  assert.equal(widgetBodyTextClass("lg", { status: true }), "text-4xl");
-  assert.equal(widgetChipTextClass("md"), "text-[11px]");
-  assert.equal(widgetLabelTileTextClass("md"), "text-sm");
+test("widgetTextHeightFraction: usable = 7/8 height; sm/md/lg = 1/4, 1/2, 1 of usable", () => {
+  assert.equal(TEXT_SIZE_PAD_FRAC, 1 / 16);
+  const usable = 1 - 2 * TEXT_SIZE_PAD_FRAC; // 7/8
+  assert.equal(usable, 7 / 8);
+  assert.equal(widgetTextHeightFraction("sm"), (1 / 4) * usable);
+  assert.equal(widgetTextHeightFraction("md"), (1 / 2) * usable);
+  assert.equal(widgetTextHeightFraction("lg"), 1 * usable);
+  assert.equal(widgetTextHeightFraction(undefined), (1 / 2) * usable);
+  assert.equal(widgetTextHeightFraction("nope"), (1 / 2) * usable);
+});
+
+test("widgetTextSizeStyle emits cqh body/chip/secondary sizes", () => {
+  const md = widgetTextHeightFraction("md");
+  assert.deepEqual(widgetBodyTextStyle("md"), {
+    fontSize: `${md * 100}cqh`,
+    lineHeight: 1.15,
+  });
+  assert.deepEqual(widgetChipTextStyle("md"), {
+    fontSize: `${md * 0.4 * 100}cqh`,
+    lineHeight: 1.15,
+  });
+  assert.deepEqual(widgetSecondaryTextStyle("lg"), {
+    fontSize: `${widgetTextHeightFraction("lg") * 0.7 * 100}cqh`,
+    lineHeight: 1.15,
+  });
+  assert.deepEqual(widgetLabelTileTextStyle("sm"), widgetTextSizeStyle("sm", "body"));
+  assert.match(widgetBodyTextStyle("sm").fontSize, /cqh$/);
 });
