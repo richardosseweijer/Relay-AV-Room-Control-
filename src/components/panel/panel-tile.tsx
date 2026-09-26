@@ -11,9 +11,10 @@ import {
 } from "@/lib/control/panel-widget";
 import { WidgetShell } from "./widget-face";
 import { PreviewTile } from "./preview-tile";
+import { ImageTile } from "./image-tile";
 import { PanelSlider } from "./panel-slider";
 
-/** One grid cell: slider / label / schedule / preview / status / button branches. */
+/** One grid cell: slider / label / schedule / preview / image / status / button branches. */
 export function PanelTile({
   widget,
   snap,
@@ -47,7 +48,7 @@ export function PanelTile({
   const lit = widgetActive(snap, widget, confirming);
   const wide = (widget.type === "slider" && widget.sliderDir === "vertical")
     ? widget.w >= gridCols
-    : widget.type === "slider" || widget.type === "schedule" || widget.type === "label" || widget.type === "preview" || widget.w >= gridCols;
+    : widget.type === "slider" || widget.type === "schedule" || widget.type === "label" || widget.type === "preview" || widget.type === "image" || widget.w >= gridCols;
 
   if (widget.type === "slider") {
     const num = Number(value || 0);
@@ -116,6 +117,18 @@ export function PanelTile({
         style={gridStyle(widget)}
       >
         <PreviewTile widget={widget} token={session} disabled={!on} onClick={onRun} />
+      </div>
+    );
+  }
+  if (widget.type === "image") {
+    return (
+      <div
+        data-wide={wide}
+        data-type={widget.type}
+        className="grid min-h-0 min-w-0 h-full"
+        style={gridStyle(widget)}
+      >
+        <ImageTile widget={widget} token={session} disabled={!on} onClick={onRun} />
       </div>
     );
   }
