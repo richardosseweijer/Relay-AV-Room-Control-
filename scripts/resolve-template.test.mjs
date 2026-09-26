@@ -62,3 +62,64 @@ test("formatWidgetLabel: no double-expand of resulting newlines", () => {
   assert.equal(once, "A\nB");
   assert.equal(expandLabelNewlines(once), "A\nB");
 });
+
+import {
+  formatSystemTime,
+  SYSTEM_TIME_VAR_ID,
+  systemTimeVarSpec,
+  withSystemTimeVar,
+  writeConfiguredVar,
+  seedVars,
+} from "../src/lib/control/vars.ts";
+
+test("formatSystemTime: HH:mm from given Date (OS-local Intl)", () => {
+  const at = new Date(2026, 0, 15, 9, 5, 30); // local Jan 15 09:05
+  assert.match(formatSystemTime(at), /^\d{2}:\d{2}$/);
+  assert.equal(formatSystemTime(at), "09:05");
+});
+
+test("resolveTemplate: {time} expands to non-empty time-like string", () => {
+  const out = resolveTemplate("Now {time}", {}, []);
+  assert.match(String(out), /^Now \d{2}:\d{2}$/);
+  // Stale stored value must not win — compute-on-read.
+  const fresh = resolveTemplate("{time}", { time: "stale" }, [systemTimeVarSpec()]);
+  assert.match(String(fresh), /^\d{2}:\d{2}$/);
+  assert.notEqual(fresh, "stale");
+});
+
+test("resolveTemplate: unknown still hides; time label alias works when baked", () => {
+  assert.equal(resolveTemplate("{missing}", {}, []), "");
+  const baked = [systemTimeVarSpec()];
+  assert.match(String(resolveTemplate("{Time}", {}, baked)), /^\d{2}:\d{2}$/);
+});
+
+test("resolveWidgetLabel / formatWidgetLabel: {time} present", () => {
+  assert.match(resolveWidgetLabel("T={time}", {}, []), /^T=\d{2}:\d{2}$/);
+  assert.match(formatWidgetLabel("{time}\\nok", {}, []), /^\d{2}:\d{2}\nok$/);
+});
+
+test("writeConfiguredVar: time is read-only; unknown still rejects", () => {
+  const variables = [systemTimeVarSpec(), { id: "vol", label: "Vol", kind: "number", default: 0, min: 0, max: 100 }];
+  const ro = writeConfiguredVar(variables, SYSTEM_TIME_VAR_ID, "12:00");
+  assert.equal(ro.ok, false);
+  assert.equal(ro.message, "Read-only variable");
+  const unknown = writeConfiguredVar(variables, "nope", 1);
+  assert.equal(unknown.ok, false);
+});
+
+test("withSystemTimeVar bakes and overwrites hijacked time var", () => {
+  const next = withSystemTimeVar({
+    room: {},
+    variables: [{ id: "time", label: "Hijack", kind: "number", default: 0 }],
+  });
+  const row = next.variables.find((v) => v.id === "time");
+  assert.equal(row?.label, "Time");
+  assert.equal(row?.kind, "text");
+});
+
+test("seedVars omits system time (not stored)", () => {
+  const cfg = withSystemTimeVar({ room: {}, variables: [{ id: "roomName", label: "Room", kind: "text", default: "A" }] });
+  const seeded = seedVars(cfg, { time: "99:99", roomName: "B" });
+  assert.equal("time" in seeded, false);
+  assert.equal(seeded.roomName, "B");
+});

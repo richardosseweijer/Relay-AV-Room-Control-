@@ -11,7 +11,7 @@
 import { emptyRoomConfig } from "./defaults";
 import type { RoomConfig } from "./types";
 import { NONE_MACRO_ID, noneMacro } from "./types";
-import { withMonitorVars } from "./vars";
+import { withMonitorVars, withSystemTimeVar } from "./vars";
 import { withOccupancyVar } from "./peer-payload";
 import { withFoyerSessionVars } from "./foyer-peer";
 import { resolveRoomTheme } from "@/lib/theme";
@@ -29,7 +29,7 @@ function liftTag<T extends { tag?: string | null }>(item: T): T {
 export function normalize(config?: RoomConfig | null): RoomConfig {
   const demo = emptyRoomConfig();
   if (!config) return demo;
-  return withFoyerSessionVars(withOccupancyVar(withMonitorVars({
+  return withFoyerSessionVars(withOccupancyVar(withSystemTimeVar(withMonitorVars({
     ...demo,
     ...config,
     room: {
@@ -73,7 +73,7 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
       ...page,
       widgets: (page.widgets ?? []).map((widget) => normalizeHideWhenDisabledFields(normalizeTextAlignFields(normalizeTextSizeFields(normalizeImageFields(normalizeStatusFields(coerceLegacyWidgetType(widget))))))),
     })),
-  })));
+  }))));
 }
 
 /** Bumped when room config is replaced; in-place field tweaks on the live object keep the memo. */
