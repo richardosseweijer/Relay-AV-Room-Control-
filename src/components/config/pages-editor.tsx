@@ -19,6 +19,7 @@ import { fieldClass } from "./config-ui";
 import { InputNum } from "./config-fields";
 import { PagesStatusFields } from "./pages-status-fields";
 import { PagesPreviewFields } from "./pages-preview-fields";
+import { PagesImageFields } from "./pages-image-fields";
 import { PagesEnableWhen } from "./pages-enable-when";
 import { PagesBindFields } from "./pages-bind-fields";
 
@@ -214,7 +215,7 @@ export function PagesEditor({
       </div>
       {selected ? (
         <aside className="order-first grid max-h-[70dvh] gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-4 lg:order-none lg:sticky lg:top-20 lg:max-h-[calc(100dvh-8rem)]">
-          <p className="text-xs uppercase tracking-[0.16em] text-subtle">{selected.type === "preview" ? "Preview setup" : selected.type === "status" ? "Status setup" : "Button setup"}</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-subtle">{selected.type === "preview" ? "Preview setup" : selected.type === "image" ? "Image setup" : selected.type === "status" ? "Status setup" : "Button setup"}</p>
           <label className="grid gap-1 text-sm text-muted">Label
             <input className={fieldClass()} value={selected.label} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.label = e.target.value; })} />
           </label>
@@ -266,6 +267,10 @@ export function PagesEditor({
                 w.label = w.label === "Button" || !w.label ? "Preview" : w.label;
                 w.streamUrl = w.streamUrl || "";
                 w.bind = { kind: "macro", id: w.bind.id ?? NONE_MACRO_ID, device: w.bind.device ?? draft.devices[0]?.id, gotoPage: null };
+              } else if (type === "image") {
+                w.label = w.label === "Button" || !w.label ? "Image" : w.label;
+                w.imageFit = w.imageFit === "cover" ? "cover" : "contain";
+                w.bind = { kind: "macro", id: w.bind.id ?? NONE_MACRO_ID, gotoPage: null };
               }
             })}
           >
@@ -275,6 +280,7 @@ export function PagesEditor({
             <option value="label">Label</option>
             <option value="schedule">Next schedule</option>
             <option value="preview">Preview</option>
+            <option value="image">Image</option>
           </select>
           </label>
           {(selected.type === "button" || selected.type === "slider") ? (
@@ -304,11 +310,20 @@ export function PagesEditor({
               update={update}
             />
           ) : null}
+          {selected.type === "image" ? (
+            <PagesImageFields
+              selected={selected}
+              pageId={page.id}
+              draft={draft}
+              update={update}
+            />
+          ) : null}
           <div className="flex flex-wrap gap-1">
             {colors.map((color) => (
               <button key={color} type="button" className={cn("size-8 rounded-full border", fills[color], selected.color === color ? "border-fg" : "border-border")} onClick={() => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.color = color; })} />
             ))}
           </div>
+          {selected.type !== "image" ? (
           <div className="grid grid-cols-[repeat(auto-fit,minmax(2rem,1fr))] gap-1">
             {ICON_NAMES.map((name) => (
               <button
@@ -322,6 +337,7 @@ export function PagesEditor({
               </button>
             ))}
           </div>
+          ) : null}
           <PagesEnableWhen
             selected={selected}
             pageId={page.id}
