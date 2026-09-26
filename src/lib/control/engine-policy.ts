@@ -72,7 +72,10 @@ export function scrubSecret(text: string) {
     .replace(/\bbearer\s+[A-Za-z0-9._+/=-]{3,}/gi, "Bearer ***")
     .replace(/([A-Za-z0-9_.-]+)=([^&\s"]+)/gi, (match, key: string) =>
       isSecretKey(key) ? `${key}=***` : match,
-    );
+    )
+    // Telegram Bot API path + BotFather-shaped literals (never log the token).
+    .replace(/\/bot\d+:[A-Za-z0-9_-]+/gi, "/bot***")
+    .replace(/\d{6,}:[A-Za-z0-9_-]{20,}/g, "***");
 }
 
 export function pushTrace(deviceId: string, dir: TraceLine["dir"], text: string) {

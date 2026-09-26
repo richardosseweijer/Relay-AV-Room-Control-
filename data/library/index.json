@@ -11,14 +11,14 @@
     "manufacturer": "Denon",
     "model": "DN-500AV",
     "type": "amplifier",
-    "notes": "Telnet 23 or RS-232 9600 8N1. Same AVR ASCII as consumer Denon. Source names follow the unit labels (HDMI is assigned to BD/SAT/CBL/etc in the 500AV menu). Volume 00–98."
+    "notes": "Telnet 23 or RS-232 9600 8N1. Same AVR ASCII as consumer Denon. Source names follow the unit labels (HDMI is assigned to BD/SAT/CBL/etc in the 500AV menu). Volume 00\u201398."
   },
   "extron-ipl-t-sfi244.json": {
     "filename": "extron-ipl-t-sfi244.json",
     "manufacturer": "Extron",
     "model": "IPL T SFI244",
     "type": "other",
-    "notes": "SIS on TCP 23. Factory IP 192.168.254.254. Leave the unit password empty for first tests. COM1/COM2 raw passthrough is TCP 2001/2002 — point the attached device’s own driver at those ports. IR play needs .eir files loaded with IR Learner / Global Configurator (file + function numbers)."
+    "notes": "SIS on TCP 23. Factory IP 192.168.254.254. Leave the unit password empty for first tests. COM1/COM2 raw passthrough is TCP 2001/2002 \u2014 point the attached device\u2019s own driver at those ports. IR play needs .eir files loaded with IR Learner / Global Configurator (file + function numbers)."
   },
   "extron-mps-602.json": {
     "filename": "extron-mps-602.json",
@@ -32,21 +32,21 @@
     "manufacturer": "Extron",
     "model": "XPA 1002",
     "type": "amplifier",
-    "notes": "No LAN. Bind Interface to an IPL/IPCP Flex I/O slot (TCP 23), not COM/IR. Standby = digital out (contact to XPA standby/GND). Volume = analog voltage on pin C (0–10 V); IPL T SFI244 has analog input only — volume.set fails until the gateway profile defines analogOut. Set standbyLine / volumeLine to 1–4."
+    "notes": "No LAN. Bind Interface to an IPL/IPCP Flex I/O slot (TCP 23), not COM/IR. Standby = digital out (contact to XPA standby/GND). Volume = analog voltage on pin C (0\u201310 V); IPL T SFI244 has analog input only \u2014 volume.set fails until the gateway profile defines analogOut. Set standbyLine / volumeLine to 1\u20134."
   },
   "google-chromecast.json": {
     "filename": "google-chromecast.json",
     "manufacturer": "Google",
     "model": "Chromecast",
     "type": "source",
-    "notes": "Cast on TCP 8009. Play/Pause read the live mediaSessionId from the dongle. Volume uses valueMap 0–100 → 0–1."
+    "notes": "Cast on TCP 8009. Play/Pause read the live mediaSessionId from the dongle. Volume uses valueMap 0\u2013100 \u2192 0\u20131."
   },
   "home-assistant.json": {
     "filename": "home-assistant.json",
     "manufacturer": "Home Assistant",
     "model": "Core",
     "type": "other",
-    "notes": "Local REST on TCP 8123. Create a long-lived access token (HA Profile → Security) and paste it in the token field. Set entity to one entity_id (sensor.office_pir) to poll that state into a monitor. Inventory lists all entities. homeassistant.turn_on/off works for lights, switches, scenes, covers."
+    "notes": "Local REST on TCP 8123. Create a long-lived access token (HA Profile \u2192 Security) and paste it in the token field. Set entity to one entity_id (sensor.office_pir) to poll that state into a monitor. Inventory lists all entities. homeassistant.turn_on/off works for lights, switches, scenes, covers."
   },
   "ipmidi.json": {
     "filename": "ipmidi.json",
@@ -129,7 +129,7 @@
     "manufacturer": "Relay",
     "model": "Host",
     "type": "host",
-    "notes": "localhost = this process. Other room: LAN IP + that room’s listen port + that room’s peer secret in Secret (not Token). Restart / update / reboot only from this configurator."
+    "notes": "localhost = this process. Other room: LAN IP + that room\u2019s listen port + that room\u2019s peer secret in Secret (not Token). Restart / update / reboot only from this configurator."
   },
   "room-lights.json": {
     "filename": "room-lights.json",
@@ -142,14 +142,14 @@
     "manufacturer": "Generic",
     "model": "RTP-MIDI",
     "type": "mixer",
-    "notes": "AppleMIDI session on the card IP, control port 5004, data port 5005. Enable Network MIDI on the desk and type the IPv4 — no Bonjour. Hex MIDI, channel-1 status nibbles. Not MIDI-TCP and not ipMIDI multicast. Session dies if the desk sleeps."
+    "notes": "AppleMIDI session on the card IP, control port 5004, data port 5005. Enable Network MIDI on the desk and type the IPv4 \u2014 no Bonjour. Hex MIDI, channel-1 status nibbles. Not MIDI-TCP and not ipMIDI multicast. Session dies if the desk sleeps."
   },
   "sacn-universe.json": {
     "filename": "sacn-universe.json",
     "manufacturer": "Generic",
     "model": "sACN Universe",
     "type": "lights",
-    "notes": "E1.31 multicast 239.255.0.{universe}:5568 TTL 1. Set universe on the card (1–63999). Slot 1 is the first DMX address. Do not run sACN on office Wi-Fi."
+    "notes": "E1.31 multicast 239.255.0.{universe}:5568 TTL 1. Set universe on the card (1\u201363999). Slot 1 is the first DMX address. Do not run sACN on office Wi-Fi."
   },
   "samsung-qe50q65t.json": {
     "filename": "samsung-qe50q65t.json",
@@ -190,34 +190,41 @@
     "manufacturer": "Sonos",
     "model": "ZonePlayer",
     "type": "amplifier",
-    "notes": "Local UPnP on TCP 1400. No cloud, no pairing. Point the device IP at the group coordinator (the speaker that shows the group name). Volume 0–100."
+    "notes": "Local UPnP on TCP 1400. No cloud, no pairing. Point the device IP at the group coordinator (the speaker that shows the group name). Volume 0\u2013100."
   },
   "sony-vpl-fhz120l.json": {
     "filename": "sony-vpl-fhz120l.json",
     "manufacturer": "Sony",
     "model": "VPL-FHZ120L",
     "type": "projector",
-    "notes": "ADCP TCP 53595. Enable ADCP in the web UI. Requires Authentication OFF (banner NOKEY). Only one TCP client — close the projector web Control page. Commands use CR+LF. Warm-up can take a minute after power on. PJLink 4352 is a separate driver."
+    "notes": "ADCP TCP 53595. Enable ADCP in the web UI. Requires Authentication OFF (banner NOKEY). Only one TCP client \u2014 close the projector web Control page. Commands use CR+LF. Warm-up can take a minute after power on. PJLink 4352 is a separate driver."
+  },
+  "telegram-bot.json": {
+    "filename": "telegram-bot.json",
+    "manufacturer": "Telegram",
+    "model": "Bot API",
+    "type": "other",
+    "notes": "MR1 send-only. BotFather token in Secret/Token; chat_id required for send. Host unused (api.telegram.org HTTPS). Prefer NIC face Venue/outbound. message.send = plain text. No inbound polling/webhook yet \u2014 phase-2 needs allowlisted chats + macros."
   },
   "usb-midi.json": {
     "filename": "usb-midi.json",
     "manufacturer": "Generic",
     "model": "USB MIDI",
     "type": "mixer",
-    "notes": "ALSA amidi on Linux only. Add a MIDI interface and set Path to hw:1,0,0 (amidi -l). Status nibbles are channel 1 (90 / 80 / B0). {midiChannel} is decimal 1–16 for ASCII; do not stuff it into hex. No Windows / WinMM."
+    "notes": "ALSA amidi on Linux only. Add a MIDI interface and set Path to hw:1,0,0 (amidi -l). Status nibbles are channel 1 (90 / 80 / B0). {midiChannel} is decimal 1\u201316 for ASCII; do not stuff it into hex. No Windows / WinMM."
   },
   "wake-on-lan.json": {
     "filename": "wake-on-lan.json",
     "manufacturer": "Generic",
     "model": "PC (WOL + LAN shutdown)",
     "type": "other",
-    "notes": "Wake uses the NIC MAC (enable WOL in BIOS). Shutdown: Windows RPC (user/password; Linux host needs samba-common-bin) or HTTP GET to auth.path on this device’s Port (small helper on the PC)."
+    "notes": "Wake uses the NIC MAC (enable WOL in BIOS). Shutdown: Windows RPC (user/password; Linux host needs samba-common-bin) or HTTP GET to auth.path on this device\u2019s Port (small helper on the PC)."
   },
   "zowietek-zowiebox.json": {
     "filename": "zowietek-zowiebox.json",
     "manufacturer": "Zowietek",
     "model": "ZowieBox",
     "type": "source",
-    "notes": "HTTP :80 ZowieAPI (Companion POST bodies). Encoder XOR decoder. Local RTSP is always on: rtsp://IP:8554/main/av and /sub/av. NDI encode on often drops internet RTMP/SRT. Stream 0–3 are existing Internet publish slots. Record tasks: usb1_0, sdcard_0, nas1_0. Output format commands also set HDMI audio on and loop-out on (API requires all three). PTZ talks to a camera attached to the box (Visca). NDI decode needs the source name in the ndi field. Digital zoom 100–1200. No session cookie. Not a USB capture card. Encode bitrate/profile omitted — that POST replaces the whole venc array."
+    "notes": "HTTP :80 ZowieAPI (Companion POST bodies). Encoder XOR decoder. Local RTSP is always on: rtsp://IP:8554/main/av and /sub/av. NDI encode on often drops internet RTMP/SRT. Stream 0\u20133 are existing Internet publish slots. Record tasks: usb1_0, sdcard_0, nas1_0. Output format commands also set HDMI audio on and loop-out on (API requires all three). PTZ talks to a camera attached to the box (Visca). NDI decode needs the source name in the ndi field. Digital zoom 100\u20131200. No session cookie. Not a USB capture card. Encode bitrate/profile omitted \u2014 that POST replaces the whole venc array."
   }
 }
