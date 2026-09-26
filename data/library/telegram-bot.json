@@ -1,0 +1,74 @@
+{
+  "specVersion": "2",
+  "device": {
+    "manufacturer": "Telegram",
+    "model": "Bot API",
+    "type": "other",
+    "manualUrl": "https://core.telegram.org/bots/api",
+    "notes": "MR1 send-only. Paste the BotFather bot token in Secret/Token (never logged). Set chat_id to the destination chat (numeric id or @channel). Host field unused — traffic always goes to api.telegram.org over HTTPS. Set NIC face to Venue / outbound so egress uses the room internet NIC (AV face also works on single-NIC hosts). message.send value = plain text (parse_mode off). Authenticate runs getMe. No getUpdates / webhook in this version — inbound commands need a later MR with allowlisted chat_ids + allowlisted macro ids (optional shared PIN in message); never arbitrary shell. Fail-closed if token or chat_id missing."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "telegram",
+      "port": 443,
+      "encoding": "ascii",
+      "timeoutMs": 8000,
+      "http": {
+        "method": "POST",
+        "path": "/",
+        "contentType": "application/json"
+      }
+    }
+  },
+  "auth": {
+    "type": "token",
+    "instanceFields": [
+      "token",
+      "chat_id"
+    ],
+    "pairing": {
+      "kind": "none",
+      "ports": [
+        443
+      ],
+      "userPrompt": "Paste BotFather token into Secret/Token, set chat_id, prefer NIC face Venue/outbound, then Authenticate (getMe)."
+    }
+  },
+  "pacing": {
+    "minIntervalMs": 200
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": ""
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "inventory": {
+    "resources": []
+  },
+  "commands": [
+    {
+      "id": "message.send",
+      "label": "Send message",
+      "kind": "enum",
+      "transport": "lan",
+      "payload": ""
+    }
+  ],
+  "feedback": [
+    {
+      "id": "bot.username",
+      "label": "Bot username",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "",
+      "pollMs": 60000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "result.username"
+      }
+    }
+  ]
+}
