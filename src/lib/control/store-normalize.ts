@@ -18,6 +18,7 @@ import { resolveRoomTheme } from "@/lib/theme";
 import { coerceLegacyWidgetType, normalizeStatusFields } from "./status-widget";
 import { normalizeImageFields } from "./image-widget";
 import { normalizeTextSizeFields } from "./text-size-widget";
+import { normalizeHideWhenDisabledFields } from "./panel-widget";
 
 function liftTag<T extends { tag?: string | null }>(item: T): T {
   const legacy = (item as T & { folder?: string | null }).folder;
@@ -69,7 +70,7 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
     macros: [noneMacro(), ...(config.macros ?? demo.macros).filter((m) => m.id !== NONE_MACRO_ID)].map(liftTag),
     pages: (config.pages ?? demo.pages).map((page) => ({
       ...page,
-      widgets: (page.widgets ?? []).map((widget) => normalizeTextSizeFields(normalizeImageFields(normalizeStatusFields(coerceLegacyWidgetType(widget))))),
+      widgets: (page.widgets ?? []).map((widget) => normalizeHideWhenDisabledFields(normalizeTextSizeFields(normalizeImageFields(normalizeStatusFields(coerceLegacyWidgetType(widget)))))),
     })),
   })));
 }
