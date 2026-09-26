@@ -45,10 +45,17 @@ export function resolveTemplate(raw: string | number | undefined, vars: VarMap, 
     );
     if (hit && vars[hit.id] !== undefined) return String(vars[hit.id]);
     if (hit) return String(hit.default);
-    return `{${token}}`;
+    // Unresolved tokens omit (empty) — panel labels must not show "{name}".
+    return "";
   });
   if (replaced !== raw && replaced !== "" && !Number.isNaN(Number(replaced))) return Number(replaced);
   return replaced;
+}
+
+
+/** Panel widget face labels: expand `{var}` via resolveTemplate; always a string. */
+export function resolveWidgetLabel(raw: string | undefined, vars: VarMap, variables: RoomVariable[] = []): string {
+  return String(resolveTemplate(raw ?? "", vars, variables) ?? "");
 }
 
 export function resolveBoundNumber(raw: number | string | undefined, vars: VarMap, fallback: number, variables: RoomVariable[] = []): number {
