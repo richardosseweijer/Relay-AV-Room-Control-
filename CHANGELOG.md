@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.63
+
+- Tag `v0.9.63`. **Label hide when disabled:** Pages enable-when section for `label` widgets gains a **Hide when disabled** checkbox (`hideWhenDisabled`). When ticked and enable-when fails, the panel omits the label tile (no DOM / no space). Unticked (default) keeps the label visible with muted opacity — existing panels unchanged. Normalize coerces the flag on labels ([`panel-widget.ts`](src/lib/control/panel-widget.ts)); editor [`pages-enable-when.tsx`](src/components/config/pages-enable-when.tsx); panel [`panel-tile.tsx`](src/components/panel/panel-tile.tsx).
+
 ## 0.9.62
 
 - Tag `v0.9.62`. **Panel text size height-relative:** Text size dropdown now scales glyph size from widget tile height via `cqh` (not fixed rem). Formula: usable = height × (1 − 2/16); sm/md/lg = ¼ / ½ / full of usable. Buttons use body size for the label (primary face text). Same widget set as 0.9.61 (exclude preview/image).

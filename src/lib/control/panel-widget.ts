@@ -96,3 +96,20 @@ export function widgetActive(snap: RoomSnapshot, widget: Widget, confirming: boo
   if (widget.bind.kind === "command") return commandIsActive(snap, widget);
   return false;
 }
+
+/** Label-only: completely omit the tile when enableWhen fails and hideWhenDisabled is set. */
+export function shouldHideWhenDisabled(snap: RoomSnapshot, widget: Widget) {
+  return widget.type === "label" && widget.hideWhenDisabled === true && !enabled(snap, widget);
+}
+
+/**
+ * Normalize hideWhenDisabled for labels (missing/invalid → false).
+ * Non-label widgets leave the field untouched.
+ */
+export function normalizeHideWhenDisabledFields<T extends Widget>(widget: T): T {
+  if (widget.type !== "label") return widget;
+  const hideWhenDisabled = widget.hideWhenDisabled === true;
+  if (hideWhenDisabled === widget.hideWhenDisabled) return widget;
+  return { ...widget, hideWhenDisabled };
+}
+

@@ -287,6 +287,8 @@ export type Widget = {
   icon?: string;
   confirm?: boolean;
   enableWhen?: EnableWhen | null;
+  /** Label only: when true, omit the tile if enableWhen fails (default false = still show, muted). */
+  hideWhenDisabled?: boolean;
   /** Status only: ordered color/label/macro rules (exact string equals). */
   colorWhen?: StatusColorWhen[];
   /** Status only: catch-all when no colorWhen row matches. */
