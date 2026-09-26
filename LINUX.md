@@ -1,6 +1,6 @@
 # Relay — Linux / Raspberry Pi from a blank install
 
-Install **`main`** from GitHub (that is the supported tree). Current package version is **0.9.58**. Confirm with the Room tab version field or `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
+Install **`main`** from GitHub (that is the supported tree). Current package version is **0.9.59**. Confirm with the Room tab version field or `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
 
 Default configurator PIN after first start: `1234`. Open `/config` once and set a stronger PIN. New rooms default to **Panel PIN**: every tablet unlocks with that PIN and gets its own session (30 days, sliding). **Open on LAN** is a separate Security setting that skips the panel PIN for anyone who can reach port 8081 — use it only on the room VLAN. Do not confuse it with **open LAN control** (unauthenticated `fireCommand`). See `SECURITY.md`.
 
@@ -237,7 +237,8 @@ Room → Networks → **AV-LAN IPv4 (Linux)** can set **static** or **DHCP** on 
 - DNS / hostname / NTP / NIC2 address are out of scope.
 - Windows / non-Linux: Apply returns a clear error (no silent success).
 - If `RELAY_LISTEN_HOST` is set and would disagree with the new address, Apply **refuses**.
-- Changing prefix/network: **re-check and update ufw** to the new AV CIDR (Apply does not edit ufw).
+- After a successful Apply, Relay **soft-updates ufw** so TCP **8081** is allowed from the **new AV CIDR** (comment `Relay-AV-LAN`) and removes prior Relay-tagged 8081-from-CIDR rules. Never opens 8081 to Anywhere / `0.0.0.0/0`. If ufw/sudoers fails, Apply still succeeds — the success message warns; fix sudoers / ufw manually (IP change is more important than firewall).
+- When **Foyer** is co-hosted (sibling `Foyer-Room-Signage` with `data/foyer-site.json`, or `FOYER_ROOT`), Apply also rewrites Foyer `relayUrl` / `data/foyer-kiosk.env` `FOYER_ROOM_PANEL_URL` to `http://<new-av-ipv4>:8081` when the current value is empty, loopback, or the **previous** AV IP — never a deliberate remote Relay URL. Best-effort `systemctl try-restart` of `foyer` / `foyer-kiosk` (needs existing Foyer sudoers for this user, or restart manually). Soft-fail with an operator note.
 
 **Without NetworkManager, Relay still runs.** Panel/API listen, tablets, firewall, and Update do not need NM. Only the in-app **Apply AV-LAN IPv4** button needs it. Manual netplan / `ip` addressing remains fine for day-to-day.
 
@@ -280,7 +281,7 @@ nmcli -f GENERAL,IP4 device show enp1s0
 
 **Dual-NIC same-subnet gotcha:** When both ports are cabled into the same AV switch/VLAN, both may get DHCP on that subnet. Label/MAC/cable the AV face and set Room → **AV-LAN** to that iface only — Apply must target the AV connection, never the venue/outbound NIC.
 
-**DHCP address drift:** After the renderer switch (or a later renew), the AV IPv4 can change (e.g. `.242` → `.246`). Update Foyer `relayUrl` / kiosk env / tablet bookmarks to `http://<new-av-ip>:8081`. Relay rebinds on restart; Foyer does not auto-learn the new address. Production Foyer→Relay must use the **AV IPv4**, not `127.0.0.1` (Relay binds AV only; loopback listen needs `RELAY_LISTEN_HOST=127.0.0.1` and breaks AV tablets).
+**DHCP address drift:** After the renderer switch (or a later renew), the AV IPv4 can change (e.g. `.242` → `.246`). **Apply AV-LAN** (static or DHCP) soft-updates ufw for the new CIDR and, when Foyer is co-hosted, rewrites Foyer `relayUrl` / `foyer-kiosk.env` when safe (empty / loopback / previous AV). Tablet bookmarks on other devices still need a manual update. Production Foyer→Relay must use the **AV IPv4**, not `127.0.0.1` (Relay binds AV only; loopback listen needs `RELAY_LISTEN_HOST=127.0.0.1` and breaks AV tablets).
 
 **Known follow-up:** `systemd-networkd-wait-online` / NetworkManager wait-online can hang at boot when an optional NIC is down or unplugged. This renderer file does not fix that — treat as a separate host systemd tweak if a room PC stalls on boot.
 
@@ -289,15 +290,24 @@ If `nmcli` is missing or the AV NIC stays unmanaged, fix NM/netplan before `inst
 Privilege: Relay stays non-root. Install a narrow sudoers drop-in so the service user can run nmcli without a password. Prefer the host installer (also installs the §7c kiosk drop-in):
 
 ```bash
-# From the repo checkout — replaces USER in deploy/sudoers.relay-nmcli (+ relay-kiosk).
+# From the repo checkout — replaces USER in deploy/sudoers.relay-nmcli,
+# deploy/sudoers.relay-ufw, and deploy/sudoers.relay-kiosk.
 # Default user: invoking account under sudo, or set RELAY_USER / SUDOERS_USER.
 sudo bash scripts/install-host-sudoers.sh
 # Or: sudo RELAY_USER=ubuntu bash scripts/install-host-sudoers.sh
 ```
 
-Template only: `deploy/sudoers.relay-nmcli` → `/etc/sudoers.d/relay-nmcli` (mode 0440, `visudo -cf`). **One-time host step** — `git pull`, in-app **Update from GitHub**, and reboot do **not** install this drop-in; re-run if `User=` on `relay.service` changes.
+Templates (mode 0440, `visudo -cf`):
 
-Apply spawns `sudo -n nmcli …` (argv allowlist, no shell). Missing sudoers → clear operator error pointing here. Do **not** run Relay as root; MR1 does not use `AmbientCapabilities` / `CAP_NET_ADMIN`.
+| Template | Destination | Purpose |
+|---|---|---|
+| `deploy/sudoers.relay-nmcli` | `/etc/sudoers.d/relay-nmcli` | Apply AV-LAN via `sudo -n nmcli` |
+| `deploy/sudoers.relay-ufw` | `/etc/sudoers.d/relay-ufw` | Apply soft-updates ufw 8081 from new AV CIDR (`comment Relay-AV-LAN` only) |
+| `deploy/sudoers.relay-kiosk` | `/etc/sudoers.d/relay-kiosk` | Local display kiosk unit (§7c) |
+
+**One-time host step** — `git pull`, in-app **Update from GitHub**, and reboot do **not** install these drop-ins; re-run if `User=` on `relay.service` changes, or after adding `relay-ufw`.
+
+Apply spawns `sudo -n nmcli …` then (on success) `sudo -n ufw …` for tagged 8081 rules (argv allowlist, no shell; no `ufw disable`; never Anywhere). Missing nmcli sudoers → Apply fails with a clear error pointing here. Missing **ufw** sudoers → Apply still succeeds; success message warns to install `relay-ufw` / update ufw manually. Do **not** run Relay as root; MR1 does not use `AmbientCapabilities` / `CAP_NET_ADMIN`.
 
 #### A. One-NIC room
 
@@ -433,7 +443,9 @@ Optional Foyer on the same host: same as one-NIC — `8080` / `8082` from **AV C
 - [ ] SSH: allowed from AV/mgmt (or knowingly restricted on venue) — not wide open on venue without need
 - [ ] Two-NIC: `8443` closed **or** scoped to known venue/admin CIDR (never “any”)
 - [ ] Outbound **None** ⇒ expect Update disabled and no venue HTTPS face
-- [ ] After any AV IP Apply / prefix change: ufw CIDR re-checked
+- [ ] After any AV IP Apply / prefix change: ufw shows 8081 from **new** AV CIDR (`Relay-AV-LAN`); old CIDR gone — or success message warned (soft-fail)
+- [ ] Co-hosted Foyer: `relayUrl` / `FOYER_ROOM_PANEL_URL` match new AV IPv4 when they were empty/loopback/old AV (or soft-fail note)
+- [ ] `sudoers.relay-ufw` installed via `install-host-sudoers.sh` when using Apply on a firewalled host
 - [ ] Using **Apply AV-LAN IP**? NetworkManager **package** + netplan **`renderer: NetworkManager`** (`/etc/netplan/99-relay-network-manager.yaml`); `nmcli device status` shows the AV NIC managed/connected — not unmanaged reason 76 (**before** sudoers / `install-host.sh`). Ubuntu Server: `apt-get install network-manager` alone is not enough — switch the renderer. Identify AV iface explicitly if both NICs share a subnet. Relay still runs without NM; Apply only
 - [ ] Built once: §4 `npm ci --include=dev` + §5 `npm run build` **before** `install-host.sh` (unit `enable --now` needs a built tree)
 - [ ] Host units (§6a): `sudo bash scripts/install-host.sh` once (`relay` enabled; `relay-kiosk` left disabled by default)
@@ -452,7 +464,8 @@ Optional Foyer on the same host: same as one-NIC — `8080` / `8082` from **AV C
 | SSH locked out after ufw enable | Use console / HDMI / existing session; add a scoped SSH allow before enabling from a remote-only path |
 | `nmcli` shows **unmanaged** (reason 76) after `apt install network-manager` | Netplan still on networkd — add `/etc/netplan/99-relay-network-manager.yaml` (`renderer: NetworkManager` only), then `netplan apply` from console / other NIC; re-check `nmcli device status` |
 | SSH dropped during `netplan apply` / renderer switch | Expected if the session was on the AV NIC; reconnect via console, HDMI, or the other NIC |
-| Foyer / tablets miss panel after DHCP / renderer switch | AV IPv4 likely changed — update Foyer `relayUrl`, kiosk env, bookmarks to `http://<new-av-ip>:8081` (not `127.0.0.1`) |
+| Foyer / tablets miss panel after DHCP / renderer switch | AV IPv4 likely changed — re-run **Apply** (updates ufw + co-hosted Foyer when safe) or manually set Foyer `relayUrl` / kiosk env / bookmarks to `http://<new-av-ip>:8081` (not `127.0.0.1`); check Apply success message for ufw/Foyer soft-fail |
+| Apply succeeded but tablets blocked | ufw still on old CIDR — install `deploy/sudoers.relay-ufw` via `install-host-sudoers.sh`, re-Apply, or `sudo ufw status` and allow 8081 from new AV CIDR with comment `Relay-AV-LAN` |
 | Wrong net can hit `8081` | Delete broad rules; ensure no venue-sourced allow for `8081`; confirm no WAN port-forward |
 
 Delete a bad rule (example):

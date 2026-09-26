@@ -167,6 +167,11 @@ export const applyAvLanIp = createServerFn({ method: "POST" })
       return { ok: false as const, message: AV_LAN_IP_ADDRESS_ON_OTHER };
     }
 
+    const previousAddress =
+      String(target.nic.ipv4 ?? "").trim() ||
+      String(mem.config.room.network?.address ?? "").trim() ||
+      null;
+
     const runNmcli = createNmcliRunner();
     const applied = await applyAvLanIpViaNmcli({
       mode,
@@ -177,11 +182,16 @@ export const applyAvLanIp = createServerFn({ method: "POST" })
     });
     if (!applied.ok) return { ok: false as const, message: applied.message };
 
+    const appliedAddress =
+      String((applied as { appliedAddress?: string }).appliedAddress ?? applied.address ?? address ?? "").trim();
+    const appliedPrefixRaw = (applied as { appliedPrefix?: number }).appliedPrefix ?? applied.prefix ?? prefix;
+    const appliedPrefix = Number.isInteger(Number(appliedPrefixRaw)) ? Number(appliedPrefixRaw) : 24;
+
     const nextNetwork = {
       ...mem.config.room.network,
       mode,
-      address: mode === "static" ? address : "",
-      prefix: mode === "static" ? prefix : mem.config.room.network?.prefix ?? 24,
+      address: mode === "static" ? address : appliedAddress || "",
+      prefix: mode === "static" ? prefix : (appliedPrefix || (mem.config.room.network?.prefix ?? 24)),
       gateway: "",
     };
     const nextConfig = {
@@ -203,12 +213,37 @@ export const applyAvLanIp = createServerFn({ method: "POST" })
 
     const portRaw = process.env.PORT || "8081";
     const port = Number(portRaw);
-    const hint = avLanIpSuccessHint({
+    const listenPort = Number.isFinite(port) && port > 0 ? port : 8081;
+    let hint = avLanIpSuccessHint({
       mode,
-      address: mode === "static" ? address : null,
-      prefix: mode === "static" ? prefix : null,
-      port: Number.isFinite(port) && port > 0 ? port : 8081,
+      address: mode === "static" ? address : appliedAddress || null,
+      prefix: mode === "static" ? prefix : appliedPrefix || null,
+      port: listenPort,
     });
+
+    // Soft-fail post-hooks: ufw CIDR + co-hosted Foyer bind. IP apply already succeeded.
+    if (appliedAddress) {
+      try {
+        const { runAvLanPostApplyHooks } = await import("./av-lan-post-apply");
+        // systemd WorkingDirectory = checkout; cwd is the reliable sibling-discovery root.
+        const relayRoot = process.cwd();
+        const hooks = await runAvLanPostApplyHooks({
+          newAddress: appliedAddress,
+          newPrefix: mode === "static" ? prefix : appliedPrefix,
+          previousAddress,
+          port: listenPort,
+          relayRoot,
+        });
+        if (hooks.notes.length) {
+          hint = `${hint} ${hooks.notes.join(" ")}`;
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        hint = `${hint} Post-apply hooks soft-fail: ${msg}`;
+      }
+    } else if (mode === "dhcp") {
+      hint = `${hint} ufw/Foyer hooks skipped — DHCP applied but no live AV IPv4 yet; re-check after lease and update ufw/Foyer if needed.`;
+    }
 
     const restart = await applyHost("system.restart", undefined, memory().host, memory().vars, {
       allowAdmin: true,
@@ -223,9 +258,11 @@ export const applyAvLanIp = createServerFn({ method: "POST" })
       ok: true as const,
       message: hint,
       panelUrl:
-        mode === "static" && address
-          ? `http://${address}:${Number.isFinite(port) && port > 0 ? port : 8081}/`
-          : null,
+        appliedAddress
+          ? `http://${appliedAddress}:${listenPort}/`
+          : mode === "static" && address
+            ? `http://${address}:${listenPort}/`
+            : null,
     };
   });
 
