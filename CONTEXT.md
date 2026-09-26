@@ -7,7 +7,7 @@ Keep this file short. If it grows past ~150 lines, cut history — do not append
 
 ## Product
 
-Relay **0.9.56** (beta). Single-process LAN AV room controller. Phase B software checkpoint (B5 at `v0.9.45`). LE/ACME parked; C1–C4 in-box venue TLS train closed (Generate + Networks UI + lifecycle + docs checkpoint).
+Relay **0.9.57** (beta). Single-process LAN AV room controller. Phase B software checkpoint (B5 at `v0.9.45`). LE/ACME parked; C1–C4 in-box venue TLS train closed (Generate + Networks UI + lifecycle + docs checkpoint).
 TanStack Start + Vite. Dev `:8080` / prod `:8081` bind to **AV-LAN IPv4** (auto-map first scanned NIC when AV unset/invalid; else loopback if no NICs). Never `0.0.0.0`. `RELAY_LISTEN_HOST` overrides.
 Not a grok.me / Vercel host — those have no writable `data/`.
 
@@ -29,6 +29,9 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Device nicFace (B4) | `device-face.ts`, `engine-lan.ts` (`sendLan`), Devices tab NIC face |
 | Foyer calendar poll | `foyer-peer.ts` |
 | Preview tile | `preview-grab.ts`, `src/components/panel/preview-tile.tsx`, `src/routes/api/preview.ts` |
+| Image tile | `image-tile.tsx`, `image-widget.ts`, `panel-tile.tsx` / `widget-face.tsx` |
+| Pages Image fields | `pages-image-fields.tsx`, `pages-editor.tsx` |
+| Host media / `/api/media` | `media-store.ts`, `src/routes/api/media.ts`, `src/routes/api/media.$id.ts`, `data/media/` |
 | Panel UI | `src/components/panel/control-panel.tsx` |
 | Page layout | `page-layout.ts`, `pages-editor.tsx`, `control-panel.tsx` |
 | Config shell / tabs | `src/components/config/config-app.tsx`, `*-tab.tsx`, `trigger-pane.tsx`, `pages-editor.tsx` |
@@ -49,7 +52,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 
 Do not grep the whole repo to “get context.” If the table above is missing a file, ask.
 
-## Live notes (still true at 0.9.56)
+## Live notes (still true at 0.9.57)
 
 - Occupancy var is `0` closed, `1` open, `2` in-session, `3` DND. Foyer GET still reads the **string** field. Save-all must not apply `draft.room.occupancy`.
 - Unsigned `GET /api/peer` is TCP loopback **or listen-host hairpin** (real `remoteAddress`, not `Host`). HMAC GET is the full snapshot.
