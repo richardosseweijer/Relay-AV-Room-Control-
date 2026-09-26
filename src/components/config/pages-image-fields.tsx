@@ -130,6 +130,16 @@ export function PagesImageFields({
           <option value="cover">Fill tile</option>
         </select>
       </label>
+      <label className="flex items-center gap-2 text-sm text-muted">
+        <input
+          type="checkbox"
+          checked={selected.imageBorderless === true}
+          onChange={(e) => patchWidget((w) => {
+            w.imageBorderless = e.target.checked;
+          })}
+        />
+        Borderless
+      </label>
       <label className="grid gap-1 text-sm text-muted">Tap macro (optional)
         <select className={fieldClass()} value={selected.bind.id ?? NONE_MACRO_ID} onChange={(e) => update((c) => {
           const w = c.pages.find((p) => p.id === pageId)?.widgets.find((item) => item.id === selected.id);

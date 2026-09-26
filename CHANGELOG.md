@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.58
+
+- Tag `v0.9.58`. **Image Borderless** option: Pages Image setup checkbox `imageBorderless` draws the tile flush without WidgetShell button chrome (no rounded border/fill). Unchecked (default) keeps the current shell look. Fit contain|cover and optional tap macro work in both modes. Color swatches hide when borderless (chrome unused), matching icon-hidden-for-image. Normalize coerces to boolean ([`image-widget.ts`](src/lib/control/image-widget.ts)); panel [`image-tile.tsx`](src/components/panel/image-tile.tsx); editor [`pages-image-fields.tsx`](src/components/config/pages-image-fields.tsx).
+
 ## 0.9.57
 
 - Tag `v0.9.57`. **Image page widget** end-to-end (#155–#158 + docs MR5). Static tile on the panel grid: host media under `data/media/`, fit `contain`|`cover`, optional tap macro. Docs: [`ARCHITECTURE.md`](ARCHITECTURE.md) widget row + file map; [`CONTEXT.md`](CONTEXT.md) Where-to-look (`image-tile`, `pages-image-fields`, `media-store`, `/api/media`). FOYER-RELAY untouched (Relay-only widget).

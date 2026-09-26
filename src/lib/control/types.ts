@@ -304,6 +304,8 @@ export type Widget = {
   imageSrc?: string;
   /** Optional. Image only: how the picture fills the tile. Do not overload previewFit. */
   imageFit?: "contain" | "cover";
+  /** Optional. Image only: draw flush without WidgetShell button chrome. Default false. */
+  imageBorderless?: boolean;
   bind: WidgetBind;
 };
 
