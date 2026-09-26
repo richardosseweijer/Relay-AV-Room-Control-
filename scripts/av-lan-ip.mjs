@@ -34,6 +34,12 @@ export const AV_LAN_IP_LISTEN_OVERRIDE_DHCP =
 export const AV_LAN_IP_ADDRESS_ON_OTHER =
   "That IPv4 is already on another interface. Choose a free address on the AV-LAN subnet.";
 
+export const AV_LAN_IP_VERIFY_FAILED =
+  "nmcli reported success but AV-LAN did not end up with the requested IPv4 (netplan DHCP merge?). Re-check NetworkManager / netplan, or set the address via SSH.";
+
+/** Relay-owned NM profile — avoids Ubuntu Server installer dhcp4:true merging back onto netplan-<iface>. */
+export const RELAY_AV_LAN_CONNECTION_ID = "relay-av-lan";
+
 /** @param {string} raw */
 export function parseIpv4Octets(raw) {
   const s = String(raw ?? "").trim();
@@ -187,6 +193,63 @@ export function buildNmcliConnectionUpArgv(connectionId) {
   return ["connection", "up", String(connectionId)];
 }
 
+/** @param {string} connectionId */
+export function buildNmcliConnectionDownArgv(connectionId) {
+  return ["connection", "down", String(connectionId)];
+}
+
+/** @param {string} connectionId */
+export function buildNmcliAutoconnectNoArgv(connectionId) {
+  return ["connection", "modify", String(connectionId), "connection.autoconnect", "no"];
+}
+
+/** List NAME:DEVICE rows (tabular). */
+export function buildNmcliConnectionListArgv() {
+  return ["-t", "-f", "NAME,DEVICE", "connection", "show"];
+}
+
+/** @param {string} connectionId */
+export function buildNmcliConnectionExistsArgv(connectionId) {
+  return ["-t", "-f", "NAME", "connection", "show", String(connectionId)];
+}
+
+/**
+ * Create Relay-owned ethernet profile (separate netplan NM-* key — does not merge
+ * with installer `ethernets.<iface>.dhcp4: true`).
+ * @param {string} device
+ * @param {string} [connectionId]
+ */
+export function buildNmcliConnectionAddAvArgv(device, connectionId = RELAY_AV_LAN_CONNECTION_ID) {
+  return [
+    "connection",
+    "add",
+    "type",
+    "ethernet",
+    "con-name",
+    String(connectionId),
+    "ifname",
+    String(device),
+    "connection.autoconnect",
+    "yes",
+    "connection.autoconnect-priority",
+    "100",
+    "ipv4.method",
+    "disabled",
+    "ipv6.method",
+    "ignore",
+  ];
+}
+
+/** @param {string} connectionId */
+export function buildNmcliConnectionIpv4ShowArgv(connectionId) {
+  return ["-g", "ipv4.method,ipv4.addresses,ipv4.never-default", "connection", "show", String(connectionId)];
+}
+
+/** @param {string} device */
+export function buildNmcliDeviceIpShowArgv(device) {
+  return ["-g", "GENERAL.CONNECTION,GENERAL.STATE,IP4.ADDRESS", "device", "show", String(device)];
+}
+
 /** @param {string} device */
 export function buildNmcliDeviceShowArgv(device) {
   return ["-t", "-f", "GENERAL.CONNECTION,GENERAL.STATE,GENERAL.NM-MANAGED", "device", "show", String(device)];
@@ -264,6 +327,74 @@ export function parseNmDeviceShow(stdout) {
 }
 
 /**
+ * Parse `nmcli -g ipv4.method,ipv4.addresses,ipv4.never-default connection show` (one value per line).
+ * @param {string} stdout
+ */
+export function parseNmConnectionIpv4(stdout) {
+  // nmcli -g prints one line per field; empty values are blank lines — keep them.
+  const lines = String(stdout || "").split(/\r?\n/);
+  return {
+    method: (lines[0] || "").trim(),
+    addresses: (lines[1] || "").trim(),
+    neverDefault: (lines[2] || "").trim(),
+  };
+}
+
+/**
+ * Parse NAME:DEVICE lines from `nmcli -t -f NAME,DEVICE connection show`.
+ * @param {string} stdout
+ * @param {string} device
+ */
+export function listConnectionNamesForDevice(stdout, device) {
+  const want = String(device || "").trim();
+  /** @type {string[]} */
+  const names = [];
+  for (const line of String(stdout || "").split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const i = line.lastIndexOf(":");
+    if (i < 0) continue;
+    const name = line.slice(0, i);
+    const dev = line.slice(i + 1).trim();
+    if (dev === want && name) names.push(name);
+  }
+  return names;
+}
+
+/**
+ * After up: static must be method=manual with address; dhcp must be method=auto.
+ * @param {{
+ *   mode: "static" | "dhcp",
+ *   address?: string | null,
+ *   prefix?: number | null,
+ *   connection: { method: string, addresses: string, neverDefault: string },
+ *   deviceAddresses?: string | null,
+ * }} opts
+ */
+export function verifyAvLanApplied(opts) {
+  const method = String(opts.connection?.method || "").trim().toLowerCase();
+  const addrs = String(opts.connection?.addresses || "");
+  const never = String(opts.connection?.neverDefault || "").trim().toLowerCase();
+  if (never !== "yes" && never !== "true") {
+    return { ok: false, message: AV_LAN_IP_VERIFY_FAILED };
+  }
+  if (opts.mode === "static") {
+    const want = String(opts.address || "").trim();
+    if (method !== "manual" || !want) {
+      return { ok: false, message: AV_LAN_IP_VERIFY_FAILED };
+    }
+    const live = String(opts.deviceAddresses || "");
+    if (!addrs.includes(want) && !live.includes(want)) {
+      return { ok: false, message: AV_LAN_IP_VERIFY_FAILED };
+    }
+    return { ok: true };
+  }
+  if (method !== "auto") {
+    return { ok: false, message: AV_LAN_IP_VERIFY_FAILED };
+  }
+  return { ok: true };
+}
+
+/**
  * @param {{ code: number | null, stdout?: string, stderr?: string, error?: Error | null }} result
  */
 export function classifyNmcliFailure(result) {
@@ -293,6 +424,10 @@ export function classifyNmcliFailure(result) {
  * Run one allowlisted nmcli invocation via injected runner.
  * Runner signature: (argv: string[], opts?: { sudo?: boolean }) => Promise<{ code, stdout, stderr, error? }>
  * When sudo:true, runner should spawn `sudo -n nmcli …argv`.
+ *
+ * Uses a Relay-owned profile (`relay-av-lan`) so Ubuntu Server netplan does not
+ * re-merge installer `dhcp4: true` onto the active connection (which left
+ * ipv4.method=auto + stale addresses and an UP NIC with no usable IPv4).
  *
  * @param {{
  *   mode: "static" | "dhcp",
@@ -330,9 +465,16 @@ export async function applyAvLanIpViaNmcli(opts) {
   if (managed === "no" || managed === "false") {
     return { ok: false, message: AV_LAN_IP_UNMANAGED };
   }
-  const connectionId = String(parsed.connection || "").trim();
-  if (!connectionId || connectionId === "--" || connectionId.toLowerCase() === "none") {
-    return { ok: false, message: AV_LAN_IP_NO_CONNECTION };
+
+  const connectionId = RELAY_AV_LAN_CONNECTION_ID;
+
+  // Ensure Relay-owned profile exists (do not modify netplan-<iface> in place).
+  const exists = await opts.runNmcli(buildNmcliConnectionExistsArgv(connectionId), { sudo: false });
+  if (exists.code !== 0) {
+    const add = await opts.runNmcli(buildNmcliConnectionAddAvArgv(device, connectionId), { sudo: true });
+    if (add.code !== 0 || add.error) {
+      return { ok: false, message: classifyNmcliFailure(add).message };
+    }
   }
 
   /** @type {string[]} */
@@ -359,14 +501,52 @@ export async function applyAvLanIpViaNmcli(opts) {
     return { ok: false, message: "Internal error: never-default required on AV-LAN." };
   }
 
+  // Raise priority so we win autoconnect vs leftover netplan-<iface> profiles.
+  const prio = await opts.runNmcli(
+    ["connection", "modify", connectionId, "connection.autoconnect-priority", "100", "connection.interface-name", device],
+    { sudo: true },
+  );
+  if (prio.code !== 0 || prio.error) {
+    return { ok: false, message: classifyNmcliFailure(prio).message };
+  }
+
   const mod = await opts.runNmcli(modifyArgv, { sudo: true });
   if (mod.code !== 0 || mod.error) {
     return { ok: false, message: classifyNmcliFailure(mod).message };
   }
 
+  // Best-effort: stop other profiles on this NIC from stealing it after reboot.
+  const list = await opts.runNmcli(buildNmcliConnectionListArgv(), { sudo: false });
+  if (list.code === 0) {
+    for (const name of listConnectionNamesForDevice(list.stdout || "", device)) {
+      if (name === connectionId) continue;
+      await opts.runNmcli(buildNmcliAutoconnectNoArgv(name), { sudo: true });
+      await opts.runNmcli(buildNmcliConnectionDownArgv(name), { sudo: true });
+    }
+  }
+
   const up = await opts.runNmcli(buildNmcliConnectionUpArgv(connectionId), { sudo: true });
   if (up.code !== 0 || up.error) {
     return { ok: false, message: classifyNmcliFailure(up).message };
+  }
+
+  const ipv4Show = await opts.runNmcli(buildNmcliConnectionIpv4ShowArgv(connectionId), { sudo: false });
+  if (ipv4Show.code !== 0 || ipv4Show.error) {
+    return { ok: false, message: classifyNmcliFailure(ipv4Show).message };
+  }
+  const connIpv4 = parseNmConnectionIpv4(ipv4Show.stdout || "");
+  const devIp = await opts.runNmcli(buildNmcliDeviceIpShowArgv(device), { sudo: false });
+  const deviceAddresses = devIp.code === 0 ? String(devIp.stdout || "") : "";
+
+  const verified = verifyAvLanApplied({
+    mode: opts.mode,
+    address: opts.mode === "static" ? opts.address : null,
+    prefix: opts.mode === "static" ? opts.prefix : null,
+    connection: connIpv4,
+    deviceAddresses,
+  });
+  if (!verified.ok) {
+    return { ok: false, message: verified.message };
   }
 
   return {
