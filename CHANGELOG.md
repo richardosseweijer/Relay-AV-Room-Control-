@@ -4,6 +4,7 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Docs: [`LINUX.md`](LINUX.md) §5b Ubuntu Server NetworkManager — renderer switch (`99-relay-network-manager.yaml`), unmanaged reason 76, SSH/console safety on `netplan apply`, printf vs 0-byte tee footgun, dual-NIC same-subnet AV identity, DHCP IP drift for Foyer `relayUrl`, wait-online known follow-up. Checklist + troubleshooting rows aligned.
 - Fix: do not sticky-stamp resolved AV-LAN IPv4 into `RELAY_LISTEN_HOST` from `with-app-env` / restart / update paths. Apply AV-LAN IP was refusing every address change because boot injected the current listen host and `listenHostConflict` treated it as an operator override. Escape hatch remains: only an explicit systemd/lab `RELAY_LISTEN_HOST` blocks Apply when it disagrees.
 
 ## 0.9.58
