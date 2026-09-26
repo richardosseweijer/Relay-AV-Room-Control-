@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.70
+
+- Tag `v0.9.70`. **Panel label `\n` newlines:** widget face labels interpret typed `\n` (backslash-n) as a visible line break after `{var}` resolve via [`formatWidgetLabel` / `expandLabelNewlines`](src/lib/control/vars.ts). Real newlines preserved; unresolved `{var}` still omits. Panel faces use `whitespace-pre-line` (button/label/status/slider/schedule/preview/image). Pages Label input placeholder notes `\n`. Macro toasts unchanged.
+
 ## 0.9.69
 
 - Tag `v0.9.69`. **Pages editor page id:** Configurator Pages shows the selected page’s UI `id` (read-only mono field, used by `ui.page` / `gotoPage`) next to the editable **Page name** label. Tabs still show the label only; no id renaming in this release.

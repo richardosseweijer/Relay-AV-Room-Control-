@@ -1,6 +1,6 @@
 import type { RoomSnapshot, Widget } from "@/lib/control/types";
 import { gridStyle } from "@/lib/control/page-layout";
-import { resolveBoundNumber, resolveWidgetLabel } from "@/lib/control/vars";
+import { resolveBoundNumber, formatWidgetLabel } from "@/lib/control/vars";
 import { nextScheduled } from "@/lib/control/schedule";
 import { resolveStatusAppearance } from "@/lib/control/status-widget";
 import {
@@ -45,8 +45,8 @@ export function PanelTile({
   onRun: () => void;
 }) {
   const on = enabled(snap, widget);
-  // Face labels: expand {var}; unresolved tokens omit (empty string).
-  const face = { ...widget, label: resolveWidgetLabel(widget.label, snap.vars ?? {}, snap.config.variables) };
+  // Face labels: expand {var}, then \n → newline; unresolved tokens omit (empty string).
+  const face = { ...widget, label: formatWidgetLabel(widget.label, snap.vars ?? {}, snap.config.variables) };
   const varId = sliderVariable(snap, widget);
   const value = varId
     ? String(snap.vars[varId] ?? widget.bind.value ?? "")
@@ -99,7 +99,7 @@ export function PanelTile({
         )}
         style={gridStyle(widget)}
       >
-        <span style={widgetLabelTileTextStyle(widget.textSize)}>{face.label}</span>
+        <span className="whitespace-pre-line" style={widgetLabelTileTextStyle(widget.textSize)}>{face.label}</span>
       </div>
     );
   }
@@ -168,7 +168,7 @@ export function PanelTile({
           active={traffic || lit || waiting}
           onClick={onRun}
         >
-          {resolveWidgetLabel(appearance.text, snap.vars ?? {}, snap.config.variables)}
+          {formatWidgetLabel(appearance.text, snap.vars ?? {}, snap.config.variables)}
         </WidgetShell>
       </div>
     );
