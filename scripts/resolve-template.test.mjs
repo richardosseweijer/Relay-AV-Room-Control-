@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveTemplate, resolveWidgetLabel } from "../src/lib/control/vars.ts";
+import { resolveTemplate, resolveWidgetLabel, expandLabelNewlines, formatWidgetLabel } from "../src/lib/control/vars.ts";
 
 const variables = [
   { id: "roomName", label: "Room name", kind: "text", default: "Default Room" },
@@ -36,4 +36,29 @@ test("resolveWidgetLabel: always string; empty raw ok", () => {
 
 test("resolveWidgetLabel: label match by variable label name", () => {
   assert.equal(resolveWidgetLabel("X {Room name}", { roomName: "Lobby" }, variables), "X Lobby");
+});
+
+test("expandLabelNewlines: typed \\n becomes real newline", () => {
+  assert.equal(expandLabelNewlines("Hello\\nWorld"), "Hello\nWorld");
+  assert.equal(expandLabelNewlines("a\\nb\\nc"), "a\nb\nc");
+});
+
+test("expandLabelNewlines: real newlines preserved; bare backslash unchanged", () => {
+  assert.equal(expandLabelNewlines("Hello\nWorld"), "Hello\nWorld");
+  assert.equal(expandLabelNewlines("path\\to"), "path\\to");
+  assert.equal(expandLabelNewlines("ok\\"), "ok\\");
+  assert.equal(expandLabelNewlines("no escapes"), "no escapes");
+});
+
+test("formatWidgetLabel: vars then \\n; unresolved still hides", () => {
+  assert.equal(formatWidgetLabel("Hello\\nWorld", {}, variables), "Hello\nWorld");
+  assert.equal(formatWidgetLabel("Hi {roomName}\\nBye", { roomName: "Lobby" }, variables), "Hi Lobby\nBye");
+  assert.equal(formatWidgetLabel("{missing}\\nX", {}, variables), "\nX");
+  assert.equal(formatWidgetLabel("plain", {}, variables), "plain");
+});
+
+test("formatWidgetLabel: no double-expand of resulting newlines", () => {
+  const once = formatWidgetLabel("A\\nB", {}, variables);
+  assert.equal(once, "A\nB");
+  assert.equal(expandLabelNewlines(once), "A\nB");
 });
