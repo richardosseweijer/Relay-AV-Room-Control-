@@ -4,7 +4,8 @@ import { cn } from "@/lib/utils";
 import { widgetBodyTextStyle, widgetChipTextStyle } from "@/lib/control/text-size-widget";
 import { supportsTextAlign, textAlignClass } from "@/lib/control/text-align-widget";
 
-const colorClass: Record<WidgetColor, string> = {
+/** Idle/resting face fill+border+text for WidgetShell and label tiles. */
+export const widgetColorClass: Record<WidgetColor, string> = {
   steel: "bg-steel/25 border-steel/30 text-fg",
   sage: "bg-sage/25 border-sage/30 text-fg",
   clay: "bg-clay/25 border-clay/30 text-fg",
@@ -18,7 +19,7 @@ const colorClass: Record<WidgetColor, string> = {
   rose: "bg-rose/25 border-rose/30 text-fg",
 };
 
-const activeClass: Record<WidgetColor, string> = {
+export const widgetActiveClass: Record<WidgetColor, string> = {
   steel: "bg-steel text-bg border-steel shadow-[0_0_24px_color-mix(in_oklab,var(--color-steel)_45%,transparent)]",
   sage: "bg-sage text-bg border-sage shadow-[0_0_24px_color-mix(in_oklab,var(--color-sage)_45%,transparent)]",
   clay: "bg-clay text-bg border-clay shadow-[0_0_24px_color-mix(in_oklab,var(--color-clay)_45%,transparent)]",
@@ -32,7 +33,7 @@ const activeClass: Record<WidgetColor, string> = {
   rose: "bg-rose text-fg border-rose",
 };
 
-const disabledClass: Record<WidgetColor, string> = {
+export const widgetDisabledClass: Record<WidgetColor, string> = {
   steel: "bg-steel/10 border-steel/15 text-steel/40",
   sage: "bg-sage/10 border-sage/15 text-sage/40",
   clay: "bg-clay/10 border-clay/15 text-clay/40",
@@ -77,9 +78,9 @@ export function WidgetShell({
         canAlign ? textAlignClass(align) : "text-left",
         "active:scale-[0.98]",
         image ? "gap-2 p-2" : "gap-3 justify-between px-4 py-3",
-        colorClass[widget.color],
-        active && activeClass[widget.color],
-        disabled && disabledClass[widget.color],
+        widgetColorClass[widget.color],
+        active && widgetActiveClass[widget.color],
+        disabled && widgetDisabledClass[widget.color],
       )}
     >
       {widget.icon && !image ? (
