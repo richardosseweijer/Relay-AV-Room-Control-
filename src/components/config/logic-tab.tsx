@@ -68,13 +68,13 @@ export function LogicTab(props: {
                         {tagNames(draft, "variables").map((n) => <option key={n} value={n}>{n}</option>)}
                       </select>
                     </label>
-                    <select className={fieldClass()} value={variable.kind} disabled={variable.id === "occupancy" || variable.id.startsWith("foyer.")} onChange={(e) => update((c) => { c.variables[vi]!.kind = e.target.value as "number" | "enum" | "text"; })}>
+                    <select className={fieldClass()} value={variable.kind} disabled={variable.id === "occupancy" || variable.id === "time" || variable.id.startsWith("foyer.")} onChange={(e) => update((c) => { c.variables[vi]!.kind = e.target.value as "number" | "enum" | "text"; })}>
                       <option value="number">Number</option>
                       <option value="enum">List</option>
                       <option value="text">Text</option>
                     </select>
                     <label className="grid gap-1 text-sm text-muted">Default
-                      <input className={fieldClass()} value={String(variable.default ?? "")} disabled={variable.id === "occupancy" || variable.id.startsWith("foyer.")} onChange={(e) => update((c) => {
+                      <input className={fieldClass()} value={String(variable.default ?? "")} disabled={variable.id === "occupancy" || variable.id === "time" || variable.id.startsWith("foyer.")} onChange={(e) => update((c) => {
                         const raw = e.target.value;
                         c.variables[vi]!.default = variable.kind === "number"
                           ? (raw.trim() === "" ? "" : Number(raw))
@@ -113,8 +113,12 @@ export function LogicTab(props: {
                     {variable.id.startsWith("foyer.") ? (
                       <p className="sm:col-span-2 text-xs text-muted">Filled from Foyer on this PC: current calendar session, or the next one if the room is free.</p>
                     ) : null}
+                    {variable.id === "time" ? (
+                      <p className="sm:col-span-2 text-xs text-muted">Built-in clock: current local time from this machine (HH:mm). Use {"{time}"} in panel labels. Read-only — follows the OS clock and timezone.</p>
+                    ) : null}
                     <Button size="sm" variant="danger" onClick={() => {
                       if (variable.id === "occupancy") { flash("Built-in", "Occupancy is baked in. Set it with a macro or a Relay Occupancy command."); return; }
+                      if (variable.id === "time") { flash("Built-in", "Time follows the system clock. Use {time} in panel labels."); return; }
                       if (variable.id.startsWith("foyer.")) { flash("Built-in", "Foyer session vars come from the calendar on this PC."); return; }
                       if (variable.id.startsWith("MON_")) { flash("Monitor variable", "Rename or delete the monitor instead."); return; }
                       if (variableInUse(draft, variable.id).length) { flash("In use", ""); return; }
