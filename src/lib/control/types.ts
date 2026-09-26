@@ -228,6 +228,8 @@ export type WidgetType = "button" | "slider" | "label" | "status" | "schedule" |
 
 /** Panel tile label/body text size. Missing = md (current default look). Not used by preview/image. */
 export type WidgetTextSize = "sm" | "md" | "lg";
+/** Horizontal content alignment for label/button/status. Missing = left (prior look). */
+export type WidgetTextAlign = "left" | "center" | "right";
 export type BindKind = "command" | "feedback" | "macro" | "gotoPage" | "range" | "variable";
 export type FailKind = "macro" | "gotoPage" | "none";
 export type WidgetColor = "steel" | "sage" | "clay" | "fog" | "ink" | "ocean" | "pine" | "rust" | "sand" | "slate" | "rose";
@@ -313,6 +315,8 @@ export type Widget = {
   imageBorderless?: boolean;
   /** Optional. Button/slider/label/status/schedule text size. Missing = md. Ignored for preview/image. */
   textSize?: WidgetTextSize;
+  /** Optional. Label/button/status horizontal text align. Missing = left. Ignored for other types. */
+  textAlign?: WidgetTextAlign;
   bind: WidgetBind;
 };
 

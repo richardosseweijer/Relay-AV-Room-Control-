@@ -20,6 +20,7 @@ import {
   widgetLabelTileTextStyle,
   widgetSecondaryTextStyle,
 } from "@/lib/control/text-size-widget";
+import { textAlignClass, textAlignJustifyClass } from "@/lib/control/text-align-widget";
 
 /** One grid cell: slider / label / schedule / preview / image / status / button branches. */
 export function PanelTile({
@@ -89,6 +90,8 @@ export function PanelTile({
         data-type={widget.type}
         className={cn(
           "widget-text-container flex min-h-0 min-w-0 h-full items-center [overflow-wrap:anywhere] rounded-lg px-3 text-muted",
+          textAlignClass(widget.textAlign),
+          textAlignJustifyClass(widget.textAlign),
           !on && "opacity-40",
         )}
         style={gridStyle(widget)}
