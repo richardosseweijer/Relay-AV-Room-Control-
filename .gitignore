@@ -27,3 +27,7 @@ data/drivers/*.json
 
 # C1 venue TLS PEMs (never commit keys)
 data/tls/
+
+# Uploaded panel Image widget binaries. Stock keep via .gitkeep.
+data/media/**
+!data/media/.gitkeep
