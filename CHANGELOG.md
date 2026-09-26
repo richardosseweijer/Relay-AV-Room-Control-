@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.69
+
+- Tag `v0.9.69`. **Pages editor page id:** Configurator Pages shows the selected page’s UI `id` (read-only mono field, used by `ui.page` / `gotoPage`) next to the editable **Page name** label. Tabs still show the label only; no id renaming in this release.
+
 ## 0.9.68
 
 - Tag `v0.9.68`. **Label tile background:** panel `label` widgets apply the configured colour fill/border via shared [`widgetColorClass`](src/components/panel/widget-face.tsx) (same idle chrome as buttons/status). Previously labels ignored `widget.color` and rendered transparent text-only. Disabled labels still use muted opacity; hide-when-disabled unchanged.
