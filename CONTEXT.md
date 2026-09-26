@@ -32,6 +32,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Image tile | `image-tile.tsx`, `image-widget.ts`, `panel-tile.tsx` / `widget-face.tsx` |
 | Pages Image fields | `pages-image-fields.tsx`, `pages-editor.tsx` |
 | Host media / `/api/media` | `media-store.ts`, `src/routes/api/media.ts`, `src/routes/api/media.$id.ts`, `data/media/` |
+- Docs/example image asset: `docs/assets/image-widget-hub-hdmi-example.png`; runtime uploads still go to `data/media/` via `/api/media` (docs/example only, not auto-served).
 | Panel UI | `src/components/panel/control-panel.tsx` |
 | Page layout | `page-layout.ts`, `pages-editor.tsx`, `control-panel.tsx` |
 | Config shell / tabs | `src/components/config/config-app.tsx`, `*-tab.tsx`, `trigger-pane.tsx`, `pages-editor.tsx` |
