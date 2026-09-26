@@ -74,3 +74,10 @@ test("PanelTile hides label when shouldHideWhenDisabled", () => {
   assert.match(leaf, /!on && "opacity-40"/);
 });
 
+test("PanelTile applies textAlign classes on label tiles", () => {
+  const leaf = fs.readFileSync("src/components/panel/panel-tile.tsx", "utf8");
+  assert.match(leaf, /textAlignClass\(widget\.textAlign\)/);
+  assert.match(leaf, /textAlignJustifyClass\(widget\.textAlign\)/);
+  assert.match(leaf, /from\s+[\"']@\/lib\/control\/text-align-widget[\"']/);
+});
+

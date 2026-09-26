@@ -301,6 +301,24 @@ export function PagesEditor({
               </select>
             </label>
           ) : null}
+          {selected.type === "label" || selected.type === "button" || selected.type === "status" ? (
+            <label className="grid gap-1 text-sm text-muted">Text align
+              <select
+                className={fieldClass()}
+                value={selected.textAlign === "center" || selected.textAlign === "right" ? selected.textAlign : "left"}
+                onChange={(e) => update((c) => {
+                  const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
+                  if (!w) return;
+                  const next = e.target.value;
+                  w.textAlign = next === "center" || next === "right" ? next : "left";
+                })}
+              >
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </label>
+          ) : null}
           {(selected.type === "button" || selected.type === "slider") ? (
             <PagesBindFields
               selected={selected}
