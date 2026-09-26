@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.71** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.72** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -112,7 +112,7 @@ Macros invoked from any of these paths use the same runner as a panel press: ord
 | Macro | Ordered list of steps (device command, delay, variable assignment, nested macro). Id `none` is a hidden no-op; new buttons bind to it. |
 | Monitor | Periodic read of one feedback field. Always writes `MON_<label>`; optional extra `writeVar` / `errorVar`. |
 | Page | Named grid. Widgets have column, row, width, height, colour, bindings, and enable-when clauses. |
-| Widget | `button`, `slider`, `label`, `status`, `schedule`, `preview`, or `image`. Icons sit on the right, sized from tile height. Button/label/status/schedule may set `textSize` `xs`|`sm`|`md`|`lg` (default `md`; font size is a fraction of tile height via `cqh`; slider uses fixed face sizing). Label/button/status may set `textAlign` `left`|`center`|`right` (default `left`). Labels may set `hideWhenDisabled` so a failed enable-when omits the tile (default: still show, muted). Face labels expand `{var}` then typed `\n` → newline via `formatWidgetLabel` (unresolved tokens omit; `whitespace-pre-line`). Label tiles use the same color fill/border classes as WidgetShell (`widgetColorClass`). Image is a static tile (host media under `data/media/`, fit `contain`\|`cover`, optional tap macro). |
+| Widget | `button`, `slider`, `label`, `status`, `schedule`, `preview`, or `image`. Icons sit on the right, sized from tile height. Button/label/status/schedule may set `textSize` `xs`|`sm`|`md`|`lg` (default `md`; font size is a fraction of tile height via `cqh`; slider uses fixed face sizing). Label/button/status may set `textAlign` `left`|`center`|`right` (default `left`). Labels may set `hideWhenDisabled` so a failed enable-when omits the tile (default: still show, muted). Face labels expand `{var}` (including built-in `{time}` = OS-local HH:mm) then typed `\n` → newline via `formatWidgetLabel` (unresolved tokens omit; `whitespace-pre-line`). Label tiles use the same color fill/border classes as WidgetShell (`widgetColorClass`). Image is a static tile (host media under `data/media/`, fit `contain`\|`cover`, optional tap macro). |
 | Schedule | Clock time and weekday mask that starts a macro. |
 | Trigger | Primary predicate plus optional `whenTrue` / `whenFalse` extra clauses that start a macro. |
 | Host interface | Local serial, GPIO, I2C, SPI, IR, CEC, or a gateway box (e.g. IPL T SFI244) that maps slots to TCP ports. |
@@ -159,7 +159,7 @@ Substitution tokens recognised in payloads and paths:
 | `{token}` | Device `auth.token`. |
 | `{auth.FIELD}` | Named field from `device.auth`. |
 | `{host}` `{port}` `{id}` | Instance address and inventory id. |
-| `{name}` | Current value of room variable `name`. |
+| `{name}` | Current value of room variable `name`. Built-in read-only `{time}` is OS-local **HH:mm** (machine clock/timezone; compute-on-read). |
 | `{midiChannel}` | Decimal 1–16 from the device card. MIDI status nibbles remain literal in the payload. |
 
 `valueMap` maps the panel’s 0–100 (or declared) range onto the device range and type (`float`, `int`, `text`, `hexBytes`).
@@ -243,7 +243,7 @@ Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue
 | `src/lib/control/peer-venue.ts` | B3 HMAC peer AV HTTP vs venue HTTPS planner (`peerFace`) + strict trusted peer CA. |
 | `src/lib/control/device-face.ts` | B4 per-device `nicFace` bind planner (AV vs venue; cleartext gate). |
 | `src/lib/control/actions-context.ts` | Shared `loadControl()` → `session.server`. |
-| `src/lib/control/vars.ts` | Variable seeding, clamping, template substitution, enable-when evaluation. |
+| `src/lib/control/vars.ts` | Variable seeding, clamping, template substitution (incl. built-in read-only `{time}`), enable-when evaluation. |
 | `src/lib/control/schema.ts` | Driver validation and orphan bindings. |
 | `src/lib/control/peer-auth.ts` | HMAC sign/verify, replay cache, loopback GET. |
 | `src/lib/control/peer-payload.ts` | Occupancy field (Foyer strings), baked `occupancy` var `0`–`3`, `GET /api/peer` body. |
