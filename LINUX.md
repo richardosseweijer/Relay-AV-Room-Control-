@@ -242,32 +242,46 @@ Room → Networks → **AV-LAN IPv4 (Linux)** can set **static** or **DHCP** on 
 
 ##### Ubuntu Server 24.04 — install NetworkManager first (Apply only)
 
-Ubuntu **Desktop** ships NetworkManager. **Ubuntu Server** defaults to **systemd-networkd** via netplan, so `nmcli` is often missing until you install it. Do this **before** the sudoers drop-in below (and before relying on Apply).
+Ubuntu **Desktop** ships NetworkManager. **Ubuntu Server** defaults to **systemd-networkd** via netplan. Installing the `network-manager` package alone is **not** enough: netplan may still render with networkd, so `nmcli device status` shows NICs **unmanaged** (reason **76**) even when `nmcli` is on `PATH`. Do the package install **and** the renderer switch below **before** the sudoers drop-in (and before relying on Apply).
 
 ```bash
 sudo apt-get install -y network-manager
 ```
 
-Point netplan at NetworkManager. Prefer a **local console / HDMI / existing session** — not SSH over the NIC you are reconfiguring (you can lose the session). Minimal safe addition (lexicographically last file wins the `renderer`; keep your existing Ethernet YAML):
+Add a lexicographically last netplan file that sets **only** the renderer. **Keep** existing Ethernet YAML — do not merge interfaces into this file; the last file wins `renderer`.
+
+**Session safety:** Prefer a **local console / HDMI**, or SSH via the **other** NIC (venue/mgmt). **SSH over the AV NIC will drop** on `netplan apply` during the renderer switch. `netplan try` needs an interactive TTY to confirm within the timeout; non-interactive sessions often cannot confirm and end up forcing `apply` with no timed rollback.
+
+**Write the file carefully:** Nested `echo pw | sudo -S tee <<EOF` can create a **0-byte** netplan file. Prefer `sudo bash -c` + `printf` (or an interactive `sudo tee` on a real console).
 
 ```bash
 # Example — adjust only if you already manage renderer elsewhere
-sudo tee /etc/netplan/99-relay-network-manager.yaml >/dev/null <<'EOF'
-network:
-  version: 2
-  renderer: NetworkManager
-EOF
-sudo netplan try
-# If try is unavailable or you accept no timed rollback: sudo netplan apply
+sudo bash -c 'printf "%s\n" "network:" "  version: 2" "  renderer: NetworkManager" > /etc/netplan/99-relay-network-manager.yaml'
+# Interactive console alternative:
+# sudo tee /etc/netplan/99-relay-network-manager.yaml >/dev/null <<'EOF'
+# network:
+#   version: 2
+#   renderer: NetworkManager
+# EOF
+sudo netplan apply
+# Interactive console with timed rollback (needs TTY confirm):
+# sudo netplan try
 ```
 
-Confirm the AV NIC is managed:
+Confirm the **AV** NIC is managed (replace `enp1s0` with your AV iface — identify it explicitly; do not guess from DHCP alone):
 
 ```bash
 nmcli device status
-# Expect the AV iface under NetworkManager (connected / connecting) — not "unmanaged"
+nmcli -f GENERAL,IP4 device show enp1s0
+# Expect AV iface STATE = connected / connecting — not "unmanaged" (reason 76)
 # and not only visible to networkctl / systemd-networkd
 ```
+
+**Dual-NIC same-subnet gotcha:** When both ports are cabled into the same AV switch/VLAN, both may get DHCP on that subnet. Label/MAC/cable the AV face and set Room → **AV-LAN** to that iface only — Apply must target the AV connection, never the venue/outbound NIC.
+
+**DHCP address drift:** After the renderer switch (or a later renew), the AV IPv4 can change (e.g. `.242` → `.246`). Update Foyer `relayUrl` / kiosk env / tablet bookmarks to `http://<new-av-ip>:8081`. Relay rebinds on restart; Foyer does not auto-learn the new address. Production Foyer→Relay must use the **AV IPv4**, not `127.0.0.1` (Relay binds AV only; loopback listen needs `RELAY_LISTEN_HOST=127.0.0.1` and breaks AV tablets).
+
+**Known follow-up:** `systemd-networkd-wait-online` / NetworkManager wait-online can hang at boot when an optional NIC is down or unplugged. This renderer file does not fix that — treat as a separate host systemd tweak if a room PC stalls on boot.
 
 If `nmcli` is missing or the AV NIC stays unmanaged, fix NM/netplan before `install-host-sudoers.sh`. Relay does **not** auto-switch netplan renderers.
 
@@ -419,7 +433,7 @@ Optional Foyer on the same host: same as one-NIC — `8080` / `8082` from **AV C
 - [ ] Two-NIC: `8443` closed **or** scoped to known venue/admin CIDR (never “any”)
 - [ ] Outbound **None** ⇒ expect Update disabled and no venue HTTPS face
 - [ ] After any AV IP Apply / prefix change: ufw CIDR re-checked
-- [ ] Using **Apply AV-LAN IP**? NetworkManager installed + netplan `renderer: NetworkManager`; `nmcli device status` shows the AV NIC managed (**before** sudoers / `install-host.sh`). Ubuntu Server: `apt-get install network-manager` first — Relay still runs without NM; Apply only
+- [ ] Using **Apply AV-LAN IP**? NetworkManager **package** + netplan **`renderer: NetworkManager`** (`/etc/netplan/99-relay-network-manager.yaml`); `nmcli device status` shows the AV NIC managed/connected — not unmanaged reason 76 (**before** sudoers / `install-host.sh`). Ubuntu Server: `apt-get install network-manager` alone is not enough — switch the renderer. Identify AV iface explicitly if both NICs share a subnet. Relay still runs without NM; Apply only
 - [ ] Built once: §4 `npm ci --include=dev` + §5 `npm run build` **before** `install-host.sh` (unit `enable --now` needs a built tree)
 - [ ] Host units (§6a): `sudo bash scripts/install-host.sh` once (`relay` enabled; `relay-kiosk` left disabled by default)
 - [ ] Local panel (§7): dual-head with Foyer → keep `relay-kiosk` disabled (§7a); else optional `--enable-kiosk` / §7b/§7c — local only; no extra inbound ports
@@ -434,6 +448,9 @@ Optional Foyer on the same host: same as one-NIC — `8080` / `8082` from **AV C
 | Venue HTTPS works but AV panel broken | Must not be coupled. Confirm AV HTTP still listens (`ss` on `:8081`); venue PEM / `:8443` issues must soft-skip only. Fix AV (CIDR / listen / AV NIC up) independently |
 | Accidentally allowed `8081` from anywhere | `sudo ufw status numbered` → `sudo ufw delete <n>` for the open rule; re-add CIDR-scoped allow; `sudo ufw status verbose` |
 | SSH locked out after ufw enable | Use console / HDMI / existing session; add a scoped SSH allow before enabling from a remote-only path |
+| `nmcli` shows **unmanaged** (reason 76) after `apt install network-manager` | Netplan still on networkd — add `/etc/netplan/99-relay-network-manager.yaml` (`renderer: NetworkManager` only), then `netplan apply` from console / other NIC; re-check `nmcli device status` |
+| SSH dropped during `netplan apply` / renderer switch | Expected if the session was on the AV NIC; reconnect via console, HDMI, or the other NIC |
+| Foyer / tablets miss panel after DHCP / renderer switch | AV IPv4 likely changed — update Foyer `relayUrl`, kiosk env, bookmarks to `http://<new-av-ip>:8081` (not `127.0.0.1`) |
 | Wrong net can hit `8081` | Delete broad rules; ensure no venue-sourced allow for `8081`; confirm no WAN port-forward |
 
 Delete a bad rule (example):
