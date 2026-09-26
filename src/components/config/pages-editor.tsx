@@ -88,9 +88,18 @@ export function PagesEditor({
             })}>Copy from landscape</Button>
           ) : null}
         </div>
-        <div className="mb-3 grid grid-cols-3 gap-2">
+        <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <label className="grid gap-1 text-xs text-muted">Page name
             <input className={fieldClass()} value={page.label} onChange={(e) => update((c) => { const p = c.pages.find((item) => item.id === page.id); if (p) p.label = e.target.value; })} />
+          </label>
+          <label className="grid gap-1 text-xs text-muted">Page id
+            <input
+              className={cn(fieldClass(), "font-mono")}
+              value={page.id}
+              readOnly
+              title="Used by ui.page / gotoPage"
+              onFocus={(e) => e.currentTarget.select()}
+            />
           </label>
           <label className="grid gap-1 text-xs text-muted">Columns
             <InputNum min={2} max={12} value={grid.cols} onNumber={(n) => update((c) => {
