@@ -12,7 +12,7 @@ import type {
 import { NONE_MACRO_ID } from "./types";
 import { inferPairingSteps } from "./schema";
 import { gatewayIoTemplate, gatewayProfile, gatewaySlot, isGatewayKind } from "./gateway";
-import { clampVar, resolveTemplate, type VarMap } from "./vars";
+import { clampVar, resolveTemplate, type VarMap, SYSTEM_TIME_VAR_ID } from "./vars";
 import { fetchTextBounded, requestHttpExact, DEFAULT_MAX_RESPONSE_BYTES } from "./http-client";
 import { wsPoolSize, sendControlSocket, buildWsTarget } from "./ws";
 import { castPoolSize } from "./cast";
@@ -743,6 +743,10 @@ async function runMacroOnce(opts: {
       continue;
     }
     if (step.setVar) {
+      if (step.setVar === SYSTEM_TIME_VAR_ID) {
+        if (step.delayMsAfter) await sleep(step.delayMsAfter);
+        continue;
+      }
       const def = opts.config.variables.find((v) => v.id === step.setVar);
       const resolved = resolveTemplate(step.value, opts.vars, opts.config.variables);
       opts.vars[step.setVar] = def ? clampVar(def, resolved ?? def.default) : (resolved ?? "");

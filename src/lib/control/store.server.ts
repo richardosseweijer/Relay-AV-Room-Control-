@@ -3,7 +3,7 @@ import { traces, scrubSecret, socketStats } from "./engine";
 import { syncMidiWatchers } from "./midi-in";
 import type { DeviceHealth, DeviceStateMap, DriverIndex, DriverSpec, LogEntry, MonitorStatus, RoomConfig, RoomSnapshot } from "./types";
 import { indexDriver } from "./types";
-import { applyMonitors, seedVars, type VarMap } from "./vars";
+import { applyMonitors, seedVars, formatSystemTime, SYSTEM_TIME_VAR_ID, type VarMap } from "./vars";
 import { retainSacnCidKeys } from "./sacn";
 import { retainPaceDevices, pruneIdlePaceDevices } from "./engine-wire";
 import {
@@ -290,7 +290,8 @@ export function snapshot(): RoomSnapshot {
     drivers: mem.drivers,
     library: mem.library ?? {},
     state: mem.state,
-    vars: mem.vars,
+    // Overlay `{time}` on the snap only — not persisted in mem.vars (compute-on-read).
+    vars: { ...mem.vars, [SYSTEM_TIME_VAR_ID]: formatSystemTime() },
     health: mem.health ?? {},
     log: mem.log ?? [],
     traces: typeof traces === "function" ? traces() : {},
