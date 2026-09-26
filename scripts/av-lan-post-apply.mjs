@@ -18,8 +18,10 @@ function errMsg(e) {
 }
 
 export const UFW_RULE_COMMENT = "Relay-AV-LAN";
+/** Installed by install-host-sudoers.sh from deploy/relay-ufw-av-lan.sh */
+export const RELAY_UFW_HELPER = "/usr/local/sbin/relay-ufw-av-lan";
 export const AV_LAN_UFW_SUDOERS =
-  "sudo ufw was refused (missing sudoers or password required). Install deploy/sudoers.relay-ufw via scripts/install-host-sudoers.sh — see LINUX.md §5b. AV-LAN IP was applied; update ufw manually if needed.";
+  "sudo relay-ufw-av-lan was refused (missing sudoers/helper or password required). Install deploy/sudoers.relay-ufw + helper via scripts/install-host-sudoers.sh — see LINUX.md §5b. AV-LAN IP was applied; update ufw manually if needed.";
 export const AV_LAN_UFW_ANYWHERE =
   "Refusing to open 8081 from Anywhere / 0.0.0.0/0. Use a specific AV CIDR.";
 export const AV_LAN_UFW_MISSING =
@@ -84,48 +86,23 @@ export function validateAvCidrForUfw(cidr) {
   return { ok: true, cidr: normalized };
 }
 
-/** nmcli argv builders (no sudo prefix). */
+/** Helper argv (no sudo prefix) — see deploy/relay-ufw-av-lan.sh. */
 export function buildUfwStatusArgv() {
   return ["status"];
 }
 
 export function buildUfwStatusNumberedArgv() {
-  return ["status", "numbered"];
+  return ["status-numbered"];
 }
 
 /** @param {string} cidr */
 export function buildUfwAllow8081Argv(cidr) {
-  return [
-    "allow",
-    "from",
-    String(cidr),
-    "to",
-    "any",
-    "port",
-    "8081",
-    "proto",
-    "tcp",
-    "comment",
-    UFW_RULE_COMMENT,
-  ];
+  return ["allow", String(cidr)];
 }
 
 /** @param {string} cidr */
 export function buildUfwDelete8081Argv(cidr) {
-  return [
-    "delete",
-    "allow",
-    "from",
-    String(cidr),
-    "to",
-    "any",
-    "port",
-    "8081",
-    "proto",
-    "tcp",
-    "comment",
-    UFW_RULE_COMMENT,
-  ];
+  return ["delete", String(cidr)];
 }
 
 export function buildUfwReloadArgv() {
@@ -275,8 +252,9 @@ export function createUfwRunner(spawnImpl) {
       ? { spawn: spawnImpl }
       : await import("node:child_process");
     const sudo = Boolean(opts && opts.sudo);
-    const cmd = sudo ? "sudo" : "ufw";
-    const args = sudo ? ["-n", "ufw", ...argv] : argv;
+    // Always invoke the installed helper (never raw ufw from Relay).
+    const cmd = sudo ? "sudo" : RELAY_UFW_HELPER;
+    const args = sudo ? ["-n", RELAY_UFW_HELPER, ...argv] : argv;
     return new Promise((resolve) => {
       const child = spawn(cmd, args, { windowsHide: true });
       let stdout = "";
