@@ -8,9 +8,11 @@ test("pages-editor exposes Text size for button/label/status/schedule only", () 
   assert.match(src, /selected\.type !== "preview" && selected\.type !== "image" && selected\.type !== "slider"/);
   assert.match(src, /w\.textSize/);
   assert.match(src, /delete w\.textSize/);
+  assert.match(src, /option value="xs"/);
   assert.match(src, /option value="sm"/);
   assert.match(src, /option value="md"/);
   assert.match(src, /option value="lg"/);
+  assert.match(src, /Extra small/);
   assert.match(src, /Small/);
   assert.match(src, /Medium/);
   assert.match(src, /Large/);

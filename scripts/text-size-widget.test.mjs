@@ -38,10 +38,11 @@ test("supportsTextSize excludes preview, image, and slider", () => {
   assert.equal(supportsTextSize("image"), false);
 });
 
-test("coerceTextSize defaults invalid/missing to md", () => {
+test("coerceTextSize defaults invalid/missing to md; accepts xs", () => {
   assert.equal(coerceTextSize(undefined), "md");
   assert.equal(coerceTextSize(null), "md");
   assert.equal(coerceTextSize("xl"), "md");
+  assert.equal(coerceTextSize("xs"), "xs");
   assert.equal(coerceTextSize("sm"), "sm");
   assert.equal(coerceTextSize("md"), "md");
   assert.equal(coerceTextSize("lg"), "lg");
@@ -50,7 +51,8 @@ test("coerceTextSize defaults invalid/missing to md", () => {
 test("normalizeTextSizeFields fills md for button family; strips slider; no-op for preview/image", () => {
   assert.equal(normalizeTextSizeFields(widget("button")).textSize, "md");
   assert.equal(normalizeTextSizeFields(widget("label", { textSize: "lg" })).textSize, "lg");
-  assert.equal(normalizeTextSizeFields(widget("status", { textSize: "nope" })).textSize, "md");
+  assert.equal(normalizeTextSizeFields(widget("status", { textSize: "xs" })).textSize, "xs");
+  assert.equal(normalizeTextSizeFields(widget("schedule", { textSize: "nope" })).textSize, "md");
   const sliderKeep = widget("slider");
   assert.equal(normalizeTextSizeFields(sliderKeep), sliderKeep);
   const sliderStrip = normalizeTextSizeFields(widget("slider", { textSize: "lg" }));
@@ -62,10 +64,11 @@ test("normalizeTextSizeFields fills md for button family; strips slider; no-op f
   assert.equal(normalizeTextSizeFields(image), image);
 });
 
-test("widgetTextHeightFraction: usable = 7/8 height; sm/md/lg = 1/4, 1/2, 1 of usable", () => {
+test("widgetTextHeightFraction: usable = 7/8 height; xs/sm/md/lg = 1/8, 1/4, 1/2, 1 of usable", () => {
   assert.equal(TEXT_SIZE_PAD_FRAC, 1 / 16);
   const usable = 1 - 2 * TEXT_SIZE_PAD_FRAC; // 7/8
   assert.equal(usable, 7 / 8);
+  assert.equal(widgetTextHeightFraction("xs"), (1 / 8) * usable);
   assert.equal(widgetTextHeightFraction("sm"), (1 / 4) * usable);
   assert.equal(widgetTextHeightFraction("md"), (1 / 2) * usable);
   assert.equal(widgetTextHeightFraction("lg"), 1 * usable);
@@ -88,5 +91,6 @@ test("widgetTextSizeStyle emits cqh body/chip/secondary sizes", () => {
     lineHeight: 1.15,
   });
   assert.deepEqual(widgetLabelTileTextStyle("sm"), widgetTextSizeStyle("sm", "body"));
-  assert.match(widgetBodyTextStyle("sm").fontSize, /cqh$/);
+  assert.match(widgetBodyTextStyle("xs").fontSize, /cqh$/);
+  assert.equal(widgetBodyTextStyle("xs").fontSize, `${widgetTextHeightFraction("xs") * 100}cqh`);
 });
