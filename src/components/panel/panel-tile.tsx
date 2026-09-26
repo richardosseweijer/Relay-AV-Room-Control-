@@ -11,7 +11,7 @@ import {
   shouldHideWhenDisabled,
 } from "@/lib/control/panel-widget";
 import { cn } from "@/lib/utils";
-import { WidgetShell } from "./widget-face";
+import { WidgetShell, widgetColorClass } from "./widget-face";
 import { PreviewTile } from "./preview-tile";
 import { ImageTile } from "./image-tile";
 import { PanelSlider } from "./panel-slider";
@@ -91,7 +91,8 @@ export function PanelTile({
         data-wide={wide}
         data-type={widget.type}
         className={cn(
-          "widget-text-container flex min-h-0 min-w-0 h-full items-center [overflow-wrap:anywhere] rounded-lg px-3 text-muted",
+          "widget-text-container flex min-h-0 min-w-0 h-full items-center [overflow-wrap:anywhere] rounded-lg border px-3",
+          widgetColorClass[widget.color],
           textAlignClass(widget.textAlign),
           textAlignJustifyClass(widget.textAlign),
           !on && "opacity-40",
