@@ -2,6 +2,67 @@ import type { Widget, WidgetTextSize, WidgetType } from "./types";
 
 const SIZES: readonly WidgetTextSize[] = ["sm", "md", "lg"];
 
+/** Dropdown → fraction of *usable* tile height (after padding). */
+const SIZE_FRACTION: Record<WidgetTextSize, number> = {
+  sm: 1 / 4,
+  md: 1 / 2,
+  lg: 1,
+};
+
+/** Padding each side as a fraction of tile height (user: ~1/16). */
+export const TEXT_SIZE_PAD_FRAC = 1 / 16;
+
+/** Chip / secondary scale relative to primary body fraction. */
+const CHIP_OF_BODY = 0.4;
+const SECONDARY_OF_BODY = 0.7;
+
+export type WidgetTextRole = "body" | "chip" | "secondary";
+
+/**
+ * Font size as a fraction of the widget tile's height.
+ *
+ * Formula:
+ *   usable = height * (1 - 2 * (1/16)) = height * 7/8   // pad top+bottom
+ *   fontSize = SIZE_FRACTION[size] * usable
+ *     sm → (1/4)*(7/8) = 7/32 ≈ 0.21875 of height
+ *     md → (1/2)*(7/8) = 7/16 ≈ 0.4375 of height
+ *     lg → (1)*(7/8)   = 7/8  ≈ 0.875 of height
+ *
+ * Applied via `cqh` (container query height); the tile must be a size container
+ * (see `.widget-text-container` in panel-layout.css).
+ */
+export function widgetTextHeightFraction(size: WidgetTextSize | undefined): number {
+  const s = coerceTextSize(size);
+  const usable = 1 - 2 * TEXT_SIZE_PAD_FRAC;
+  return SIZE_FRACTION[s] * usable;
+}
+
+/** Inline style: font-size in cqh. Ancestor needs `container-type: size`. */
+export function widgetTextSizeStyle(
+  size: WidgetTextSize | undefined,
+  role: WidgetTextRole = "body",
+): { fontSize: string; lineHeight: number } {
+  const base = widgetTextHeightFraction(size);
+  const mult = role === "chip" ? CHIP_OF_BODY : role === "secondary" ? SECONDARY_OF_BODY : 1;
+  return { fontSize: `${base * mult * 100}cqh`, lineHeight: 1.15 };
+}
+
+export function widgetBodyTextStyle(size: WidgetTextSize | undefined) {
+  return widgetTextSizeStyle(size, "body");
+}
+
+export function widgetChipTextStyle(size: WidgetTextSize | undefined) {
+  return widgetTextSizeStyle(size, "chip");
+}
+
+export function widgetSecondaryTextStyle(size: WidgetTextSize | undefined) {
+  return widgetTextSizeStyle(size, "secondary");
+}
+
+export function widgetLabelTileTextStyle(size: WidgetTextSize | undefined) {
+  return widgetTextSizeStyle(size, "body");
+}
+
 /** Widget types that expose a configurator text-size control. */
 export function supportsTextSize(type: WidgetType): boolean {
   return type !== "preview" && type !== "image";
@@ -20,44 +81,4 @@ export function normalizeTextSizeFields<T extends Widget>(widget: T): T {
   const textSize = coerceTextSize(widget.textSize);
   if (textSize === widget.textSize) return widget;
   return { ...widget, textSize };
-}
-
-/** Uppercase chip / slider label class (default md = text-[11px]). */
-export function widgetChipTextClass(size: WidgetTextSize | undefined): string {
-  const s = coerceTextSize(size);
-  if (s === "sm") return "text-[10px]";
-  if (s === "lg") return "text-xs";
-  return "text-[11px]";
-}
-
-/** Main body / value class. Status stays one step larger than buttons. */
-export function widgetBodyTextClass(
-  size: WidgetTextSize | undefined,
-  opts?: { status?: boolean },
-): string {
-  const s = coerceTextSize(size);
-  if (opts?.status) {
-    if (s === "sm") return "text-2xl";
-    if (s === "lg") return "text-4xl";
-    return "text-3xl";
-  }
-  if (s === "sm") return "text-base";
-  if (s === "lg") return "text-2xl";
-  return "text-xl";
-}
-
-/** Standalone label tile class (default md = text-sm). */
-export function widgetLabelTileTextClass(size: WidgetTextSize | undefined): string {
-  const s = coerceTextSize(size);
-  if (s === "sm") return "text-xs";
-  if (s === "lg") return "text-base";
-  return "text-sm";
-}
-
-/** Schedule secondary "when" line. */
-export function widgetSecondaryTextClass(size: WidgetTextSize | undefined): string {
-  const s = coerceTextSize(size);
-  if (s === "sm") return "text-sm";
-  if (s === "lg") return "text-lg";
-  return "text-base";
 }
