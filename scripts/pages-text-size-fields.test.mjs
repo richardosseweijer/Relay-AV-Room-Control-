@@ -30,6 +30,9 @@ test("panel tiles apply height-relative textSize styles (not preview/image/slide
   assert.match(face, /widget-text-container/);
   // Buttons use body size for the label (primary face text).
   assert.match(face, /widget\.type === "button"/);
+  // Status readout uses the same tracked-caps face as a button label.
+  assert.match(face, /const buttonFace = "whitespace-pre-line font-medium tracking-\[0\.16em\] uppercase"/);
+  assert.match(face, /widget\.type === "status" \? buttonFace/);
   assert.match(tile, /widgetLabelTileTextStyle\(widget\.textSize\)/);
   assert.match(tile, /widgetBodyTextStyle\(widget\.textSize\)/);
   assert.match(tile, /widgetSecondaryTextStyle\(widget\.textSize\)/);
