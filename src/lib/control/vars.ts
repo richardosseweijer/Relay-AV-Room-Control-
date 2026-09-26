@@ -58,6 +58,16 @@ export function resolveWidgetLabel(raw: string | undefined, vars: VarMap, variab
   return String(resolveTemplate(raw ?? "", vars, variables) ?? "");
 }
 
+/** Expand typed `\n` (backslash-n) to real newlines. Real newlines preserved; other escapes untouched. */
+export function expandLabelNewlines(text: string): string {
+  return text.replace(/\\n/g, "\n");
+}
+
+/** Panel face display: `{var}` resolve first, then `\n` → newline. */
+export function formatWidgetLabel(raw: string | undefined, vars: VarMap, variables: RoomVariable[] = []): string {
+  return expandLabelNewlines(resolveWidgetLabel(raw, vars, variables));
+}
+
 export function resolveBoundNumber(raw: number | string | undefined, vars: VarMap, fallback: number, variables: RoomVariable[] = []): number {
   if (raw === undefined || raw === "") return fallback;
   const resolved = resolveTemplate(raw, vars, variables);

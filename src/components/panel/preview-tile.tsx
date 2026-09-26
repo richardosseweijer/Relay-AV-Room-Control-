@@ -281,7 +281,7 @@ export function PreviewTile({
           widget.previewFit === "cover" ? "object-cover" : "object-contain",
         )}
       />
-      <span className="relative z-10 m-2 w-fit self-start rounded-md bg-bg/70 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-fg">
+      <span className="relative z-10 m-2 w-fit self-start whitespace-pre-line rounded-md bg-bg/70 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-fg">
         {widget.label || "Preview"}
       </span>
       {err && !playing ? (

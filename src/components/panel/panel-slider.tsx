@@ -134,7 +134,7 @@ export function PanelSlider({
         <span className="pointer-events-none text-xl font-medium tabular-nums tracking-tight">{value}</span>
       ) : (
         <div className="pointer-events-none flex items-baseline justify-between gap-2">
-          <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span>
+          <span className="whitespace-pre-line text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span>
           <span className="text-xl font-medium tabular-nums tracking-tight">{value}</span>
         </div>
       )}
@@ -161,7 +161,7 @@ export function PanelSlider({
             : { top: 0, width: thick, height: thick, left: offset }}
         />
       </div>
-      {vertical ? <span className="pointer-events-none text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span> : null}
+      {vertical ? <span className="pointer-events-none whitespace-pre-line text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span> : null}
     </div>
   );
 }

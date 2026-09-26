@@ -81,12 +81,12 @@ test("PanelTile applies textAlign classes on label tiles", () => {
   assert.match(leaf, /from\s+[\"']@\/lib\/control\/text-align-widget[\"']/);
 });
 
-test("PanelTile resolves widget labels via resolveWidgetLabel for all face types", () => {
+test("PanelTile formats widget labels via formatWidgetLabel for all face types", () => {
   const leaf = fs.readFileSync("src/components/panel/panel-tile.tsx", "utf8");
-  assert.match(leaf, /resolveWidgetLabel/);
+  assert.match(leaf, /formatWidgetLabel/);
   assert.match(leaf, /from\s+[\"']@\/lib\/control\/vars[\"']/);
-  // One face object with resolved label feeds every widget type that shows a label.
-  assert.match(leaf, /const face = \{ \.\.\.widget, label: resolveWidgetLabel\(/);
+  // One face object with resolved+\\n-expanded label feeds every widget type that shows a label.
+  assert.match(leaf, /const face = \{ \.\.\.widget, label: formatWidgetLabel\(/);
   assert.match(leaf, /<PanelSlider[\s\S]*widget=\{face\}/);
   assert.match(leaf, /\{face\.label\}/);
   assert.match(leaf, /<PreviewTile widget=\{face\}/);
@@ -94,7 +94,8 @@ test("PanelTile resolves widget labels via resolveWidgetLabel for all face types
   assert.match(leaf, /\.\.\.face, color: appearance\.color/);
   assert.match(leaf, /widget=\{face\}/); // button shell
   // Status colorWhen / default readout labels also expand.
-  assert.match(leaf, /resolveWidgetLabel\(appearance\.text/);
+  assert.match(leaf, /formatWidgetLabel\(appearance\.text/);
+  assert.match(leaf, /whitespace-pre-line/);
 });
 
 test("PanelTile label tiles apply widgetColorClass for configured background", () => {
@@ -107,4 +108,15 @@ test("PanelTile label tiles apply widgetColorClass for configured background", (
   assert.match(leaf, /rounded-lg border/);
   assert.match(face, /export const widgetColorClass/);
   assert.match(face, /bg-steel\/25/);
+});
+
+test("panel face surfaces use whitespace-pre-line for multi-line labels", () => {
+  const face = fs.readFileSync("src/components/panel/widget-face.tsx", "utf8");
+  const leaf = fs.readFileSync("src/components/panel/panel-tile.tsx", "utf8");
+  const slider = fs.readFileSync("src/components/panel/panel-slider.tsx", "utf8");
+  const preview = fs.readFileSync("src/components/panel/preview-tile.tsx", "utf8");
+  assert.match(face, /whitespace-pre-line/);
+  assert.match(leaf, /whitespace-pre-line/);
+  assert.match(slider, /whitespace-pre-line/);
+  assert.match(preview, /whitespace-pre-line/);
 });
