@@ -1,9 +1,10 @@
 import type { Widget, WidgetTextSize, WidgetType } from "./types";
 
-const SIZES: readonly WidgetTextSize[] = ["sm", "md", "lg"];
+const SIZES: readonly WidgetTextSize[] = ["xs", "sm", "md", "lg"];
 
 /** Dropdown → fraction of *usable* tile height (after padding). */
 const SIZE_FRACTION: Record<WidgetTextSize, number> = {
+  xs: 1 / 8,
   sm: 1 / 4,
   md: 1 / 2,
   lg: 1,
@@ -24,6 +25,7 @@ export type WidgetTextRole = "body" | "chip" | "secondary";
  * Formula:
  *   usable = height * (1 - 2 * (1/16)) = height * 7/8   // pad top+bottom
  *   fontSize = SIZE_FRACTION[size] * usable
+ *     xs → (1/8)*(7/8) = 7/64 ≈ 0.109375 of height
  *     sm → (1/4)*(7/8) = 7/32 ≈ 0.21875 of height
  *     md → (1/2)*(7/8) = 7/16 ≈ 0.4375 of height
  *     lg → (1)*(7/8)   = 7/8  ≈ 0.875 of height
