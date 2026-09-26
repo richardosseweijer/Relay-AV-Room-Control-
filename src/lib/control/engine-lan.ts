@@ -24,7 +24,9 @@ import {
 } from "./device-face";
 import { allowedLanHost, pushTrace, safeLanHttpUrl } from "./engine-policy";
 import {
+  isTelegramReplyFeedback,
   telegramGetMe,
+  telegramPollLastReply,
   telegramSendMessage,
 } from "./telegram.ts";
 import { renderPayload } from "./engine-payload";
@@ -168,9 +170,19 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
         text: String(value ?? payload ?? ""),
         localAddress,
         timeoutMs: timeout,
+        deviceId: device.id,
+      });
+    } else if (isTelegramReplyFeedback(cmdId)) {
+      // MR2: poll getUpdates for replies to last send (configured chat_id only).
+      result = await telegramPollLastReply({
+        deviceId: device.id,
+        token: auth.token || "",
+        chatId: auth.chat_id || "",
+        localAddress,
+        timeoutMs: timeout,
       });
     } else {
-      // Probe / Authenticate / feedback: getMe (send-only MR1 — no getUpdates).
+      // Probe / Authenticate / bot.username feedback: getMe.
       result = await telegramGetMe({
         token: auth.token || "",
         localAddress,

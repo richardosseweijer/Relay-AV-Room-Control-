@@ -139,8 +139,195 @@ test("library driver telegram-bot.json registers message.send", async () => {
   assert.ok(spec.auth.instanceFields.includes("token"));
   assert.ok(spec.auth.instanceFields.includes("chat_id"));
   assert.ok(spec.commands.some((c) => c.id === "message.send"));
-  assert.match(spec.device.notes, /send-only/i);
+  assert.match(spec.device.notes, /reply-to-last/i);
   assert.match(spec.device.notes, /allowlisted/i);
   const index = JSON.parse(fs.readFileSync("data/library/index.json", "utf8"));
   assert.ok(index["telegram-bot.json"]);
+});
+
+test("rememberTelegramSend + telegramPollLastReply matching reply", async () => {
+  const {
+    clearTelegramRuntime,
+    rememberTelegramSend,
+    telegramPollLastReply,
+    telegramSendMessage,
+  } = await import("../src/lib/control/telegram.ts");
+  clearTelegramRuntime();
+  const token = "123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw";
+  const deviceId = "dev-tg-1";
+  const chatId = "-10099";
+
+  const send = await telegramSendMessage({
+    token,
+    chatId,
+    text: "ping",
+    deviceId,
+    request: async () => ({
+      ok: true,
+      status: 200,
+      text: JSON.stringify({ ok: true, result: { message_id: 42, chat: { id: -10099 } } }),
+    }),
+  });
+  assert.equal(send.ok, true);
+  assert.equal(send.messageId, 42);
+
+  const poll = await telegramPollLastReply({
+    deviceId,
+    token,
+    chatId,
+    request: async (url, _m, body) => {
+      assert.match(url, /\/getUpdates$/);
+      const parsed = JSON.parse(body);
+      assert.equal(parsed.timeout, 0);
+      assert.deepEqual(parsed.allowed_updates, ["message"]);
+      return {
+        ok: true,
+        status: 200,
+        text: JSON.stringify({
+          ok: true,
+          result: [
+            {
+              update_id: 10,
+              message: {
+                message_id: 50,
+                text: "ack from room",
+                chat: { id: -10099 },
+                reply_to_message: { message_id: 42 },
+              },
+            },
+          ],
+        }),
+      };
+    },
+  });
+  assert.equal(poll.ok, true);
+  assert.equal(poll.replyText, "ack from room");
+  assert.equal(poll.replied, true);
+  assert.match(poll.message, /"replied":"1"/);
+  assert.equal(poll.message.includes(token), false);
+
+  // Second poll advances offset and keeps last reply when no new match.
+  const poll2 = await telegramPollLastReply({
+    deviceId,
+    token,
+    chatId,
+    request: async (_u, _m, body) => {
+      const parsed = JSON.parse(body);
+      assert.equal(parsed.offset, 11);
+      return { ok: true, status: 200, text: JSON.stringify({ ok: true, result: [] }) };
+    },
+  });
+  assert.equal(poll2.ok, true);
+  assert.equal(poll2.replyText, "ack from room");
+
+  // New send clears reply.
+  rememberTelegramSend(deviceId, chatId, 99);
+  const afterSend = await telegramPollLastReply({
+    deviceId,
+    token,
+    chatId,
+    request: async () => ({ ok: true, status: 200, text: JSON.stringify({ ok: true, result: [] }) }),
+  });
+  assert.equal(afterSend.replyText, "");
+  assert.equal(afterSend.replied, false);
+});
+
+test("telegramPollLastReply ignores wrong chat and non-replies", async () => {
+  const { clearTelegramRuntime, rememberTelegramSend, telegramPollLastReply, telegramChatMatches } =
+    await import("../src/lib/control/telegram.ts");
+  clearTelegramRuntime();
+  const token = "123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw";
+  const deviceId = "dev-tg-2";
+  rememberTelegramSend(deviceId, "-10099", 7);
+
+  assert.equal(telegramChatMatches("-10099", { id: -10099 }), true);
+  assert.equal(telegramChatMatches("@RoomBot", { username: "RoomBot" }), true);
+  assert.equal(telegramChatMatches("-10099", { id: -1 }), false);
+
+  const poll = await telegramPollLastReply({
+    deviceId,
+    token,
+    chatId: "-10099",
+    request: async () => ({
+      ok: true,
+      status: 200,
+      text: JSON.stringify({
+        ok: true,
+        result: [
+          {
+            update_id: 1,
+            message: {
+              message_id: 8,
+              text: "wrong chat",
+              chat: { id: -1 },
+              reply_to_message: { message_id: 7 },
+            },
+          },
+          {
+            update_id: 2,
+            message: {
+              message_id: 9,
+              text: "not a reply",
+              chat: { id: -10099 },
+            },
+          },
+          {
+            update_id: 3,
+            message: {
+              message_id: 10,
+              text: "reply to older",
+              chat: { id: -10099 },
+              reply_to_message: { message_id: 1 },
+            },
+          },
+        ],
+      }),
+    }),
+  });
+  assert.equal(poll.ok, true);
+  assert.equal(poll.replyText, "");
+  assert.equal(poll.replied, false);
+});
+
+test("telegramPollLastReply fail-closed missing token; no network before send", async () => {
+  const { clearTelegramRuntime, telegramPollLastReply } = await import("../src/lib/control/telegram.ts");
+  clearTelegramRuntime();
+  let hit = false;
+  const noToken = await telegramPollLastReply({
+    deviceId: "x",
+    token: "",
+    chatId: "-1",
+    request: async () => {
+      hit = true;
+      return { ok: true, status: 200, text: "{}" };
+    },
+  });
+  assert.equal(noToken.ok, false);
+  assert.equal(hit, false);
+  assert.match(noToken.message, /token missing/i);
+
+  const noSendYet = await telegramPollLastReply({
+    deviceId: "fresh",
+    token: "123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw",
+    chatId: "-1",
+    request: async () => {
+      hit = true;
+      return { ok: true, status: 200, text: "{}" };
+    },
+  });
+  assert.equal(noSendYet.ok, true);
+  assert.equal(noSendYet.replyText, "");
+  assert.equal(hit, false);
+});
+
+test("library driver telegram-bot.json registers reply feedback", async () => {
+  const fs = await import("node:fs");
+  const spec = JSON.parse(fs.readFileSync("data/library/telegram-bot.json", "utf8"));
+  assert.ok(spec.feedback.some((f) => f.id === "message.lastReply"));
+  assert.ok(spec.feedback.some((f) => f.id === "message.replied"));
+  assert.match(spec.device.notes, /reply-to-last/i);
+  assert.match(spec.device.notes, /never executed/i);
+  const src = fs.readFileSync("src/lib/control/engine-lan.ts", "utf8");
+  assert.match(src, /telegramPollLastReply/);
+  assert.match(src, /isTelegramReplyFeedback/);
 });

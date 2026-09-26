@@ -5,7 +5,7 @@
     "model": "Bot API",
     "type": "other",
     "manualUrl": "https://core.telegram.org/bots/api",
-    "notes": "MR1 send-only. Paste the BotFather bot token in Secret/Token (never logged). Set chat_id to the destination chat (numeric id or @channel). Host field unused — traffic always goes to api.telegram.org over HTTPS. Set NIC face to Venue / outbound so egress uses the room internet NIC (AV face also works on single-NIC hosts). message.send value = plain text (parse_mode off). Authenticate runs getMe. No getUpdates / webhook in this version — inbound commands need a later MR with allowlisted chat_ids + allowlisted macro ids (optional shared PIN in message); never arbitrary shell. Fail-closed if token or chat_id missing."
+    "notes": "Send + reply-to-last monitor. Paste the BotFather bot token in Secret/Token (never logged). Set chat_id to the destination chat (numeric id or @channel). Host field unused — traffic always goes to api.telegram.org over HTTPS. Set NIC face to Venue / outbound so egress uses the room internet NIC (AV face also works on single-NIC hosts). message.send value = plain text (parse_mode off); on success Relay remembers that message_id in process memory. Feedback message.lastReply / message.replied short-poll getUpdates and become true / carry text only when an update is a reply to that last send in the configured chat_id (other chats and non-replies ignored). Offset tracked carefully; no webhook. Reply text is never executed as shell or macros — inbound poll limited to reply-to-last-send, not a general command channel (allowlisted macros need a later MR). Fail-closed if token or chat_id missing. Authenticate runs getMe."
   },
   "transports": {
     "lan": {
@@ -68,6 +68,32 @@
       "parse": {
         "type": "jsonpath",
         "path": "result.username"
+      }
+    },
+    {
+      "id": "message.lastReply",
+      "label": "Last reply text",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "",
+      "pollMs": 5000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "result.text"
+      }
+    },
+    {
+      "id": "message.replied",
+      "label": "Reply received",
+      "kind": "toggle",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "",
+      "pollMs": 5000,
+      "parse": {
+        "type": "jsonpath",
+        "path": "result.replied"
       }
     }
   ]
