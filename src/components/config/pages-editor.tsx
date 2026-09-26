@@ -318,11 +318,13 @@ export function PagesEditor({
               update={update}
             />
           ) : null}
+          {!(selected.type === "image" && selected.imageBorderless) ? (
           <div className="flex flex-wrap gap-1">
             {colors.map((color) => (
               <button key={color} type="button" className={cn("size-8 rounded-full border", fills[color], selected.color === color ? "border-fg" : "border-border")} onClick={() => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.color = color; })} />
             ))}
           </div>
+          ) : null}
           {selected.type !== "image" ? (
           <div className="grid grid-cols-[repeat(auto-fit,minmax(2rem,1fr))] gap-1">
             {ICON_NAMES.map((name) => (
