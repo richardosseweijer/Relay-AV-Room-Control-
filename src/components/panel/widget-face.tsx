@@ -58,20 +58,22 @@ export function WidgetShell({
   onClick?: () => void;
 }) {
   const status = widget.type === "status";
+  const image = widget.type === "image";
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "relative flex h-full min-h-0 min-w-0 w-full flex-col gap-3 items-stretch justify-between overflow-hidden rounded-2xl border px-4 py-3 text-left [overflow-wrap:anywhere] transition duration-200 ease-out",
+        "relative flex h-full min-h-0 min-w-0 w-full flex-col items-stretch overflow-hidden rounded-2xl border text-left [overflow-wrap:anywhere] transition duration-200 ease-out",
         "active:scale-[0.98]",
+        image ? "gap-2 p-2" : "gap-3 justify-between px-4 py-3",
         colorClass[widget.color],
         active && activeClass[widget.color],
         disabled && disabledClass[widget.color],
       )}
     >
-      {widget.icon ? (
+      {widget.icon && !image ? (
         <NamedIcon
           name={widget.icon}
           className={cn(
@@ -80,12 +82,19 @@ export function WidgetShell({
           )}
         />
       ) : null}
-      <div className={cn("relative z-[1] flex items-start justify-between gap-2", widget.icon && "pr-10")}>
+      <div className={cn("relative z-[1] flex items-start justify-between gap-2", widget.icon && !image && "pr-10", image && "px-2 pt-1")}>
         <span className={cn("text-[11px] font-medium tracking-[0.16em] uppercase", disabled ? "opacity-60" : active ? "text-bg/70" : "text-muted")}>
           {widget.label}
         </span>
       </div>
-      <div className={cn("relative z-[1] min-h-6 font-medium leading-tight tracking-tight", status ? "text-3xl" : "text-xl")}>
+      <div
+        className={cn(
+          "relative z-[1]",
+          image
+            ? "min-h-0 flex-1 overflow-hidden rounded-lg bg-bg/30"
+            : cn("min-h-6 font-medium leading-tight tracking-tight", status ? "text-3xl" : "text-xl"),
+        )}
+      >
         {children}
       </div>
     </button>
