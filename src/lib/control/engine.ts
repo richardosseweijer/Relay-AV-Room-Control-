@@ -26,6 +26,7 @@ import { allowedLanHost, pushTrace, safeLanHttpUrl, sleep } from "./engine-polic
 import { applySim, guardOk, mapCommandValue, parseFeedback, parseInventoryItems, pickJsonField, renderPayload } from "./engine-payload";
 import { paceDevice, tcpSessionWrite, tcpPoolSize } from "./engine-wire";
 import { sendHttp, sendLan, wsQueryFromDriver } from "./engine-lan";
+import { isTelegramDriver, telegramGetMe } from "./telegram.ts";
 import {
   applyHost,
   readHostFeedback,
@@ -126,6 +127,20 @@ export async function authenticateDevice(opts: { config: RoomConfig; drivers: Re
   const driver = opts.drivers[device.driver];
   if (!driver) return { ok: false, message: "No driver" };
   const host = opts.host ?? device.host;
+  // Telegram Bot API: fixed cloud host — skip LAN host gate; Authenticate ≡ getMe.
+  if (isTelegramDriver(driver)) {
+    const bind = planDeviceBindForDevice(device, opts.config, undefined, { needsTls: false });
+    if (!bind.ok) return bind;
+    const res = await telegramGetMe({
+      token: device.auth?.token || "",
+      localAddress: bind.localAddress,
+      timeoutMs: driver.transports.lan?.timeoutMs,
+    });
+    if (res.ok && res.username) {
+      return { ok: true, message: `Bot @${res.username}` };
+    }
+    return { ok: res.ok, message: res.message };
+  }
   {
     const hostGate = deviceHostAllowed(readNicFace(device), host, {
       localOk: device.driver === "relay-host.json" || driver.device.type === "host",
