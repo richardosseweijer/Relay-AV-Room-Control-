@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.62
+
+- Tag `v0.9.62`. **Panel text size height-relative:** Text size dropdown now scales glyph size from widget tile height via `cqh` (not fixed rem). Formula: usable = height × (1 − 2/16); sm/md/lg = ¼ / ½ / full of usable. Buttons use body size for the label (primary face text). Same widget set as 0.9.61 (exclude preview/image).
+
 ## 0.9.61
 
 - Tag `v0.9.61`. **Panel text size:** Pages Button setup select `textSize` (`sm`|`md`|`lg`, default Medium) for all widget types except Preview and Image. Panel render scales chip/body/label/slider/schedule text via [`text-size-widget.ts`](src/lib/control/text-size-widget.ts); normalize fills `md` when missing/invalid.

@@ -11,9 +11,9 @@
   height: 100%;
 }
 
-.panel-grid > [data-type="label"] {
-  height: auto;
-  align-self: center;
+/* Size container for height-relative widget text (cqh in text-size-widget). */
+.widget-text-container {
+  container-type: size;
 }
 
 /*

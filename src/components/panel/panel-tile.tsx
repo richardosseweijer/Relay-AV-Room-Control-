@@ -1,5 +1,4 @@
 import type { RoomSnapshot, Widget } from "@/lib/control/types";
-import { cn } from "@/lib/utils";
 import { gridStyle } from "@/lib/control/page-layout";
 import { resolveBoundNumber } from "@/lib/control/vars";
 import { nextScheduled } from "@/lib/control/schedule";
@@ -15,9 +14,9 @@ import { PreviewTile } from "./preview-tile";
 import { ImageTile } from "./image-tile";
 import { PanelSlider } from "./panel-slider";
 import {
-  widgetBodyTextClass,
-  widgetLabelTileTextClass,
-  widgetSecondaryTextClass,
+  widgetBodyTextStyle,
+  widgetLabelTileTextStyle,
+  widgetSecondaryTextStyle,
 } from "@/lib/control/text-size-widget";
 
 /** One grid cell: slider / label / schedule / preview / image / status / button branches. */
@@ -85,10 +84,10 @@ export function PanelTile({
       <div
         data-wide={wide}
         data-type={widget.type}
-        className={cn("flex min-w-0 items-center [overflow-wrap:anywhere] rounded-lg px-3 text-muted", widgetLabelTileTextClass(widget.textSize))}
+        className="widget-text-container flex min-h-0 min-w-0 h-full items-center [overflow-wrap:anywhere] rounded-lg px-3 text-muted"
         style={gridStyle(widget)}
       >
-        {widget.label}
+        <span style={widgetLabelTileTextStyle(widget.textSize)}>{widget.label}</span>
       </div>
     );
   }
@@ -104,11 +103,11 @@ export function PanelTile({
         <WidgetShell widget={{ ...widget, label: widget.label === "Next" || widget.label === "Button" || !widget.label ? "Next scheduled task:" : widget.label }}>
           {upcoming ? (
             <span className="flex flex-col gap-1">
-              <span className={cn(widgetBodyTextClass(widget.textSize), "font-medium leading-tight")}>{upcoming.label}</span>
-              <span className={cn(widgetSecondaryTextClass(widget.textSize), "text-muted")}>{upcoming.when}</span>
+              <span className="font-medium" style={widgetBodyTextStyle(widget.textSize)}>{upcoming.label}</span>
+              <span className="text-muted" style={widgetSecondaryTextStyle(widget.textSize)}>{upcoming.when}</span>
             </span>
           ) : (
-            <span className={cn(widgetBodyTextClass(widget.textSize), "font-medium")}>Nothing scheduled</span>
+            <span className="font-medium" style={widgetBodyTextStyle(widget.textSize)}>Nothing scheduled</span>
           )}
         </WidgetShell>
       </div>

@@ -1,7 +1,7 @@
 import { NamedIcon } from "@/components/icons";
 import type { Widget, WidgetColor } from "@/lib/control/types";
 import { cn } from "@/lib/utils";
-import { widgetBodyTextClass, widgetChipTextClass } from "@/lib/control/text-size-widget";
+import { widgetBodyTextStyle, widgetChipTextStyle } from "@/lib/control/text-size-widget";
 
 const colorClass: Record<WidgetColor, string> = {
   steel: "bg-steel/25 border-steel/30 text-fg",
@@ -58,15 +58,19 @@ export function WidgetShell({
   children?: React.ReactNode;
   onClick?: () => void;
 }) {
-  const status = widget.type === "status";
   const image = widget.type === "image";
+  // Buttons show the label as the primary face text (body children are often empty).
+  const labelStyle = widget.type === "button"
+    ? widgetBodyTextStyle(widget.textSize)
+    : widgetChipTextStyle(widget.textSize);
+  const bodyStyle = widgetBodyTextStyle(widget.textSize);
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "relative flex h-full min-h-0 min-w-0 w-full flex-col items-stretch overflow-hidden rounded-2xl border text-left [overflow-wrap:anywhere] transition duration-200 ease-out",
+        "widget-text-container relative flex h-full min-h-0 min-w-0 w-full flex-col items-stretch overflow-hidden rounded-2xl border text-left [overflow-wrap:anywhere] transition duration-200 ease-out",
         "active:scale-[0.98]",
         image ? "gap-2 p-2" : "gap-3 justify-between px-4 py-3",
         colorClass[widget.color],
@@ -84,7 +88,10 @@ export function WidgetShell({
         />
       ) : null}
       <div className={cn("relative z-[1] flex items-start justify-between gap-2", widget.icon && !image && "pr-10", image && "px-2 pt-1")}>
-        <span className={cn(widgetChipTextClass(widget.textSize), "font-medium tracking-[0.16em] uppercase", disabled ? "opacity-60" : active ? "text-bg/70" : "text-muted")}>
+        <span
+          className={cn("font-medium tracking-[0.16em] uppercase", disabled ? "opacity-60" : active ? "text-bg/70" : "text-muted")}
+          style={labelStyle}
+        >
           {widget.label}
         </span>
       </div>
@@ -93,8 +100,9 @@ export function WidgetShell({
           "relative z-[1]",
           image
             ? "min-h-0 flex-1 overflow-hidden rounded-lg bg-bg/30"
-            : cn("min-h-6 font-medium leading-tight tracking-tight", widgetBodyTextClass(widget.textSize, { status })),
+            : "min-h-0 font-medium tracking-tight",
         )}
+        style={image ? undefined : bodyStyle}
       >
         {children}
       </div>
