@@ -15,16 +15,24 @@ test("pages-editor exposes Text size for non-preview/non-image widgets", () => {
   assert.match(src, /Large/);
 });
 
-test("panel tiles apply textSize helpers (not preview/image paths)", () => {
+test("panel tiles apply height-relative textSize styles (not preview/image paths)", () => {
   const face = fs.readFileSync("src/components/panel/widget-face.tsx", "utf8");
   const tile = fs.readFileSync("src/components/panel/panel-tile.tsx", "utf8");
   const slider = fs.readFileSync("src/components/panel/panel-slider.tsx", "utf8");
-  assert.match(face, /widgetBodyTextClass\(widget\.textSize/);
-  assert.match(face, /widgetChipTextClass\(widget\.textSize\)/);
-  assert.match(tile, /widgetLabelTileTextClass\(widget\.textSize\)/);
-  assert.match(tile, /widgetBodyTextClass\(widget\.textSize\)/);
-  assert.match(slider, /widgetBodyTextClass\(widget\.textSize\)/);
-  assert.match(slider, /widgetChipTextClass\(widget\.textSize\)/);
+  const css = fs.readFileSync("src/components/panel/panel-layout.css", "utf8");
+  assert.match(css, /widget-text-container/);
+  assert.match(css, /container-type:\s*size/);
+  assert.match(face, /widgetBodyTextStyle\(widget\.textSize/);
+  assert.match(face, /widgetChipTextStyle\(widget\.textSize/);
+  assert.match(face, /widget-text-container/);
+  // Buttons use body size for the label (primary face text).
+  assert.match(face, /widget\.type === "button"/);
+  assert.match(tile, /widgetLabelTileTextStyle\(widget\.textSize\)/);
+  assert.match(tile, /widgetBodyTextStyle\(widget\.textSize\)/);
+  assert.match(tile, /widgetSecondaryTextStyle\(widget\.textSize\)/);
+  assert.match(slider, /widgetBodyTextStyle\(widget\.textSize\)/);
+  assert.match(slider, /widgetChipTextStyle\(widget\.textSize\)/);
+  assert.match(slider, /widget-text-container/);
   // Preview/image tiles must not import text-size helpers
   const preview = fs.readFileSync("src/components/panel/preview-tile.tsx", "utf8");
   const image = fs.readFileSync("src/components/panel/image-tile.tsx", "utf8");
