@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.69** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.70** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -112,7 +112,7 @@ Macros invoked from any of these paths use the same runner as a panel press: ord
 | Macro | Ordered list of steps (device command, delay, variable assignment, nested macro). Id `none` is a hidden no-op; new buttons bind to it. |
 | Monitor | Periodic read of one feedback field. Always writes `MON_<label>`; optional extra `writeVar` / `errorVar`. |
 | Page | Named grid. Widgets have column, row, width, height, colour, bindings, and enable-when clauses. |
-| Widget | `button`, `slider`, `label`, `status`, `schedule`, `preview`, or `image`. Icons sit on the right, sized from tile height. Button/label/status/schedule may set `textSize` `xs`|`sm`|`md`|`lg` (default `md`; font size is a fraction of tile height via `cqh`; slider uses fixed face sizing). Label/button/status may set `textAlign` `left`|`center`|`right` (default `left`). Labels may set `hideWhenDisabled` so a failed enable-when omits the tile (default: still show, muted). Face labels expand `{var}` via `resolveWidgetLabel` (unresolved tokens omit). Label tiles use the same color fill/border classes as WidgetShell (`widgetColorClass`). Image is a static tile (host media under `data/media/`, fit `contain`\|`cover`, optional tap macro). |
+| Widget | `button`, `slider`, `label`, `status`, `schedule`, `preview`, or `image`. Icons sit on the right, sized from tile height. Button/label/status/schedule may set `textSize` `xs`|`sm`|`md`|`lg` (default `md`; font size is a fraction of tile height via `cqh`; slider uses fixed face sizing). Label/button/status may set `textAlign` `left`|`center`|`right` (default `left`). Labels may set `hideWhenDisabled` so a failed enable-when omits the tile (default: still show, muted). Face labels expand `{var}` then typed `\n` → newline via `formatWidgetLabel` (unresolved tokens omit; `whitespace-pre-line`). Label tiles use the same color fill/border classes as WidgetShell (`widgetColorClass`). Image is a static tile (host media under `data/media/`, fit `contain`\|`cover`, optional tap macro). |
 | Schedule | Clock time and weekday mask that starts a macro. |
 | Trigger | Primary predicate plus optional `whenTrue` / `whenFalse` extra clauses that start a macro. |
 | Host interface | Local serial, GPIO, I2C, SPI, IR, CEC, or a gateway box (e.g. IPL T SFI244) that maps slots to TCP ports. |

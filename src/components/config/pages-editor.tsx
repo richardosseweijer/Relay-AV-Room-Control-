@@ -226,7 +226,7 @@ export function PagesEditor({
         <aside className="order-first grid max-h-[70dvh] gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-4 lg:order-none lg:sticky lg:top-20 lg:max-h-[calc(100dvh-8rem)]">
           <p className="text-xs uppercase tracking-[0.16em] text-subtle">{selected.type === "preview" ? "Preview setup" : selected.type === "image" ? "Image setup" : selected.type === "status" ? "Status setup" : "Button setup"}</p>
           <label className="grid gap-1 text-sm text-muted">Label
-            <input className={fieldClass()} value={selected.label} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.label = e.target.value; })} />
+            <input className={fieldClass()} placeholder="Use \\n for a line break" value={selected.label} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.label = e.target.value; })} />
           </label>
           <div className="grid grid-cols-4 gap-1">
             {(["w", "h", "x", "y"] as const).map((key) => (
