@@ -255,6 +255,7 @@ export function PagesEditor({
                 w.bind = { kind: "range", device: draft.devices[0]?.id, command: "volume.set", variable: draft.variables.find((v) => v.kind === "number")?.id ?? null };
                 w.min = 0;
                 w.max = 100;
+                delete w.textSize;
               } else if (type === "status") {
                 w.bind = { kind: "variable", variable: draft.variables[0]?.id ?? null };
               } else if (type === "button") {
@@ -283,7 +284,7 @@ export function PagesEditor({
             <option value="image">Image</option>
           </select>
           </label>
-          {selected.type !== "preview" && selected.type !== "image" ? (
+          {selected.type !== "preview" && selected.type !== "image" && selected.type !== "slider" ? (
             <label className="grid gap-1 text-sm text-muted">Text size
               <select
                 className={fieldClass()}
