@@ -7,7 +7,7 @@ Keep this file short. If it grows past ~150 lines, cut history — do not append
 
 ## Product
 
-Relay **0.9.66** (beta). Single-process LAN AV room controller. Phase B software checkpoint (B5 at `v0.9.45`). LE/ACME parked; C1–C4 in-box venue TLS train closed (Generate + Networks UI + lifecycle + docs checkpoint).
+Relay **0.9.67** (beta). Single-process LAN AV room controller. Phase B software checkpoint (B5 at `v0.9.45`). LE/ACME parked; C1–C4 in-box venue TLS train closed (Generate + Networks UI + lifecycle + docs checkpoint).
 TanStack Start + Vite. Dev `:8080` / prod `:8081` bind to **AV-LAN IPv4** (auto-map first scanned NIC when AV unset/invalid; else loopback if no NICs). Never `0.0.0.0`. `RELAY_LISTEN_HOST` overrides.
 Not a grok.me / Vercel host — those have no writable `data/`.
 
@@ -34,6 +34,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Panel text size | `text-size-widget.ts`, `pages-editor.tsx`, `widget-face.tsx` / `panel-tile.tsx` (not slider) |
 | Panel text align | `text-align-widget.ts`, `pages-editor.tsx`, `widget-face.tsx` / `panel-tile.tsx` (label/button/status) |
 | Label hide when disabled | `pages-enable-when.tsx`, `panel-widget.ts` (`shouldHideWhenDisabled`), `panel-tile.tsx` |
+| Panel label `{var}` | `vars.ts` (`resolveTemplate` / `resolveWidgetLabel`), `panel-tile.tsx` (all face types; unresolved → empty) |
 | Host media / `/api/media` | `media-store.ts`, `src/routes/api/media.ts`, `src/routes/api/media.$id.ts`, `data/media/` |
 - Docs/example image asset: `docs/assets/image-widget-hub-hdmi-example.png`; runtime uploads still go to `data/media/` via `/api/media` (docs/example only, not auto-served).
 | Panel UI | `src/components/panel/control-panel.tsx` |
@@ -56,7 +57,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 
 Do not grep the whole repo to “get context.” If the table above is missing a file, ask.
 
-## Live notes (still true at 0.9.66)
+## Live notes (still true at 0.9.67)
 
 - Occupancy var is `0` closed, `1` open, `2` in-session, `3` DND. Foyer GET still reads the **string** field. Save-all must not apply `draft.room.occupancy`.
 - Unsigned `GET /api/peer` is TCP loopback **or listen-host hairpin** (real `remoteAddress`, not `Host`). HMAC GET is the full snapshot.
