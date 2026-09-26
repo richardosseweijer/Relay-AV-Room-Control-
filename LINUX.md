@@ -232,6 +232,7 @@ Room → Networks → **AV-LAN IPv4 (Linux)** can set **static** or **DHCP** on 
 
 - Requires **NetworkManager** (`nmcli` on `PATH`) and a managed connection on the AV iface.
 - Apply always clears gateway on that connection and sets `ipv4.never-default yes` — AV-LAN must not take the default route.
+- Apply owns a dedicated NM profile named **`relay-av-lan`** (not `netplan-<iface>` in place). On Ubuntu Server, installer YAML often keeps `dhcp4: true` for the same ethernet id; modifying that netplan profile can leave `ipv4.method=auto` with a stale address after `connection up` / reboot (UP NIC, no usable IPv4). The Relay profile is a separate netplan `NM-<uuid>` key so it does not merge installer DHCP back on. Apply verifies method+address after up.
 - Demo/default `room.network.gateway` is **not** applied to AV.
 - DNS / hostname / NTP / NIC2 address are out of scope.
 - Windows / non-Linux: Apply returns a clear error (no silent success).
@@ -444,6 +445,7 @@ Optional Foyer on the same host: same as one-NIC — `8080` / `8082` from **AV C
 | Symptom | Check |
 |---|---|
 | Tablets can’t reach panel | AV CIDR in ufw matches real tablet subnet; Room → **AV-LAN** is the iface tablets use; `ss` listen host is that AV IPv4 (not venue, not `0.0.0.0`); tablet URL is `http://<av-ip>:8081` |
+| After **AV IP Apply**, NIC UP but no IPv4 / method stays `auto` | Ubuntu Server netplan merge: installer `dhcp4: true` won over nmcli `manual` on `netplan-<iface>`. Current Apply uses `relay-av-lan`; disable autoconnect on the old netplan profile or set `dhcp4: false` for that iface in netplan |
 | After **AV IP Apply**, tablets die | Prefix/network changed — update ufw `allow from <new-av-cidr> to any port 8081`; delete the old CIDR rule; Confirm Apply does not edit ufw |
 | Venue HTTPS works but AV panel broken | Must not be coupled. Confirm AV HTTP still listens (`ss` on `:8081`); venue PEM / `:8443` issues must soft-skip only. Fix AV (CIDR / listen / AV NIC up) independently |
 | Accidentally allowed `8081` from anywhere | `sudo ufw status numbered` → `sudo ufw delete <n>` for the open rule; re-add CIDR-scoped allow; `sudo ufw status verbose` |
