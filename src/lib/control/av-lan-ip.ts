@@ -22,6 +22,7 @@ export {
   avLanIpSuccessHint,
   parseNmDeviceShow,
   parseNmConnectionIpv4,
+  parseFirstIpv4Cidr,
   listConnectionNamesForDevice,
   verifyAvLanApplied,
   classifyNmcliFailure,

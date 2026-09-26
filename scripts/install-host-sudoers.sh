@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Install Relay host sudoers drop-ins from deploy/ templates.
 #
-# Idempotent: re-running overwrites /etc/sudoers.d/relay-kiosk and
-# /etc/sudoers.d/relay-nmcli with freshly substituted templates (visudo-checked).
+# Idempotent: re-running overwrites /etc/sudoers.d/relay-kiosk,
+# /etc/sudoers.d/relay-nmcli, and /etc/sudoers.d/relay-ufw with freshly
+# substituted templates (visudo-checked).
 #
 # Usage (from repo root or any cwd):
 #   sudo bash scripts/install-host-sudoers.sh
@@ -35,9 +36,11 @@ DEPLOY_DIR="${REPO_ROOT}/deploy"
 
 TEMPLATE_KIOSK="${DEPLOY_DIR}/sudoers.relay-kiosk"
 TEMPLATE_NMCLI="${DEPLOY_DIR}/sudoers.relay-nmcli"
+TEMPLATE_UFW="${DEPLOY_DIR}/sudoers.relay-ufw"
 
 [ -f "${TEMPLATE_KIOSK}" ] || die "missing template: ${TEMPLATE_KIOSK}"
 [ -f "${TEMPLATE_NMCLI}" ] || die "missing template: ${TEMPLATE_NMCLI}"
+[ -f "${TEMPLATE_UFW}" ] || die "missing template: ${TEMPLATE_UFW}"
 command -v visudo >/dev/null 2>&1 || die "visudo not found (install sudo package)"
 
 # Resolve service username
@@ -98,6 +101,7 @@ install_one() {
 
 install_one "relay-kiosk" "${TEMPLATE_KIOSK}"
 install_one "relay-nmcli" "${TEMPLATE_NMCLI}"
+install_one "relay-ufw" "${TEMPLATE_UFW}"
 
 echo
 echo "OK — host sudoers drop-ins installed for ${RELAY_SVC_USER}."
@@ -106,5 +110,6 @@ echo
 echo "Next — smoke checks (must NOT prompt for a password):"
 echo "  sudo -u ${RELAY_SVC_USER} sudo -n /usr/bin/systemctl status relay-kiosk.service || true"
 echo "  sudo -u ${RELAY_SVC_USER} sudo -n /usr/bin/nmcli -t -f NAME connection show >/dev/null && echo nmcli OK"
+echo "  sudo -u ${RELAY_SVC_USER} sudo -n /usr/sbin/ufw status >/dev/null && echo ufw OK"
 echo
-echo "See LINUX.md §5b (nmcli) and §7c (relay-kiosk)."
+echo "See LINUX.md §5b (nmcli + ufw) and §7c (relay-kiosk)."
