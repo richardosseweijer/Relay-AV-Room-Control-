@@ -5,7 +5,9 @@ import {
   compareValue,
   enabled,
   friendlyError,
+  normalizeHideWhenDisabledFields,
   readFeedback,
+  shouldHideWhenDisabled,
   widgetActive,
 } from "../src/lib/control/panel-widget.ts";
 
@@ -30,6 +32,8 @@ test("control-panel imports widget helpers from panel-widget leaf", () => {
   assert.match(leaf, /export function commandIsActive\s*\(/);
   assert.match(leaf, /export function sliderVariable\s*\(/);
   assert.match(leaf, /export function widgetActive\s*\(/);
+  assert.match(leaf, /export function shouldHideWhenDisabled\s*\(/);
+  assert.match(leaf, /export function normalizeHideWhenDisabledFields/);
 });
 
 function snap(extra = {}) {
@@ -118,3 +122,31 @@ test("widgetActive: confirm, latch, scene, and highlight=off", () => {
   assert.equal(widgetActive(s, widget({ bind: { kind: "macro", id: "m1" } }), false), true);
   assert.equal(widgetActive(s, widget({ bind: { kind: "macro", id: "other" } }), false), false);
 });
+
+test("shouldHideWhenDisabled: label + flag + failed enableWhen only", () => {
+  const s = snap({ vars: { mode: "idle" } });
+  const rule = { variable: "mode", equals: "live" };
+  assert.equal(shouldHideWhenDisabled(s, widget({ type: "label", enableWhen: rule })), false);
+  assert.equal(
+    shouldHideWhenDisabled(s, widget({ type: "label", hideWhenDisabled: true, enableWhen: rule })),
+    true,
+  );
+  assert.equal(
+    shouldHideWhenDisabled(s, widget({ type: "label", hideWhenDisabled: true, enableWhen: { variable: "mode", equals: "idle" } })),
+    false,
+  );
+  assert.equal(
+    shouldHideWhenDisabled(s, widget({ type: "button", hideWhenDisabled: true, enableWhen: rule })),
+    false,
+  );
+  assert.equal(shouldHideWhenDisabled(s, widget({ type: "label", hideWhenDisabled: true })), false);
+});
+
+test("normalizeHideWhenDisabledFields: label coerces; others untouched", () => {
+  assert.equal(normalizeHideWhenDisabledFields(widget({ type: "label" })).hideWhenDisabled, false);
+  assert.equal(normalizeHideWhenDisabledFields(widget({ type: "label", hideWhenDisabled: true })).hideWhenDisabled, true);
+  assert.equal(normalizeHideWhenDisabledFields(widget({ type: "label", hideWhenDisabled: "yes" })).hideWhenDisabled, false);
+  const button = widget({ type: "button", hideWhenDisabled: true });
+  assert.equal(normalizeHideWhenDisabledFields(button), button);
+});
+
