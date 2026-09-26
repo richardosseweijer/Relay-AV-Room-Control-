@@ -81,3 +81,19 @@ test("PanelTile applies textAlign classes on label tiles", () => {
   assert.match(leaf, /from\s+[\"']@\/lib\/control\/text-align-widget[\"']/);
 });
 
+test("PanelTile resolves widget labels via resolveWidgetLabel for all face types", () => {
+  const leaf = fs.readFileSync("src/components/panel/panel-tile.tsx", "utf8");
+  assert.match(leaf, /resolveWidgetLabel/);
+  assert.match(leaf, /from\s+[\"']@\/lib\/control\/vars[\"']/);
+  // One face object with resolved label feeds every widget type that shows a label.
+  assert.match(leaf, /const face = \{ \.\.\.widget, label: resolveWidgetLabel\(/);
+  assert.match(leaf, /<PanelSlider[\s\S]*widget=\{face\}/);
+  assert.match(leaf, /\{face\.label\}/);
+  assert.match(leaf, /<PreviewTile widget=\{face\}/);
+  assert.match(leaf, /<ImageTile widget=\{face\}/);
+  assert.match(leaf, /\.\.\.face, color: appearance\.color/);
+  assert.match(leaf, /widget=\{face\}/); // button shell
+  // Status colorWhen / default readout labels also expand.
+  assert.match(leaf, /resolveWidgetLabel\(appearance\.text/);
+});
+
