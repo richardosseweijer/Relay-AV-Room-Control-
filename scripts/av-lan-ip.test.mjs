@@ -373,6 +373,8 @@ test("applyAvLanIpViaNmcli: dhcp success clears addresses on relay-av-lan", asyn
     },
   });
   assert.equal(res.ok, true, res.message);
+  assert.equal(res.appliedAddress, "10.0.10.50");
+  assert.equal(res.appliedPrefix, 24);
   const modify = sudoCalls.find((a) => a.includes("ipv4.method") && a.includes("auto"));
   assert.ok(modify);
   assert.equal(modify[modify.indexOf("modify") + 1], RELAY_AV_LAN_CONNECTION_ID);

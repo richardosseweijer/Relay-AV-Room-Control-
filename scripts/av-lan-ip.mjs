@@ -280,7 +280,7 @@ export function avLanIpConfirmMessage(opts) {
       ` Your browser is on the current address — the page will drop after apply; reopen from the new URL (or SSH).` +
       ` AV-LAN will not get a default route. Venue / LAN (internet) is untouched.` +
       ` Relay will restart to re-bind HTTP to the new IPv4.` +
-      ` If ufw allows a fixed AV CIDR and DHCP moves you off that network, update ufw.`
+      ` Relay will also update ufw for TCP 8081 from the new AV CIDR when sudoers.relay-ufw is installed (soft-fail if not).`
     );
   }
   const address = String(opts.address || "").trim();
@@ -292,7 +292,7 @@ export function avLanIpConfirmMessage(opts) {
     ` This PC’s panel URL will become ${url}. Your browser is on the current address — the page will drop after apply; reopen from the new URL (or SSH).` +
     ` AV-LAN will not get a default route. Venue / LAN (internet) is untouched.` +
     ` Relay will restart to re-bind HTTP to the new IPv4.` +
-    ` If you change prefix/network, update ufw to the new AV CIDR.`
+    ` Relay will also update ufw for TCP 8081 from the new AV CIDR when sudoers.relay-ufw is installed (soft-fail if not).`
   );
 }
 
@@ -338,6 +338,20 @@ export function parseNmConnectionIpv4(stdout) {
     addresses: (lines[1] || "").trim(),
     neverDefault: (lines[2] || "").trim(),
   };
+}
+
+/**
+ * First IPv4/prefix in nmcli device IP text (e.g. 10.0.10.5/24).
+ * @param {string} text
+ * @returns {{ address: string, prefix: number } | null}
+ */
+export function parseFirstIpv4Cidr(text) {
+  const m = String(text || "").match(/(\d{1,3}(?:\.\d{1,3}){3})\s*\/\s*(\d{1,2})/);
+  if (!m) return null;
+  const ip = validateIpv4Unicast(m[1]);
+  const pref = validatePrefix(m[2]);
+  if (!ip.ok || !pref.ok) return null;
+  return { address: ip.address, prefix: pref.prefix };
 }
 
 /**
@@ -549,13 +563,25 @@ export async function applyAvLanIpViaNmcli(opts) {
     return { ok: false, message: verified.message };
   }
 
+  const live = parseFirstIpv4Cidr(deviceAddresses) || parseFirstIpv4Cidr(connIpv4.addresses);
+  const appliedAddress =
+    opts.mode === "static"
+      ? String(opts.address || "").trim()
+      : live?.address || "";
+  const appliedPrefix =
+    opts.mode === "static"
+      ? Number(opts.prefix)
+      : live?.prefix ?? (Number.isInteger(Number(opts.prefix)) ? Number(opts.prefix) : 24);
+
   return {
     ok: true,
     connectionId,
     device,
     mode: opts.mode,
-    address: opts.mode === "static" ? opts.address : "",
-    prefix: opts.mode === "static" ? opts.prefix : opts.prefix ?? 24,
+    address: appliedAddress,
+    prefix: appliedPrefix,
+    appliedAddress,
+    appliedPrefix,
   };
 }
 
