@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.68
+
+- Tag `v0.9.68`. **Label tile background:** panel `label` widgets apply the configured colour fill/border via shared [`widgetColorClass`](src/components/panel/widget-face.tsx) (same idle chrome as buttons/status). Previously labels ignored `widget.color` and rendered transparent text-only. Disabled labels still use muted opacity; hide-when-disabled unchanged.
+
 ## 0.9.67
 
 - Tag `v0.9.67`. **Panel label `{var}` substitution:** widget face labels (button, label, status, slider, schedule, preview, image) expand `{var}` via shared [`resolveTemplate` / `resolveWidgetLabel`](src/lib/control/vars.ts). Unresolved tokens omit (empty — braces/name stay hidden). Status `colorWhen` / `statusDefault` readout labels also expand. Configurator Pages label input still shows the template as typed.

@@ -97,3 +97,14 @@ test("PanelTile resolves widget labels via resolveWidgetLabel for all face types
   assert.match(leaf, /resolveWidgetLabel\(appearance\.text/);
 });
 
+test("PanelTile label tiles apply widgetColorClass for configured background", () => {
+  const leaf = fs.readFileSync("src/components/panel/panel-tile.tsx", "utf8");
+  const face = fs.readFileSync("src/components/panel/widget-face.tsx", "utf8");
+  assert.match(leaf, /widgetColorClass\[widget\.color\]/);
+  assert.match(leaf, /from\s+[\"']\.\/widget-face[\"']/);
+  // Label keeps its own tile (not WidgetShell button chrome) but shares face fill.
+  assert.match(leaf, /widget\.type === "label"/);
+  assert.match(leaf, /rounded-lg border/);
+  assert.match(face, /export const widgetColorClass/);
+  assert.match(face, /bg-steel\/25/);
+});
