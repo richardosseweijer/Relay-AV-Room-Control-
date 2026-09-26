@@ -10,6 +10,7 @@ import {
   parseRelayUfw8081Cidrs,
   buildUfwAllow8081Argv,
   buildUfwDelete8081Argv,
+  buildUfwStatusNumberedArgv,
   syncUfwAvLan8081,
   UFW_RULE_COMMENT,
   AV_LAN_UFW_ANYWHERE,
@@ -62,21 +63,10 @@ To                         Action      From
   assert.deepEqual(parseRelayUfw8081Cidrs(status), ["10.0.25.0/24"]);
 });
 
-test("buildUfwAllow/Delete argv: fixed port + comment, no shell", () => {
-  assert.deepEqual(buildUfwAllow8081Argv("10.0.10.0/24"), [
-    "allow",
-    "from",
-    "10.0.10.0/24",
-    "to",
-    "any",
-    "port",
-    "8081",
-    "proto",
-    "tcp",
-    "comment",
-    UFW_RULE_COMMENT,
-  ]);
-  assert.equal(buildUfwDelete8081Argv("10.0.25.0/24").includes("delete"), true);
+test("buildUfwAllow/Delete argv: helper subcommands, no Anywhere", () => {
+  assert.deepEqual(buildUfwAllow8081Argv("10.0.10.0/24"), ["allow", "10.0.10.0/24"]);
+  assert.deepEqual(buildUfwDelete8081Argv("10.0.25.0/24"), ["delete", "10.0.25.0/24"]);
+  assert.deepEqual(buildUfwStatusNumberedArgv(), ["status-numbered"]);
   assert.ok(!buildUfwAllow8081Argv("10.0.10.0/24").includes("0.0.0.0/0"));
 });
 
@@ -88,7 +78,7 @@ test("syncUfwAvLan8081: idempotent add + remove old Relay rule", async () => {
 `;
   const runUfw = async (argv) => {
     calls.push([...argv]);
-    if (argv[0] === "status") {
+    if (argv[0] === "status" || argv[0] === "status-numbered") {
       return { code: 0, stdout: status, stderr: "", error: null };
     }
     if (argv[0] === "delete") {
