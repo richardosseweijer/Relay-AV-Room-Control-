@@ -62,6 +62,8 @@ export function WidgetShell({
 }) {
   const image = widget.type === "image";
   // Buttons show the label as the primary face text (body children are often empty).
+  // Status readouts use that same face: body size, tracked caps — not the tight body slot.
+  const buttonFace = "whitespace-pre-line font-medium tracking-[0.16em] uppercase";
   const labelStyle = widget.type === "button"
     ? widgetBodyTextStyle(widget.textSize)
     : widgetChipTextStyle(widget.textSize);
@@ -101,7 +103,7 @@ export function WidgetShell({
         image && "px-2 pt-1",
       )}>
         <span
-          className={cn("whitespace-pre-line font-medium tracking-[0.16em] uppercase", disabled ? "opacity-60" : active ? "text-bg/70" : "text-muted")}
+          className={cn(buttonFace, disabled ? "opacity-60" : active ? "text-bg/70" : "text-muted")}
           style={labelStyle}
         >
           {widget.label}
@@ -112,7 +114,7 @@ export function WidgetShell({
           "relative z-[1]",
           image
             ? "min-h-0 flex-1 overflow-hidden rounded-lg bg-bg/30"
-            : "min-h-0 whitespace-pre-line font-medium tracking-tight",
+            : cn("min-h-0", widget.type === "status" ? buttonFace : "whitespace-pre-line font-medium tracking-tight"),
         )}
         style={image ? undefined : bodyStyle}
       >
