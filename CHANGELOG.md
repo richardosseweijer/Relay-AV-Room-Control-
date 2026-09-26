@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.71
+
+- Tag `v0.9.71`. **Telegram Bot driver (MR1 send-only):** library [`telegram-bot.json`](data/library/telegram-bot.json) + engine protocol `telegram` ([`telegram.ts`](src/lib/control/telegram.ts)). BotFather token in Secret/Token (scrubbed from logs/errors, including `/botTOKEN/` URLs). Config `chat_id` required for `message.send` (plain text; no parse_mode). HTTPS to fixed `api.telegram.org` (host field unused; prefer device NIC face Venue/outbound). Authenticate / non-send path = `getMe`; optional feedback `bot.username`. **No** getUpdates/webhook/inbound macros in this MR — phase-2 needs allowlisted chat IDs + allowlisted macro ids (optional shared PIN). Fail-closed if token/chat_id/text missing. Tests: [`scripts/telegram.test.mjs`](scripts/telegram.test.mjs).
+
 ## 0.9.70
 
 - Tag `v0.9.70`. **Panel label `\n` newlines:** widget face labels interpret typed `\n` (backslash-n) as a visible line break after `{var}` resolve via [`formatWidgetLabel` / `expandLabelNewlines`](src/lib/control/vars.ts). Real newlines preserved; unresolved `{var}` still omits. Panel faces use `whitespace-pre-line` (button/label/status/slider/schedule/preview/image). Pages Label input placeholder notes `\n`. Macro toasts unchanged.

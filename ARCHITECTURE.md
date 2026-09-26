@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.70** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.71** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -30,7 +30,7 @@ One Node.js process serves three surfaces:
 | `/config` | Integrator | PIN-protected editor for room, devices, pages, macros, logic, drivers, interfaces, and the action log. |
 | `/api/room` | Both | JSON snapshot of configuration, variables, device state, health, traces, and recent log lines. |
 
-There is no separate device-gateway process. Device I/O is opened from `src/lib/control/` inside the same process. Callers import the public façades `engine.ts` and `actions.ts` only. `engine.ts` is slim orchestration (pairing, inventory, monitors, macros, `executeCommand`); wire I/O lives in `engine-wire.ts`, LAN dispatch in `engine-lan.ts`, local/host plane in `engine-host.ts`. LAN allow-list and traces live in `engine-policy.ts`; payload tokens and reply parse live in `engine-payload.ts`. Policy/payload/wire/lan/host leaves must not import `engine.ts`. Panel/config RPCs are split under `actions-*.ts` with `actions.ts` as the barrel and `actions-context.ts` (`loadControl`) shared by those handlers.
+There is no separate device-gateway process. Device I/O is opened from `src/lib/control/` inside the same process. Callers import the public façades `engine.ts` and `actions.ts` only. `engine.ts` is slim orchestration (pairing, inventory, monitors, macros, `executeCommand`); wire I/O lives in `engine-wire.ts`, LAN dispatch in `engine-lan.ts`, local/host plane in `engine-host.ts`. LAN allow-list and traces live in `engine-policy.ts`; payload tokens and reply parse live in `engine-payload.ts`. Cloud Bot API send uses dedicated protocol `telegram` ([`telegram.ts`](src/lib/control/telegram.ts)) — fixed `api.telegram.org`, not RFC1918 `allowedLanHost`. Policy/payload/wire/lan/host leaves must not import `engine.ts`. Panel/config RPCs are split under `actions-*.ts` with `actions.ts` as the barrel and `actions-context.ts` (`loadControl`) shared by those handlers.
 
 A second browser (wall tablet and desk tablet) may attach to the same origin. Both share one configuration and one variable store. Tablets belong on AV-LAN.
 
