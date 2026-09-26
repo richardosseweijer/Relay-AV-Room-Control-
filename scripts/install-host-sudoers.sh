@@ -99,6 +99,12 @@ install_one() {
   echo "install-host-sudoers: installed ${dest} (mode 0440)"
 }
 
+HELPER_UFW_SRC="${DEPLOY_DIR}/relay-ufw-av-lan.sh"
+HELPER_UFW_DST="/usr/local/sbin/relay-ufw-av-lan"
+[ -f "${HELPER_UFW_SRC}" ] || die "missing helper: ${HELPER_UFW_SRC}"
+install -o root -g root -m 0755 "${HELPER_UFW_SRC}" "${HELPER_UFW_DST}"
+echo "install-host-sudoers: installed ${HELPER_UFW_DST} (mode 0755)"
+
 install_one "relay-kiosk" "${TEMPLATE_KIOSK}"
 install_one "relay-nmcli" "${TEMPLATE_NMCLI}"
 install_one "relay-ufw" "${TEMPLATE_UFW}"
@@ -110,6 +116,6 @@ echo
 echo "Next — smoke checks (must NOT prompt for a password):"
 echo "  sudo -u ${RELAY_SVC_USER} sudo -n /usr/bin/systemctl status relay-kiosk.service || true"
 echo "  sudo -u ${RELAY_SVC_USER} sudo -n /usr/bin/nmcli -t -f NAME connection show >/dev/null && echo nmcli OK"
-echo "  sudo -u ${RELAY_SVC_USER} sudo -n /usr/sbin/ufw status >/dev/null && echo ufw OK"
+echo "  sudo -u ${RELAY_SVC_USER} sudo -n /usr/local/sbin/relay-ufw-av-lan status >/dev/null && echo ufw OK"
 echo
 echo "See LINUX.md §5b (nmcli + ufw) and §7c (relay-kiosk)."

@@ -1,6 +1,6 @@
 # Relay — Linux / Raspberry Pi from a blank install
 
-Install **`main`** from GitHub (that is the supported tree). Current package version is **0.9.59**. Confirm with the Room tab version field or `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
+Install **`main`** from GitHub (that is the supported tree). Current package version is **0.9.60**. Confirm with the Room tab version field or `git log -1`. 64-bit Debian, Ubuntu, or Raspberry Pi OS.
 
 Default configurator PIN after first start: `1234`. Open `/config` once and set a stronger PIN. New rooms default to **Panel PIN**: every tablet unlocks with that PIN and gets its own session (30 days, sliding). **Open on LAN** is a separate Security setting that skips the panel PIN for anyone who can reach port 8081 — use it only on the room VLAN. Do not confuse it with **open LAN control** (unauthenticated `fireCommand`). See `SECURITY.md`.
 
@@ -302,12 +302,12 @@ Templates (mode 0440, `visudo -cf`):
 | Template | Destination | Purpose |
 |---|---|---|
 | `deploy/sudoers.relay-nmcli` | `/etc/sudoers.d/relay-nmcli` | Apply AV-LAN via `sudo -n nmcli` |
-| `deploy/sudoers.relay-ufw` | `/etc/sudoers.d/relay-ufw` | Apply soft-updates ufw 8081 from new AV CIDR (`comment Relay-AV-LAN` only) |
+| `deploy/sudoers.relay-ufw` | `/etc/sudoers.d/relay-ufw` | NOPASSWD for `/usr/local/sbin/relay-ufw-av-lan` (helper from `deploy/relay-ufw-av-lan.sh`) — 8081 from AV CIDR + `comment Relay-AV-LAN` only |
 | `deploy/sudoers.relay-kiosk` | `/etc/sudoers.d/relay-kiosk` | Local display kiosk unit (§7c) |
 
 **One-time host step** — `git pull`, in-app **Update from GitHub**, and reboot do **not** install these drop-ins; re-run if `User=` on `relay.service` changes, or after adding `relay-ufw`.
 
-Apply spawns `sudo -n nmcli …` then (on success) `sudo -n ufw …` for tagged 8081 rules (argv allowlist, no shell; no `ufw disable`; never Anywhere). Missing nmcli sudoers → Apply fails with a clear error pointing here. Missing **ufw** sudoers → Apply still succeeds; success message warns to install `relay-ufw` / update ufw manually. Do **not** run Relay as root; MR1 does not use `AmbientCapabilities` / `CAP_NET_ADMIN`.
+Apply spawns `sudo -n nmcli …` then (on success) `sudo -n /usr/local/sbin/relay-ufw-av-lan …` for tagged 8081 rules (helper argv allowlist, no shell; no `ufw disable`; never Anywhere). Missing nmcli sudoers → Apply fails with a clear error pointing here. Missing **ufw** sudoers → Apply still succeeds; success message warns to install `relay-ufw` / update ufw manually. Do **not** run Relay as root; MR1 does not use `AmbientCapabilities` / `CAP_NET_ADMIN`.
 
 #### A. One-NIC room
 

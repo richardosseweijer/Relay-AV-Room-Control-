@@ -1,11 +1,6 @@
 # Copy to /etc/sudoers.d/relay-ufw (visudo -cf first).
 # Replace USER with the Relay service account (same as deploy/relay.service User=).
-# Configurator Apply AV-LAN IPv4 updates ufw: sudo -n ufw …
-# Least privilege — only status/reload and 8081 allow/delete with comment Relay-AV-LAN.
-# Do not grant unrestricted NOPASSWD; never allow Anywhere / 0.0.0.0/0 via this drop-in.
-USER ALL=(root) NOPASSWD: /usr/sbin/ufw status
-USER ALL=(root) NOPASSWD: /usr/sbin/ufw status numbered
-USER ALL=(root) NOPASSWD: /usr/sbin/ufw status verbose
-USER ALL=(root) NOPASSWD: /usr/sbin/ufw reload
-USER ALL=(root) NOPASSWD: /usr/sbin/ufw allow from * to any port 8081 proto tcp comment Relay-AV-LAN
-USER ALL=(root) NOPASSWD: /usr/sbin/ufw delete allow from * to any port 8081 proto tcp comment Relay-AV-LAN
+# Configurator Apply AV-LAN uses: sudo -n /usr/local/sbin/relay-ufw-av-lan …
+# Helper allowlists status/reload and 8081 allow/delete with comment Relay-AV-LAN only.
+# Do not grant unrestricted NOPASSWD ALL. Never opens Anywhere / 0.0.0.0/0.
+USER ALL=(root) NOPASSWD: /usr/local/sbin/relay-ufw-av-lan
