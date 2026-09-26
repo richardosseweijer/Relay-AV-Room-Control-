@@ -4,6 +4,8 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Fix: do not sticky-stamp resolved AV-LAN IPv4 into `RELAY_LISTEN_HOST` from `with-app-env` / restart / update paths. Apply AV-LAN IP was refusing every address change because boot injected the current listen host and `listenHostConflict` treated it as an operator override. Escape hatch remains: only an explicit systemd/lab `RELAY_LISTEN_HOST` blocks Apply when it disagrees.
+
 ## 0.9.58
 
 - Tag `v0.9.58`. **Image Borderless** option: Pages Image setup checkbox `imageBorderless` draws the tile flush without WidgetShell button chrome (no rounded border/fill). Unchecked (default) keeps the current shell look. Fit contain|cover and optional tap macro work in both modes. Color swatches hide when borderless (chrome unused), matching icon-hidden-for-image. Normalize coerces to boolean ([`image-widget.ts`](src/lib/control/image-widget.ts)); panel [`image-tile.tsx`](src/components/panel/image-tile.tsx); editor [`pages-image-fields.tsx`](src/components/config/pages-image-fields.tsx).

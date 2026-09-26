@@ -167,6 +167,10 @@ async function main(argv) {
   env.PATH = `${bin}${env.Path ? ";" : ":"}${env.PATH || env.Path || ""}`;
   env.Path = env.PATH;
 
+  // Explicit RELAY_LISTEN_HOST (systemd/lab) is the escape hatch. Never stamp the
+  // resolved AV-LAN IPv4 into the child env — Apply treats process.env.RELAY_LISTEN_HOST
+  // as a sticky override and would refuse every AV IP change.
+  const explicitListenHost = String(process.env.RELAY_LISTEN_HOST ?? "").trim();
   let spawnArgs = args;
   if (isViteListenCommand(command, args)) {
     const listen = await resolveListenHostForBoot(root, env);
@@ -175,7 +179,8 @@ async function main(argv) {
       process.exit(1);
     }
     if (listen.warning) console.warn(`[with-app-env] ${listen.warning}`);
-    env.RELAY_LISTEN_HOST = listen.host;
+    if (explicitListenHost) env.RELAY_LISTEN_HOST = listen.host;
+    else delete env.RELAY_LISTEN_HOST;
     spawnArgs = withListenHostArg(args, listen.host);
     console.info(`[with-app-env] HTTP listen host ${listen.host}`);
   }
