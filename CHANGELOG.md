@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.66
+
+- Tag `v0.9.66`. **Extra small text size:** Pages Text size gains `xs` (Extra small) for label/button/status/schedule. Height-relative formula unchanged: usable = height × (1 − 2/16); xs/sm/md/lg = ⅛ / ¼ / ½ / full of usable. Missing/invalid still defaults to `md`. Slider still excludes textSize.
+
 ## 0.9.65
 
 - Tag `v0.9.65`. **Slider text size removed:** Pages Text size select no longer applies to `slider` widgets; panel slider face restored to fixed `text-xl` / `text-[11px]` sizing (pre-0.9.61). Normalize strips leftover `textSize` on sliders. Label/button/status/schedule textSize unchanged.
