@@ -58,6 +58,9 @@ test("ImageTile loads media via fetch+blob (Bearer), not bare img src", () => {
   assert.match(tile, /object-contain/);
   assert.match(tile, /object-cover/);
   assert.match(tile, /No image/);
+  // Borderless: skip WidgetShell chrome; still a button for optional tap
+  assert.match(tile, /imageBorderless/);
+  assert.match(tile, /borderless/);
   // Must not use the raw imageSrc / path as <img src> (cookies absent; Bearer required).
   assert.match(tile, /src=\{blobUrl\}/);
   assert.equal(/<img[^>]*src=\{(?:src|widget\.imageSrc)/.test(tile), false);
