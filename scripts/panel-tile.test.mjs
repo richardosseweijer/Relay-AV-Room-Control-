@@ -19,18 +19,22 @@ test("control-panel composes PanelTile leaf for widget tile map", () => {
   assert.equal(/data-type=\{widget\.type\}/.test(src), false);
   assert.equal(/from\s+[\"']\.\/panel-slider[\"']/.test(src), false);
   assert.equal(/from\s+[\"']\.\/preview-tile[\"']/.test(src), false);
+  assert.equal(/from\s+[\"']\.\/image-tile[\"']/.test(src), false);
   assert.equal(/from\s+[\"']\.\/widget-face[\"']/.test(src), false);
   assert.equal(/traffic \|\| lit \|\| waiting/.test(src), false);
   assert.equal(/nextScheduled\(/.test(src), false);
   // Status press path (#86) still orchestrated on ControlPanel
   assert.match(src, /statusMacroId/);
   assert.match(src, /resolveStatusAppearance/);
+  // Image optional tap mirrors preview (no useful macro bind = no-op)
+  assert.match(src, /widget\.type === "preview" \|\| widget\.type === "image"/);
 
   assert.match(leaf, /export function PanelTile\s*\(/);
   assert.match(leaf, /widget\.type === "slider"/);
   assert.match(leaf, /widget\.type === "label"/);
   assert.match(leaf, /widget\.type === "schedule"/);
   assert.match(leaf, /widget\.type === "preview"/);
+  assert.match(leaf, /widget\.type === "image"/);
   assert.match(leaf, /widget\.type === "status"/);
   assert.match(leaf, /resolveStatusAppearance/);
   assert.match(leaf, /traffic/);
@@ -38,5 +42,23 @@ test("control-panel composes PanelTile leaf for widget tile map", () => {
   assert.match(leaf, /Confirm\?/);
   assert.match(leaf, /PanelSlider/);
   assert.match(leaf, /PreviewTile/);
+  assert.match(leaf, /ImageTile/);
   assert.match(leaf, /WidgetShell/);
+  // Image spans wide like preview
+  assert.match(leaf, /widget\.type === "preview" \|\| widget\.type === "image"/);
+});
+
+test("ImageTile loads media via fetch+blob (Bearer), not bare img src", () => {
+  const tile = fs.readFileSync("src/components/panel/image-tile.tsx", "utf8");
+  assert.match(tile, /export function ImageTile\s*\(/);
+  assert.match(tile, /WidgetShell/);
+  assert.match(tile, /Authorization:\s*`Bearer \$\{token\}`/);
+  assert.match(tile, /URL\.createObjectURL/);
+  assert.match(tile, /URL\.revokeObjectURL/);
+  assert.match(tile, /object-contain/);
+  assert.match(tile, /object-cover/);
+  assert.match(tile, /No image/);
+  // Must not use the raw imageSrc / path as <img src> (cookies absent; Bearer required).
+  assert.match(tile, /src=\{blobUrl\}/);
+  assert.equal(/<img[^>]*src=\{(?:src|widget\.imageSrc)/.test(tile), false);
 });

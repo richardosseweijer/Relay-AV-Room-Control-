@@ -304,7 +304,8 @@ export function ControlPanel() {
       return;
     }
     if (widget.type === "label" || widget.type === "schedule") return;
-    if (widget.type === "preview" && !(widget.bind.kind === "macro" && widget.bind.id && widget.bind.id !== NONE_MACRO_ID)) return;
+    // Preview / Image: optional tap macro only — no useful bind = no-op (same gate).
+    if ((widget.type === "preview" || widget.type === "image") && !(widget.bind.kind === "macro" && widget.bind.id && widget.bind.id !== NONE_MACRO_ID)) return;
     if (!enabled(snap, widget)) return;
 
     // Status: press runs matched (or catch-all) macro; no macro → no-op.
