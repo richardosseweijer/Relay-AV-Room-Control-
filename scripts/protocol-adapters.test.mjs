@@ -111,6 +111,7 @@ test("shipped drivers keep distinct LAN protocols", () => {
   assert.ok(got.sacn?.includes("sacn-universe.json"));
   assert.ok(got.ipmidi?.includes("ipmidi.json"));
   assert.ok(got["rtp-midi"]?.includes("rtp-midi.json"));
+  assert.ok(got.telegram?.includes("telegram-bot.json"));
   assert.ok(got.pjlink?.includes("pjlink-projector.json"));
   assert.ok(got.pjlink?.includes("mitsubishi-ud8900u.json"));
   assert.equal(got.cast?.includes("samsung-qe50q65t.json") || false, false);
@@ -132,7 +133,7 @@ test("ChatGPT #3: sendLan OSC/sACN renderPayload uses value (not undefined→emp
 test("engine-lan sendLan still names http cast pjlink wol tcp websocket", () => {
   const lanSrc = fs.readFileSync("src/lib/control/engine-lan.ts", "utf8");
   const lan = namedFn(lanSrc, "sendLan");
-  for (const needle of ['lan.protocol === "cast"', 'lan.protocol === "pjlink"', 'lan.protocol === "wol"', "tls-websocket", 'lan.protocol === "http"', 'lan.protocol === "osc"', 'lan.protocol === "sacn"', 'lan.protocol === "ipmidi"', 'lan.protocol === "rtp-midi"']) {
+  for (const needle of ['lan.protocol === "cast"', 'lan.protocol === "pjlink"', 'lan.protocol === "wol"', "tls-websocket", 'lan.protocol === "http"', 'lan.protocol === "osc"', 'lan.protocol === "sacn"', 'lan.protocol === "ipmidi"', 'lan.protocol === "rtp-midi"', 'lan.protocol === "telegram"']) {
     assert.ok(lan.includes(needle), needle);
   }
   assert.equal(lanSrc.includes("sendSamsungKey"), false);

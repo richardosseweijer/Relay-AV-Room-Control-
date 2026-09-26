@@ -359,6 +359,7 @@ export function planDeviceBindForDevice(
 /** True when the LAN protocol (or URL) uses TLS. */
 export function protocolNeedsTls(protocol: string | undefined, url?: string): boolean {
   const proto = String(protocol || "").toLowerCase();
+  // telegram: adapter does HTTPS to api.telegram.org with system CAs (not device pin/CA).
   if (proto === "https" || proto === "tls-websocket") return true;
   if (url && /^https:/i.test(url)) return true;
   return false;
