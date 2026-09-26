@@ -65,7 +65,7 @@ export function widgetLabelTileTextStyle(size: WidgetTextSize | undefined) {
 
 /** Widget types that expose a configurator text-size control. */
 export function supportsTextSize(type: WidgetType): boolean {
-  return type !== "preview" && type !== "image";
+  return type === "button" || type === "label" || type === "status" || type === "schedule";
 }
 
 export function coerceTextSize(value: unknown): WidgetTextSize {
@@ -73,10 +73,16 @@ export function coerceTextSize(value: unknown): WidgetTextSize {
 }
 
 /**
- * Normalize textSize for button/slider/label/status/schedule.
- * Missing/invalid → "md". Preview/image left untouched (field unused).
+ * Normalize textSize for button/label/status/schedule.
+ * Missing/invalid → "md". Slider: strip dead `textSize` (fixed face sizing).
+ * Preview/image left untouched (field unused).
  */
 export function normalizeTextSizeFields<T extends Widget>(widget: T): T {
+  if (widget.type === "slider") {
+    if (widget.textSize === undefined) return widget;
+    const { textSize: _drop, ...rest } = widget;
+    return rest as T;
+  }
   if (!supportsTextSize(widget.type)) return widget;
   const textSize = coerceTextSize(widget.textSize);
   if (textSize === widget.textSize) return widget;
