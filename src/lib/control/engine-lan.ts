@@ -23,6 +23,10 @@ import {
   readNicFace,
 } from "./device-face";
 import { allowedLanHost, pushTrace, safeLanHttpUrl } from "./engine-policy";
+import {
+  telegramGetMe,
+  telegramSendMessage,
+} from "./telegram.ts";
 import { renderPayload } from "./engine-payload";
 import { paceDevice, wireEncoding, encodeWire, tcpWrite, tcpSessionWrite } from "./engine-wire";
 import {
@@ -123,7 +127,7 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
   if (!lan) return { ok: false, message: "No LAN transport on this driver" };
   const proto = String(lan.protocol || "");
   if (!proto || /[/\\:]/.test(proto)) return { ok: false, message: "Unknown protocol" };
-  const known = new Set(["tcp", "udp", "http", "https", "websocket", "tls-websocket", "pjlink", "cast", "wol", "osc", "sacn", "ipmidi", "rtp-midi"]);
+  const known = new Set(["tcp", "udp", "http", "https", "websocket", "tls-websocket", "pjlink", "cast", "wol", "osc", "sacn", "ipmidi", "rtp-midi", "telegram"]);
   if (!known.has(proto)) return { ok: false, message: "Unknown protocol" };
   const face = readNicFace(device);
   const protoGate = nicFaceProtocolGate(face, proto, lan);
@@ -136,7 +140,7 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
   const tlsCa = bind.ca;
   const tlsPinCheck = bind.checkServerIdentity;
   const host = device.host;
-  const skipUnicastHost = proto === "sacn" || (proto === "ipmidi" && lan.multicast !== false);
+  const skipUnicastHost = proto === "sacn" || (proto === "ipmidi" && lan.multicast !== false) || proto === "telegram";
   const localOk = device.driver === "relay-host.json" || driver.device.type === "host";
   if (!skipUnicastHost) {
     const hostGate = deviceHostAllowed(face, host, { localOk });
@@ -153,6 +157,27 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
   if (command?.httpMethod === "RPC") result = await sendRpcShutdown(host, device.auth?.user || device.auth?.username || "", device.auth?.password || "", localAddress);
   else if (lan.protocol === "wol") result = await sendWol(device.auth?.mac || "", host, localAddress);
   else if (lan.protocol === "cast") result = await sendCast(host, port, payload, timeout, command?.namespace, localAddress);
+  else if (lan.protocol === "telegram") {
+    const auth = device.auth || {};
+    const cmdId = String(command?.id || "");
+    const isSend = cmdId === "message.send" || cmdId === "telegram.send";
+    if (isSend) {
+      result = await telegramSendMessage({
+        token: auth.token || "",
+        chatId: auth.chat_id || "",
+        text: String(value ?? payload ?? ""),
+        localAddress,
+        timeoutMs: timeout,
+      });
+    } else {
+      // Probe / Authenticate / feedback: getMe (send-only MR1 — no getUpdates).
+      result = await telegramGetMe({
+        token: auth.token || "",
+        localAddress,
+        timeoutMs: timeout,
+      });
+    }
+  }
   else if (lan.protocol === "http" || lan.protocol === "https") {
     const auth = device.auth || {};
     const ctx = { host, port, id: device.id };

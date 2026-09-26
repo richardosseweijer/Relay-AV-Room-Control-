@@ -42,7 +42,7 @@ export type DriverPairing = {
   steps?: PairingStep[];
 };
 export type AuthType = "none" | "password" | "token" | "header" | "pin" | "userpass" | "pair";
-export type LanProtocol = "tcp" | "udp" | "http" | "https" | "websocket" | "tls-websocket" | "pjlink" | "cast" | "wol" | "osc" | "sacn" | "ipmidi" | "rtp-midi";
+export type LanProtocol = "tcp" | "udp" | "http" | "https" | "websocket" | "tls-websocket" | "pjlink" | "cast" | "wol" | "osc" | "sacn" | "ipmidi" | "rtp-midi" | "telegram";
 
 export type MatchRule = {
   type: ParseType;
