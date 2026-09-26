@@ -65,6 +65,19 @@ export function PagesEnableWhen({
         all.push({ variable: c.variables[0]?.id ?? "", op: "eq", equals: "" });
         w.enableWhen = { equals: all[0]?.equals ?? "", all };
       })}>Add condition</Button>
+      {selected.type === "label" ? (
+        <label className="flex items-center gap-2 text-sm text-muted">
+          <input
+            type="checkbox"
+            checked={selected.hideWhenDisabled === true}
+            onChange={(e) => update((c) => {
+              const w = c.pages.find((p) => p.id === pageId)?.widgets.find((item) => item.id === selected.id);
+              if (w) w.hideWhenDisabled = e.target.checked;
+            })}
+          />
+          Hide when disabled
+        </label>
+      ) : null}
     </div>
   );
 }

@@ -22,3 +22,16 @@ test("pages-editor composes PagesEnableWhen leaf for enableWhen conditions edito
   assert.match(leaf, /gte/);
   assert.match(leaf, /lte/);
 });
+
+test("PagesEnableWhen exposes Hide when disabled checkbox for label widgets only", () => {
+  const leaf = fs.readFileSync("src/components/config/pages-enable-when.tsx", "utf8");
+  assert.match(leaf, /Hide when disabled/);
+  assert.match(leaf, /selected\.type === "label"/);
+  assert.match(leaf, /hideWhenDisabled/);
+  assert.match(leaf, /type="checkbox"/);
+  // Keep the opt-in out of the god pages-editor file.
+  const editor = fs.readFileSync("src/components/config/pages-editor.tsx", "utf8");
+  assert.equal(/hideWhenDisabled/.test(editor), false);
+  assert.equal(/Hide when disabled/.test(editor), false);
+});
+

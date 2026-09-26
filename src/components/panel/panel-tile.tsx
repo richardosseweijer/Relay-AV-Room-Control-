@@ -8,7 +8,9 @@ import {
   enabled,
   sliderVariable,
   widgetActive,
+  shouldHideWhenDisabled,
 } from "@/lib/control/panel-widget";
+import { cn } from "@/lib/utils";
 import { WidgetShell } from "./widget-face";
 import { PreviewTile } from "./preview-tile";
 import { ImageTile } from "./image-tile";
@@ -80,11 +82,15 @@ export function PanelTile({
     );
   }
   if (widget.type === "label") {
+    if (shouldHideWhenDisabled(snap, widget)) return null;
     return (
       <div
         data-wide={wide}
         data-type={widget.type}
-        className="widget-text-container flex min-h-0 min-w-0 h-full items-center [overflow-wrap:anywhere] rounded-lg px-3 text-muted"
+        className={cn(
+          "widget-text-container flex min-h-0 min-w-0 h-full items-center [overflow-wrap:anywhere] rounded-lg px-3 text-muted",
+          !on && "opacity-40",
+        )}
         style={gridStyle(widget)}
       >
         <span style={widgetLabelTileTextStyle(widget.textSize)}>{widget.label}</span>
