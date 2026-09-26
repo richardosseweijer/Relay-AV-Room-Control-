@@ -35,7 +35,7 @@ If the manual is unclear, **omit that command** and mention it in `device.notes`
 | USB MIDI (ALSA) | `local.kind` `midi` | hex bytes via `amidi` | n/a — Interface Path `hw:1,0,0` (`amidi -l`) |
 | ipMIDI / multicast MIDI | `ipmidi` | hex MIDI UDP | n/a — group 225.0.0.37:21928 TTL 1. Not MIDI-TCP. |
 | RTP-MIDI / AppleMIDI | `rtp-midi` | hex MIDI in RTP | n/a — control 5004, data 5005. Type the IP; no Bonjour. |
-| Telegram Bot API (send) | `telegram` | HTTPS JSON | n/a — fixed `api.telegram.org`; token+chat_id; no inbound in MR1. |
+| Telegram Bot API (send + reply-to-last) | `telegram` | HTTPS JSON | n/a — fixed `api.telegram.org`; token+chat_id; getUpdates only for replies to last send (not a command channel). |
 
 One plane per driver. Example only: Allen & Heath SQ third-party control is MIDI-TCP **51325**, not MixPad 51326. Other desks use their own port.
 
