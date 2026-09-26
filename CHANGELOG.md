@@ -4,7 +4,15 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
-- Meta (I5): `package.json` `"engines": { "node": ">=22" }` + `.nvmrc` (`22`); LINUX.md §2 note. No `engine-strict`. No version bump.
+## 0.9.57
+
+- Tag `v0.9.57`. **Image page widget** end-to-end (#155–#158 + docs MR5). Static tile on the panel grid: host media under `data/media/`, fit `contain`|`cover`, optional tap macro. Docs: [`ARCHITECTURE.md`](ARCHITECTURE.md) widget row + file map; [`CONTEXT.md`](CONTEXT.md) Where-to-look (`image-tile`, `pages-image-fields`, `media-store`, `/api/media`). FOYER-RELAY untouched (Relay-only widget).
+- **MR1 — types + normalize** (#155): `WidgetType` `"image"` with `imageSrc?` / `imageFit?` (`contain`|`cover`); `normalizeImageFields` in store-normalize ([`image-widget.ts`](src/lib/control/image-widget.ts)).
+- **MR2 — host media store** (#156): [`media-store.ts`](src/lib/control/media-store.ts) PNG/JPEG/WebP allowlist (~2 MB, magic-byte sniff, SVG denied); `POST /api/media` (config), `GET /api/media/:id` (panel|config), `DELETE` config-only; files gitignored under `data/media/`.
+- **MR3 — panel tile** (#157): [`image-tile.tsx`](src/components/panel/image-tile.tsx) via WidgetShell; Bearer fetch → blob URL (bare `<img src>` cannot auth); empty `imageSrc` → “No image”; optional tap mirrors preview.
+- **MR4 — pages editor** (#158): [`pages-image-fields.tsx`](src/components/config/pages-image-fields.tsx) upload/clear, picture fit, optional tap macro; wired in pages editor (color swatches kept; icon picker hidden for image).
+- Meta (I5): `package.json` `"engines": { "node": ">=22" }` + `.nvmrc` (`22`); LINUX.md §2 note. No `engine-strict`.
+- Also on main since `v0.9.56`: Networks NIC section card chrome (#153); `install-host-units` `RELAY_SVC_USER=pi` after unit render (#154); FOYER-RELAY I1/I2 sync bullets (#151–#152).
 
 ## 0.9.56
 

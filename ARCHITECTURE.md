@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.56** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.57** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -112,7 +112,7 @@ Macros invoked from any of these paths use the same runner as a panel press: ord
 | Macro | Ordered list of steps (device command, delay, variable assignment, nested macro). Id `none` is a hidden no-op; new buttons bind to it. |
 | Monitor | Periodic read of one feedback field. Always writes `MON_<label>`; optional extra `writeVar` / `errorVar`. |
 | Page | Named grid. Widgets have column, row, width, height, colour, bindings, and enable-when clauses. |
-| Widget | `button`, `slider`, `label`, `status`, `schedule`, or `preview`. Icons sit on the right, sized from tile height. |
+| Widget | `button`, `slider`, `label`, `status`, `schedule`, `preview`, or `image`. Icons sit on the right, sized from tile height. Image is a static tile (host media under `data/media/`, fit `contain`\|`cover`, optional tap macro). |
 | Schedule | Clock time and weekday mask that starts a macro. |
 | Trigger | Primary predicate plus optional `whenTrue` / `whenFalse` extra clauses that start a macro. |
 | Host interface | Local serial, GPIO, I2C, SPI, IR, CEC, or a gateway box (e.g. IPL T SFI244) that maps slots to TCP ports. |
@@ -261,6 +261,12 @@ Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue
 | `src/components/panel/preview-tile.tsx` | Optional 720p RTSP preview (`<video>` + MSE). |
 | `src/lib/control/preview-grab.ts` | Preview URL allowlist + ffmpeg H.264 remux to fMP4. |
 | `src/routes/api/preview.ts` | `GET /api/preview?widget=` streams fMP4 (panel/config session). |
+| `src/components/panel/image-tile.tsx` | Static Image page widget (`object-contain`/`cover`; fetch+/blob URL for Bearer `/api/media`). |
+| `src/lib/control/image-widget.ts` | Normalize `imageSrc` / `imageFit` (`contain`\|`cover`). |
+| `src/lib/control/media-store.ts` | Host media under `data/media/` (PNG/JPEG/WebP; ~2 MB; magic sniff; SVG denied). |
+| `src/routes/api/media.ts` | `POST /api/media` upload (config session). |
+| `src/routes/api/media.$id.ts` | `GET /api/media/:id` (panel\|config); `DELETE` config-only. |
+| `src/components/config/pages-image-fields.tsx` | Pages editor Image fields: upload/clear, fit, optional tap macro. |
 | `src/components/panel/widget-face.tsx` | Visual treatment of tiles. |
 | `src/components/config/config-app.tsx` | Configurator shell: PIN, Save all, draft, tab switch. |
 | `src/components/config/*-tab.tsx` | One file per tab (room, security, devices, interfaces, macros, logic, drivers, log). |
