@@ -327,3 +327,46 @@ test("Biamp Nexia PM is NTP telnet 23 with tagged I/O blocks", () => {
   assert.equal(spec.commands.find((c) => c.id === "preset.recall").payload, "RECALL 0 PRESET {value}");
   assert.equal(spec.probe.payload, "GETD 0 IPADDR");
 });
+
+test("ZowieBox HDMI In / Record parse data fields (not envelope status)", async () => {
+  const { parseFeedback } = await import("../src/lib/control/engine-payload.ts");
+  const spec = JSON.parse(fs.readFileSync("data/library/zowietek-zowiebox.json", "utf8"));
+  const input = spec.feedback.find((f) => f.id === "input.status");
+  const record = spec.feedback.find((f) => f.id === "record.status");
+  const api = spec.feedback.find((f) => f.id === "api.status");
+
+  assert.equal(input.kind, "enum");
+  assert.equal(input.parse.path, "data.hdmi_signal");
+  assert.equal(input.parse.map["1"], "on");
+  assert.equal(
+    parseFeedback(input.parse, '{"status":"00000","rsp":"ok","data":{"hdmi_signal":1,"width":1920}}'),
+    "on",
+  );
+  assert.equal(
+    parseFeedback(input.parse, '{"status":"00000","rsp":"ok","data":{"hdmi_signal":0}}'),
+    "off",
+  );
+
+  assert.equal(record.kind, "enum");
+  assert.equal(record.query, '{"group":"record","opt":"get_task_list"}');
+  assert.equal(record.parse.path, "data.0.status");
+  assert.equal(record.parse.map["1"], "on");
+  assert.equal(
+    parseFeedback(
+      record.parse,
+      '{"status":"00000","data":[{"id":"usb1_0","name":"USB","status":"1","start_time":"","end_time":""}]}',
+    ),
+    "on",
+  );
+  assert.equal(
+    parseFeedback(
+      record.parse,
+      '{"status":"00000","data":[{"id":"usb1_0","name":"USB","status":2}]}',
+    ),
+    "paused",
+  );
+
+  // Envelope status remains intentional for API reachability.
+  assert.equal(api.parse.path, "status");
+  assert.equal(parseFeedback(api.parse, '{"status":"00000","data":{}}'), "00000");
+});

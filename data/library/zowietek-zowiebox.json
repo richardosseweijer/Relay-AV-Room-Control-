@@ -614,7 +614,8 @@
     {
       "id": "input.status",
       "label": "HDMI In",
-      "kind": "string",
+      "kind": "enum",
+      "values": ["off", "on"],
       "transport": "lan",
       "mode": "poll",
       "httpMethod": "POST",
@@ -623,22 +624,25 @@
       "pollMs": 4000,
       "parse": {
         "type": "jsonpath",
-        "path": "status"
+        "path": "data.hdmi_signal",
+        "map": { "0": "off", "1": "on" }
       }
     },
     {
       "id": "record.status",
       "label": "Record",
-      "kind": "string",
+      "kind": "enum",
+      "values": ["off", "on", "paused", "full", "invalid", "no_signal"],
       "transport": "lan",
       "mode": "poll",
       "httpMethod": "POST",
       "httpPath": "/record?option=getinfo&login_check_flag=1",
-      "query": "{\"group\":\"record\",\"opt\":\"get_status\"}",
+      "query": "{\"group\":\"record\",\"opt\":\"get_task_list\"}",
       "pollMs": 4000,
       "parse": {
         "type": "jsonpath",
-        "path": "status"
+        "path": "data.0.status",
+        "map": { "0": "off", "1": "on", "2": "paused", "3": "full", "4": "invalid", "5": "no_signal" }
       }
     },
     {
