@@ -60,15 +60,20 @@ function cleanup() {
 }
 
 function previewEnv(port, host) {
-  return {
+  // Bind via --host; only forward RELAY_LISTEN_HOST when the parent had an explicit
+  // override. Never stamp the resolved AV IPv4 (Apply treats it as sticky).
+  const env = {
     ...process.env,
     PORT: String(port),
     NITRO_PORT: String(port),
     VITE_PORT: String(port),
     VITE_PREVIEW_PORT: String(port),
     CHOKIDAR_USEPOLLING: "1",
-    ...(host ? { RELAY_LISTEN_HOST: String(host) } : {}),
   };
+  const explicit = String(process.env.RELAY_LISTEN_HOST ?? "").trim();
+  if (explicit) env.RELAY_LISTEN_HOST = explicit;
+  else delete env.RELAY_LISTEN_HOST;
+  return env;
 }
 
 /** Production listen host from AV-LAN / RELAY_LISTEN_HOST. Never 0.0.0.0. */

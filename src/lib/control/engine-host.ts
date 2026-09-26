@@ -302,12 +302,18 @@ export async function applyHost(
       ? (fs.existsSync(viteJs) ? [viteJs, "preview", "--host", host, "--port", String(port)] : ["--yes", "vite", "preview", "--host", host, "--port", String(port)])
       : (fs.existsSync(viteJs) ? [viteJs, "dev", "--host", host, "--port", String(port)] : ["--yes", "vite", "dev", "--host", host, "--port", String(port)]);
     const cmd = fs.existsSync(viteJs) ? process.execPath : "npx";
+    // Pass --host for bind; only keep RELAY_LISTEN_HOST when it was an explicit
+    // override (do not sticky-stamp the resolved AV IPv4 — Apply would refuse changes).
+    const restartEnv: NodeJS.ProcessEnv = { ...process.env, CHOKIDAR_USEPOLLING: "1" };
+    const explicitListen = String(process.env.RELAY_LISTEN_HOST ?? "").trim();
+    if (explicitListen) restartEnv.RELAY_LISTEN_HOST = explicitListen;
+    else delete restartEnv.RELAY_LISTEN_HOST;
     spawn(cmd, args, {
       detached: true,
       stdio: "ignore",
       cwd: root,
       shell: !fs.existsSync(viteJs),
-      env: { ...process.env, CHOKIDAR_USEPOLLING: "1", RELAY_LISTEN_HOST: host },
+      env: restartEnv,
     }).unref();
     setTimeout(() => process.exit(0), 400);
     return { ok: true, message: preview ? `Relay preview restarting in ${root} on ${host}` : `Relay restarting in ${root} on ${host}` };

@@ -146,7 +146,8 @@ function authPopupPlugin(): Plugin {
 }
 
 // A2: HTTP listen host comes from AV-LAN (see scripts/http-listen-host.mjs).
-// with-app-env sets RELAY_LISTEN_HOST + --host; this default matches when Vite is
+// with-app-env passes --host from the resolved AV IPv4; RELAY_LISTEN_HOST is only
+// set when the operator explicitly overrode it. This default matches when Vite is
 // started without that wrapper. Never fall back to 0.0.0.0 here.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
