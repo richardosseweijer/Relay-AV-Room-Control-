@@ -10,18 +10,24 @@ import {
   buildNmcliStaticModifyArgv,
   buildNmcliDhcpModifyArgv,
   buildNmcliConnectionUpArgv,
+  buildNmcliConnectionAddAvArgv,
+  buildNmcliAutoconnectNoArgv,
   avLanIpConfirmMessage,
   avLanIpSuccessHint,
   parseNmDeviceShow,
+  parseNmConnectionIpv4,
+  listConnectionNamesForDevice,
+  verifyAvLanApplied,
   classifyNmcliFailure,
   applyAvLanIpViaNmcli,
+  RELAY_AV_LAN_CONNECTION_ID,
   AV_LAN_IP_LINUX_ONLY,
   AV_LAN_IP_NMCLI_MISSING,
   AV_LAN_IP_UNMANAGED,
-  AV_LAN_IP_NO_CONNECTION,
   AV_LAN_IP_SUDOERS,
   AV_LAN_IP_LISTEN_OVERRIDE,
   AV_LAN_IP_LISTEN_OVERRIDE_DHCP,
+  AV_LAN_IP_VERIFY_FAILED,
 } from "./av-lan-ip.mjs";
 
 test("validateIpv4Unicast: accepts room unicast", () => {
@@ -119,6 +125,21 @@ test("buildNmcliDhcpModifyArgv: auto, clear addresses/gateway, never-default", (
   assert.deepEqual(buildNmcliConnectionUpArgv("AV-LAN"), ["connection", "up", "AV-LAN"]);
 });
 
+test("buildNmcliConnectionAddAvArgv: Relay-owned profile on device", () => {
+  const argv = buildNmcliConnectionAddAvArgv("enp1s0");
+  assert.equal(argv.includes("add"), true);
+  assert.equal(argv[argv.indexOf("con-name") + 1], RELAY_AV_LAN_CONNECTION_ID);
+  assert.equal(argv[argv.indexOf("ifname") + 1], "enp1s0");
+  assert.equal(argv[argv.indexOf("connection.autoconnect-priority") + 1], "100");
+  assert.deepEqual(buildNmcliAutoconnectNoArgv("netplan-enp1s0"), [
+    "connection",
+    "modify",
+    "netplan-enp1s0",
+    "connection.autoconnect",
+    "no",
+  ]);
+});
+
 test("avLanIpConfirmMessage: lockout + new URL + no default route + restart", () => {
   const msg = avLanIpConfirmMessage({
     mode: "static",
@@ -153,6 +174,46 @@ test("parseNmDeviceShow", () => {
   );
   assert.equal(p.connection, "Wired connection 1");
   assert.equal(p.managed, "yes");
+});
+
+test("parseNmConnectionIpv4 + listConnectionNamesForDevice", () => {
+  assert.deepEqual(parseNmConnectionIpv4("manual\n10.0.10.10/24\nyes\n"), {
+    method: "manual",
+    addresses: "10.0.10.10/24",
+    neverDefault: "yes",
+  });
+  assert.deepEqual(parseNmConnectionIpv4("auto\n\nyes\n"), {
+    method: "auto",
+    addresses: "",
+    neverDefault: "yes",
+  });
+  assert.deepEqual(
+    listConnectionNamesForDevice("relay-av-lan:enp1s0\nnetplan-enp1s0:enp1s0\nnetplan-enp2s0:enp2s0\n", "enp1s0"),
+    ["relay-av-lan", "netplan-enp1s0"],
+  );
+});
+
+test("verifyAvLanApplied: static requires manual+address; rejects auto leftover", () => {
+  assert.equal(
+    verifyAvLanApplied({
+      mode: "static",
+      address: "10.0.10.10",
+      prefix: 24,
+      connection: { method: "manual", addresses: "10.0.10.10/24", neverDefault: "yes" },
+      deviceAddresses: "10.0.10.10/24",
+    }).ok,
+    true,
+  );
+  const bad = verifyAvLanApplied({
+    mode: "static",
+    address: "10.0.10.10",
+    prefix: 24,
+    // Live bug: netplan merge left method=auto with stale addresses
+    connection: { method: "auto", addresses: "10.0.10.10/24", neverDefault: "yes" },
+    deviceAddresses: "",
+  });
+  assert.equal(bad.ok, false);
+  assert.equal(bad.message, AV_LAN_IP_VERIFY_FAILED);
 });
 
 test("classifyNmcliFailure: missing / sudo / unmanaged", () => {
@@ -213,81 +274,151 @@ test("applyAvLanIpViaNmcli: unmanaged refuse", async () => {
   assert.equal(calls.some((c) => c.opts?.sudo), false);
 });
 
-test("applyAvLanIpViaNmcli: static success uses sudo modify+up, never-default, no gateway", async () => {
+/** Shared mock: device managed; relay-av-lan missing then created; verify reads manual. */
+function mockStaticSuccessRunner(sudoCalls, { otherOnDevice = "netplan-enp1s0" } = {}) {
+  let created = false;
+  return async (argv, opts) => {
+    if (argv[0] === "-t" && argv.includes("networking")) return { code: 0, stdout: "enabled\n", stderr: "" };
+    if (argv.includes("device") && argv.includes("show") && argv.includes("GENERAL.CONNECTION,GENERAL.STATE,GENERAL.NM-MANAGED")) {
+      return {
+        code: 0,
+        stdout: "GENERAL.CONNECTION:netplan-enp1s0\nGENERAL.STATE:100 (connected)\nGENERAL.NM-MANAGED:yes\n",
+        stderr: "",
+      };
+    }
+    if (argv.includes("connection") && argv.includes("show") && argv.includes(RELAY_AV_LAN_CONNECTION_ID) && argv.includes("NAME") && !argv.includes("ipv4.method")) {
+      return created ? { code: 0, stdout: `${RELAY_AV_LAN_CONNECTION_ID}\n`, stderr: "" } : { code: 10, stdout: "", stderr: "not found" };
+    }
+    if (argv[0] === "-g" && argv.includes("ipv4.method,ipv4.addresses,ipv4.never-default")) {
+      return { code: 0, stdout: "manual\n10.0.25.10/24\nyes\n", stderr: "" };
+    }
+    if (argv[0] === "-g" && argv.includes("IP4.ADDRESS")) {
+      return { code: 0, stdout: `${RELAY_AV_LAN_CONNECTION_ID}\n100 (connected)\n10.0.25.10/24\n`, stderr: "" };
+    }
+    if (argv[0] === "-t" && argv.includes("NAME,DEVICE")) {
+      return {
+        code: 0,
+        stdout: `${RELAY_AV_LAN_CONNECTION_ID}:enp1s0\n${otherOnDevice}:enp1s0\nnetplan-enp2s0:enp2s0\n`,
+        stderr: "",
+      };
+    }
+    if (opts?.sudo) {
+      sudoCalls.push(argv);
+      if (argv.includes("add")) created = true;
+      return { code: 0, stdout: "", stderr: "" };
+    }
+    return { code: 1, stdout: "", stderr: "expected sudo or known probe" };
+  };
+}
+
+test("applyAvLanIpViaNmcli: static uses relay-av-lan profile, not netplan-<iface>", async () => {
   const sudoCalls = [];
   const res = await applyAvLanIpViaNmcli({
     mode: "static",
     device: "enp1s0",
     address: "10.0.25.10",
     prefix: 24,
-    runNmcli: async (argv, opts) => {
-      if (argv[0] === "-t" && argv.includes("networking")) return { code: 0, stdout: "enabled\n", stderr: "" };
-      if (argv.includes("device") && argv.includes("show")) {
-        return {
-          code: 0,
-          stdout: "GENERAL.CONNECTION:AV-LAN\nGENERAL.STATE:100 (connected)\nGENERAL.NM-MANAGED:yes\n",
-          stderr: "",
-        };
-      }
-      if (opts?.sudo) {
-        sudoCalls.push(argv);
-        return { code: 0, stdout: "", stderr: "" };
-      }
-      return { code: 1, stdout: "", stderr: "expected sudo" };
-    },
+    runNmcli: mockStaticSuccessRunner(sudoCalls),
   });
   assert.equal(res.ok, true);
-  assert.equal(res.connectionId, "AV-LAN");
-  assert.equal(sudoCalls.length, 2);
-  assert.ok(sudoCalls[0].includes("ipv4.never-default"));
-  assert.equal(sudoCalls[0][sudoCalls[0].indexOf("ipv4.gateway") + 1], "");
-  assert.equal(sudoCalls[0].includes("enp2s0"), false);
-  assert.deepEqual(sudoCalls[1], ["connection", "up", "AV-LAN"]);
+  assert.equal(res.connectionId, RELAY_AV_LAN_CONNECTION_ID);
+  assert.ok(sudoCalls.some((a) => a.includes("add") && a.includes(RELAY_AV_LAN_CONNECTION_ID)));
+  const modify = sudoCalls.find((a) => a.includes("modify") && a.includes("ipv4.method") && a.includes("manual"));
+  assert.ok(modify);
+  assert.equal(modify[modify.indexOf("modify") + 1], RELAY_AV_LAN_CONNECTION_ID);
+  assert.ok(modify.includes("ipv4.never-default"));
+  assert.equal(modify[modify.indexOf("ipv4.gateway") + 1], "");
+  assert.ok(!modify.includes("netplan-enp1s0"), "must not modify installer netplan profile in place");
+  assert.ok(sudoCalls.some((a) => a[0] === "connection" && a[1] === "up" && a[2] === RELAY_AV_LAN_CONNECTION_ID));
+  assert.ok(sudoCalls.some((a) => a.includes("netplan-enp1s0") && a.includes("connection.autoconnect") && a.includes("no")));
 });
 
-test("applyAvLanIpViaNmcli: dhcp success clears addresses", async () => {
+test("applyAvLanIpViaNmcli: dhcp success clears addresses on relay-av-lan", async () => {
   const sudoCalls = [];
   const res = await applyAvLanIpViaNmcli({
     mode: "dhcp",
     device: "enp1s0",
     runNmcli: async (argv, opts) => {
       if (argv.includes("networking")) return { code: 0, stdout: "enabled\n", stderr: "" };
-      if (argv.includes("show")) {
+      if (argv.includes("device") && argv.includes("show") && argv.some((a) => String(a).includes("NM-MANAGED"))) {
         return {
           code: 0,
-          stdout: "GENERAL.CONNECTION:AV-LAN\nGENERAL.STATE:100 (connected)\nGENERAL.NM-MANAGED:yes\n",
+          stdout: "GENERAL.CONNECTION:relay-av-lan\nGENERAL.STATE:100 (connected)\nGENERAL.NM-MANAGED:yes\n",
           stderr: "",
         };
+      }
+      if (
+        argv.includes("connection") &&
+        argv.includes("show") &&
+        argv.includes(RELAY_AV_LAN_CONNECTION_ID) &&
+        argv.includes("NAME") &&
+        !argv.some((a) => String(a).includes("ipv4.method"))
+      ) {
+        return { code: 0, stdout: `${RELAY_AV_LAN_CONNECTION_ID}\n`, stderr: "" };
+      }
+      if (argv[0] === "-g" && argv.some((a) => String(a).includes("ipv4.method"))) {
+        return { code: 0, stdout: "auto\n\nyes\n", stderr: "" };
+      }
+      if (argv[0] === "-g" && argv.some((a) => String(a).includes("IP4.ADDRESS"))) {
+        return { code: 0, stdout: "relay-av-lan\n100 (connected)\n10.0.10.50/24\n", stderr: "" };
+      }
+      if (argv[0] === "-t" && argv.includes("NAME,DEVICE")) {
+        return { code: 0, stdout: "relay-av-lan:enp1s0\n", stderr: "" };
       }
       if (opts?.sudo) {
         sudoCalls.push(argv);
         return { code: 0, stdout: "", stderr: "" };
       }
-      return { code: 1, stdout: "", stderr: "fail" };
+      return { code: 1, stdout: "", stderr: `unhandled ${argv.join(" ")}` };
     },
   });
-  assert.equal(res.ok, true);
-  assert.equal(sudoCalls[0][sudoCalls[0].indexOf("ipv4.method") + 1], "auto");
-  assert.equal(sudoCalls[0][sudoCalls[0].indexOf("ipv4.addresses") + 1], "");
+  assert.equal(res.ok, true, res.message);
+  const modify = sudoCalls.find((a) => a.includes("ipv4.method") && a.includes("auto"));
+  assert.ok(modify);
+  assert.equal(modify[modify.indexOf("modify") + 1], RELAY_AV_LAN_CONNECTION_ID);
+  assert.equal(modify[modify.indexOf("ipv4.addresses") + 1], "");
 });
 
-test("applyAvLanIpViaNmcli: no connection profile", async () => {
+test("applyAvLanIpViaNmcli: verify fails when method stays auto (netplan merge)", async () => {
   const res = await applyAvLanIpViaNmcli({
     mode: "static",
     device: "enp1s0",
-    address: "10.0.25.10",
+    address: "10.0.10.10",
     prefix: 24,
-    runNmcli: async (argv) => {
+    runNmcli: async (argv, opts) => {
       if (argv.includes("networking")) return { code: 0, stdout: "enabled\n", stderr: "" };
-      return {
-        code: 0,
-        stdout: "GENERAL.CONNECTION:--\nGENERAL.STATE:100 (connected)\nGENERAL.NM-MANAGED:yes\n",
-        stderr: "",
-      };
+      if (argv.includes("device") && argv.includes("show") && argv.some((a) => String(a).includes("NM-MANAGED"))) {
+        return {
+          code: 0,
+          stdout: "GENERAL.CONNECTION:netplan-enp1s0\nGENERAL.STATE:100 (connected)\nGENERAL.NM-MANAGED:yes\n",
+          stderr: "",
+        };
+      }
+      if (
+        argv.includes("connection") &&
+        argv.includes("show") &&
+        argv.includes(RELAY_AV_LAN_CONNECTION_ID) &&
+        argv.includes("NAME") &&
+        !argv.some((a) => String(a).includes("ipv4.method"))
+      ) {
+        return { code: 0, stdout: `${RELAY_AV_LAN_CONNECTION_ID}\n`, stderr: "" };
+      }
+      if (argv[0] === "-t" && argv.includes("NAME,DEVICE")) {
+        return { code: 0, stdout: "relay-av-lan:enp1s0\n", stderr: "" };
+      }
+      if (argv[0] === "-g" && argv.some((a) => String(a).includes("ipv4.method"))) {
+        // Bug reproduce: addresses set but method still auto
+        return { code: 0, stdout: "auto\n10.0.10.10/24\nyes\n", stderr: "" };
+      }
+      if (argv[0] === "-g" && argv.some((a) => String(a).includes("IP4.ADDRESS"))) {
+        return { code: 0, stdout: "relay-av-lan\n70 (connecting)\n\n", stderr: "" };
+      }
+      if (opts?.sudo) return { code: 0, stdout: "", stderr: "" };
+      return { code: 1, stdout: "", stderr: `unhandled ${argv.join(" ")}` };
     },
   });
   assert.equal(res.ok, false);
-  assert.equal(res.message, AV_LAN_IP_NO_CONNECTION);
+  assert.equal(res.message, AV_LAN_IP_VERIFY_FAILED);
 });
 
 test("auth bar note: applyAvLanIp mirrors restartHost (config token + Config PIN)", () => {
