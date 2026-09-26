@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ConfigRouteImport } from './routes/config'
 import { Route as ApiConfigUnlockRouteImport } from './routes/api/config-unlock'
+import { Route as ApiMediaRouteImport } from './routes/api/media'
 import { Route as ApiPanelUnlockRouteImport } from './routes/api/panel-unlock'
 import { Route as ApiPeerRouteImport } from './routes/api/peer'
 import { Route as ApiPingRouteImport } from './routes/api/ping'
@@ -19,6 +20,7 @@ import { Route as ApiPreviewRouteImport } from './routes/api/preview'
 import { Route as ApiRoomRouteImport } from './routes/api/room'
 import { Route as ApiVarsRouteImport } from './routes/api/vars'
 import { Route as ApiVenueTlsCaRouteImport } from './routes/api/venue-tls-ca'
+import { Route as ApiMediaIdRouteImport } from './routes/api/media.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -33,6 +35,11 @@ const ConfigRoute = ConfigRouteImport.update({
 const ApiConfigUnlockRoute = ApiConfigUnlockRouteImport.update({
   id: '/api/config-unlock',
   path: '/api/config-unlock',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMediaRoute = ApiMediaRouteImport.update({
+  id: '/api/media',
+  path: '/api/media',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPanelUnlockRoute = ApiPanelUnlockRouteImport.update({
@@ -70,11 +77,17 @@ const ApiVenueTlsCaRoute = ApiVenueTlsCaRouteImport.update({
   path: '/api/venue-tls-ca',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMediaIdRoute = ApiMediaIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiMediaRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
   '/api/config-unlock': typeof ApiConfigUnlockRoute
+  '/api/media': typeof ApiMediaRouteWithChildren
   '/api/panel-unlock': typeof ApiPanelUnlockRoute
   '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
@@ -82,11 +95,13 @@ export interface FileRoutesByFullPath {
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
   '/api/venue-tls-ca': typeof ApiVenueTlsCaRoute
+  '/api/media/$id': typeof ApiMediaIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
   '/api/config-unlock': typeof ApiConfigUnlockRoute
+  '/api/media': typeof ApiMediaRouteWithChildren
   '/api/panel-unlock': typeof ApiPanelUnlockRoute
   '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
@@ -94,12 +109,14 @@ export interface FileRoutesByTo {
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
   '/api/venue-tls-ca': typeof ApiVenueTlsCaRoute
+  '/api/media/$id': typeof ApiMediaIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/config': typeof ConfigRoute
   '/api/config-unlock': typeof ApiConfigUnlockRoute
+  '/api/media': typeof ApiMediaRouteWithChildren
   '/api/panel-unlock': typeof ApiPanelUnlockRoute
   '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
@@ -107,6 +124,7 @@ export interface FileRoutesById {
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
   '/api/venue-tls-ca': typeof ApiVenueTlsCaRoute
+  '/api/media/$id': typeof ApiMediaIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -114,6 +132,7 @@ export interface FileRouteTypes {
     | '/'
     | '/config'
     | '/api/config-unlock'
+    | '/api/media'
     | '/api/panel-unlock'
     | '/api/peer'
     | '/api/ping'
@@ -121,11 +140,13 @@ export interface FileRouteTypes {
     | '/api/room'
     | '/api/vars'
     | '/api/venue-tls-ca'
+    | '/api/media/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/config'
     | '/api/config-unlock'
+    | '/api/media'
     | '/api/panel-unlock'
     | '/api/peer'
     | '/api/ping'
@@ -133,11 +154,13 @@ export interface FileRouteTypes {
     | '/api/room'
     | '/api/vars'
     | '/api/venue-tls-ca'
+    | '/api/media/$id'
   id:
     | '__root__'
     | '/'
     | '/config'
     | '/api/config-unlock'
+    | '/api/media'
     | '/api/panel-unlock'
     | '/api/peer'
     | '/api/ping'
@@ -145,12 +168,14 @@ export interface FileRouteTypes {
     | '/api/room'
     | '/api/vars'
     | '/api/venue-tls-ca'
+    | '/api/media/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfigRoute: typeof ConfigRoute
   ApiConfigUnlockRoute: typeof ApiConfigUnlockRoute
+  ApiMediaRoute: typeof ApiMediaRouteWithChildren
   ApiPanelUnlockRoute: typeof ApiPanelUnlockRoute
   ApiPeerRoute: typeof ApiPeerRoute
   ApiPingRoute: typeof ApiPingRoute
@@ -181,6 +206,13 @@ declare module '@tanstack/react-router' {
       path: '/api/config-unlock'
       fullPath: '/api/config-unlock'
       preLoaderRoute: typeof ApiConfigUnlockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/media': {
+      id: '/api/media'
+      path: '/api/media'
+      fullPath: '/api/media'
+      preLoaderRoute: typeof ApiMediaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/panel-unlock': {
@@ -232,13 +264,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVenueTlsCaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/media/$id': {
+      id: '/api/media/$id'
+      path: '/$id'
+      fullPath: '/api/media/$id'
+      preLoaderRoute: typeof ApiMediaIdRouteImport
+      parentRoute: typeof ApiMediaRoute
+    }
   }
 }
+
+interface ApiMediaRouteChildren {
+  ApiMediaIdRoute: typeof ApiMediaIdRoute
+}
+
+const ApiMediaRouteChildren: ApiMediaRouteChildren = {
+  ApiMediaIdRoute: ApiMediaIdRoute,
+}
+
+const ApiMediaRouteWithChildren = ApiMediaRoute._addFileChildren(
+  ApiMediaRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfigRoute: ConfigRoute,
   ApiConfigUnlockRoute: ApiConfigUnlockRoute,
+  ApiMediaRoute: ApiMediaRouteWithChildren,
   ApiPanelUnlockRoute: ApiPanelUnlockRoute,
   ApiPeerRoute: ApiPeerRoute,
   ApiPingRoute: ApiPingRoute,
