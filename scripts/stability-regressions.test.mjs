@@ -407,6 +407,7 @@ test("F11: WidgetType drops toggle; normalize coerces legacy toggle → button",
   assert.ok(typeLine, "WidgetType export");
   assert.doesNotMatch(typeLine[0], /"toggle"/);
   assert.match(typeLine[0], /"button"/);
+  assert.match(typeLine[0], /"image"/);
 
   const status = fs.readFileSync(new URL("../src/lib/control/status-widget.ts", import.meta.url), "utf8");
   assert.match(status, /export function coerceLegacyWidgetType/);
@@ -415,6 +416,8 @@ test("F11: WidgetType drops toggle; normalize coerces legacy toggle → button",
 
   const store = fs.readFileSync(new URL("../src/lib/control/store-normalize.ts", import.meta.url), "utf8");
   assert.match(store, /normalizeStatusFields\s*\(\s*coerceLegacyWidgetType\s*\(\s*widget\s*\)\s*\)/);
+  assert.match(store, /normalizeImageFields\s*\(\s*normalizeStatusFields/);
+  assert.match(store, /from\s+["']\.\/image-widget["']/);
 
   const arch = fs.readFileSync(new URL("../ARCHITECTURE.md", import.meta.url), "utf8");
   const widgetRow = arch.match(/\| Widget \|[^\n]+/);
@@ -422,6 +425,18 @@ test("F11: WidgetType drops toggle; normalize coerces legacy toggle → button",
   assert.doesNotMatch(widgetRow[0], /`toggle`/);
   assert.match(widgetRow[0], /`button`/);
   assert.match(widgetRow[0], /`preview`/);
+});
+
+test("Image MR1: Widget imageSrc/imageFit fields; normalizeImageFields sanitizes fit", () => {
+  const types = fs.readFileSync(new URL("../src/lib/control/types.ts", import.meta.url), "utf8");
+  assert.match(types, /imageSrc\?:\s*string/);
+  assert.match(types, /imageFit\?:\s*"contain"\s*\|\s*"cover"/);
+  assert.doesNotMatch(types, /previewFit\?:.*"image"/);
+
+  const leaf = fs.readFileSync(new URL("../src/lib/control/image-widget.ts", import.meta.url), "utf8");
+  assert.match(leaf, /export function normalizeImageFields/);
+  assert.match(leaf, /imageFit === "cover"/);
+  assert.match(leaf, /type !== "image"/);
 });
 
 test("F15: ARCHITECTURE.md and CONTEXT.md match package.json version", () => {
