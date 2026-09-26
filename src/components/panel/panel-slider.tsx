@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { Widget, WidgetColor } from "@/lib/control/types";
 import { cn } from "@/lib/utils";
+import { widgetBodyTextClass, widgetChipTextClass } from "@/lib/control/text-size-widget";
 
 const TONE: Record<WidgetColor, string> = {
   steel: "border-steel/40 bg-steel/12",
@@ -131,11 +132,11 @@ export function PanelSlider({
       )}
     >
       {vertical ? (
-        <span className="pointer-events-none text-xl font-medium tabular-nums tracking-tight">{value}</span>
+        <span className={cn("pointer-events-none font-medium tabular-nums tracking-tight", widgetBodyTextClass(widget.textSize))}>{value}</span>
       ) : (
         <div className="pointer-events-none flex items-baseline justify-between gap-2">
-          <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span>
-          <span className="text-xl font-medium tabular-nums tracking-tight">{value}</span>
+          <span className={cn(widgetChipTextClass(widget.textSize), "font-medium uppercase tracking-[0.16em] text-muted")}>{widget.label}</span>
+          <span className={cn("font-medium tabular-nums tracking-tight", widgetBodyTextClass(widget.textSize))}>{value}</span>
         </div>
       )}
       <div
@@ -161,7 +162,7 @@ export function PanelSlider({
             : { top: 0, width: thick, height: thick, left: offset }}
         />
       </div>
-      {vertical ? <span className="pointer-events-none text-[11px] font-medium uppercase tracking-[0.16em] text-muted">{widget.label}</span> : null}
+      {vertical ? <span className={cn("pointer-events-none font-medium uppercase tracking-[0.16em] text-muted", widgetChipTextClass(widget.textSize))}>{widget.label}</span> : null}
     </div>
   );
 }

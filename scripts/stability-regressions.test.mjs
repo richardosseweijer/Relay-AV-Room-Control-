@@ -417,7 +417,9 @@ test("F11: WidgetType drops toggle; normalize coerces legacy toggle → button",
   const store = fs.readFileSync(new URL("../src/lib/control/store-normalize.ts", import.meta.url), "utf8");
   assert.match(store, /normalizeStatusFields\s*\(\s*coerceLegacyWidgetType\s*\(\s*widget\s*\)\s*\)/);
   assert.match(store, /normalizeImageFields\s*\(\s*normalizeStatusFields/);
+  assert.match(store, /normalizeTextSizeFields\s*\(\s*normalizeImageFields/);
   assert.match(store, /from\s+["']\.\/image-widget["']/);
+  assert.match(store, /from\s+["']\.\/text-size-widget["']/);
 
   const arch = fs.readFileSync(new URL("../ARCHITECTURE.md", import.meta.url), "utf8");
   const widgetRow = arch.match(/\| Widget \|[^\n]+/);

@@ -283,6 +283,24 @@ export function PagesEditor({
             <option value="image">Image</option>
           </select>
           </label>
+          {selected.type !== "preview" && selected.type !== "image" ? (
+            <label className="grid gap-1 text-sm text-muted">Text size
+              <select
+                className={fieldClass()}
+                value={selected.textSize === "sm" || selected.textSize === "lg" ? selected.textSize : "md"}
+                onChange={(e) => update((c) => {
+                  const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id);
+                  if (!w) return;
+                  const next = e.target.value;
+                  w.textSize = next === "sm" || next === "lg" ? next : "md";
+                })}
+              >
+                <option value="sm">Small</option>
+                <option value="md">Medium</option>
+                <option value="lg">Large</option>
+              </select>
+            </label>
+          ) : null}
           {(selected.type === "button" || selected.type === "slider") ? (
             <PagesBindFields
               selected={selected}
