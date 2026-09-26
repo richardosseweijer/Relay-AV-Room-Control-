@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.61
+
+- Tag `v0.9.61`. **Panel text size:** Pages Button setup select `textSize` (`sm`|`md`|`lg`, default Medium) for all widget types except Preview and Image. Panel render scales chip/body/label/slider/schedule text via [`text-size-widget.ts`](src/lib/control/text-size-widget.ts); normalize fills `md` when missing/invalid.
+
 ## 0.9.60
 
 - Tag `v0.9.60`. **ufw sudoers fix:** Ubuntu `visudo` rejects `*` wildcards in raw `ufw` argv. Install [`deploy/relay-ufw-av-lan.sh`](deploy/relay-ufw-av-lan.sh) → `/usr/local/sbin/relay-ufw-av-lan` and NOPASSWD only that helper (`deploy/sudoers.relay-ufw`). Apply calls the helper; still never Anywhere. Re-run `install-host-sudoers.sh` on appliances that pulled `0.9.59`.
