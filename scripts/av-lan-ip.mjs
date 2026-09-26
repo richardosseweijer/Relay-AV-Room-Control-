@@ -94,7 +94,9 @@ export function platformGate(platform = process.platform) {
 }
 
 /**
- * Refuse when env listen override conflicts with the address we are about to apply.
+ * Refuse when an *explicit* RELAY_LISTEN_HOST override conflicts with the address
+ * we are about to apply. Boot wrappers must not stamp the resolved AV IPv4 into
+ * process.env — only a real systemd/lab override should reach this check.
  * @param {string | null | undefined} envListenHost
  * @param {"static" | "dhcp"} mode
  * @param {string | null | undefined} newAddress

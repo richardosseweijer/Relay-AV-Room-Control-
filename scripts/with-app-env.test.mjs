@@ -126,3 +126,30 @@ test("the CLI still runs when invoked through a symlinked path", async () => {
   ]);
   assert.equal(stdout, "false");
 });
+
+test("vite listen does not sticky-stamp RELAY_LISTEN_HOST when unset", async () => {
+  // Apply treats process.env.RELAY_LISTEN_HOST as a sticky override. Boot must
+  // bind via --host only when the operator did not set the escape hatch.
+  const env = { ...process.env };
+  delete env.RELAY_LISTEN_HOST;
+  const print =
+    "process.stdout.write(process.env.RELAY_LISTEN_HOST === undefined ? 'unset' : String(process.env.RELAY_LISTEN_HOST));";
+  const { stdout } = await execFileAsync(
+    process.execPath,
+    [WRAPPER, process.execPath, "-e", print, "dev"],
+    { env, timeout: 60_000 },
+  );
+  // Wrapper logs listen host on stdout; child print is the last line.
+  assert.equal(stdout.trimEnd().split(/\r?\n/).at(-1), "unset");
+});
+
+test("vite listen keeps an explicit RELAY_LISTEN_HOST override", async () => {
+  const print =
+    "process.stdout.write(String(process.env.RELAY_LISTEN_HOST ?? ''));";
+  const { stdout } = await execFileAsync(
+    process.execPath,
+    [WRAPPER, process.execPath, "-e", print, "dev"],
+    { env: { ...process.env, RELAY_LISTEN_HOST: "127.0.0.1" }, timeout: 60_000 },
+  );
+  assert.equal(stdout.trimEnd().split(/\r?\n/).at(-1), "127.0.0.1");
+});
