@@ -79,7 +79,7 @@ export function WidgetShell({
         "widget-text-container relative flex h-full min-h-0 min-w-0 w-full flex-col items-stretch overflow-hidden rounded-2xl border [overflow-wrap:anywhere] transition duration-200 ease-out",
         canAlign ? textAlignClass(align) : "text-left",
         "active:scale-[0.98]",
-        image ? "gap-2 p-2" : "gap-3 justify-between px-4 py-3",
+        image ? "gap-2 p-2" : cn("gap-3 px-4 py-3", widget.type === "status" ? "justify-start" : "justify-between"),
         widgetColorClass[widget.color],
         active && widgetActiveClass[widget.color],
         disabled && widgetDisabledClass[widget.color],
