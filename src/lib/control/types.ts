@@ -223,7 +223,7 @@ export type DriverFeedback = {
 
 export type PanelAccess = "open" | "pin";
 /** "preview" is the optional 720p RTSP tile (ffmpeg remux). Drop it with the preview files.
- *  "image" is a static image tile (WidgetShell chrome; host media API comes in a later MR). */
+ *  "image" is a static image tile (host media under data/media/; /api/media). */
 export type WidgetType = "button" | "slider" | "label" | "status" | "schedule" | "preview" | "image";
 export type BindKind = "command" | "feedback" | "macro" | "gotoPage" | "range" | "variable";
 export type FailKind = "macro" | "gotoPage" | "none";
@@ -300,7 +300,7 @@ export type Widget = {
   previewDelay?: number | string;
   /** Optional. How the picture fills the tile. */
   previewFit?: "contain" | "cover";
-  /** Optional. Only used by type "image". Media URL/path (host media in a later MR). */
+  /** Optional. Only used by type "image". Usually /api/media/<id> from host upload. */
   imageSrc?: string;
   /** Optional. Image only: how the picture fills the tile. Do not overload previewFit. */
   imageFit?: "contain" | "cover";
