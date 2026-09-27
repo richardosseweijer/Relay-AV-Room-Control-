@@ -4,12 +4,14 @@ import { fireMacro } from "@/lib/control/actions";
 import { GATEWAY_PROFILES, gatewaySlot, isGatewayKind } from "@/lib/control/gateway";
 import type { RoomConfig, RoomSnapshot } from "@/lib/control/types";
 import { NONE_MACRO_ID } from "@/lib/control/types";
+import { templateNumericOnly } from "@/lib/control/var-token";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fieldClass } from "./config-ui";
 import { InputNum } from "./config-fields";
 import { InventoryPicker } from "./inventory-board";
 import { TagBar, currentTag, fileItem, tagNames, tagOf, tagVisible, type TagBucket } from "./tag-bar";
+import { VarTokenField } from "./var-token-field";
 
 function deviceCommands(snap: RoomSnapshot, config: RoomConfig, deviceId?: string) {
   const device = config.devices.find((d) => d.id === deviceId);
@@ -156,7 +158,18 @@ export function MacrosTab(props: {
                                 ) : null}
                                 {needsValue || usesInventory ? (
                                   <label className="grid gap-1 text-xs text-muted sm:col-span-12">Value / message
-                                    <input className={fieldClass()} value={String(step.value ?? "")} placeholder={step.interfaceId ? "1*1]   or   power \"on\"\\r   or   hex:B06300" : "Hello room  or  tvPower=on  or  {var}"} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.value = e.target.value; })} />
+                                    <VarTokenField
+                                      className={fieldClass()}
+                                      numericOnly={templateNumericOnly({
+                                        raw: Boolean(step.interfaceId),
+                                        varKind: step.setVar ? draft.variables.find((v) => v.id === step.setVar)?.kind : undefined,
+                                        commandKind: step.setVar || step.interfaceId ? undefined : deviceCommands(snap, draft, step.device).find((c) => c.id === step.command)?.kind,
+                                      })}
+                                      placeholder={step.interfaceId ? "1*1]   or   power \"on\"\\r   or   hex:B06300" : "Hello room  or  tvPower=on  or  {var}"}
+                                      value={String(step.value ?? "")}
+                                      variables={draft.variables}
+                                      onChange={(value) => update((c) => { c.macros[mi]!.steps[si]!.value = value; })}
+                                    />
                                   </label>
                                 ) : null}
                               </>

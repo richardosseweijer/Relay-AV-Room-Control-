@@ -2,9 +2,11 @@ import type { ComponentProps } from "react";
 import type { RoomConfig, RoomSnapshot, TriggerClause, TriggerCompare, VariableTrigger } from "@/lib/control/types";
 import { NONE_MACRO_ID } from "@/lib/control/types";
 import { SYSTEM_TIME_VAR_ID } from "@/lib/control/vars";
+import { templateNumericOnly } from "@/lib/control/var-token";
 import { Button } from "@/components/ui/button";
 import { fieldClass } from "./config-ui";
 import { InputNum } from "./config-fields";
+import { VarTokenField } from "./var-token-field";
 import { TagBar, currentTag, fileItem, tagNames, tagOf, tagVisible, type TagBucket } from "./tag-bar";
 
 const COMPARE: { id: TriggerCompare; label: string }[] = [
@@ -143,20 +145,18 @@ export function TriggersSection(props: {
                         </select>
                       </label>
                       <label className="grid gap-1 text-xs text-muted">Value
-                        <input
+                        <VarTokenField
                           className={fieldClass()}
-                          list={`trg-${rule.id}-${ri}`}
+                          numericOnly={templateNumericOnly({ compare: row.compare })}
                           placeholder="on  or  {occupancy}"
                           value={row.equals}
-                          onChange={(e) => update((c) => {
+                          variables={vars}
+                          onChange={(value) => update((c) => {
                             const next = clausesOf(c.triggers![ti]!);
-                            next[ri] = { ...next[ri]!, equals: e.target.value };
+                            next[ri] = { ...next[ri]!, equals: value };
                             writeClauses(c.triggers![ti]!, next);
                           })}
                         />
-                        <datalist id={`trg-${rule.id}-${ri}`}>
-                          {vars.map((v) => <option key={v.id} value={`{${v.id}}`}>{v.label}</option>)}
-                        </datalist>
                       </label>
                       <Button size="sm" variant="ghost" disabled={rows.length < 2} onClick={() => update((c) => {
                         const next = clausesOf(c.triggers![ti]!).filter((_, i) => i !== ri);
@@ -199,16 +199,14 @@ export function TriggersSection(props: {
                   </label>
                   {rule.setVar ? (
                     <label className="grid gap-1 text-sm text-muted">To
-                      <input
+                      <VarTokenField
                         className={fieldClass()}
-                        list={`trg-set-${rule.id}`}
+                        numericOnly={templateNumericOnly({ varKind: vars.find((v) => v.id === rule.setVar)?.kind })}
                         placeholder="1  or  {occupancy}"
                         value={rule.setValue ?? ""}
-                        onChange={(e) => update((c) => { c.triggers![ti]!.setValue = e.target.value; })}
+                        variables={vars}
+                        onChange={(value) => update((c) => { c.triggers![ti]!.setValue = value; })}
                       />
-                      <datalist id={`trg-set-${rule.id}`}>
-                        {vars.map((v) => <option key={v.id} value={`{${v.id}}`}>{v.label}</option>)}
-                      </datalist>
                     </label>
                   ) : <span />}
                   <label className="grid gap-1 text-sm text-muted">Device
@@ -239,16 +237,14 @@ export function TriggersSection(props: {
                     if (!rule.device || (command?.kind !== "range" && command?.kind !== "enum")) return null;
                     return (
                       <label className="grid gap-1 text-sm text-muted sm:col-span-2">Value
-                        <input
+                        <VarTokenField
                           className={fieldClass()}
-                          list={`trg-cmd-${rule.id}`}
+                          numericOnly={templateNumericOnly({ commandKind: command?.kind })}
                           placeholder="literal or {var}"
                           value={rule.commandValue ?? ""}
-                          onChange={(e) => update((c) => { c.triggers![ti]!.commandValue = e.target.value; })}
+                          variables={vars}
+                          onChange={(value) => update((c) => { c.triggers![ti]!.commandValue = value; })}
                         />
-                        <datalist id={`trg-cmd-${rule.id}`}>
-                          {vars.map((v) => <option key={v.id} value={`{${v.id}}`}>{v.label}</option>)}
-                        </datalist>
                       </label>
                     );
                   })()}

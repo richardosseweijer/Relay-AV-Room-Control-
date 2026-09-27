@@ -3,6 +3,7 @@ import { NONE_MACRO_ID } from "@/lib/control/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fieldClass } from "./config-ui";
+import { VarTokenField } from "./var-token-field";
 
 /** Status widget sidebar: variable bind, colorWhen traffic-light rules, statusDefault catch-all. */
 export function PagesStatusFields({
@@ -56,11 +57,11 @@ export function PagesStatusFields({
                 })} />
               ))}
             </div>
-            <input className={fieldClass()} placeholder="Label (optional)" value={row.label ?? ""} onChange={(e) => update((c) => {
+            <VarTokenField className={fieldClass()} placeholder="Label (optional)" value={row.label ?? ""} variables={draft.variables} onChange={(value) => update((c) => {
               const w = c.pages.find((p) => p.id === pageId)?.widgets.find((item) => item.id === selected.id);
               if (!w) return;
               const rows = [...(w.colorWhen ?? [])];
-              rows[ri] = { ...rows[ri]!, label: e.target.value || undefined };
+              rows[ri] = { ...rows[ri]!, label: value || undefined };
               w.colorWhen = rows;
             })} />
             <select className={fieldClass()} value={row.macroId ?? NONE_MACRO_ID} onChange={(e) => update((c) => {
@@ -99,10 +100,10 @@ export function PagesStatusFields({
           </select>
         </label>
         <label className="grid gap-1 text-sm text-muted">Catch-all label
-          <input className={fieldClass()} placeholder="Optional" value={selected.statusDefault?.label ?? ""} disabled={!selected.statusDefault?.color} onChange={(e) => update((c) => {
+          <VarTokenField className={fieldClass()} placeholder="Optional" value={selected.statusDefault?.label ?? ""} variables={draft.variables} disabled={!selected.statusDefault?.color} onChange={(value) => update((c) => {
             const w = c.pages.find((p) => p.id === pageId)?.widgets.find((item) => item.id === selected.id);
             if (!w?.statusDefault) return;
-            w.statusDefault = { ...w.statusDefault, label: e.target.value || undefined };
+            w.statusDefault = { ...w.statusDefault, label: value || undefined };
           })} />
         </label>
         <label className="grid gap-1 text-sm text-muted">Catch-all macro

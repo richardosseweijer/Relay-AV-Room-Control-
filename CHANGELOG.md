@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.75
+
+- Tag `v0.9.75`. **Variable picker:** template text fields list room variables after `{` and insert `{id}` at the caret ([`var-token-field.tsx`](src/components/config/var-token-field.tsx)). Number-only fields (slider min/max, range commands, writes into a number variable, greater/less compares) suggest number variables only — not text, enum, or `{time}`.
+
 ## 0.9.74
 
 - Tag `v0.9.74`. **Trigger actions:** a true edge can write a variable and run one device command next to Run macro. Order is write, then command, then a real macro; the first failure stops the rest. A blank macro id still runs when there is a write or a command. The variable write is saved before a linked device push; a failed push does not run the command or the macro. None-only rules still take the old empty-macro path. `{time}` cannot be written. A remote peer command still only accepts `macro.run`.

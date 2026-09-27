@@ -1,6 +1,8 @@
 import type { RoomConfig, RoomSnapshot, Widget } from "@/lib/control/types";
 import { NONE_MACRO_ID } from "@/lib/control/types";
+import { templateNumericOnly } from "@/lib/control/var-token";
 import { fieldClass } from "./config-ui";
+import { VarTokenField } from "./var-token-field";
 
 /** Button/slider sidebar: macro/goto/highlight (button) and device/command/range (slider). */
 export function PagesBindFields({
@@ -85,10 +87,10 @@ export function PagesBindFields({
           </select>
           </label>
           <label className="grid gap-1 text-xs text-muted">Min
-            <input className={fieldClass()} inputMode="decimal" placeholder="min" value={selected.min == null ? "" : String(selected.min)} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === pageId)?.widgets.find((item) => item.id === selected.id); if (w) w.min = e.target.value; })} />
+            <VarTokenField className={fieldClass()} numericOnly={templateNumericOnly({ bound: true })} placeholder="min" value={selected.min == null ? "" : String(selected.min)} variables={draft.variables} onChange={(value) => update((c) => { const w = c.pages.find((p) => p.id === pageId)?.widgets.find((item) => item.id === selected.id); if (w) w.min = value; })} />
           </label>
           <label className="grid gap-1 text-xs text-muted">Max
-            <input className={fieldClass()} inputMode="decimal" placeholder="max" value={selected.max == null ? "" : String(selected.max)} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === pageId)?.widgets.find((item) => item.id === selected.id); if (w) w.max = e.target.value; })} />
+            <VarTokenField className={fieldClass()} numericOnly={templateNumericOnly({ bound: true })} placeholder="max" value={selected.max == null ? "" : String(selected.max)} variables={draft.variables} onChange={(value) => update((c) => { const w = c.pages.find((p) => p.id === pageId)?.widgets.find((item) => item.id === selected.id); if (w) w.max = value; })} />
           </label>
           <label className="grid gap-1 text-sm text-muted">Direction
             <select className={fieldClass()} value={selected.sliderDir ?? "auto"} onChange={(e) => update((c) => {

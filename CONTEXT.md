@@ -7,7 +7,7 @@ Keep this file short. If it grows past ~150 lines, cut history — do not append
 
 ## Product
 
-Relay **0.9.74** (beta). Single-process LAN AV room controller. Phase B software checkpoint (B5 at `v0.9.45`). LE/ACME parked; C1–C4 in-box venue TLS train closed (Generate + Networks UI + lifecycle + docs checkpoint).
+Relay **0.9.75** (beta). Single-process LAN AV room controller. Phase B software checkpoint (B5 at `v0.9.45`). LE/ACME parked; C1–C4 in-box venue TLS train closed (Generate + Networks UI + lifecycle + docs checkpoint).
 TanStack Start + Vite. Dev `:8080` / prod `:8081` bind to **AV-LAN IPv4** (auto-map first scanned NIC when AV unset/invalid; else loopback if no NICs). Never `0.0.0.0`. `RELAY_LISTEN_HOST` overrides.
 Not a grok.me / Vercel host — those have no writable `data/`.
 
@@ -36,6 +36,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Label hide when disabled | `pages-enable-when.tsx`, `panel-widget.ts` (`shouldHideWhenDisabled`), `panel-tile.tsx` |
 | Panel label `{var}` / `\n` / `{time}` | `vars.ts` (`resolveTemplate` / `resolveWidgetLabel` / `formatWidgetLabel` / `formatSystemTime`; built-in read-only `{time}` = OS-local HH:mm), `panel-tile.tsx` + face shells (`whitespace-pre-line`; unresolved → empty) |
 | Trigger write / device command | `trigger-actions.ts`, `trigger-pane.tsx`, `store-schedules.ts` (true path: write, command, then real macro; None-only unchanged) |
+| Config `{var}` picker | `var-token.ts`, `var-token-field.tsx` (type `{`; number fields suggest number vars only) |
 | Panel label background | `widget-face.tsx` (`widgetColorClass`), `panel-tile.tsx` (label tiles honor configured color) |
 | Host media / `/api/media` | `media-store.ts`, `src/routes/api/media.ts`, `src/routes/api/media.$id.ts`, `data/media/` |
 - Docs/example image asset: `docs/assets/image-widget-hub-hdmi-example.png`; runtime uploads still go to `data/media/` via `/api/media` (docs/example only, not auto-served).
@@ -59,7 +60,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 
 Do not grep the whole repo to “get context.” If the table above is missing a file, ask.
 
-## Live notes (still true at 0.9.74)
+## Live notes (still true at 0.9.75)
 
 - Occupancy var is `0` closed, `1` open, `2` in-session, `3` DND. Foyer GET still reads the **string** field. Save-all must not apply `draft.room.occupancy`.
 - Unsigned `GET /api/peer` is TCP loopback **or listen-host hairpin** (real `remoteAddress`, not `Host`). HMAC GET is the full snapshot.
