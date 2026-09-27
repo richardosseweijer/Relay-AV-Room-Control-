@@ -4,6 +4,8 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Library: Mitsubishi UD8900U Serial (`mitsubishi-ud8900u-serial.json`). RS-232 9600 8N1, `00!` / `00vST`. Existing card renamed in the library to UD8900U LAN (still `mitsubishi-ud8900u.json`, PJLink :4352). Re-add the serial card; the LAN filename is unchanged.
+
 ## 0.9.76
 
 - Tag `v0.9.76`. **Suggest lists:** long config selects (device, command, macro, variable, page, monitor feedback) share one type-to-filter field ([`suggest-field.tsx`](src/components/config/suggest-field.tsx), [`suggest.ts`](src/lib/control/suggest.ts)). Free text that is really a choice (enum values, status equals, enable-when value, monitor error value, latch group) keeps typing and offers the same list. `{var}` fields still insert at the caret; a non-brace query can replace the whole value from an enum, macro, or page. Short lists (compare, color, tag, fit) stay native selects. Literal compares do not gain `{var}`.
