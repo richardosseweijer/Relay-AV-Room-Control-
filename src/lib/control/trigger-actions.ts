@@ -7,6 +7,12 @@ export type TriggerActionRule = {
   command?: string | null;
   commandValue?: string;
   macroId?: string | null;
+  falseSetVar?: string | null;
+  falseSetValue?: string;
+  falseDevice?: string | null;
+  falseCommand?: string | null;
+  falseCommandValue?: string;
+  falseMacroId?: string | null;
 };
 
 export type TriggerActionResult = { ok: boolean; message: string; ranMacro: boolean };
@@ -15,12 +21,28 @@ function filled(value: string | null | undefined) {
   return (value ?? "").trim();
 }
 
-/** True when the true path should run the new plan. A None-only rule stays on the old empty-macro path. */
+/** True when this action side should run the plan. A None-only side stays empty. */
 export function triggerHasTrueWork(rule: TriggerActionRule) {
   if (filled(rule.setVar)) return true;
   if (filled(rule.device) && filled(rule.command)) return true;
   const macroId = filled(rule.macroId);
   return macroId !== "" && macroId !== NONE_MACRO_ID;
+}
+
+/** False-side fields, same plan as true. */
+export function falseActionOf(rule: TriggerActionRule): TriggerActionRule {
+  return {
+    setVar: rule.falseSetVar,
+    setValue: rule.falseSetValue,
+    device: rule.falseDevice,
+    command: rule.falseCommand,
+    commandValue: rule.falseCommandValue,
+    macroId: rule.falseMacroId,
+  };
+}
+
+export function triggerHasFalseWork(rule: TriggerActionRule) {
+  return triggerHasTrueWork(falseActionOf(rule));
 }
 
 export function normalizeTriggerFields<T extends TriggerActionRule>(rule: T): T {
@@ -31,6 +53,12 @@ export function normalizeTriggerFields<T extends TriggerActionRule>(rule: T): T 
     device: rule.device || "",
     command: rule.command || "",
     commandValue: rule.commandValue ?? "",
+    falseSetVar: rule.falseSetVar || "",
+    falseSetValue: rule.falseSetValue ?? "",
+    falseDevice: rule.falseDevice || "",
+    falseCommand: rule.falseCommand || "",
+    falseCommandValue: rule.falseCommandValue ?? "",
+    falseMacroId: rule.falseMacroId || NONE_MACRO_ID,
   };
 }
 

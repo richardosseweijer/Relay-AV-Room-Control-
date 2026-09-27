@@ -35,7 +35,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Panel text align | `text-align-widget.ts`, `pages-editor.tsx`, `widget-face.tsx` / `panel-tile.tsx` (label/button/status) |
 | Label hide when disabled | `pages-enable-when.tsx`, `panel-widget.ts` (`shouldHideWhenDisabled`), `panel-tile.tsx` |
 | Panel label `{var}` / `\n` / `{time}` | `vars.ts` (`resolveTemplate` / `resolveWidgetLabel` / `formatWidgetLabel` / `formatSystemTime`; built-in read-only `{time}` = OS-local HH:mm), `panel-tile.tsx` + face shells (`whitespace-pre-line`; unresolved → empty) |
-| Trigger write / device command | `trigger-actions.ts`, `trigger-pane.tsx`, `store-schedules.ts` (true path: write, command, then real macro; None-only unchanged) |
+| Trigger write / device command | `trigger-actions.ts`, `trigger-pane.tsx`, `store-schedules.ts` (true and false: write, command, then real macro; false = any If row failed; no hold/delay) |
 | Config `{var}` picker | `var-token.ts`, `var-token-field.tsx` (type `{`; number fields suggest number vars only) |
 | Config suggest lists | `suggest.ts`, `suggest-field.tsx` (device, command, macro, variable, page; enum / latch / equals stay free text) |
 | Panel label background | `widget-face.tsx` (`widgetColorClass`), `panel-tile.tsx` (label tiles honor configured color) |
@@ -83,7 +83,6 @@ Do not grep the whole repo to “get context.” If the table above is missing a
 | 15 | HTTP on AV-LAN; venue HTTPS B1 + peer B3 (strict CA) + nicFace B4 (B5); LE parked; Generate C1–C4 shipped; strict peer TLS `v0.9.47`; strict device TLS `v0.9.48`; samsung-pair TLS `v0.9.49` |
 | 16 | Config tab labels are raw ids |
 | 37 | PIN lockout is process memory, one counter per gate |
-| 38 | Trigger engine still has false-path / hold / delay |
 | 39 | Occupancy dual-write leftover (`busy` alias, docs drift) |
 
 ## How a new agent should start

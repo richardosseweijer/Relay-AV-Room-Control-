@@ -84,20 +84,22 @@ test("trigger change fires once per edge; interval may re-fire", () => {
   assert.equal(matchesTrigger("on", "eq", "on"), true);
 });
 
-test("trigger extras AND after the primary true/false", () => {
+test("trigger false path is any failed If row", () => {
   const rule = {
     variable: "occ",
     compare: "eq",
     equals: "on",
     whenTrue: [{ variable: "tv", compare: "eq", equals: "on" }],
-    whenFalse: [{ variable: "scene", compare: "eq", equals: "idle" }],
   };
-  const vars = { occ: "on", tv: "on", scene: "present" };
+  const vars = { occ: "on", tv: "on" };
   assert.equal(triggerPathHit(rule, vars, "t"), true);
-  assert.equal(triggerPathHit(rule, { ...vars, tv: "off" }, "t"), false);
   assert.equal(triggerPathHit(rule, vars, "f"), false);
-  assert.equal(triggerPathHit(rule, { occ: "off", tv: "on", scene: "idle" }, "f"), true);
+  assert.equal(triggerPathHit(rule, { occ: "on", tv: "off" }, "t"), false);
+  assert.equal(triggerPathHit(rule, { occ: "on", tv: "off" }, "f"), true);
+  assert.equal(triggerPathHit(rule, { occ: "off", tv: "on" }, "f"), true);
   assert.equal(triggerPathHit({ variable: "occ", compare: "eq", equals: "on" }, { occ: "on" }, "t"), true);
+  assert.equal(triggerPathHit({ variable: "occ", compare: "eq", equals: "on" }, { occ: "on" }, "f"), false);
+  assert.equal(triggerStep("change", undefined, true), "arm");
 });
 
 test("monitor auto var id from label", () => {

@@ -1,11 +1,22 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
-import { normalizeTriggerFields, runTriggerTruePlan, triggerHasTrueWork } from "../src/lib/control/trigger-actions.ts";
+import { falseActionOf, normalizeTriggerFields, runTriggerTruePlan, triggerHasFalseWork, triggerHasTrueWork } from "../src/lib/control/trigger-actions.ts";
 
 test("trigger none id matches NONE_MACRO_ID", () => {
   const types = fs.readFileSync("src/lib/control/types.ts", "utf8");
   assert.match(types, /export const NONE_MACRO_ID = "none"/);
+});
+
+test("trigger false-work uses the same plan and ignores a None-only side", () => {
+  assert.equal(triggerHasFalseWork({ falseMacroId: "none" }), false);
+  assert.equal(triggerHasFalseWork({ falseMacroId: "mac-stop" }), true);
+  assert.equal(triggerHasFalseWork({ falseSetVar: "occupancy", falseMacroId: "none" }), true);
+  assert.equal(triggerHasFalseWork({ falseDevice: "mps", falseCommand: "", falseMacroId: "none" }), false);
+  const side = falseActionOf({ falseSetVar: "occupancy", falseSetValue: "0", falseDevice: "mps", falseCommand: "power.off", falseMacroId: "mac-stop" });
+  assert.equal(side.setVar, "occupancy");
+  assert.equal(side.macroId, "mac-stop");
+  assert.equal(triggerHasTrueWork(side), true);
 });
 
 test("trigger true-work ignores a None-only rule", () => {

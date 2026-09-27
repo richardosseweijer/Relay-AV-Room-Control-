@@ -10,7 +10,7 @@
  */
 import { executeCommand, runMacro } from "./engine";
 import { scheduleShouldRun, TriggerReservations, triggerPathHit, triggerStep } from "./logic-policy";
-import { triggerHasTrueWork, runTriggerTruePlan } from "./trigger-actions";
+import { triggerHasFalseWork, triggerHasTrueWork, falseActionOf, runTriggerTruePlan } from "./trigger-actions";
 import type { DeviceHealth, DeviceStateMap, DriverSpec, Macro, RoomConfig } from "./types";
 import { resolveTemplate, writeConfiguredVar, type VarMap } from "./vars";
 import { persist, persistNow } from "./store-persist";
@@ -45,7 +45,6 @@ export function loadScheduleStamps(stamps: Record<string, string> | undefined) {
 let scheduleBusy = false;
 const lastTriggerValue = new Map<string, string>();
 const lastTriggerFire = new Map<string, number>();
-const lastTriggerHeld = new Map<string, number>();
 const triggerQueue: TriggerJob[] = [];
 const pendingTriggers = new TriggerReservations();
 
@@ -54,13 +53,12 @@ export function pruneScheduleMaps(config: RoomConfig) {
   const triggerKeys = new Set<string>();
   for (const rule of config.triggers ?? []) {
     if (rule.macroId || triggerHasTrueWork(rule)) triggerKeys.add(`${rule.id}:t`);
-    if (rule.falseMacroId) triggerKeys.add(`${rule.id}:f`);
+    if (triggerHasFalseWork(rule)) triggerKeys.add(`${rule.id}:f`);
   }
   for (const key of [...lastTriggerValue.keys()]) {
     if (!triggerKeys.has(key)) {
       lastTriggerValue.delete(key);
       lastTriggerFire.delete(key);
-      lastTriggerHeld.delete(key);
     }
   }
   const scheduleKeep = new Set<string>();
@@ -146,7 +144,7 @@ export async function drainQueuedTriggers() {
   if (queued) {
     const nested = mem.config.macros.find((m) => m.id === queued.macroId);
     const rule = (mem.config.triggers ?? []).find((item) => item.id === queued.id);
-    const extra = queued.path === "t" && Boolean(rule && triggerHasTrueWork(rule));
+    const extra = Boolean(rule && (queued.path === "t" ? triggerHasTrueWork(rule) : triggerHasFalseWork(rule)));
     if (nested || extra) await runQueuedTrigger(queued, nested);
     else pendingTriggers.release(`${queued.id}:${queued.path}`);
   }
@@ -161,7 +159,7 @@ export async function runDueTriggers() {
     if (!rule.enabled || !rule.variable) continue;
     const paths: { path: "t" | "f"; macroId: string }[] = [];
     if (rule.macroId || triggerHasTrueWork(rule)) paths.push({ path: "t", macroId: rule.macroId || "" });
-    if (rule.falseMacroId) paths.push({ path: "f", macroId: rule.falseMacroId });
+    if (triggerHasFalseWork(rule)) paths.push({ path: "f", macroId: rule.falseMacroId || "" });
     for (const { path, macroId } of paths) {
       const key = `${rule.id}:${path}`;
       const hit = triggerPathHit(rule, mem.vars, path, value);
@@ -169,19 +167,7 @@ export async function runDueTriggers() {
       const step = triggerStep(rule.mode, prev, hit);
       if (step === "reset") {
         lastTriggerValue.set(key, "false:");
-        lastTriggerHeld.delete(key);
         continue;
-      }
-      const holdMs = Math.min(Math.max((rule.holdSec ?? 0) * 1000, 0), 7_200_000);
-      if (holdMs) {
-        const since = lastTriggerHeld.get(key);
-        if (since === undefined) {
-          lastTriggerHeld.set(key, now);
-          continue;
-        }
-        if (now - since < holdMs) continue;
-      } else {
-        lastTriggerHeld.set(key, now);
       }
       if (step === "arm") {
         lastTriggerValue.set(key, "true:");
@@ -192,7 +178,7 @@ export async function runDueTriggers() {
       if (rule.mode === "interval" && now - (lastTriggerFire.get(key) ?? 0) < wait) continue;
       if (rule.mode === "change" && now - (lastTriggerFire.get(key) ?? 0) < 400) continue;
       const macro = mem.config.macros.find((m) => m.id === macroId);
-      const extra = path === "t" && triggerHasTrueWork(rule);
+      const extra = path === "t" ? triggerHasTrueWork(rule) : triggerHasFalseWork(rule);
       if (!macro && !extra) continue;
       if (pendingTriggers.has(key) || triggerQueue.some((item) => item.id === rule.id && item.path === path)) continue;
       const job = { id: rule.id, macroId, label: rule.label, path };
@@ -201,12 +187,10 @@ export async function runDueTriggers() {
         lastTriggerValue.set(key, "true:");
         continue;
       }
-      const waitMs = Math.min((rule.delaySec || 0) * 1000, 120_000);
       if (!pendingTriggers.reserve(key)) continue;
       lastTriggerValue.set(key, "true:");
       void (async () => {
         try {
-          if (waitMs) await new Promise((r) => setTimeout(r, waitMs));
           const { memory: liveMemory } = await import("./store.server");
           const live = liveMemory() as SchedMemory;
           const current = live.config.macros.find((item) => item.id === macro?.id);
@@ -226,7 +210,7 @@ async function runQueuedTrigger(job: TriggerJob, macro: Macro | undefined) {
   const live = memory() as SchedMemory;
   const rule = (live.config.triggers ?? []).find((item) => item.id === job.id);
   const key = `${job.id}:${job.path}`;
-  const extra = job.path === "t" && Boolean(rule && triggerHasTrueWork(rule));
+  const extra = Boolean(rule && (job.path === "t" ? triggerHasTrueWork(rule) : triggerHasFalseWork(rule)));
   const trueMacro = rule?.macroId || "";
   const falseMacro = rule?.falseMacroId || "";
   const jobMacro = job.macroId || "";
@@ -238,7 +222,6 @@ async function runQueuedTrigger(job: TriggerJob, macro: Macro | undefined) {
     const value = (raw: string) => String(resolveTemplate(raw, live.vars, live.config.variables) ?? raw);
     if (!triggerPathHit(rule, live.vars, job.path, value)) {
       lastTriggerValue.set(key, "false:");
-      lastTriggerHeld.delete(key);
       pendingTriggers.release(key);
       return;
     }
@@ -261,7 +244,7 @@ async function runQueuedTrigger(job: TriggerJob, macro: Macro | undefined) {
   live.runningMacro = extra ? (macro && triggerHasTrueWork({ macroId: macro.id }) ? macro.id : `trg:${rule.id}`) : macro!.id;
   try {
     const result = extra
-      ? await runTriggerTruePlan(rule, {
+      ? await runTriggerTruePlan(job.path === "f" ? falseActionOf(rule) : rule, {
           resolve: (raw) => String(resolveTemplate(raw, live.vars, live.config.variables) ?? raw),
           writeVar: async (id, value) => {
             const written = writeConfiguredVar(live.config.variables, id, value);
@@ -296,7 +279,7 @@ async function runQueuedTrigger(job: TriggerJob, macro: Macro | undefined) {
     if (result.ok) {
       lastTriggerValue.set(key, "true:");
       lastTriggerFire.set(key, Date.now());
-      if (!extra || ("ranMacro" in result && result.ranMacro)) live.activeScene = (extra ? rule.macroId : macro!.id);
+      if (!extra || ("ranMacro" in result && result.ranMacro)) live.activeScene = job.path === "f" ? (rule.falseMacroId || macro!.id) : (extra ? rule.macroId : macro!.id);
     }
     if (!result.ok && (!extra || ("ranMacro" in result && result.ranMacro)) && live.host?.block) live.host.block = null;
     pushLog({ kind: "macro", ok: result.ok, title: `Trigger ${job.label}`, detail: result.message });
@@ -310,7 +293,7 @@ async function runQueuedTrigger(job: TriggerJob, macro: Macro | undefined) {
   if (!next) return;
   const nested = live.config.macros.find((m) => m.id === next.macroId);
   const nextRule = (live.config.triggers ?? []).find((item) => item.id === next.id);
-  const nextExtra = next.path === "t" && Boolean(nextRule && triggerHasTrueWork(nextRule));
+  const nextExtra = Boolean(nextRule && (next.path === "t" ? triggerHasTrueWork(nextRule) : triggerHasFalseWork(nextRule)));
   if (nested || nextExtra) await runQueuedTrigger(next, nested);
   else pendingTriggers.release(`${next.id}:${next.path}`);
 }

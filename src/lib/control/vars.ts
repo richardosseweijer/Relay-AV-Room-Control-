@@ -201,10 +201,12 @@ export function variableInUse(config: RoomConfig, id: string) {
     const used =
       rule.variable === id ||
       rule.setVar === id ||
+      rule.falseSetVar === id ||
       (rule.whenTrue ?? []).some((row) => row.variable === id) ||
-      (rule.whenFalse ?? []).some((row) => row.variable === id) ||
       String(rule.setValue ?? "").includes(token) ||
+      String(rule.falseSetValue ?? "").includes(token) ||
       String(rule.commandValue ?? "").includes(token) ||
+      String(rule.falseCommandValue ?? "").includes(token) ||
       String(rule.equals ?? "").includes(token);
     if (used) hits.push(rule.label);
   }
