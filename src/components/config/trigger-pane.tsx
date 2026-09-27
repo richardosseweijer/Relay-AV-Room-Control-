@@ -297,7 +297,7 @@ export function TriggersSection(props: {
         c.triggers.push({
           id: `trg-${Date.now().toString(36)}`,
           label: "New trigger",
-          enabled: false,
+          enabled: true,
           variable: c.variables[0]?.id ?? "",
           compare: "eq",
           equals: "",
