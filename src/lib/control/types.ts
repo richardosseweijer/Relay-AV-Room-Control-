@@ -382,6 +382,13 @@ export type VariableTrigger = {
   delayMs?: number;
   holdMs?: number;
   macroId: string;
+  /** True path only. Empty = do not write. `{time}` is rejected at run. */
+  setVar?: string | null;
+  setValue?: string;
+  /** True path only. Both device and command must be set. */
+  device?: string | null;
+  command?: string | null;
+  commandValue?: string;
   falseMacroId?: string;
   tag?: string | null;
 };

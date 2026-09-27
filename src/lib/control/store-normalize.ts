@@ -20,6 +20,7 @@ import { normalizeImageFields } from "./image-widget";
 import { normalizeTextSizeFields } from "./text-size-widget";
 import { normalizeTextAlignFields } from "./text-align-widget";
 import { normalizeHideWhenDisabledFields } from "./panel-widget";
+import { normalizeTriggerFields } from "./trigger-actions";
 
 function liftTag<T extends { tag?: string | null }>(item: T): T {
   const legacy = (item as T & { folder?: string | null }).folder;
@@ -53,7 +54,7 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
         compare: row.compare || "eq",
         equals: row.equals ?? "",
       }));
-      return liftTag({
+      return liftTag(normalizeTriggerFields({
         ...rule,
         holdSec,
         delaySec,
@@ -64,7 +65,7 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
         whenTrue: clip(rule.whenTrue),
         whenFalse: clip(rule.whenFalse),
         falseMacroId: rule.falseMacroId || "",
-      });
+      }));
     }),
     interfaces: config.interfaces ?? [],
     tags: config.tags ?? (config as { folders?: RoomConfig["tags"] }).folders ?? {},

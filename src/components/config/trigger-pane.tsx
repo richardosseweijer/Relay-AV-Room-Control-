@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
-import type { RoomConfig, TriggerClause, TriggerCompare, VariableTrigger } from "@/lib/control/types";
+import type { RoomConfig, RoomSnapshot, TriggerClause, TriggerCompare, VariableTrigger } from "@/lib/control/types";
 import { NONE_MACRO_ID } from "@/lib/control/types";
+import { SYSTEM_TIME_VAR_ID } from "@/lib/control/vars";
 import { Button } from "@/components/ui/button";
 import { fieldClass } from "./config-ui";
 import { InputNum } from "./config-fields";
@@ -32,24 +33,44 @@ function compareWord(id: string) {
   return COMPARE.find((row) => row.id === id)?.label ?? id;
 }
 
-function summary(rule: VariableTrigger, draft: RoomConfig) {
+function summary(rule: VariableTrigger, draft: RoomConfig, snap: RoomSnapshot) {
   const left = draft.variables.find((v) => v.id === rule.variable)?.label || rule.variable || "variable";
   const extra = rule.whenTrue?.length ? ` +${rule.whenTrue.length}` : "";
-  const macro = draft.macros.find((m) => m.id === rule.macroId)?.label || "no macro";
+  const bits: string[] = [];
+  if (rule.setVar) {
+    const name = draft.variables.find((v) => v.id === rule.setVar)?.label || rule.setVar;
+    bits.push(`set ${name} = ${rule.setValue || "…"}`);
+  }
+  if (rule.device && rule.command) {
+    const device = draft.devices.find((d) => d.id === rule.device);
+    const command = snap.drivers[device?.driver ?? ""]?.commands.find((c) => c.id === rule.command);
+    bits.push(`${device?.name || "device"} ${command?.label || rule.command}`);
+  }
+  const macro = draft.macros.find((m) => m.id === rule.macroId);
+  if (macro && macro.id !== NONE_MACRO_ID) bits.push(macro.label);
   const when = rule.mode === "interval" ? `every ${rule.intervalSec || 1}s` : "on change";
-  return `${left} ${compareWord(rule.compare)} ${rule.equals || "…"}${extra} · ${when} · ${macro}`;
+  return `${left} ${compareWord(rule.compare)} ${rule.equals || "…"}${extra} · ${when} · ${bits.join(" · ") || "no action"}`;
 }
 
 export function TriggersSection(props: {
   draft: RoomConfig;
+  snap: RoomSnapshot;
   update: (mut: (c: RoomConfig) => void) => void;
   openLogic: Record<string, boolean>;
   setOpenLogic: (fn: (cur: Record<string, boolean>) => Record<string, boolean>) => void;
   tagFilter: Record<TagBucket, string>;
   tagBarFor: (bucket: TagBucket) => ComponentProps<typeof TagBar>;
 }) {
-  const { draft, update, openLogic, setOpenLogic, tagFilter, tagBarFor } = props;
+  const { draft, snap, update, openLogic, setOpenLogic, tagFilter, tagBarFor } = props;
   const vars = draft.variables ?? [];
+  const writeVars = vars.filter((v) => v.id !== SYSTEM_TIME_VAR_ID);
+  const commandsFor = (deviceId: string) => {
+    const device = draft.devices.find((d) => d.id === deviceId);
+    if (!device) return [];
+    const all = snap.drivers[device.driver]?.commands ?? [];
+    if (!device.enabledFeatures.length) return all;
+    return all.filter((c) => device.enabledFeatures.includes(c.id));
+  };
   const macros = (draft.macros ?? []).filter((m) => m.id !== NONE_MACRO_ID);
   return (
     <section className="grid gap-3">
@@ -83,7 +104,7 @@ export function TriggersSection(props: {
           >
             <button type="button" className="flex w-full items-center justify-between gap-3 text-left" onClick={() => setOpenLogic((cur) => ({ ...cur, [rule.id]: !open }))}>
               <span className="font-medium">{rule.label || "Trigger"}</span>
-              <span className="min-w-0 truncate text-xs text-muted">{rule.enabled ? summary(rule, draft) : "Off"}</span>
+              <span className="min-w-0 truncate text-xs text-muted">{rule.enabled ? summary(rule, draft, snap) : "Off"}</span>
             </button>
             {open ? (
               <div className="mt-3 grid gap-3">
@@ -170,10 +191,71 @@ export function TriggersSection(props: {
                       {macros.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                     </select>
                   </label>
+                  <label className="grid gap-1 text-sm text-muted">Set variable
+                    <select className={fieldClass()} value={rule.setVar || ""} onChange={(e) => update((c) => { c.triggers![ti]!.setVar = e.target.value; })}>
+                      <option value="">None</option>
+                      {writeVars.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+                    </select>
+                  </label>
+                  {rule.setVar ? (
+                    <label className="grid gap-1 text-sm text-muted">To
+                      <input
+                        className={fieldClass()}
+                        list={`trg-set-${rule.id}`}
+                        placeholder="1  or  {occupancy}"
+                        value={rule.setValue ?? ""}
+                        onChange={(e) => update((c) => { c.triggers![ti]!.setValue = e.target.value; })}
+                      />
+                      <datalist id={`trg-set-${rule.id}`}>
+                        {vars.map((v) => <option key={v.id} value={`{${v.id}}`}>{v.label}</option>)}
+                      </datalist>
+                    </label>
+                  ) : <span />}
+                  <label className="grid gap-1 text-sm text-muted">Device
+                    <select className={fieldClass()} value={rule.device || ""} onChange={(e) => update((c) => {
+                      const id = e.target.value;
+                      const device = c.devices.find((d) => d.id === id);
+                      const all = snap.drivers[device?.driver ?? ""]?.commands ?? [];
+                      const allowed = !device?.enabledFeatures.length ? all : all.filter((cmd) => device.enabledFeatures.includes(cmd.id));
+                      c.triggers![ti]!.device = id;
+                      c.triggers![ti]!.command = id ? (allowed[0]?.id ?? "") : "";
+                      c.triggers![ti]!.commandValue = "";
+                    })}>
+                      <option value="">None</option>
+                      {draft.devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                  </label>
+                  {rule.device ? (
+                    <label className="grid gap-1 text-sm text-muted">Function
+                      <select className={fieldClass()} value={rule.command || ""} onChange={(e) => update((c) => { c.triggers![ti]!.command = e.target.value; })}>
+                        {commandsFor(rule.device).map((cmd) => (
+                          <option key={cmd.id} value={cmd.id}>{cmd.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                  {(() => {
+                    const command = commandsFor(rule.device || "").find((cmd) => cmd.id === rule.command);
+                    if (!rule.device || (command?.kind !== "range" && command?.kind !== "enum")) return null;
+                    return (
+                      <label className="grid gap-1 text-sm text-muted sm:col-span-2">Value
+                        <input
+                          className={fieldClass()}
+                          list={`trg-cmd-${rule.id}`}
+                          placeholder="literal or {var}"
+                          value={rule.commandValue ?? ""}
+                          onChange={(e) => update((c) => { c.triggers![ti]!.commandValue = e.target.value; })}
+                        />
+                        <datalist id={`trg-cmd-${rule.id}`}>
+                          {vars.map((v) => <option key={v.id} value={`{${v.id}}`}>{v.label}</option>)}
+                        </datalist>
+                      </label>
+                    );
+                  })()}
                 </div>
 
                 {stale ? (
-                  <p className="text-xs text-muted">This saved trigger still has an old false-path or hold/delay. Those still run. This pane only edits the If rows and the true macro.</p>
+                  <p className="text-xs text-muted">This saved trigger still has an old false-path or hold/delay. Those still run. This pane edits the If rows and the true actions only.</p>
                 ) : null}
 
                 <label className="flex items-center gap-2 text-sm">
@@ -202,6 +284,11 @@ export function TriggersSection(props: {
           delaySec: 0,
           holdSec: 0,
           macroId: NONE_MACRO_ID,
+          setVar: "",
+          setValue: "",
+          device: "",
+          command: "",
+          commandValue: "",
           falseMacroId: "",
           tag: currentTag(tagFilter.triggers) || null,
         });

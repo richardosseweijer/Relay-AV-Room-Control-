@@ -343,7 +343,7 @@ export function LogicTab(props: {
               </section>
             ) : null}
             {logicTab === "triggers" ? (
-              <TriggersSection draft={draft} update={update} openLogic={openLogic} setOpenLogic={setOpenLogic} tagFilter={tagFilter} tagBarFor={tagBarFor} />
+              <TriggersSection draft={draft} snap={snap} update={update} openLogic={openLogic} setOpenLogic={setOpenLogic} tagFilter={tagFilter} tagBarFor={tagBarFor} />
             ) : null}
           </div>
   );

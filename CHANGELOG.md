@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.74
+
+- Tag `v0.9.74`. **Trigger actions:** a true edge can write a variable and run one device command next to Run macro. Order is write, then command, then a real macro; the first failure stops the rest. A blank macro id still runs when there is a write or a command. The variable write is saved before a linked device push; a failed push does not run the command or the macro. None-only rules still take the old empty-macro path. `{time}` cannot be written. A remote peer command still only accepts `macro.run`.
+
 ## 0.9.73
 
 - Tag `v0.9.73`. **Telegram reply-to-last monitor:** after successful `message.send`, Relay remembers `message_id` (+ chat) in process runtime ([`telegram.ts`](src/lib/control/telegram.ts)). Feedback `message.lastReply` (string) and `message.replied` (toggle `1`/`0`) short-poll `getUpdates` with offset tracking — only updates in the device `chat_id` that **reply** to that last send. Other chats / non-replies ignored. No webhook; reply text never executed as shell/macros (not a general command channel). Fail-closed if token/chat_id missing. Driver notes + Monitors tab wiring. Tests: [`scripts/telegram.test.mjs`](scripts/telegram.test.mjs).

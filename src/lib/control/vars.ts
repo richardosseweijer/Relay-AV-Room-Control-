@@ -175,7 +175,8 @@ export function deviceInUse(config: RoomConfig, deviceId: string) {
   const widgets = config.pages.flatMap((p) => p.widgets.filter((w) => w.bind.device === deviceId).map((w) => w.label));
   const macros = config.macros.filter((m) => m.steps.some((s) => s.device === deviceId)).map((m) => m.label);
   const monitors = (config.monitors ?? []).filter((m) => m.device === deviceId).map((m) => m.label);
-  return [...widgets, ...macros, ...monitors];
+  const triggers = (config.triggers ?? []).filter((rule) => rule.device === deviceId).map((rule) => rule.label);
+  return [...widgets, ...macros, ...monitors, ...triggers];
 }
 
 export function driverInUse(config: RoomConfig, filename: string) {
@@ -195,6 +196,17 @@ export function variableInUse(config: RoomConfig, id: string) {
   }
   for (const mon of config.monitors ?? []) {
     if (mon.writeVar === id) hits.push(mon.label);
+  }
+  for (const rule of config.triggers ?? []) {
+    const used =
+      rule.variable === id ||
+      rule.setVar === id ||
+      (rule.whenTrue ?? []).some((row) => row.variable === id) ||
+      (rule.whenFalse ?? []).some((row) => row.variable === id) ||
+      String(rule.setValue ?? "").includes(token) ||
+      String(rule.commandValue ?? "").includes(token) ||
+      String(rule.equals ?? "").includes(token);
+    if (used) hits.push(rule.label);
   }
   return hits;
 }
