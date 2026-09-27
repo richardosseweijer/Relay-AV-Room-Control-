@@ -3,9 +3,11 @@ import type { RoomConfig, RoomSnapshot, TriggerClause, TriggerCompare, VariableT
 import { NONE_MACRO_ID } from "@/lib/control/types";
 import { SYSTEM_TIME_VAR_ID } from "@/lib/control/vars";
 import { templateNumericOnly } from "@/lib/control/var-token";
+import { valueSuggestions } from "@/lib/control/suggest";
 import { Button } from "@/components/ui/button";
 import { fieldClass } from "./config-ui";
 import { InputNum } from "./config-fields";
+import { SuggestField } from "./suggest-field";
 import { VarTokenField } from "./var-token-field";
 import { TagBar, currentTag, fileItem, tagNames, tagOf, tagVisible, type TagBucket } from "./tag-bar";
 
@@ -127,13 +129,16 @@ export function TriggersSection(props: {
                     <div key={ri} className="grid gap-2 rounded-md bg-bg p-2 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
                       <span className="self-center text-sm text-muted">{ri === 0 ? "If" : "and"}</span>
                       <label className="grid gap-1 text-xs text-muted">Variable
-                        <select className={fieldClass()} value={row.variable} onChange={(e) => update((c) => {
-                          const next = clausesOf(c.triggers![ti]!);
-                          next[ri] = { ...next[ri]!, variable: e.target.value };
-                          writeClauses(c.triggers![ti]!, next);
-                        })}>
-                          {vars.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-                        </select>
+                        <SuggestField
+                          className={fieldClass()}
+                          value={row.variable}
+                          options={vars.map((v) => ({ id: v.id, label: v.label }))}
+                          onChange={(id) => update((c) => {
+                            const next = clausesOf(c.triggers![ti]!);
+                            next[ri] = { ...next[ri]!, variable: id };
+                            writeClauses(c.triggers![ti]!, next);
+                          })}
+                        />
                       </label>
                       <label className="grid gap-1 text-xs text-muted">Compare
                         <select className={fieldClass()} value={row.compare} onChange={(e) => update((c) => {
@@ -148,6 +153,11 @@ export function TriggersSection(props: {
                         <VarTokenField
                           className={fieldClass()}
                           numericOnly={templateNumericOnly({ compare: row.compare })}
+                          suggestions={valueSuggestions({
+                            varId: row.variable,
+                            varKind: vars.find((v) => v.id === row.variable)?.kind,
+                            varValues: vars.find((v) => v.id === row.variable)?.values,
+                          })}
                           placeholder="on  or  {occupancy}"
                           value={row.equals}
                           variables={vars}
@@ -186,22 +196,31 @@ export function TriggersSection(props: {
                     </label>
                   ) : <span />}
                   <label className="grid gap-1 text-sm text-muted sm:col-span-2">Run macro
-                    <select className={fieldClass()} value={rule.macroId} onChange={(e) => update((c) => { c.triggers![ti]!.macroId = e.target.value; })}>
-                      <option value={NONE_MACRO_ID}>None</option>
-                      {macros.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-                    </select>
+                    <SuggestField
+                      className={fieldClass()}
+                      value={rule.macroId}
+                      options={[{ id: NONE_MACRO_ID, label: "None" }, ...macros.map((m) => ({ id: m.id, label: m.label }))]}
+                      onChange={(id) => update((c) => { c.triggers![ti]!.macroId = id; })}
+                    />
                   </label>
                   <label className="grid gap-1 text-sm text-muted">Set variable
-                    <select className={fieldClass()} value={rule.setVar || ""} onChange={(e) => update((c) => { c.triggers![ti]!.setVar = e.target.value; })}>
-                      <option value="">None</option>
-                      {writeVars.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-                    </select>
+                    <SuggestField
+                      className={fieldClass()}
+                      value={rule.setVar || ""}
+                      options={[{ id: "", label: "None" }, ...writeVars.map((v) => ({ id: v.id, label: v.label }))]}
+                      onChange={(id) => update((c) => { c.triggers![ti]!.setVar = id; })}
+                    />
                   </label>
                   {rule.setVar ? (
                     <label className="grid gap-1 text-sm text-muted">To
                       <VarTokenField
                         className={fieldClass()}
                         numericOnly={templateNumericOnly({ varKind: vars.find((v) => v.id === rule.setVar)?.kind })}
+                        suggestions={valueSuggestions({
+                          varId: rule.setVar,
+                          varKind: vars.find((v) => v.id === rule.setVar)?.kind,
+                          varValues: vars.find((v) => v.id === rule.setVar)?.values,
+                        })}
                         placeholder="1  or  {occupancy}"
                         value={rule.setValue ?? ""}
                         variables={vars}
@@ -210,26 +229,28 @@ export function TriggersSection(props: {
                     </label>
                   ) : <span />}
                   <label className="grid gap-1 text-sm text-muted">Device
-                    <select className={fieldClass()} value={rule.device || ""} onChange={(e) => update((c) => {
-                      const id = e.target.value;
-                      const device = c.devices.find((d) => d.id === id);
-                      const all = snap.drivers[device?.driver ?? ""]?.commands ?? [];
-                      const allowed = !device?.enabledFeatures.length ? all : all.filter((cmd) => device.enabledFeatures.includes(cmd.id));
-                      c.triggers![ti]!.device = id;
-                      c.triggers![ti]!.command = id ? (allowed[0]?.id ?? "") : "";
-                      c.triggers![ti]!.commandValue = "";
-                    })}>
-                      <option value="">None</option>
-                      {draft.devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                    </select>
+                    <SuggestField
+                      className={fieldClass()}
+                      value={rule.device || ""}
+                      options={[{ id: "", label: "None" }, ...draft.devices.map((d) => ({ id: d.id, label: d.name }))]}
+                      onChange={(id) => update((c) => {
+                        const device = c.devices.find((d) => d.id === id);
+                        const all = snap.drivers[device?.driver ?? ""]?.commands ?? [];
+                        const allowed = !device?.enabledFeatures.length ? all : all.filter((cmd) => device.enabledFeatures.includes(cmd.id));
+                        c.triggers![ti]!.device = id;
+                        c.triggers![ti]!.command = id ? (allowed[0]?.id ?? "") : "";
+                        c.triggers![ti]!.commandValue = "";
+                      })}
+                    />
                   </label>
                   {rule.device ? (
                     <label className="grid gap-1 text-sm text-muted">Function
-                      <select className={fieldClass()} value={rule.command || ""} onChange={(e) => update((c) => { c.triggers![ti]!.command = e.target.value; })}>
-                        {commandsFor(rule.device).map((cmd) => (
-                          <option key={cmd.id} value={cmd.id}>{cmd.label}</option>
-                        ))}
-                      </select>
+                      <SuggestField
+                        className={fieldClass()}
+                        value={rule.command || ""}
+                        options={commandsFor(rule.device).map((cmd) => ({ id: cmd.id, label: cmd.label }))}
+                        onChange={(id) => update((c) => { c.triggers![ti]!.command = id; })}
+                      />
                     </label>
                   ) : null}
                   {(() => {
@@ -240,6 +261,13 @@ export function TriggersSection(props: {
                         <VarTokenField
                           className={fieldClass()}
                           numericOnly={templateNumericOnly({ commandKind: command?.kind })}
+                          suggestions={valueSuggestions({
+                            commandId: rule.command,
+                            commandKind: command?.kind,
+                            commandValues: command?.values,
+                            macros: macros.map((m) => ({ id: m.id, label: m.label })),
+                            pages: draft.pages.map((p) => ({ id: p.id, label: p.label })),
+                          })}
                           placeholder="literal or {var}"
                           value={rule.commandValue ?? ""}
                           variables={vars}

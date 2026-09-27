@@ -1,11 +1,13 @@
 import { type ComponentProps } from "react";
 import { monitorVarId, variableInUse, withMonitorVars } from "@/lib/control/vars";
 import { gatewaySlot, isGatewayKind } from "@/lib/control/gateway";
+import { valueSuggestions } from "@/lib/control/suggest";
 import type { RoomConfig, RoomSnapshot } from "@/lib/control/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fieldClass } from "./config-ui";
 import { InputNum } from "./config-fields";
+import { SuggestField } from "./suggest-field";
 import { TagBar, currentTag, fileItem, tagNames, tagOf, tagVisible, type TagBucket } from "./tag-bar";
 import { TriggersSection } from "./trigger-pane";
 
@@ -22,6 +24,14 @@ export function LogicTab(props: {
   setLogicTab: (id: "variables" | "monitor" | "schedule" | "triggers") => void;
 }) {
   const { draft, snap, update, flash, openLogic, setOpenLogic, tagFilter, tagBarFor, logicTab, setLogicTab } = props;
+  const deviceOptions = draft.devices.map((d) => ({ id: d.id, label: d.name }));
+  const gatewayOptions = (draft.interfaces ?? []).filter((item) => isGatewayKind(item.kind)).map((item) => ({
+    id: `iface:${item.id}`,
+    label: `${item.label} / ${gatewaySlot(item.vendor, item.slot)?.label || item.slot || "slot"}`,
+  }));
+  const variableOptions = draft.variables.map((v) => ({ id: v.id, label: v.label }));
+  const writeVarOptions = draft.variables.filter((v) => !v.id.startsWith("MON_")).map((v) => ({ id: v.id, label: v.label }));
+  const macroOptions = draft.macros.map((m) => ({ id: m.id, label: m.label }));
   return (
     <div>
             <div className="mb-4 flex flex-wrap gap-1">
@@ -92,19 +102,24 @@ export function LogicTab(props: {
                       </>
                     ) : null}
                     <label className="grid gap-1 text-sm text-muted">Push to device
-                      <select className={fieldClass()} value={variable.pushDevice ?? ""} onChange={(e) => update((c) => { c.variables[vi]!.pushDevice = e.target.value || null; })}>
-                        <option value="">Don’t push</option>
-                        {draft.devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                      </select>
+                      <SuggestField
+                        className={fieldClass()}
+                        value={variable.pushDevice ?? ""}
+                        options={[{ id: "", label: "Don’t push" }, ...deviceOptions]}
+                        onChange={(id) => update((c) => { c.variables[vi]!.pushDevice = id || null; })}
+                      />
                     </label>
                     {variable.pushDevice ? (
                       <label className="grid gap-1 text-sm text-muted">Push command
-                        <select className={fieldClass()} value={variable.pushCommand ?? ""} onChange={(e) => update((c) => { c.variables[vi]!.pushCommand = e.target.value || null; })}>
-                          <option value="">Select</option>
-                          {(snap.drivers[draft.devices.find((d) => d.id === variable.pushDevice)?.driver ?? ""]?.commands ?? []).map((c) => (
-                            <option key={c.id} value={c.id}>{c.label}</option>
-                          ))}
-                        </select>
+                        <SuggestField
+                          className={fieldClass()}
+                          value={variable.pushCommand ?? ""}
+                          options={[
+                            { id: "", label: "Select" },
+                            ...(snap.drivers[draft.devices.find((d) => d.id === variable.pushDevice)?.driver ?? ""]?.commands ?? []).map((c) => ({ id: c.id, label: c.label })),
+                          ]}
+                          onChange={(id) => update((c) => { c.variables[vi]!.pushCommand = id || null; })}
+                        />
                       </label>
                     ) : null}
                     {variable.kind === "enum" && variable.id === "occupancy" ? (
@@ -142,6 +157,7 @@ export function LogicTab(props: {
                   const pollLine = st
                     ? `${new Date(st.at).toLocaleTimeString()} · ${st.ok ? "ok" : "error"} · ${st.value || st.message || "—"}`
                     : "No poll yet";
+                  const errorTarget = draft.variables.find((v) => v.id === (rule.errorVar || rule.writeVar));
                   return (
                   <article
                     key={rule.id}
@@ -185,23 +201,23 @@ export function LogicTab(props: {
                       Enabled
                     </label>
                     <label className="grid gap-1 text-sm text-muted">Device
-                      <select className={fieldClass()} value={rule.interfaceId ? `iface:${rule.interfaceId}` : rule.device} onChange={(e) => update((c) => {
-                        if (e.target.value.startsWith("iface:")) {
-                          c.monitors[ri]!.interfaceId = e.target.value.slice(6);
-                          c.monitors[ri]!.device = "";
-                          c.monitors[ri]!.feedback = "raw";
-                        } else {
-                          c.monitors[ri]!.interfaceId = null;
-                          c.monitors[ri]!.device = e.target.value;
-                          const nextDriver = snap.drivers[c.devices.find((d) => d.id === e.target.value)?.driver ?? ""];
-                          c.monitors[ri]!.feedback = nextDriver?.feedback?.[0]?.id ?? "";
-                        }
-                      })}>
-                        {draft.devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                        {(draft.interfaces ?? []).filter((item) => isGatewayKind(item.kind)).map((item) => (
-                          <option key={item.id} value={`iface:${item.id}`}>{item.label} / {gatewaySlot(item.vendor, item.slot)?.label || item.slot || "slot"}</option>
-                        ))}
-                      </select>
+                      <SuggestField
+                        className={fieldClass()}
+                        value={rule.interfaceId ? `iface:${rule.interfaceId}` : rule.device}
+                        options={[...deviceOptions, ...gatewayOptions]}
+                        onChange={(id) => update((c) => {
+                          if (id.startsWith("iface:")) {
+                            c.monitors[ri]!.interfaceId = id.slice(6);
+                            c.monitors[ri]!.device = "";
+                            c.monitors[ri]!.feedback = "raw";
+                          } else {
+                            c.monitors[ri]!.interfaceId = null;
+                            c.monitors[ri]!.device = id;
+                            const nextDriver = snap.drivers[c.devices.find((d) => d.id === id)?.driver ?? ""];
+                            c.monitors[ri]!.feedback = nextDriver?.feedback?.[0]?.id ?? "";
+                          }
+                        })}
+                      />
                     </label>
                     {rule.interfaceId ? (
                       <>
@@ -214,18 +230,23 @@ export function LogicTab(props: {
                       </>
                     ) : (
                     <label className="grid gap-1 text-sm text-muted">Feedback
-                      <select className={fieldClass()} value={driver?.feedback.some((fb) => fb.id === rule.feedback) ? rule.feedback : (driver?.feedback[0]?.id ?? "")} onChange={(e) => update((c) => { c.monitors[ri]!.feedback = e.target.value; })}>
-                        {(driver?.feedback ?? []).map((fb) => <option key={fb.id} value={fb.id}>{fb.label}</option>)}
-                      </select>
+                      <SuggestField
+                        className={fieldClass()}
+                        value={driver?.feedback.some((fb) => fb.id === rule.feedback) ? rule.feedback : (driver?.feedback[0]?.id ?? "")}
+                        options={(driver?.feedback ?? []).map((fb) => ({ id: fb.id, label: fb.label }))}
+                        onChange={(id) => update((c) => { c.monitors[ri]!.feedback = id; })}
+                      />
                     </label>
                     )}
                     <label className="grid gap-1 text-sm text-muted">Poll ms<InputNum min={500} value={rule.pollMs} onNumber={(n) => update((c) => { if (n == null) return; c.monitors[ri]!.pollMs = Math.max(500, n); })} /></label>
                     <p className="text-sm text-muted sm:col-span-2">Auto variable <span className="font-mono text-fg">{`{${monitorVarId(rule)}}`}</span> · {String(snap.vars[monitorVarId(rule)] ?? "")}</p>
                     <label className="grid gap-1 text-sm text-muted">Also write to
-                      <select className={fieldClass()} value={rule.writeVar ?? ""} onChange={(e) => update((c) => { c.monitors[ri]!.writeVar = e.target.value || null; })}>
-                        <option value="">Only auto</option>
-                        {draft.variables.filter((v) => !v.id.startsWith("MON_")).map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-                      </select>
+                      <SuggestField
+                        className={fieldClass()}
+                        value={rule.writeVar ?? ""}
+                        options={[{ id: "", label: "Only auto" }, ...writeVarOptions]}
+                        onChange={(id) => update((c) => { c.monitors[ri]!.writeVar = id || null; })}
+                      />
                     </label>
                     <label className="flex items-center gap-2 text-sm text-muted sm:col-span-2">
                       <input
@@ -241,13 +262,22 @@ export function LogicTab(props: {
                     {rule.errorValue ? (
                       <>
                         <label className="grid gap-1 text-sm text-muted">On error write
-                          <select className={fieldClass()} value={rule.errorVar ?? ""} onChange={(e) => update((c) => { c.monitors[ri]!.errorVar = e.target.value || null; })}>
-                            <option value="">Same variable</option>
-                            {draft.variables.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-                          </select>
+                          <SuggestField
+                            className={fieldClass()}
+                            value={rule.errorVar ?? ""}
+                            options={[{ id: "", label: "Same variable" }, ...variableOptions]}
+                            onChange={(id) => update((c) => { c.monitors[ri]!.errorVar = id || null; })}
+                          />
                         </label>
                         <label className="grid gap-1 text-sm text-muted">Error value
-                          <input className={fieldClass()} placeholder="off" value={rule.errorValue ?? ""} onChange={(e) => update((c) => { c.monitors[ri]!.errorValue = e.target.value; })} />
+                          <SuggestField
+                            mode="type"
+                            className={fieldClass()}
+                            placeholder="off"
+                            value={rule.errorValue ?? ""}
+                            options={valueSuggestions({ varId: errorTarget?.id, varKind: errorTarget?.kind, varValues: errorTarget?.values })}
+                            onChange={(value) => update((c) => { c.monitors[ri]!.errorValue = value; })}
+                          />
                         </label>
                       </>
                     ) : null}
@@ -307,9 +337,12 @@ export function LogicTab(props: {
                     </label>
                     <label className="grid gap-1 text-sm text-muted">Time<input className={fieldClass()} type="time" value={job.time} onChange={(e) => update((c) => { c.schedules[ji]!.time = e.target.value; })} /></label>
                     <label className="grid gap-1 text-sm text-muted">Macro
-                    <select className={fieldClass()} value={job.macroId} onChange={(e) => update((c) => { c.schedules[ji]!.macroId = e.target.value; })}>
-                      {draft.macros.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-                    </select>
+                    <SuggestField
+                      className={fieldClass()}
+                      value={job.macroId}
+                      options={macroOptions}
+                      onChange={(id) => update((c) => { c.schedules[ji]!.macroId = id; })}
+                    />
                     </label>
                     <label className="flex items-center gap-2 text-sm text-muted">
                       <input type="checkbox" checked={job.enabled} onChange={(e) => update((c) => { c.schedules[ji]!.enabled = e.target.checked; })} />

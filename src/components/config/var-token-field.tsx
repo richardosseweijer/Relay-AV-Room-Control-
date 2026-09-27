@@ -1,30 +1,36 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { RoomVariable } from "@/lib/control/types";
+import { suggestMatches, type SuggestOption } from "@/lib/control/suggest";
 import { applyVarToken, openVarToken, varTokenChoices } from "@/lib/control/var-token";
-import { cn } from "@/lib/utils";
+import { SuggestMenu, useSuggestBox } from "./suggest-field";
 
-/** Text field that lists room variables after `{`. Inserts `{id}` at the caret. */
+/** Text field that lists room variables after `{`. Optional whole-value hints when not inside `{`. */
 export function VarTokenField(props: {
   value: string;
   onChange: (value: string) => void;
   variables: RoomVariable[];
+  suggestions?: SuggestOption[];
   numericOnly?: boolean;
   className?: string;
   placeholder?: string;
   disabled?: boolean;
 }) {
-  const { value, onChange, variables, numericOnly = false, className, placeholder, disabled } = props;
+  const { value, onChange, variables, suggestions = [], numericOnly = false, className, placeholder, disabled } = props;
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingCaret = useRef<number | null>(null);
   const [caret, setCaret] = useState(0);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
-  const [box, setBox] = useState<{ top: number; left: number; width: number } | null>(null);
   const listId = useId();
 
   const token = open && !disabled ? openVarToken(value, caret) : null;
-  const choices = token ? varTokenChoices(variables, token.query, numericOnly) : [];
-  const show = Boolean(token && choices.length > 0 && box);
+  const tokenRows: SuggestOption[] = token
+    ? varTokenChoices(variables, token.query, numericOnly).map((variable) => ({ id: variable.id, label: variable.label, hint: `{${variable.id}}` }))
+    : [];
+  const hintRows = !token && suggestions.length ? suggestMatches(suggestions, value) : [];
+  const menu = token ? tokenRows : hintRows;
+  const box = useSuggestBox(open && menu.length > 0, menu.length, inputRef);
+  const show = Boolean(open && !disabled && menu.length > 0 && box);
 
   useEffect(() => {
     const el = inputRef.current;
@@ -37,27 +43,7 @@ export function VarTokenField(props: {
 
   useEffect(() => {
     setActive(0);
-  }, [token?.query, numericOnly]);
-
-  useEffect(() => {
-    if (!token || choices.length === 0) return;
-    const place = () => {
-      const el = inputRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const menu = Math.min(224, Math.max(choices.length, 1) * 36);
-      const below = rect.bottom + 4;
-      const top = below + menu > window.innerHeight && rect.top > menu ? rect.top - menu - 4 : below;
-      setBox({ top, left: rect.left, width: rect.width });
-    };
-    place();
-    document.addEventListener("scroll", place, true);
-    window.addEventListener("resize", place);
-    return () => {
-      document.removeEventListener("scroll", place, true);
-      window.removeEventListener("resize", place);
-    };
-  }, [token?.start, token?.query, choices.length]);
+  }, [token?.query, value, numericOnly]);
 
   function rememberCaret(el: HTMLInputElement) {
     setCaret(el.selectionStart ?? el.value.length);
@@ -65,12 +51,18 @@ export function VarTokenField(props: {
   }
 
   function pick(id: string) {
-    if (!token) return;
-    const next = applyVarToken(value, token.start, caret, id);
-    pendingCaret.current = next.caret;
-    setCaret(next.caret);
+    if (token) {
+      const next = applyVarToken(value, token.start, caret, id);
+      pendingCaret.current = next.caret;
+      setCaret(next.caret);
+      setOpen(false);
+      onChange(next.value);
+      return;
+    }
+    pendingCaret.current = id.length;
+    setCaret(id.length);
     setOpen(false);
-    onChange(next.value);
+    onChange(id);
   }
 
   return (
@@ -101,43 +93,21 @@ export function VarTokenField(props: {
           if (!show) return;
           if (e.key === "ArrowDown") {
             e.preventDefault();
-            setActive((index) => (index + 1) % choices.length);
+            setActive((index) => (index + 1) % menu.length);
           } else if (e.key === "ArrowUp") {
             e.preventDefault();
-            setActive((index) => (index - 1 + choices.length) % choices.length);
-          } else if (e.key === "Enter" && choices[active]) {
+            setActive((index) => (index - 1 + menu.length) % menu.length);
+          } else if (e.key === "Enter" && menu[active]) {
             e.preventDefault();
-            pick(choices[active]!.id);
+            pick(menu[active]!.id);
           } else if (e.key === "Escape") {
             e.preventDefault();
             setOpen(false);
           }
         }}
       />
-      {show ? (
-        <ul
-          id={listId}
-          role="listbox"
-          className="fixed z-50 max-h-56 overflow-auto rounded-md border border-border bg-surface py-1 shadow-lg"
-          style={{ top: box!.top, left: box!.left, width: Math.max(box!.width, 220) }}
-        >
-          {choices.map((variable, index) => (
-            <li key={variable.id} role="option" aria-selected={index === active}>
-              <button
-                type="button"
-                className={cn("flex w-full items-baseline justify-between gap-3 px-3 py-1.5 text-left text-sm", index === active ? "bg-raised text-fg" : "text-fg")}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  pick(variable.id);
-                }}
-                onMouseEnter={() => setActive(index)}
-              >
-                <span className="truncate">{variable.label}</span>
-                <span className="shrink-0 font-mono text-xs text-muted">{`{${variable.id}}`}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+      {show && box ? (
+        <SuggestMenu listId={listId} box={box} options={menu} active={active} onActive={setActive} onPick={pick} />
       ) : null}
     </span>
   );

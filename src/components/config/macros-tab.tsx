@@ -5,13 +5,14 @@ import { GATEWAY_PROFILES, gatewaySlot, isGatewayKind } from "@/lib/control/gate
 import type { RoomConfig, RoomSnapshot } from "@/lib/control/types";
 import { NONE_MACRO_ID } from "@/lib/control/types";
 import { templateNumericOnly } from "@/lib/control/var-token";
+import { valueSuggestions } from "@/lib/control/suggest";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { fieldClass } from "./config-ui";
 import { InputNum } from "./config-fields";
 import { InventoryPicker } from "./inventory-board";
 import { TagBar, currentTag, fileItem, tagNames, tagOf, tagVisible, type TagBucket } from "./tag-bar";
 import { VarTokenField } from "./var-token-field";
+import { SuggestField } from "./suggest-field";
 
 function deviceCommands(snap: RoomSnapshot, config: RoomConfig, deviceId?: string) {
   const device = config.devices.find((d) => d.id === deviceId);
@@ -114,41 +115,72 @@ export function MacrosTab(props: {
                             });
                           }}
                         >
-                          <select className={cn(fieldClass(), "sm:col-span-3")} value={step.macroId ? "__macro" : step.setVar ? "__var" : step.interfaceId ? `iface:${step.interfaceId}` : (step.device ?? "")} onChange={(e) => update((c) => {
-                            const s = c.macros[mi]!.steps[si]!;
-                            if (e.target.value === "__var") { s.setVar = draft.variables[0]?.id ?? ""; s.device = undefined; s.macroId = null; s.interfaceId = null; }
-                            else if (e.target.value === "__macro") { s.macroId = draft.macros.find((m) => m.id !== macro.id)?.id ?? ""; s.device = undefined; s.setVar = null; s.command = undefined; s.interfaceId = null; }
-                            else if (e.target.value.startsWith("iface:")) { s.interfaceId = e.target.value.slice(6); s.device = undefined; s.setVar = null; s.macroId = null; s.command = "raw"; }
-                            else { s.setVar = null; s.macroId = null; s.interfaceId = null; s.device = e.target.value; s.command = deviceCommands(snap, draft, e.target.value)[0]?.id; }
-                          })}>
-                            {draft.devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                            {(draft.interfaces ?? []).filter((item) => isGatewayKind(item.kind)).map((item) => (
-                              <option key={item.id} value={`iface:${item.id}`}>{item.label} / {gatewaySlot(item.vendor, item.slot)?.label || item.slot || "slot"} (raw)</option>
-                            ))}
-                            <option value="__macro">Run macro</option>
-                            <option value="__var">Set variable</option>
-                          </select>
+                          <SuggestField
+                            rootClassName="sm:col-span-3"
+                            className={fieldClass()}
+                            value={step.macroId ? "__macro" : step.setVar ? "__var" : step.interfaceId ? `iface:${step.interfaceId}` : (step.device ?? "")}
+                            options={[
+                              ...draft.devices.map((d) => ({ id: d.id, label: d.name })),
+                              ...(draft.interfaces ?? []).filter((item) => isGatewayKind(item.kind)).map((item) => ({
+                                id: `iface:${item.id}`,
+                                label: `${item.label} / ${gatewaySlot(item.vendor, item.slot)?.label || item.slot || "slot"} (raw)`,
+                              })),
+                              { id: "__macro", label: "Run macro" },
+                              { id: "__var", label: "Set variable" },
+                            ]}
+                            onChange={(id) => update((c) => {
+                              const s = c.macros[mi]!.steps[si]!;
+                              if (id === "__var") { s.setVar = draft.variables[0]?.id ?? ""; s.device = undefined; s.macroId = null; s.interfaceId = null; }
+                              else if (id === "__macro") { s.macroId = draft.macros.find((m) => m.id !== macro.id)?.id ?? ""; s.device = undefined; s.setVar = null; s.command = undefined; s.interfaceId = null; }
+                              else if (id.startsWith("iface:")) { s.interfaceId = id.slice(6); s.device = undefined; s.setVar = null; s.macroId = null; s.command = "raw"; }
+                              else { s.setVar = null; s.macroId = null; s.interfaceId = null; s.device = id; s.command = deviceCommands(snap, draft, id)[0]?.id; }
+                            })}
+                          />
                           {step.macroId ? (
-                            <select className={cn(fieldClass(), "sm:col-span-3")} value={step.macroId} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.macroId = e.target.value; })}>
-                              {draft.macros.filter((m) => m.id !== macro.id && m.id !== NONE_MACRO_ID).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-                            </select>
+                            <SuggestField
+                              rootClassName="sm:col-span-3"
+                              className={fieldClass()}
+                              value={step.macroId}
+                              options={draft.macros.filter((m) => m.id !== macro.id && m.id !== NONE_MACRO_ID).map((m) => ({ id: m.id, label: m.label }))}
+                              onChange={(id) => update((c) => { c.macros[mi]!.steps[si]!.macroId = id; })}
+                            />
                           ) : step.setVar ? (
-                            <select className={cn(fieldClass(), "sm:col-span-3")} value={step.setVar} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.setVar = e.target.value; c.macros[mi]!.steps[si]!.command = undefined; })}>
-                              {draft.variables.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-                            </select>
+                            <SuggestField
+                              rootClassName="sm:col-span-3"
+                              className={fieldClass()}
+                              value={step.setVar}
+                              options={draft.variables.map((v) => ({ id: v.id, label: v.label }))}
+                              onChange={(id) => update((c) => { c.macros[mi]!.steps[si]!.setVar = id; c.macros[mi]!.steps[si]!.command = undefined; })}
+                            />
                           ) : step.interfaceId ? (
                             <span className="self-center text-xs text-muted sm:col-span-3">Raw to mapped port</span>
                           ) : (
-                          <select className={cn(fieldClass(), "sm:col-span-3")} value={step.command ?? ""} onChange={(e) => update((c) => { c.macros[mi]!.steps[si]!.command = e.target.value; })}>
-                            {deviceCommands(snap, draft, step.device).map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-                          </select>
+                          <SuggestField
+                            rootClassName="sm:col-span-3"
+                            className={fieldClass()}
+                            value={step.command ?? ""}
+                            options={deviceCommands(snap, draft, step.device).map((c) => ({ id: c.id, label: c.label }))}
+                            onChange={(id) => update((c) => { c.macros[mi]!.steps[si]!.command = id; })}
+                          />
                           )}
                           {(() => {
                             const device = draft.devices.find((d) => d.id === step.device);
                             const drv = device ? snap.drivers[device.driver] : undefined;
                             const inventoryCmds = new Set((drv?.inventory?.resources ?? []).map((r) => r.useCommand).filter(Boolean));
                             const usesInventory = !!step.command && (inventoryCmds.has(step.command) || step.command.startsWith("var."));
+                            const command = deviceCommands(snap, draft, step.device).find((c) => c.id === step.command);
+                            const setVarDef = step.setVar ? draft.variables.find((v) => v.id === step.setVar) : undefined;
                             const needsValue = !!step.interfaceId || stepNeedsValue(snap, draft, step) || step.command === "ui.toast" || step.command === "ui.page" || step.command === "ui.block" || step.command === "macro.run";
+                            const suggestions = step.interfaceId ? [] : valueSuggestions({
+                              commandId: step.setVar ? undefined : step.command,
+                              commandKind: step.setVar ? undefined : command?.kind,
+                              commandValues: step.setVar ? undefined : command?.values,
+                              varId: setVarDef?.id,
+                              varKind: setVarDef?.kind,
+                              varValues: setVarDef?.values,
+                              macros: draft.macros.map((m) => ({ id: m.id, label: m.label })),
+                              pages: draft.pages.map((p) => ({ id: p.id, label: p.label })),
+                            });
                             return (
                               <>
                                 {usesInventory && device?.inventory && drv?.inventory?.resources?.length ? (
@@ -162,9 +194,10 @@ export function MacrosTab(props: {
                                       className={fieldClass()}
                                       numericOnly={templateNumericOnly({
                                         raw: Boolean(step.interfaceId),
-                                        varKind: step.setVar ? draft.variables.find((v) => v.id === step.setVar)?.kind : undefined,
-                                        commandKind: step.setVar || step.interfaceId ? undefined : deviceCommands(snap, draft, step.device).find((c) => c.id === step.command)?.kind,
+                                        varKind: setVarDef?.kind,
+                                        commandKind: step.setVar || step.interfaceId ? undefined : command?.kind,
                                       })}
+                                      suggestions={suggestions}
                                       placeholder={step.interfaceId ? "1*1]   or   power \"on\"\\r   or   hex:B06300" : "Hello room  or  tvPower=on  or  {var}"}
                                       value={String(step.value ?? "")}
                                       variables={draft.variables}

@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.76
+
+- Tag `v0.9.76`. **Suggest lists:** long config selects (device, command, macro, variable, page, monitor feedback) share one type-to-filter field ([`suggest-field.tsx`](src/components/config/suggest-field.tsx), [`suggest.ts`](src/lib/control/suggest.ts)). Free text that is really a choice (enum values, status equals, enable-when value, monitor error value, latch group) keeps typing and offers the same list. `{var}` fields still insert at the caret; a non-brace query can replace the whole value from an enum, macro, or page. Short lists (compare, color, tag, fit) stay native selects. Literal compares do not gain `{var}`.
+
 ## 0.9.75
 
 - Tag `v0.9.75`. **Variable picker:** template text fields list room variables after `{` and insert `{id}` at the caret ([`var-token-field.tsx`](src/components/config/var-token-field.tsx)). Number-only fields (slider min/max, range commands, writes into a number variable, greater/less compares) suggest number variables only — not text, enum, or `{time}`.

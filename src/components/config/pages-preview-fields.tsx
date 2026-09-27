@@ -1,6 +1,7 @@
 import type { RoomConfig, Widget } from "@/lib/control/types";
 import { NONE_MACRO_ID } from "@/lib/control/types";
 import { fieldClass } from "./config-ui";
+import { SuggestField } from "./suggest-field";
 
 /** Preview widget sidebar: stream URL, device bind, RTSP transport/delay/fit, optional tap macro. */
 export function PagesPreviewFields({
@@ -29,13 +30,15 @@ export function PagesPreviewFields({
         />
       </label>
       <label className="grid gap-1 text-sm text-muted">Device (empty URL → rtsp://IP:554/sub/av)
-        <select className={fieldClass()} value={selected.bind.device ?? ""} onChange={(e) => update((c) => {
-          const w = c.pages.find((p) => p.id === pageId)?.widgets.find((item) => item.id === selected.id);
-          if (w) w.bind.device = e.target.value;
-        })}>
-          <option value="">None</option>
-          {draft.devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>
+        <SuggestField
+          className={fieldClass()}
+          value={selected.bind.device ?? ""}
+          options={[{ id: "", label: "None" }, ...draft.devices.map((d) => ({ id: d.id, label: d.name }))]}
+          onChange={(id) => update((c) => {
+            const w = c.pages.find((p) => p.id === pageId)?.widgets.find((item) => item.id === selected.id);
+            if (w) w.bind.device = id;
+          })}
+        />
       </label>
       <label className="grid gap-1 text-sm text-muted">RTSP transport
         <select className={fieldClass()} value={selected.previewTransport ?? "auto"} onChange={(e) => update((c) => {
@@ -70,13 +73,15 @@ export function PagesPreviewFields({
         </select>
       </label>
       <label className="grid gap-1 text-sm text-muted">Tap macro (optional)
-        <select className={fieldClass()} value={selected.bind.id ?? NONE_MACRO_ID} onChange={(e) => update((c) => {
-          const w = c.pages.find((p) => p.id === pageId)?.widgets.find((item) => item.id === selected.id);
-          if (w) { w.bind.kind = "macro"; w.bind.id = e.target.value; }
-        })}>
-          <option value={NONE_MACRO_ID}>None</option>
-          {draft.macros.filter((m) => m.id !== NONE_MACRO_ID).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-        </select>
+        <SuggestField
+          className={fieldClass()}
+          value={selected.bind.id ?? NONE_MACRO_ID}
+          options={[{ id: NONE_MACRO_ID, label: "None" }, ...draft.macros.filter((m) => m.id !== NONE_MACRO_ID).map((m) => ({ id: m.id, label: m.label }))]}
+          onChange={(id) => update((c) => {
+            const w = c.pages.find((p) => p.id === pageId)?.widgets.find((item) => item.id === selected.id);
+            if (w) { w.bind.kind = "macro"; w.bind.id = id; }
+          })}
+        />
       </label>
     </div>
   );
