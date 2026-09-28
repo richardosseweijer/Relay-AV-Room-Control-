@@ -6,7 +6,7 @@ import { templateNumericOnly } from "@/lib/control/var-token";
 import { valueSuggestions } from "@/lib/control/suggest";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { fieldClass } from "./config-ui";
+import { fieldClass, duplicateLabel } from "./config-ui";
 import { InputNum } from "./config-fields";
 import { SuggestField } from "./suggest-field";
 import { VarTokenField } from "./var-token-field";
@@ -308,7 +308,24 @@ export function TriggersSection(props: {
                   <input type="checkbox" checked={rule.enabled} onChange={(e) => update((c) => { c.triggers![ti]!.enabled = e.target.checked; })} />
                   Enabled
                 </label>
-                <Button size="sm" variant="danger" onClick={() => update((c) => { c.triggers = (c.triggers ?? []).filter((item) => item.id !== rule.id); })}>Delete</Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => {
+                    const id = `trg-${Date.now().toString(36)}`;
+                    update((c) => {
+                      const list = c.triggers ?? [];
+                      const at = list.findIndex((item) => item.id === rule.id);
+                      const source = list[at];
+                      if (!source) return;
+                      const copy = structuredClone(source);
+                      copy.id = id;
+                      copy.label = duplicateLabel(list.map((item) => item.label), source.label);
+                      list.splice(at + 1, 0, copy);
+                      c.triggers = list;
+                    });
+                    setOpenLogic((cur) => ({ ...cur, [id]: true }));
+                  }}>Duplicate</Button>
+                  <Button size="sm" variant="danger" onClick={() => update((c) => { c.triggers = (c.triggers ?? []).filter((item) => item.id !== rule.id); })}>Delete</Button>
+                </div>
               </div>
             ) : null}
           </article>

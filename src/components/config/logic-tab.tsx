@@ -5,7 +5,7 @@ import { valueSuggestions } from "@/lib/control/suggest";
 import type { RoomConfig, RoomSnapshot } from "@/lib/control/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { fieldClass } from "./config-ui";
+import { fieldClass, duplicateLabel } from "./config-ui";
 import { InputNum } from "./config-fields";
 import { SuggestField } from "./suggest-field";
 import { TagBar, currentTag, fileItem, tagNames, tagOf, tagVisible, type TagBucket } from "./tag-bar";
@@ -282,7 +282,23 @@ export function LogicTab(props: {
                       </>
                     ) : null}
                     <p className="sm:col-span-2 text-xs text-muted">{pollLine}</p>
-                    <Button size="sm" variant="danger" onClick={() => update((c) => { c.monitors = c.monitors.filter((m) => m.id !== rule.id); c.variables = withMonitorVars(c).variables; })}>Delete</Button>
+                    <div className="flex flex-wrap gap-2 sm:col-span-2">
+                      <Button size="sm" variant="secondary" onClick={() => {
+                        const id = `mon-${Date.now().toString(36)}`;
+                        update((c) => {
+                          const at = c.monitors.findIndex((m) => m.id === rule.id);
+                          const source = c.monitors[at];
+                          if (!source) return;
+                          const copy = structuredClone(source);
+                          copy.id = id;
+                          copy.label = duplicateLabel(c.monitors.map((m) => m.label), source.label);
+                          c.monitors.splice(at + 1, 0, copy);
+                          c.variables = withMonitorVars(c).variables;
+                        });
+                        setOpenLogic((cur) => ({ ...cur, [id]: true }));
+                      }}>Duplicate</Button>
+                      <Button size="sm" variant="danger" onClick={() => update((c) => { c.monitors = c.monitors.filter((m) => m.id !== rule.id); c.variables = withMonitorVars(c).variables; })}>Delete</Button>
+                    </div>
                     </div>
                     ) : null}
                   </article>
@@ -366,7 +382,22 @@ export function LogicTab(props: {
                         );
                       })}
                     </div>
-                    <Button size="sm" variant="danger" onClick={() => update((c) => { c.schedules = c.schedules.filter((s) => s.id !== job.id); })}>Delete</Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => {
+                        const id = `sch-${Date.now().toString(36)}`;
+                        update((c) => {
+                          const at = c.schedules.findIndex((s) => s.id === job.id);
+                          const source = c.schedules[at];
+                          if (!source) return;
+                          const copy = structuredClone(source);
+                          copy.id = id;
+                          copy.label = duplicateLabel(c.schedules.map((s) => s.label), source.label);
+                          c.schedules.splice(at + 1, 0, copy);
+                        });
+                        setOpenLogic((cur) => ({ ...cur, [id]: true }));
+                      }}>Duplicate</Button>
+                      <Button size="sm" variant="danger" onClick={() => update((c) => { c.schedules = c.schedules.filter((s) => s.id !== job.id); })}>Delete</Button>
+                    </div>
                     </div>
                     ) : null}
                   </article>

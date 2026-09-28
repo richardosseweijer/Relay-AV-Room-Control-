@@ -7,7 +7,7 @@ import { NONE_MACRO_ID } from "@/lib/control/types";
 import { templateNumericOnly } from "@/lib/control/var-token";
 import { valueSuggestions } from "@/lib/control/suggest";
 import { Button } from "@/components/ui/button";
-import { fieldClass } from "./config-ui";
+import { fieldClass, duplicateLabel } from "./config-ui";
 import { InputNum } from "./config-fields";
 import { InventoryPicker } from "./inventory-board";
 import { TagBar, currentTag, fileItem, tagNames, tagOf, tagVisible, type TagBucket } from "./tag-bar";
@@ -222,8 +222,23 @@ export function MacrosTab(props: {
                           </div>
                         </div>
                       ))}
-                      <Button size="sm" variant="secondary" onClick={() => update((c) => { c.macros[mi]!.steps.push({ device: draft.devices[0]?.id, command: "power.on", delayMsAfter: 0 }); })}>Add step</Button>
-                      <Button size="sm" variant="danger" onClick={() => update((c) => { c.macros = c.macros.filter((m) => m.id !== macro.id); })}>Delete macro</Button>
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="secondary" onClick={() => update((c) => { c.macros[mi]!.steps.push({ device: draft.devices[0]?.id, command: "power.on", delayMsAfter: 0 }); })}>Add step</Button>
+                        <Button size="sm" variant="secondary" onClick={() => {
+                          const id = `macro-${Date.now().toString(36)}`;
+                          update((c) => {
+                            const at = c.macros.findIndex((m) => m.id === macro.id);
+                            const source = c.macros[at];
+                            if (!source || source.id === NONE_MACRO_ID) return;
+                            const copy = structuredClone(source);
+                            copy.id = id;
+                            copy.label = duplicateLabel(c.macros.map((m) => m.label), source.label);
+                            c.macros.splice(at + 1, 0, copy);
+                          });
+                          setOpenMacros((cur) => ({ ...cur, [id]: true }));
+                        }}>Duplicate</Button>
+                        <Button size="sm" variant="danger" onClick={() => update((c) => { c.macros = c.macros.filter((m) => m.id !== macro.id); })}>Delete macro</Button>
+                      </div>
                     </div>
                   ) : null}
                 </article>
