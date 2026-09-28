@@ -61,6 +61,7 @@ test("duplicate label stays unique", () => {
   for (const src of [macros, triggers, logic]) assert.match(src, /Duplicate/);
   assert.match(logic, /mon-\$\{Date\.now/);
   assert.match(logic, /sch-\$\{Date\.now/);
+  assert.match(logic, /variable\.id\.startsWith\("MON_"\)\) return null/);
 });
 
 test("in-room driver update reloads the library file", () => {

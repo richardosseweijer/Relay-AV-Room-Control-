@@ -43,6 +43,7 @@ export function LogicTab(props: {
               <section className="grid gap-4">
                 <TagBar {...tagBarFor("variables")} />
                 {(draft.variables ?? []).map((variable, vi) => {
+                  if (variable.id.startsWith("MON_")) return null;
                   if (!tagVisible(tagFilter.variables, variable)) return null;
                   const open = openLogic[variable.id] === true;
                   return (
