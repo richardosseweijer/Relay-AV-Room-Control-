@@ -10,6 +10,7 @@ import {
   gridStyle,
   overlaps,
   pageGrid,
+  pasteWidget,
   setBox,
   widgetBox,
 } from "@/lib/control/page-layout";
@@ -27,7 +28,7 @@ import { PagesBindFields } from "./pages-bind-fields";
 export { overlaps };
 
 export function PagesEditor({
-  draft, snap, page, selected, selectedId, setSelectedId, setPageId, update, colors, fills,
+  draft, snap, page, selected, selectedId, setSelectedId, setPageId, update, flash, colors, fills,
 }: {
   draft: RoomConfig;
   snap: RoomSnapshot;
@@ -37,10 +38,12 @@ export function PagesEditor({
   setSelectedId: (id: string | null) => void;
   setPageId: (id: string) => void;
   update: (mut: (c: RoomConfig) => void) => void;
+  flash: (title: string, body: string) => void;
   colors: WidgetColor[];
   fills: Record<WidgetColor, string>;
 }) {
   const [face, setFace] = useState<"landscape" | "portrait">("landscape");
+  const [copied, setCopied] = useState<Widget | null>(null);
   const portrait = face === "portrait";
   const grid = pageGrid(page, portrait);
   const cells: { x: number; y: number }[] = [];
@@ -48,6 +51,19 @@ export function PagesEditor({
   const placed = page.widgets.filter((w) => widgetBox(w, portrait));
   const unplaced = portrait ? page.widgets.filter((w) => !w.portrait) : [];
   const selectedBox = selected ? widgetBox(selected, portrait) : null;
+  function pasteCopied() {
+    if (!copied) return;
+    const id = `w-${Date.now().toString(36)}`;
+    const next = pasteWidget(page, copied, portrait, id);
+    if (!next) {
+      flash("No room", "No free cell fits this tile.");
+      return;
+    }
+    update((c) => {
+      c.pages.find((item) => item.id === page.id)?.widgets.push(next);
+    });
+    setSelectedId(id);
+  }
   return (
     <section className="grid gap-4 lg:grid-cols-[1fr_22rem]">
       <div>
@@ -394,9 +410,18 @@ export function PagesEditor({
             draft={draft}
             update={update}
           />
-          <Button size="sm" variant="danger" onClick={() => update((c) => { const p = c.pages.find((item) => item.id === page.id); if (p) p.widgets = p.widgets.filter((w) => w.id !== selected.id); setSelectedId(null); })}>Delete</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setCopied(structuredClone(selected))}>Copy</Button>
+            <Button size="sm" variant="secondary" disabled={!copied} onClick={pasteCopied}>Paste</Button>
+            <Button size="sm" variant="danger" onClick={() => update((c) => { const p = c.pages.find((item) => item.id === page.id); if (p) p.widgets = p.widgets.filter((w) => w.id !== selected.id); setSelectedId(null); })}>Delete</Button>
+          </div>
         </aside>
-      ) : <p className="text-sm text-muted">Select a button</p>}
+      ) : (
+        <aside className="order-first grid gap-2 rounded-xl border border-border bg-surface p-4 lg:order-none">
+          <p className="text-sm text-muted">Select a button</p>
+          <Button size="sm" variant="secondary" disabled={!copied} onClick={pasteCopied}>Paste</Button>
+        </aside>
+      )}
     </section>
   );
 }
