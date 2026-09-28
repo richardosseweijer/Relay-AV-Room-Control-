@@ -144,15 +144,38 @@ export function previewFfmpegArgs(href: string, transport?: "tcp" | "udp", local
   return args;
 }
 
+/** Same copy as previewFfmpegArgs, but Annex-B instead of keyframe-cut fMP4. */
+export function previewLiveFfmpegArgs(href: string, transport?: "tcp" | "udp", localaddr?: string) {
+  const args = ["-hide_banner", "-loglevel", "error"];
+  if (href.startsWith("rtsp:") && transport) args.push("-rtsp_transport", transport);
+  if (localaddr) args.push("-localaddr", localaddr);
+  args.push(
+    "-fflags", "nobuffer+discardcorrupt",
+    "-flags", "low_delay",
+    "-probesize", "32768",
+    "-analyzeduration", "500000",
+    "-i", href,
+    "-an",
+    "-c:v", "copy",
+    "-bsf:v", "dump_extra",
+    "-f", "h264",
+    "pipe:1",
+  );
+  return args;
+}
+
 function spawnFfmpeg(
   href: string,
   signal: AbortSignal | undefined,
   localaddr: string | undefined,
   waitMs: number,
   transport?: "tcp" | "udp",
+  codec: "mp4" | "h264" = "mp4",
 ): Promise<ReadableStream<Uint8Array>> {
   return new Promise((resolve, reject) => {
-    const args = previewFfmpegArgs(href, transport, localaddr);
+    const args = codec === "h264"
+      ? previewLiveFfmpegArgs(href, transport, localaddr)
+      : previewFfmpegArgs(href, transport, localaddr);
     let handed = false;
     const errChunks: Buffer[] = [];
     const child = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
@@ -203,6 +226,7 @@ export async function openPreviewStream(
   signal?: AbortSignal,
   localAddrs?: Array<string | undefined>,
   widget?: Widget,
+  codec: "mp4" | "h264" = "mp4",
 ): Promise<ReadableStream<Uint8Array>> {
   if (live >= MAX_LIVE) return Promise.reject(new PreviewError("busy", ["busy"]));
   live += 1;
@@ -236,7 +260,7 @@ export async function openPreviewStream(
         if (signal?.aborted) throw new PreviewError("no signal", steps);
         const label = [transport || "in", addr || "kernel"].join("@");
         try {
-          const body = await spawnFfmpeg(href, signal, caps.localaddr ? addr : undefined, waitMs, transport);
+          const body = await spawnFfmpeg(href, signal, caps.localaddr ? addr : undefined, waitMs, transport, codec);
           const reader = body.getReader();
           return new ReadableStream<Uint8Array>({
             async pull(controller) {
