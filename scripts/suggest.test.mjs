@@ -62,3 +62,9 @@ test("duplicate label stays unique", () => {
   assert.match(logic, /mon-\$\{Date\.now/);
   assert.match(logic, /sch-\$\{Date\.now/);
 });
+
+test("in-room driver update reloads the library file", () => {
+  const src = fs.readFileSync("src/components/config/drivers-tab.tsx", "utf8");
+  assert.match(src, /Updated from library/);
+  assert.match(src, /addDriverFromLibrary\(\{ data: \{ token: token \|\| "", filename: name \} \}\)/);
+});
