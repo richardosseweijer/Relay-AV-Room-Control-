@@ -62,12 +62,15 @@ export function WidgetShell({
 }) {
   const image = widget.type === "image";
   // Buttons show the label as the primary face text (body children are often empty).
+  // Status readouts use that same face: body size, tracked caps — not the tight body slot.
+  const buttonFace = "whitespace-pre-line font-medium tracking-[0.16em] uppercase";
   const labelStyle = widget.type === "button"
     ? widgetBodyTextStyle(widget.textSize)
     : widgetChipTextStyle(widget.textSize);
   const bodyStyle = widgetBodyTextStyle(widget.textSize);
   const canAlign = supportsTextAlign(widget.type);
   const align = canAlign ? widget.textAlign : undefined;
+  const caption = widget.label?.trim() ?? "";
   return (
     <button
       type="button"
@@ -77,7 +80,7 @@ export function WidgetShell({
         "widget-text-container relative flex h-full min-h-0 min-w-0 w-full flex-col items-stretch overflow-hidden rounded-2xl border [overflow-wrap:anywhere] transition duration-200 ease-out",
         canAlign ? textAlignClass(align) : "text-left",
         "active:scale-[0.98]",
-        image ? "gap-2 p-2" : "gap-3 justify-between px-4 py-3",
+        image ? "gap-2 p-2" : cn("gap-3 px-4 py-3", widget.type === "status" ? "justify-start" : "justify-between"),
         widgetColorClass[widget.color],
         active && widgetActiveClass[widget.color],
         disabled && widgetDisabledClass[widget.color],
@@ -92,27 +95,29 @@ export function WidgetShell({
           )}
         />
       ) : null}
-      <div className={cn(
-        "relative z-[1] flex w-full items-start gap-2",
-        canAlign
-          ? (align === "center" ? "justify-center" : align === "right" ? "justify-end" : "justify-start")
-          : "justify-between",
-        widget.icon && !image && "pr-10",
-        image && "px-2 pt-1",
-      )}>
-        <span
-          className={cn("whitespace-pre-line font-medium tracking-[0.16em] uppercase", disabled ? "opacity-60" : active ? "text-bg/70" : "text-muted")}
-          style={labelStyle}
-        >
-          {widget.label}
-        </span>
-      </div>
+      {caption ? (
+        <div className={cn(
+          "relative z-[1] flex w-full items-start gap-2",
+          canAlign
+            ? (align === "center" ? "justify-center" : align === "right" ? "justify-end" : "justify-start")
+            : "justify-between",
+          widget.icon && !image && "pr-10",
+          image && "px-2 pt-1",
+        )}>
+          <span
+            className={cn(buttonFace, disabled ? "opacity-60" : active ? "text-bg/70" : "text-muted")}
+            style={labelStyle}
+          >
+            {widget.label}
+          </span>
+        </div>
+      ) : null}
       <div
         className={cn(
           "relative z-[1]",
           image
             ? "min-h-0 flex-1 overflow-hidden rounded-lg bg-bg/30"
-            : "min-h-0 whitespace-pre-line font-medium tracking-tight",
+            : cn("min-h-0", widget.type === "status" ? buttonFace : "whitespace-pre-line font-medium tracking-tight"),
         )}
         style={image ? undefined : bodyStyle}
       >

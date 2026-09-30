@@ -372,7 +372,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
               <ArrowLeft className="size-4" />
             </Link>
             <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-subtle">Configurator · 0.9.72</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-subtle">Configurator · 0.9.76</p>
               <h1 className="text-lg font-medium">{draft.room.name}</h1>
             </div>
           </div>
@@ -432,7 +432,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
         ) : null}
 
         {tab === "pages" ? (
-          <PagesEditor draft={draft} snap={snap} page={page} selected={selected} selectedId={selectedId} setSelectedId={setSelectedId} setPageId={setPageId} update={update} colors={COLORS} fills={COLOR_FILL} />
+          <PagesEditor draft={draft} snap={snap} page={page} selected={selected} selectedId={selectedId} setSelectedId={setSelectedId} setPageId={setPageId} update={update} flash={flash} colors={COLORS} fills={COLOR_FILL} />
         ) : null}
 
         {tab === "logic" ? (

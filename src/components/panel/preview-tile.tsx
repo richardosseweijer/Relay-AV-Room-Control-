@@ -1,6 +1,7 @@
 /** Optional 720p RTSP tile (fMP4 + MSE). Delete this file + the control-panel PreviewTile branch. */
 import { useEffect, useRef, useState } from "react";
 import type { Widget } from "@/lib/control/types";
+import { codecFromAvcC, createAnnexParser, dropLateUnits, pushAnnexB, type LiveUnit } from "@/lib/control/preview-live";
 import { cn } from "@/lib/utils";
 
 const MIMES = [
@@ -216,6 +217,123 @@ function playStream(video: HTMLVideoElement, widgetId: string, token: string, se
   };
 }
 
+function liveDecoderAvailable() {
+  return typeof VideoDecoder === "function";
+}
+
+/** Copy stays on the room PC. The tablet decodes Annex-B and drops late frames. */
+function playLive(
+  canvas: HTMLCanvasElement,
+  widgetId: string,
+  token: string,
+  setErr: (msg: string) => void,
+  setPlaying: (on: boolean) => void,
+  onFallback: () => void,
+): () => void {
+  const stop = new AbortController();
+  let fell = false;
+  let decoder: VideoDecoder | undefined;
+  let configured = false;
+  let seenKey = false;
+  let tick = 0;
+  let waiting: LiveUnit[] = [];
+  const parser = createAnnexParser();
+  const ctx = canvas.getContext("2d");
+  const slow = setTimeout(() => giveUp(), 8000);
+
+  function giveUp() {
+    if (fell || stop.signal.aborted) return;
+    fell = true;
+    try { decoder?.close(); } catch { /* already closed */ }
+    onFallback();
+  }
+
+  function pump() {
+    if (!decoder || decoder.state !== "configured" || decoder.decodeQueueSize > 0) return;
+    waiting = dropLateUnits(waiting);
+    const unit = waiting[0];
+    if (!unit) return;
+    if (!seenKey && !unit.key) {
+      waiting = [];
+      return;
+    }
+    waiting = [];
+    seenKey = true;
+    try {
+      decoder.decode(new EncodedVideoChunk({
+        type: unit.key ? "key" : "delta",
+        timestamp: (tick++) * 33333,
+        data: unit.data,
+      }));
+    } catch {
+      giveUp();
+    }
+  }
+
+  void (async () => {
+    try {
+      const res = await fetch(`/api/preview?widget=${encodeURIComponent(widgetId)}&codec=h264`, {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+        signal: stop.signal,
+      });
+      if (stop.signal.aborted) return;
+      if (!res.ok || !res.body) {
+        giveUp();
+        return;
+      }
+      decoder = new VideoDecoder({
+        output: (frame) => {
+          if (canvas.width !== frame.displayWidth || canvas.height !== frame.displayHeight) {
+            canvas.width = frame.displayWidth || canvas.width;
+            canvas.height = frame.displayHeight || canvas.height;
+          }
+          ctx?.drawImage(frame, 0, 0);
+          frame.close();
+          clearTimeout(slow);
+          setPlaying(true);
+          setErr("");
+        },
+        error: () => giveUp(),
+      });
+      decoder.ondequeue = () => pump();
+      const reader = res.body.getReader();
+      while (!stop.signal.aborted) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value?.length) continue;
+        const pushed = pushAnnexB(parser, value);
+        if (pushed.reject) {
+          giveUp();
+          return;
+        }
+        if (pushed.avcC && !configured && decoder.state === "unconfigured") {
+          decoder.configure({
+            codec: codecFromAvcC(pushed.avcC),
+            description: pushed.avcC,
+            optimizeForLatency: true,
+            hardwareAcceleration: "prefer-hardware",
+          });
+          configured = true;
+        }
+        if (pushed.units.length) {
+          waiting = dropLateUnits([...waiting, ...pushed.units]);
+          pump();
+        }
+      }
+    } catch (err) {
+      if (stop.signal.aborted || (err instanceof Error && err.name === "AbortError")) return;
+      giveUp();
+    }
+  })();
+
+  return () => {
+    clearTimeout(slow);
+    stop.abort();
+    try { decoder?.close(); } catch { /* already closed */ }
+  };
+}
+
 export function PreviewTile({
   widget,
   token,
@@ -228,8 +346,10 @@ export function PreviewTile({
   onClick?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [err, setErr] = useState("…");
   const [playing, setPlaying] = useState(false);
+  const [live, setLive] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -242,8 +362,24 @@ export function PreviewTile({
     function start() {
       if (!videoRef.current) return;
       setPlaying(false);
+      setLive(false);
       stop();
-      stop = playStream(videoRef.current, widget.id, token, setErr, delayOf(widget));
+      const mse = () => {
+        if (!videoRef.current) return;
+        stop = playStream(videoRef.current, widget.id, token, setErr, delayOf(widget));
+      };
+      if (!liveDecoderAvailable() || !canvasRef.current) {
+        mse();
+        return;
+      }
+      stop = playLive(canvasRef.current, widget.id, token, setErr, (on) => {
+        setPlaying(on);
+        if (on) setLive(true);
+      }, () => {
+        setLive(false);
+        stop();
+        mse();
+      });
     }
     function onVis() {
       if (document.visibilityState === "hidden") {
@@ -278,6 +414,15 @@ export function PreviewTile({
         onPause={() => setPlaying(false)}
         className={cn(
           "pointer-events-none absolute inset-0 h-full w-full object-center",
+          live && "hidden",
+          widget.previewFit === "cover" ? "object-cover" : "object-contain",
+        )}
+      />
+      <canvas
+        ref={canvasRef}
+        className={cn(
+          "pointer-events-none absolute inset-0 h-full w-full object-center",
+          !live && "hidden",
           widget.previewFit === "cover" ? "object-cover" : "object-contain",
         )}
       />

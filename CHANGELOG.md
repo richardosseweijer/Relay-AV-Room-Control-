@@ -4,6 +4,20 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Library: Mitsubishi UD8900U Serial (`mitsubishi-ud8900u-serial.json`). RS-232 9600 8N1, `00!` / `00vST`. Existing card renamed in the library to UD8900U LAN (still `mitsubishi-ud8900u.json`, PJLink :4352). Re-add the serial card; the LAN filename is unchanged.
+
+## 0.9.76
+
+- Tag `v0.9.76`. **Suggest lists:** long config selects (device, command, macro, variable, page, monitor feedback) share one type-to-filter field ([`suggest-field.tsx`](src/components/config/suggest-field.tsx), [`suggest.ts`](src/lib/control/suggest.ts)). Free text that is really a choice (enum values, status equals, enable-when value, monitor error value, latch group) keeps typing and offers the same list. `{var}` fields still insert at the caret; a non-brace query can replace the whole value from an enum, macro, or page. Short lists (compare, color, tag, fit) stay native selects. Literal compares do not gain `{var}`.
+
+## 0.9.75
+
+- Tag `v0.9.75`. **Variable picker:** template text fields list room variables after `{` and insert `{id}` at the caret ([`var-token-field.tsx`](src/components/config/var-token-field.tsx)). Number-only fields (slider min/max, range commands, writes into a number variable, greater/less compares) suggest number variables only — not text, enum, or `{time}`.
+
+## 0.9.74
+
+- Tag `v0.9.74`. **Trigger actions:** a true edge can write a variable and run one device command next to Run macro. Order is write, then command, then a real macro; the first failure stops the rest. A blank macro id still runs when there is a write or a command. The variable write is saved before a linked device push; a failed push does not run the command or the macro. None-only rules still take the old empty-macro path. `{time}` cannot be written. A remote peer command still only accepts `macro.run`.
+
 ## 0.9.73
 
 - Tag `v0.9.73`. **Telegram reply-to-last monitor:** after successful `message.send`, Relay remembers `message_id` (+ chat) in process runtime ([`telegram.ts`](src/lib/control/telegram.ts)). Feedback `message.lastReply` (string) and `message.replied` (toggle `1`/`0`) short-poll `getUpdates` with offset tracking — only updates in the device `chat_id` that **reply** to that last send. Other chats / non-replies ignored. No webhook; reply text never executed as shell/macros (not a general command channel). Fail-closed if token/chat_id missing. Driver notes + Monitors tab wiring. Tests: [`scripts/telegram.test.mjs`](scripts/telegram.test.mjs).

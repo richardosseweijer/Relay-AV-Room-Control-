@@ -7,7 +7,7 @@ Keep this file short. If it grows past ~150 lines, cut history — do not append
 
 ## Product
 
-Relay **0.9.73** (beta). Single-process LAN AV room controller. Phase B software checkpoint (B5 at `v0.9.45`). LE/ACME parked; C1–C4 in-box venue TLS train closed (Generate + Networks UI + lifecycle + docs checkpoint).
+Relay **0.9.76** (beta). Single-process LAN AV room controller. Phase B software checkpoint (B5 at `v0.9.45`). LE/ACME parked; C1–C4 in-box venue TLS train closed (Generate + Networks UI + lifecycle + docs checkpoint).
 TanStack Start + Vite. Dev `:8080` / prod `:8081` bind to **AV-LAN IPv4** (auto-map first scanned NIC when AV unset/invalid; else loopback if no NICs). Never `0.0.0.0`. `RELAY_LISTEN_HOST` overrides.
 Not a grok.me / Vercel host — those have no writable `data/`.
 
@@ -35,6 +35,9 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Panel text align | `text-align-widget.ts`, `pages-editor.tsx`, `widget-face.tsx` / `panel-tile.tsx` (label/button/status) |
 | Label hide when disabled | `pages-enable-when.tsx`, `panel-widget.ts` (`shouldHideWhenDisabled`), `panel-tile.tsx` |
 | Panel label `{var}` / `\n` / `{time}` | `vars.ts` (`resolveTemplate` / `resolveWidgetLabel` / `formatWidgetLabel` / `formatSystemTime`; built-in read-only `{time}` = OS-local HH:mm), `panel-tile.tsx` + face shells (`whitespace-pre-line`; unresolved → empty) |
+| Trigger write / device command | `trigger-actions.ts`, `trigger-pane.tsx`, `store-schedules.ts` (true and false: write, command, then real macro; false = any If row failed; no hold/delay) |
+| Config `{var}` picker | `var-token.ts`, `var-token-field.tsx` (type `{`; number fields suggest number vars only) |
+| Config suggest lists | `suggest.ts`, `suggest-field.tsx` (device, command, macro, variable, page; enum / latch / equals stay free text) |
 | Panel label background | `widget-face.tsx` (`widgetColorClass`), `panel-tile.tsx` (label tiles honor configured color) |
 | Host media / `/api/media` | `media-store.ts`, `src/routes/api/media.ts`, `src/routes/api/media.$id.ts`, `data/media/` |
 - Docs/example image asset: `docs/assets/image-widget-hub-hdmi-example.png`; runtime uploads still go to `data/media/` via `/api/media` (docs/example only, not auto-served).
@@ -58,7 +61,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 
 Do not grep the whole repo to “get context.” If the table above is missing a file, ask.
 
-## Live notes (still true at 0.9.73)
+## Live notes (still true at 0.9.76)
 
 - Occupancy var is `0` closed, `1` open, `2` in-session, `3` DND. Foyer GET still reads the **string** field. Save-all must not apply `draft.room.occupancy`.
 - Unsigned `GET /api/peer` is TCP loopback **or listen-host hairpin** (real `remoteAddress`, not `Host`). HMAC GET is the full snapshot.
@@ -80,7 +83,6 @@ Do not grep the whole repo to “get context.” If the table above is missing a
 | 15 | HTTP on AV-LAN; venue HTTPS B1 + peer B3 (strict CA) + nicFace B4 (B5); LE parked; Generate C1–C4 shipped; strict peer TLS `v0.9.47`; strict device TLS `v0.9.48`; samsung-pair TLS `v0.9.49` |
 | 16 | Config tab labels are raw ids |
 | 37 | PIN lockout is process memory, one counter per gate |
-| 38 | Trigger engine still has false-path / hold / delay |
 | 39 | Occupancy dual-write leftover (`busy` alias, docs drift) |
 
 ## How a new agent should start
