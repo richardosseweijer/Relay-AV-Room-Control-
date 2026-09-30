@@ -20,6 +20,7 @@ import { normalizeImageFields } from "./image-widget";
 import { normalizeTextSizeFields } from "./text-size-widget";
 import { normalizeTextAlignFields } from "./text-align-widget";
 import { normalizeHideWhenDisabledFields } from "./panel-widget";
+import { normalizeTriggerFields } from "./trigger-actions";
 
 function liftTag<T extends { tag?: string | null }>(item: T): T {
   const legacy = (item as T & { folder?: string | null }).folder;
@@ -45,26 +46,25 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
     schedules: (config.schedules ?? demo.schedules).map(liftTag),
     monitors: (config.monitors ?? demo.monitors).map(liftTag),
     triggers: (config.triggers ?? []).map((rule) => {
-      const holdSec = rule.holdSec ?? Math.round((rule.holdMs || 0) / 1000);
-      const delaySec = rule.delaySec ?? Math.round((rule.delayMs || 0) / 1000);
-      const intervalSec = rule.intervalSec ?? Math.max(1, Math.round((rule.intervalMs || 5000) / 1000));
+      const legacy = rule as typeof rule & { intervalMs?: number };
+      const intervalSec = rule.intervalSec ?? Math.max(1, Math.round((legacy.intervalMs || 5000) / 1000));
       const clip = (rows: typeof rule.whenTrue) => (rows ?? []).slice(0, 8).map((row) => ({
         variable: row.variable || "",
         compare: row.compare || "eq",
         equals: row.equals ?? "",
       }));
-      return liftTag({
+      const next = liftTag(normalizeTriggerFields({
         ...rule,
-        holdSec,
-        delaySec,
         intervalSec,
-        holdMs: undefined,
-        delayMs: undefined,
-        intervalMs: undefined,
         whenTrue: clip(rule.whenTrue),
-        whenFalse: clip(rule.whenFalse),
-        falseMacroId: rule.falseMacroId || "",
-      });
+      })) as typeof rule & Record<string, unknown>;
+      delete next.holdSec;
+      delete next.delaySec;
+      delete next.holdMs;
+      delete next.delayMs;
+      delete next.intervalMs;
+      delete next.whenFalse;
+      return next;
     }),
     interfaces: config.interfaces ?? [],
     tags: config.tags ?? (config as { folders?: RoomConfig["tags"] }).folders ?? {},

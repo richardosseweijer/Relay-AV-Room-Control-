@@ -126,7 +126,17 @@ export function DriversTab(props: {
                       }}>Confirm</Button>
                     </div>
                   ) : (
-                    <Button size="sm" variant="danger" onClick={() => setPendingDriver(name)}>Delete</Button>
+                    <div className="flex gap-2">
+                      {snap.library?.[name] ? (
+                        <Button size="sm" variant="secondary" onClick={async () => {
+                          const res = await addDriverFromLibrary({ data: { token: token || "", filename: name } });
+                          flash(res.ok ? "Updated from library" : "Not updated", res.message);
+                          if (res.ok && driverName === name) setDriverName("");
+                          await refresh();
+                        }}>Update</Button>
+                      ) : null}
+                      <Button size="sm" variant="danger" onClick={() => setPendingDriver(name)}>Delete</Button>
+                    </div>
                   )}
                 </div>
                 {driverName === name ? (

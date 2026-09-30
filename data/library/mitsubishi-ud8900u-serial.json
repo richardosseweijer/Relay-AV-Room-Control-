@@ -1,0 +1,370 @@
+{
+  "specVersion": "2",
+  "device": {
+    "manufacturer": "Mitsubishi",
+    "model": "UD8900U Serial",
+    "type": "projector",
+    "notes": "RS-232 9600 8N1, no flow control, CR. Use the crossover cable (projector pin 2 is RX). Bind Interface to the COM gateway slot — do not point this card at the projector IP on 4352 (that is the LAN card). Unplug Ethernet while testing; LAN takes precedence and the serial port stays quiet. New command system, no projector ID (00! not 00;01;!). Power on is ignored for 2 minutes after off; power off is ignored for 1 minute after on. Inputs are ignored in standby and during blank. Reply is the command plus the value (00vP1, 00vIr1). NAK is :N. Blank, freeze, split, and aspect have no separate read — power and input do. Keystone and corner geometry omitted (signed padding). SDI is UD8900U only."
+  },
+  "transports": {
+    "lan": {
+      "protocol": "tcp",
+      "port": 2001,
+      "encoding": "ascii",
+      "lineEnding": "\r",
+      "timeoutMs": 8000,
+      "session": {
+        "keepMs": 20000
+      }
+    },
+    "rs232": {
+      "baud": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "encoding": "ascii",
+      "lineEnding": "\r",
+      "timeoutMs": 2000
+    }
+  },
+  "auth": {
+    "type": "none",
+    "instanceFields": []
+  },
+  "pacing": {
+    "minIntervalMs": 900,
+    "powerOnDelayMs": 8000
+  },
+  "probe": {
+    "transport": "lan",
+    "payload": "00vST",
+    "success": {
+      "type": "regex",
+      "pattern": "vST[0-6]"
+    }
+  },
+  "helpers": {
+    "checksum": "none"
+  },
+  "commands": [
+    {
+      "id": "power.on",
+      "label": "Power On",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00!"
+    },
+    {
+      "id": "power.off",
+      "label": "Power Off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00\""
+    },
+    {
+      "id": "input.computer1",
+      "label": "Computer 1",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00_r1"
+    },
+    {
+      "id": "input.computer2",
+      "label": "Computer 2",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00_r2"
+    },
+    {
+      "id": "input.video",
+      "label": "Video",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00_v1"
+    },
+    {
+      "id": "input.svideo",
+      "label": "S-Video",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00_v2"
+    },
+    {
+      "id": "input.hdmi",
+      "label": "HDMI",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00_d1"
+    },
+    {
+      "id": "input.dvi",
+      "label": "DVI",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00_d2"
+    },
+    {
+      "id": "input.sdi",
+      "label": "SDI",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00_d3"
+    },
+    {
+      "id": "mute.on",
+      "label": "Blank on",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00MUTE1"
+    },
+    {
+      "id": "mute.off",
+      "label": "Blank off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00MUTE0"
+    },
+    {
+      "id": "freeze.on",
+      "label": "Freeze on",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00FRZ1"
+    },
+    {
+      "id": "freeze.off",
+      "label": "Freeze off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00FRZ0"
+    },
+    {
+      "id": "split.on",
+      "label": "Split on",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00SPLT1"
+    },
+    {
+      "id": "split.off",
+      "label": "Split off",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00SPLT0"
+    },
+    {
+      "id": "aspect.normal",
+      "label": "Aspect normal",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00SCDEF0"
+    },
+    {
+      "id": "aspect.full",
+      "label": "Aspect full",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00SCDEF1"
+    },
+    {
+      "id": "testpattern.set",
+      "label": "Test pattern",
+      "kind": "range",
+      "transport": "lan",
+      "payload": "00TP{value}",
+      "min": 0,
+      "max": 7,
+      "step": 1
+    },
+    {
+      "id": "function.cancel",
+      "label": "Cancel function",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00FNCOFF"
+    },
+    {
+      "id": "menu",
+      "label": "Menu",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00r54"
+    },
+    {
+      "id": "enter",
+      "label": "Enter",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00r10"
+    },
+    {
+      "id": "auto.position",
+      "label": "Auto position",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00r09"
+    }
+  ],
+  "feedback": [
+    {
+      "id": "power.state",
+      "label": "Power",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "00vST",
+      "pollMs": 4000,
+      "parse": {
+        "type": "regex",
+        "pattern": "vST([0-6])",
+        "map": {
+          "0": "off",
+          "1": "warmup",
+          "2": "on",
+          "3": "cooling",
+          "4": "fault",
+          "5": "busy",
+          "6": "password"
+        }
+      },
+      "values": [
+        "off",
+        "warmup",
+        "on",
+        "cooling",
+        "fault",
+        "busy",
+        "password"
+      ]
+    },
+    {
+      "id": "power.lamp",
+      "label": "Lamp power",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "00vP",
+      "pollMs": 4000,
+      "parse": {
+        "type": "regex",
+        "pattern": "vP([01])",
+        "map": {
+          "0": "off",
+          "1": "on"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "input.current",
+      "label": "Input",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "00vI",
+      "pollMs": 4000,
+      "parse": {
+        "type": "regex",
+        "pattern": "vI(r1|r2|v1|v2|d1|d2|d3)",
+        "map": {
+          "r1": "Computer 1",
+          "r2": "Computer 2",
+          "v1": "Video",
+          "v2": "S-Video",
+          "d1": "HDMI",
+          "d2": "DVI",
+          "d3": "SDI"
+        }
+      }
+    },
+    {
+      "id": "signal.present",
+      "label": "Signal",
+      "kind": "enum",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "00vSM",
+      "pollMs": 4000,
+      "parse": {
+        "type": "regex",
+        "pattern": "vSM([01])",
+        "map": {
+          "0": "off",
+          "1": "on"
+        }
+      },
+      "values": [
+        "off",
+        "on"
+      ]
+    },
+    {
+      "id": "lamp.status",
+      "label": "Lamps",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "00vLST",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "vLST([012][012])"
+      }
+    },
+    {
+      "id": "lamp1.hours",
+      "label": "Lamp 1 hours",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "00vLE1L",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "vLE1L(\\d+)"
+      }
+    },
+    {
+      "id": "lamp2.hours",
+      "label": "Lamp 2 hours",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "00vLE2L",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "vLE2L(\\d+)"
+      }
+    },
+    {
+      "id": "error.code",
+      "label": "Error",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "00vER",
+      "pollMs": 30000,
+      "parse": {
+        "type": "regex",
+        "pattern": "vER([0-9A-Fa-f]+)"
+      }
+    },
+    {
+      "id": "system.model",
+      "label": "Model",
+      "kind": "string",
+      "transport": "lan",
+      "mode": "poll",
+      "query": "00vMDL",
+      "pollMs": 60000,
+      "parse": {
+        "type": "regex",
+        "pattern": "vMDL(\\S+)"
+      }
+    }
+  ]
+}
