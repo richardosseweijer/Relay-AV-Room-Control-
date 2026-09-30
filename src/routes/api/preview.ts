@@ -25,12 +25,14 @@ export const Route = createFileRoute("/api/preview")({
         }
         const parsed = previewUrlForWidget(widget, mem.config.devices);
         if (!parsed.ok) return Response.json({ ok: false, message: parsed.message, steps: [parsed.message] }, { status: 400 });
+        const codec = new URL(request.url).searchParams.get("codec");
+        const live = codec === "h264";
         try {
           const dest = new URL(parsed.href).hostname;
-          const body = await openPreviewStream(parsed.href, request.signal, previewBindAddrs(dest, mem.config), widget);
+          const body = await openPreviewStream(parsed.href, request.signal, previewBindAddrs(dest, mem.config), widget, live ? "h264" : "mp4");
           return new Response(body, {
             headers: {
-              "content-type": "video/mp4",
+              "content-type": live ? "video/h264" : "video/mp4",
               "cache-control": "no-store",
               "x-accel-buffering": "no",
             },

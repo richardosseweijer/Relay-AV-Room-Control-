@@ -9,3 +9,12 @@ export const COLOR_FILL: Record<WidgetColor, string> = {
 export function fieldClass() {
   return "h-11 min-w-0 w-full rounded-md border border-border bg-bg px-3 text-sm text-fg";
 }
+
+/** "Name copy", then "Name copy copy", so a pasted row is easy to tell apart. */
+export function duplicateLabel(labels: string[], label: string) {
+  const base = label.trim() || "Copy";
+  let next = `${base} copy`;
+  const used = new Set(labels);
+  while (used.has(next)) next += " copy";
+  return next;
+}

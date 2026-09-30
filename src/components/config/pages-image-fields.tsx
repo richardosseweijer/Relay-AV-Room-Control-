@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { RoomConfig, Widget } from "@/lib/control/types";
 import { NONE_MACRO_ID } from "@/lib/control/types";
 import { fieldClass } from "./config-ui";
+import { SuggestField } from "./suggest-field";
 
 function configAuthHeaders(): HeadersInit {
   return { Authorization: `Bearer ${sessionStorage.getItem("relay-config-token") || ""}` };
@@ -141,13 +142,15 @@ export function PagesImageFields({
         Borderless
       </label>
       <label className="grid gap-1 text-sm text-muted">Tap macro (optional)
-        <select className={fieldClass()} value={selected.bind.id ?? NONE_MACRO_ID} onChange={(e) => update((c) => {
-          const w = c.pages.find((p) => p.id === pageId)?.widgets.find((item) => item.id === selected.id);
-          if (w) { w.bind.kind = "macro"; w.bind.id = e.target.value; }
-        })}>
-          <option value={NONE_MACRO_ID}>None</option>
-          {draft.macros.filter((m) => m.id !== NONE_MACRO_ID).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-        </select>
+        <SuggestField
+          className={fieldClass()}
+          value={selected.bind.id ?? NONE_MACRO_ID}
+          options={[{ id: NONE_MACRO_ID, label: "None" }, ...draft.macros.filter((m) => m.id !== NONE_MACRO_ID).map((m) => ({ id: m.id, label: m.label }))]}
+          onChange={(id) => update((c) => {
+            const w = c.pages.find((p) => p.id === pageId)?.widgets.find((item) => item.id === selected.id);
+            if (w) { w.bind.kind = "macro"; w.bind.id = id; }
+          })}
+        />
       </label>
     </div>
   );

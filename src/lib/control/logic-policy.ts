@@ -20,7 +20,6 @@ export type TriggerLike = {
   compare?: string;
   equals?: string;
   whenTrue?: { variable: string; compare?: string; equals: string }[];
-  whenFalse?: { variable: string; compare?: string; equals: string }[];
 };
 
 function clausesPass(
@@ -34,7 +33,7 @@ function clausesPass(
   });
 }
 
-/** Primary edge, then extra AND clauses on the true or false side. Empty extras always pass. */
+/** True when every If row passes. False path is any row failing. No variable → neither path. */
 export function triggerPathHit(
   rule: TriggerLike,
   vars: Record<string, string | number>,
@@ -43,8 +42,8 @@ export function triggerPathHit(
 ) {
   if (!rule.variable) return false;
   const primary = matchesTrigger(String(vars[rule.variable] ?? ""), rule.compare || "eq", value(rule.equals ?? ""));
-  if (path === "t") return primary && clausesPass(rule.whenTrue, vars, value);
-  return !primary && clausesPass(rule.whenFalse, vars, value);
+  const allTrue = primary && clausesPass(rule.whenTrue, vars, value);
+  return path === "t" ? allTrue : !allTrue;
 }
 
 /** change: fire only on false→true. interval: ready whenever hit. */
