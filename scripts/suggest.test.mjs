@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import { latchGroupOptions, suggestMatches, valueSuggestions } from "../src/lib/control/suggest.ts";
+import { duplicateLabel } from "../src/components/config/config-ui.ts";
 
 const options = [
   { id: "mps", label: "Projector" },
@@ -48,4 +49,23 @@ test("long lists and value hints use the shared field", () => {
   assert.match(bind, /latchGroupOptions/);
   assert.doesNotMatch(enable, /VarTokenField/);
   assert.doesNotMatch(status, /equals[\s\S]{0,180}VarTokenField/);
+});
+
+test("duplicate label stays unique", () => {
+  assert.equal(duplicateLabel(["Lights"], "Lights"), "Lights copy");
+  assert.equal(duplicateLabel(["Lights", "Lights copy"], "Lights"), "Lights copy copy");
+  assert.equal(duplicateLabel([], "  "), "Copy copy");
+  const macros = fs.readFileSync("src/components/config/macros-tab.tsx", "utf8");
+  const triggers = fs.readFileSync("src/components/config/trigger-pane.tsx", "utf8");
+  const logic = fs.readFileSync("src/components/config/logic-tab.tsx", "utf8");
+  for (const src of [macros, triggers, logic]) assert.match(src, /Duplicate/);
+  assert.match(logic, /mon-\$\{Date\.now/);
+  assert.match(logic, /sch-\$\{Date\.now/);
+  assert.match(logic, /variable\.id\.startsWith\("MON_"\)\) return null/);
+});
+
+test("in-room driver update reloads the library file", () => {
+  const src = fs.readFileSync("src/components/config/drivers-tab.tsx", "utf8");
+  assert.match(src, /Updated from library/);
+  assert.match(src, /addDriverFromLibrary\(\{ data: \{ token: token \|\| "", filename: name \} \}\)/);
 });

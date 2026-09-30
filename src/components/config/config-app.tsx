@@ -432,7 +432,7 @@ export function ConfigApp(props: { token: string; onSessionLost?: () => void }) 
         ) : null}
 
         {tab === "pages" ? (
-          <PagesEditor draft={draft} snap={snap} page={page} selected={selected} selectedId={selectedId} setSelectedId={setSelectedId} setPageId={setPageId} update={update} colors={COLORS} fills={COLOR_FILL} />
+          <PagesEditor draft={draft} snap={snap} page={page} selected={selected} selectedId={selectedId} setSelectedId={setSelectedId} setPageId={setPageId} update={update} flash={flash} colors={COLORS} fills={COLOR_FILL} />
         ) : null}
 
         {tab === "logic" ? (
