@@ -10,6 +10,7 @@ import {
   gridStyle,
   overlaps,
   pageGrid,
+  pasteWidget,
   setBox,
   widgetBox,
 } from "@/lib/control/page-layout";
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fieldClass } from "./config-ui";
 import { InputNum } from "./config-fields";
+import { VarTokenField } from "./var-token-field";
 import { PagesStatusFields } from "./pages-status-fields";
 import { PagesPreviewFields } from "./pages-preview-fields";
 import { PagesImageFields } from "./pages-image-fields";
@@ -26,7 +28,7 @@ import { PagesBindFields } from "./pages-bind-fields";
 export { overlaps };
 
 export function PagesEditor({
-  draft, snap, page, selected, selectedId, setSelectedId, setPageId, update, colors, fills,
+  draft, snap, page, selected, selectedId, setSelectedId, setPageId, update, flash, colors, fills,
 }: {
   draft: RoomConfig;
   snap: RoomSnapshot;
@@ -36,10 +38,12 @@ export function PagesEditor({
   setSelectedId: (id: string | null) => void;
   setPageId: (id: string) => void;
   update: (mut: (c: RoomConfig) => void) => void;
+  flash: (title: string, body: string) => void;
   colors: WidgetColor[];
   fills: Record<WidgetColor, string>;
 }) {
   const [face, setFace] = useState<"landscape" | "portrait">("landscape");
+  const [copied, setCopied] = useState<Widget | null>(null);
   const portrait = face === "portrait";
   const grid = pageGrid(page, portrait);
   const cells: { x: number; y: number }[] = [];
@@ -47,6 +51,19 @@ export function PagesEditor({
   const placed = page.widgets.filter((w) => widgetBox(w, portrait));
   const unplaced = portrait ? page.widgets.filter((w) => !w.portrait) : [];
   const selectedBox = selected ? widgetBox(selected, portrait) : null;
+  function pasteCopied() {
+    if (!copied) return;
+    const id = `w-${Date.now().toString(36)}`;
+    const next = pasteWidget(page, copied, portrait, id);
+    if (!next) {
+      flash("No room", "No free cell fits this tile.");
+      return;
+    }
+    update((c) => {
+      c.pages.find((item) => item.id === page.id)?.widgets.push(next);
+    });
+    setSelectedId(id);
+  }
   return (
     <section className="grid gap-4 lg:grid-cols-[1fr_22rem]">
       <div>
@@ -226,7 +243,7 @@ export function PagesEditor({
         <aside className="order-first grid max-h-[70dvh] gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-4 lg:order-none lg:sticky lg:top-20 lg:max-h-[calc(100dvh-8rem)]">
           <p className="text-xs uppercase tracking-[0.16em] text-subtle">{selected.type === "preview" ? "Preview setup" : selected.type === "image" ? "Image setup" : selected.type === "status" ? "Status setup" : "Button setup"}</p>
           <label className="grid gap-1 text-sm text-muted">Label
-            <input className={fieldClass()} placeholder="Use \\n for a line break" value={selected.label} onChange={(e) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.label = e.target.value; })} />
+            <VarTokenField className={fieldClass()} placeholder="Use \\n for a line break, or {var}" value={selected.label} variables={draft.variables} onChange={(value) => update((c) => { const w = c.pages.find((p) => p.id === page.id)?.widgets.find((item) => item.id === selected.id); if (w) w.label = value; })} />
           </label>
           <div className="grid grid-cols-4 gap-1">
             {(["w", "h", "x", "y"] as const).map((key) => (
@@ -393,9 +410,18 @@ export function PagesEditor({
             draft={draft}
             update={update}
           />
-          <Button size="sm" variant="danger" onClick={() => update((c) => { const p = c.pages.find((item) => item.id === page.id); if (p) p.widgets = p.widgets.filter((w) => w.id !== selected.id); setSelectedId(null); })}>Delete</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setCopied(structuredClone(selected))}>Copy</Button>
+            <Button size="sm" variant="secondary" disabled={!copied} onClick={pasteCopied}>Paste</Button>
+            <Button size="sm" variant="danger" onClick={() => update((c) => { const p = c.pages.find((item) => item.id === page.id); if (p) p.widgets = p.widgets.filter((w) => w.id !== selected.id); setSelectedId(null); })}>Delete</Button>
+          </div>
         </aside>
-      ) : <p className="text-sm text-muted">Select a button</p>}
+      ) : (
+        <aside className="order-first grid gap-2 rounded-xl border border-border bg-surface p-4 lg:order-none">
+          <p className="text-sm text-muted">Select a button</p>
+          <Button size="sm" variant="secondary" disabled={!copied} onClick={pasteCopied}>Paste</Button>
+        </aside>
+      )}
     </section>
   );
 }

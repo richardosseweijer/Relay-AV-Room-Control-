@@ -373,15 +373,22 @@ export type VariableTrigger = {
   compare: TriggerCompare;
   equals: string;
   whenTrue?: TriggerClause[];
-  whenFalse?: TriggerClause[];
   mode: TriggerMode;
   intervalSec?: number;
-  delaySec?: number;
-  holdSec?: number;
-  intervalMs?: number;
-  delayMs?: number;
-  holdMs?: number;
   macroId: string;
+  /** True path. Empty = do not write. `{time}` is rejected at run. */
+  setVar?: string | null;
+  setValue?: string;
+  /** True path. Both device and command must be set. */
+  device?: string | null;
+  command?: string | null;
+  commandValue?: string;
+  /** False path. Same plan as true: write, then command, then a real macro. */
+  falseSetVar?: string | null;
+  falseSetValue?: string;
+  falseDevice?: string | null;
+  falseCommand?: string | null;
+  falseCommandValue?: string;
   falseMacroId?: string;
   tag?: string | null;
 };
