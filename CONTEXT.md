@@ -19,7 +19,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Job | Files |
 | --- | --- |
 | Send / parse / sockets | `engine.ts` (orchestration façade), `engine-wire.ts` (TCP/pace/encode), `engine-lan.ts` (LAN dispatch), `engine-host.ts` (local/host), `engine-policy.ts`, `engine-payload.ts` |
-| Protocol adapters | same folder: `ws.ts`, `cast.ts`, `pjlink.ts`, `wol.ts`, `osc.ts`, `sacn.ts`, `udp.ts`, `ipmidi.ts`, `rtp-midi.ts`, `midi.ts`, `midi-in.ts`, `telegram.ts`, `http-client.ts`, `gateway.ts` |
+| Protocol adapters | same folder: `ws.ts`, `cast.ts`, `pjlink.ts`, `wol.ts`, `osc.ts`, `sacn.ts`, `udp.ts`, `udp-hold.ts`, `udp-seq.ts`, `ipmidi.ts`, `rtp-midi.ts`, `midi.ts`, `midi-in.ts`, `telegram.ts`, `http-client.ts`, `gateway.ts` |
 | Persist / boot / clocks | `src/lib/control/store.server.ts`, `scripts/write-atomic.mjs` |
 | Panel / config RPCs | `actions.ts` (barrel), `actions-auth.ts`, `actions-config.ts`, `actions-runtime.ts`, `actions-host.ts`, `actions-context.ts` (`loadControl`) |
 | Types / empty room | `types.ts`, `defaults.ts`, `schema.ts`, `vars.ts` |

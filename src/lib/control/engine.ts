@@ -18,6 +18,8 @@ import { wsPoolSize, sendControlSocket, buildWsTarget } from "./ws";
 import { castPoolSize } from "./cast";
 import { sendWol } from "./wol";
 import { rtpMidiPoolSize } from "./rtp-midi";
+import { udpHoldPoolSize } from "./udp-hold";
+import { udpSeqPoolSize } from "./udp-seq";
 import { encodeMtcQf, encodeMtcSysex } from "./midi-in";
 import { roomLanBind } from "./nics";
 import { DEVICE_VENUE_SKIP_CLEARTEXT, DEVICE_VENUE_SKIP_INVENTORY_CLEARTEXT, deviceHostAllowed, planDeviceBindForDevice, protocolNeedsTls, readNicFace } from "./device-face";
@@ -44,6 +46,8 @@ export function socketStats() {
     tcp: tcpPoolSize(),
     cast: castPoolSize(),
     rtpMidi: rtpMidiPoolSize(),
+    udp: udpHoldPoolSize(),
+    udpSeq: udpSeqPoolSize(),
   };
 }
 
@@ -510,7 +514,7 @@ export async function readMonitorValue(opts: {
     httpPath: fb.httpPath,
     httpMethod: fb.httpMethod,
     httpHeaders: fb.httpHeaders,
-  }, opts.config);
+  }, opts.config, undefined, { reply: true });
   if (!result.ok) return { ok: false, value: "", message: result.message };
   const parsed = parseFeedback(fb.parse, result.message);
   opts.state[device.id] = { ...slot, [opts.feedbackId]: parsed };

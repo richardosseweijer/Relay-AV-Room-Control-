@@ -4,6 +4,7 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- UDP reply and sequenced session (issue #185). Fire-and-forget UDP/OSC is unchanged (`udp sent`). A poll, or a command with `ack` or `waitContains`, waits for one datagram and fails on timeout. OSC polls expose the reply argument as text. `session.keepMs` holds one UDP/OSC socket; idle datagrams are push feedback. `udp-seq` is the engine’s reliable datagram session (handshake from `session.connect`, counter, ACK, one resend, inner bytes only). Not a product protocol. TCP connect-write-close is unchanged. Tests: [`scripts/udp.test.mjs`](scripts/udp.test.mjs), [`scripts/osc.test.mjs`](scripts/osc.test.mjs), [`scripts/udp-seq.test.mjs`](scripts/udp-seq.test.mjs).
 - Library: Mitsubishi UD8900U Serial (`mitsubishi-ud8900u-serial.json`). RS-232 9600 8N1, `00!` / `00vST`. Existing card renamed in the library to UD8900U LAN (still `mitsubishi-ud8900u.json`, PJLink :4352). Re-add the serial card; the LAN filename is unchanged.
 
 ## 0.9.76

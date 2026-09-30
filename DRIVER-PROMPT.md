@@ -30,7 +30,9 @@ If the manual is unclear, **omit that command** and mention it in `device.notes`
 | Browser WebSocket | `websocket` | `ascii` | `""` |
 | TLS WebSocket | `tls-websocket` | `ascii` | `""` |
 | Chromecast | `cast` | `ascii` | `""` |
-| OSC UDP | `osc` | binary OSC | n/a — payload is the path; `osc.types` / `osc.values` |
+| OSC UDP | `osc` | binary OSC | n/a — payload is the path; `osc.types` / `osc.values`. A poll (no arguments), or `ack` / `waitContains`, waits for one reply and uses that argument as text. Otherwise the send stays fire-and-forget. `session.keepMs` holds the socket. |
+| Raw UDP | `udp` | `ascii` or `hex` | Fire-and-forget result is `udp sent`. A poll, or a command with `ack` or `waitContains`, waits for one datagram or fails with timeout. `session.keepMs` holds one socket; an idle datagram is push feedback. |
+| Sequenced UDP | `udp-seq` | `ascii` or `hex` | Engine header, not driver flags. Opening bytes are the first `session.connect` string (same encoding as commands; omit it for an empty hello). Commands are the inner payload only. One session, counter, ACK, one resend. Idle close `session.keepMs` (default 60s). |
 | sACN / E1.31 | `sacn` | E1.31 multicast | n/a — `sacn.slot` 1–512, `auth.universe` |
 | USB MIDI (ALSA) | `local.kind` `midi` | hex bytes via `amidi` | n/a — Interface Path `hw:1,0,0` (`amidi -l`) |
 | ipMIDI / multicast MIDI | `ipmidi` | hex MIDI UDP | n/a — group 225.0.0.37:21928 TTL 1. Not MIDI-TCP. |
@@ -38,6 +40,8 @@ If the manual is unclear, **omit that command** and mention it in `device.notes`
 | Telegram Bot API (send + reply-to-last) | `telegram` | HTTPS JSON | n/a — fixed `api.telegram.org`; token+chat_id; getUpdates only for replies to last send (not a command channel). |
 
 One plane per driver. Example only: Allen & Heath SQ third-party control is MIDI-TCP **51325**, not MixPad 51326. Other desks use their own port.
+
+Do not put sequence numbers, flags, or checksums in the JSON. `udp` / `osc` reply and `udp-seq` are engine behaviour. A peer with a different header needs another engine module, not new keys.
 
 ## Skeleton A — HTTP
 
