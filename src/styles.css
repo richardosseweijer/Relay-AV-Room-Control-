@@ -101,12 +101,61 @@ html[data-theme="office"] {
   --color-rose: #8a6870;
 }
 
+
+html[data-theme="glass-dark"] {
+  --color-bg: #0b0e14;
+  --color-surface: color-mix(in oklab, #1c2434 76%, transparent);
+  --color-raised: color-mix(in oklab, #2a3348 80%, transparent);
+  --color-fg: #f2f4f8;
+  --color-muted: #aeb6c8;
+  --color-subtle: #7e889c;
+  --color-border: color-mix(in oklab, #9aa6bc 40%, transparent);
+  --color-accent: #c8d2e4;
+  --color-accent-fg: #0b0e14;
+  --color-steel: #8e98a8;
+  --color-sage: #7d8f78;
+  --color-clay: #b07064;
+  --color-fog: #6e7380;
+  --color-ink: #4a5060;
+  --color-ocean: #3d6f8f;
+  --color-pine: #3f6b55;
+  --color-rust: #a65b3a;
+  --color-sand: #b39a6d;
+  --color-slate: #5c6570;
+  --color-rose: #a45b63;
+}
+
+html[data-theme="glass-light"] {
+  --color-bg: #d8dee8;
+  --color-surface: color-mix(in oklab, #f5f7fb 78%, transparent);
+  --color-raised: color-mix(in oklab, #e8ecf4 84%, transparent);
+  --color-fg: #1a1f2a;
+  --color-muted: #4a5568;
+  --color-subtle: #6a7488;
+  --color-border: color-mix(in oklab, #7080a0 36%, transparent);
+  --color-accent: #3d5a8a;
+  --color-accent-fg: #1a1f2a;
+  --color-steel: #5a7388;
+  --color-sage: #5a8a62;
+  --color-clay: #a07060;
+  --color-fog: #98a0b0;
+  --color-ink: #3a4250;
+  --color-ocean: #3d5a8a;
+  --color-pine: #3f6b55;
+  --color-rust: #a06848;
+  --color-sand: #b8a070;
+  --color-slate: #5c6570;
+  --color-rose: #8a6870;
+}
+
 html[data-theme="peach"] .text-bg,
 html[data-theme="green"] .text-bg,
 html[data-theme="office"] .text-bg,
+html[data-theme="glass-light"] .text-bg,
 html[data-theme="peach"] .text-accent-fg,
 html[data-theme="green"] .text-accent-fg,
-html[data-theme="office"] .text-accent-fg {
+html[data-theme="office"] .text-accent-fg,
+html[data-theme="glass-light"] .text-accent-fg {
   color: var(--color-fg) !important;
 }
 
@@ -143,6 +192,18 @@ html[data-theme="office"] .text-accent-fg {
     outline: 2px solid color-mix(in oklab, var(--color-accent) 70%, white);
     outline-offset: 2px;
   }
+}
+
+
+html[data-theme="glass-dark"] body,
+html[data-theme="glass-dark"] #app,
+html[data-theme="glass-light"] body,
+html[data-theme="glass-light"] #app {
+  background:
+    radial-gradient(1000px 520px at 18% -12%, color-mix(in oklab, var(--color-ocean) 28%, transparent) 0%, transparent 55%),
+    radial-gradient(900px 480px at 92% 8%, color-mix(in oklab, var(--color-rose) 18%, transparent) 0%, transparent 50%),
+    radial-gradient(800px 420px at 70% 100%, color-mix(in oklab, var(--color-steel) 22%, transparent) 0%, transparent 52%),
+    var(--color-bg);
 }
 
 .panel-slider {
@@ -192,6 +253,49 @@ html[data-theme="office"] .text-accent-fg {
   display: none;
   width: 0;
   height: 0;
+}
+
+/* Frosted panels for glass themes — blur only where supported; colours stay readable without it. */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  html[data-theme="glass-dark"] .rounded-xl.border,
+  html[data-theme="glass-dark"] .rounded-2xl.border,
+  html[data-theme="glass-dark"] .rounded-lg.border,
+  html[data-theme="glass-dark"] .rounded-md.border,
+  html[data-theme="glass-dark"] .rounded-full.border,
+  html[data-theme="glass-light"] .rounded-xl.border,
+  html[data-theme="glass-light"] .rounded-2xl.border,
+  html[data-theme="glass-light"] .rounded-lg.border,
+  html[data-theme="glass-light"] .rounded-md.border,
+  html[data-theme="glass-light"] .rounded-full.border {
+    -webkit-backdrop-filter: blur(14px) saturate(1.15);
+    backdrop-filter: blur(14px) saturate(1.15);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  html[data-theme="glass-dark"] {
+    --color-surface: #1c2434;
+    --color-raised: #2a3348;
+    --color-border: #3a4458;
+  }
+  html[data-theme="glass-light"] {
+    --color-surface: #f5f7fb;
+    --color-raised: #e8ecf4;
+    --color-border: #b8c0d0;
+  }
+  html[data-theme="glass-dark"] .rounded-xl.border,
+  html[data-theme="glass-dark"] .rounded-2xl.border,
+  html[data-theme="glass-dark"] .rounded-lg.border,
+  html[data-theme="glass-dark"] .rounded-md.border,
+  html[data-theme="glass-dark"] .rounded-full.border,
+  html[data-theme="glass-light"] .rounded-xl.border,
+  html[data-theme="glass-light"] .rounded-2xl.border,
+  html[data-theme="glass-light"] .rounded-lg.border,
+  html[data-theme="glass-light"] .rounded-md.border,
+  html[data-theme="glass-light"] .rounded-full.border {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
