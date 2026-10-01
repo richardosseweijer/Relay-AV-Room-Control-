@@ -331,3 +331,207 @@ test("library driver telegram-bot.json registers reply feedback", async () => {
   assert.match(src, /telegramPollLastReply/);
   assert.match(src, /isTelegramReplyFeedback/);
 });
+
+
+test("getUpdates offset is keyed by bot token, not device id", async () => {
+  const {
+    clearTelegramRuntime,
+    rememberTelegramSend,
+    telegramPollLastReply,
+    telegramTokenSlot,
+    telegramRuntimeSlot,
+  } = await import("../src/lib/control/telegram.ts");
+  clearTelegramRuntime();
+  const token = "123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw";
+  const otherToken = "987654321:BBHdqTcvCH1vGWJxfSeofSAs0K5PALDsbx";
+  const chatId = "-10099";
+
+  rememberTelegramSend("dev-a", chatId, 10, token);
+  rememberTelegramSend("dev-b", chatId, 20, token);
+  rememberTelegramSend("dev-c", chatId, 30, otherToken);
+
+  // Device A poll advances the shared token offset.
+  const pollA = await telegramPollLastReply({
+    deviceId: "dev-a",
+    token,
+    chatId,
+    request: async (_u, _m, body) => {
+      const parsed = JSON.parse(body);
+      assert.equal(parsed.offset, undefined);
+      return {
+        ok: true,
+        status: 200,
+        text: JSON.stringify({
+          ok: true,
+          result: [
+            {
+              update_id: 100,
+              message: {
+                message_id: 11,
+                text: "ack-a",
+                chat: { id: -10099 },
+                reply_to_message: { message_id: 10 },
+              },
+            },
+          ],
+        }),
+      };
+    },
+  });
+  assert.equal(pollA.ok, true);
+  assert.equal(pollA.replyText, "ack-a");
+  assert.equal(telegramTokenSlot(token).updateOffset, 101);
+  // Device runtime must not own the Bot API offset cursor.
+  assert.equal(telegramRuntimeSlot("dev-a").updateOffset, undefined);
+  assert.equal(telegramRuntimeSlot("dev-b").updateOffset, undefined);
+
+  // Device B (same token) must reuse offset 101 — not a separate device cursor.
+  const pollB = await telegramPollLastReply({
+    deviceId: "dev-b",
+    token,
+    chatId,
+    request: async (_u, _m, body) => {
+      const parsed = JSON.parse(body);
+      assert.equal(parsed.offset, 101);
+      return { ok: true, status: 200, text: JSON.stringify({ ok: true, result: [] }) };
+    },
+  });
+  assert.equal(pollB.ok, true);
+  assert.equal(telegramTokenSlot(token).updateOffset, 101);
+
+  // Different token keeps an independent cursor.
+  assert.equal(telegramTokenSlot(otherToken).updateOffset, undefined);
+  const pollC = await telegramPollLastReply({
+    deviceId: "dev-c",
+    token: otherToken,
+    chatId,
+    request: async (_u, _m, body) => {
+      const parsed = JSON.parse(body);
+      assert.equal(parsed.offset, undefined);
+      return {
+        ok: true,
+        status: 200,
+        text: JSON.stringify({
+          ok: true,
+          result: [
+            {
+              update_id: 5,
+              message: {
+                message_id: 31,
+                text: "ack-c",
+                chat: { id: -10099 },
+                reply_to_message: { message_id: 30 },
+              },
+            },
+          ],
+        }),
+      };
+    },
+  });
+  assert.equal(pollC.replyText, "ack-c");
+  assert.equal(telegramTokenSlot(otherToken).updateOffset, 6);
+  assert.equal(telegramTokenSlot(token).updateOffset, 101);
+});
+
+test("two devices same token: one poll fans out reply to the other device", async () => {
+  const {
+    clearTelegramRuntime,
+    rememberTelegramSend,
+    telegramPollLastReply,
+    telegramRuntimeSlot,
+    telegramTokenSlot,
+  } = await import("../src/lib/control/telegram.ts");
+  clearTelegramRuntime();
+  const token = "123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw";
+  const chatId = "-10099";
+  rememberTelegramSend("dev-a", chatId, 10, token);
+  rememberTelegramSend("dev-b", chatId, 20, token);
+
+  // A polls a batch that only contains B's reply — shared offset must still
+  // deliver B's text (otherwise advancing the cursor would steal it).
+  const pollA = await telegramPollLastReply({
+    deviceId: "dev-a",
+    token,
+    chatId,
+    request: async () => ({
+      ok: true,
+      status: 200,
+      text: JSON.stringify({
+        ok: true,
+        result: [
+          {
+            update_id: 50,
+            message: {
+              message_id: 21,
+              text: "ack-for-b",
+              chat: { id: -10099 },
+              reply_to_message: { message_id: 20 },
+            },
+          },
+        ],
+      }),
+    }),
+  });
+  assert.equal(pollA.ok, true);
+  assert.equal(pollA.replyText, ""); // not A's reply
+  assert.equal(telegramRuntimeSlot("dev-b").lastReplyText, "ack-for-b");
+  assert.equal(telegramTokenSlot(token).updateOffset, 51);
+
+  // B's next poll with empty batch still surfaces the fanned-out reply.
+  const pollB = await telegramPollLastReply({
+    deviceId: "dev-b",
+    token,
+    chatId,
+    request: async (_u, _m, body) => {
+      assert.equal(JSON.parse(body).offset, 51);
+      return { ok: true, status: 200, text: JSON.stringify({ ok: true, result: [] }) };
+    },
+  });
+  assert.equal(pollB.replyText, "ack-for-b");
+  assert.equal(pollB.replied, true);
+});
+
+test("same-token getUpdates polls serialize (no concurrent offset race)", async () => {
+  const {
+    clearTelegramRuntime,
+    rememberTelegramSend,
+    telegramPollLastReply,
+    telegramTokenSlot,
+  } = await import("../src/lib/control/telegram.ts");
+  clearTelegramRuntime();
+  const token = "123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw";
+  const chatId = "-10099";
+  rememberTelegramSend("dev-a", chatId, 10, token);
+  rememberTelegramSend("dev-b", chatId, 20, token);
+
+  let inFlight = 0;
+  let maxInFlight = 0;
+  const offsetsSeen = [];
+  let nextUpdateId = 200;
+
+  const slowRequest = async (_u, _m, body) => {
+    inFlight += 1;
+    maxInFlight = Math.max(maxInFlight, inFlight);
+    offsetsSeen.push(JSON.parse(body).offset);
+    await new Promise((r) => setTimeout(r, 30));
+    const uid = nextUpdateId++;
+    inFlight -= 1;
+    return {
+      ok: true,
+      status: 200,
+      text: JSON.stringify({ ok: true, result: [{ update_id: uid, message: { message_id: uid, chat: { id: -10099 } } }] }),
+    };
+  };
+
+  const [a, b] = await Promise.all([
+    telegramPollLastReply({ deviceId: "dev-a", token, chatId, request: slowRequest }),
+    telegramPollLastReply({ deviceId: "dev-b", token, chatId, request: slowRequest }),
+  ]);
+  assert.equal(a.ok, true);
+  assert.equal(b.ok, true);
+  assert.equal(maxInFlight, 1, "polls for one token must not overlap");
+  // Second caller must see the offset advanced by the first.
+  assert.equal(offsetsSeen[0], undefined);
+  assert.equal(offsetsSeen[1], 201);
+  assert.equal(telegramTokenSlot(token).updateOffset, 202);
+});
