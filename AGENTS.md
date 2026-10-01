@@ -6,14 +6,14 @@ new chat. `AGENTS.project.md` points here. Ignore any older App Builder copy of
 this filename if you still have it in context. Do not reconstruct product
 history from a Grok Build thread.
 
-You are finishing an existing LAN AV room controller. Raise correctness.
-Do not add features. Do not rewrite the product. Do not invent a second app.
+You are maintaining an existing LAN AV room controller. Raise correctness.
+Do not rewrite the product. Do not invent a second app. New features only when the operator names them (see Hard bans).
 
 ## Mission
 
-Close the phased defects below. A reviewer must be able to clone, install,
-and defend the control plane: persist, PIN/session, HMAC, LAN policy, host
-admin commands.
+**Historical:** the Phase 0–7 defect train below is **closed**. Do not reopen it unless the operator names a new train.
+
+Current work follows operator orders (cleanup, docs, safe patches). A reviewer must still be able to clone, install, and defend the control plane: persist, PIN/session, HMAC, LAN policy, host admin commands. Prefer factual edits; do not invent a second app.
 
 ## Hard bans
 
@@ -39,7 +39,7 @@ admin commands.
 
 ## Dual-NIC / venue TLS (agents — read once)
 
-Shipped truth through **B5 / `v0.9.45`**, **venue TLS C4 / `v0.9.46`**, **strict peer TLS / `v0.9.47`**, **strict device TLS / `v0.9.48`**, and **strict samsung-pair TLS / `v0.9.49`**: A1 outbound None soft-fail; A2 AV-LAN IPv4 listen only; B1 optional venue HTTPS from file PEMs; B3 `peerFace` + trusted peer CA (fail-closed); B4 `nicFace`; live NIC IPs in Networks UI; C1–C3 Generate + UI + lifecycle; C4 docs checkpoint. Canonical map: [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
+Venue TLS / dual-NIC train (A/B/C + strict peer/device TLS through `v0.9.49`) is **shipped**. Canonical map: [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0). Do not restate the full train here.
 
 Hard rules for future turns:
 
@@ -180,57 +180,21 @@ failing tests by name; `.gitignore` gaps. Do not edit.
 
 Gate: `npm ci`, typecheck, test, build.
 
-## Phase 2 — persist atomicity (issue #18)
+## Phase 2 — persist atomicity (issue #18) — **CLOSED (historical)**
 
-Single persist path: temp files, fsync, rename. Use `scripts/write-atomic.mjs`
-from `persistNow`. If the second write fails, the previous pair stays and the
-save returns failure (dirty flag remains). Test that. Do not change on-disk
-schema except a generation counter if required.
+Shipped: single persist path via `scripts/write-atomic.mjs` / `persistNow`. Do not reopen unless the operator names a new persist defect.
 
-Gate: persist test + existing suite.
+## Phase 3 — session and PIN trust (issue #17) — **CLOSED (historical)**
 
-## Phase 3 — session and PIN trust (issue #17)
+Shipped: no raw session secrets in export / `/api/room`; Forget drops client token; `panelAcceptsConfigPin` default false; expired sessions purged. Keep these as invariants — do not regress.
 
-- Do not put raw session secrets in room export or `/api/room`.
-- Forget / `revokeSession` must make the panel delete its stored token.
-- Panel unlock accepts config PIN only if `room.panelAcceptsConfigPin === true`
-  (default false).
-- Expired sessions deleted from memory and secrets on sight.
+## Phase 4 — control plane tests (issue #20) — **CLOSED (historical)**
 
-Tests: Forget clears client key; config PIN rejected when flag is false;
-expired token rejected.
+Shipped: HMAC / `allowLanControl` / admin-command / trigger tests live under `scripts/*test*`. Keep them green; do not delete product invariants.
 
-Gate: typecheck, test, build. Panel Forget check.
+## Phase 5 — engine safety (no new transports) — **CLOSED (historical)**
 
-## Phase 4 — control plane tests (issue #20)
-
-Add tests beside `scripts/control-security.test.mjs`:
-
-- HMAC: good sig; replay; uppercase hex rejected; empty key rejected;
-  skew > 90s rejected; wrong path rejected.
-- `allowLanControl`: off + no token → deny; off + panel token → allow
-  fireMacro/fireCommand; on + no token → those three only.
-- `system.restart|update|reboot` denied without config token even when open
-  LAN is on.
-- Trigger `change` fires once per edge; `interval` may re-fire. Empty schedule
-  days: test current documented behaviour; do not silently change it.
-
-Extract the minimum from `actions.ts` / `store.server.ts` if that is what makes
-them testable. Do not mock the whole engine.
-
-Gate: name every new test file in the phase report.
-
-## Phase 5 — engine safety (no new transports)
-
-In `engine.ts` / `sendLocal` only:
-
-- `allowedLanHost` stays deny-by-default. Do not allow “any hostname.”
-- GPIO / i2c / ir / cec / spi: allowlisted argv (chip, line, bus, address
-  regex, scancode charset). No `payload.split` into raw argv.
-- Keep connect-write-close. Do not “fix” issue #4 this pass. One comment at
-  the send site pointing at `KNOWN_ISSUES.md` #4.
-
-Gate: typecheck, build, `npm run driver:check -- data/library/samsung-qe50q65t.json`.
+Shipped invariants: `allowedLanHost` deny-by-default; host binary argv allowlisted; TCP connect-write-close (UDP/`udp-seq`/RTP-MIDI/Cast may hold session — see ARCHITECTURE §11). Issue #4 (persistent TCP sessions) remains a known product limit — out of scope for cleanup.
 
 ## Phase 6 — docs match the code
 
