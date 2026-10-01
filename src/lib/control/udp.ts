@@ -1,5 +1,6 @@
 import dgram from "node:dgram";
 import type { CommandResult } from "./types";
+import { decodeWire } from "./engine-wire.ts";
 
 export function isMulticastV4(host: string): boolean {
   const parts = String(host ?? "").split(".").map(Number);
@@ -21,6 +22,38 @@ export async function sendUdp(host: string, port: number, buf: Buffer, localAddr
       resolve({ ok: false, message: err.message });
     });
     if (localAddress) sock.bind(0, localAddress, send);
+    else send();
+  });
+}
+
+/** One datagram out, one datagram back, then the socket closes. Timeout is a failure. */
+export async function sendUdpReply(opts: {
+  host: string;
+  port: number;
+  buf: Buffer;
+  timeoutMs: number;
+  localAddress?: string;
+  encoding?: string;
+}): Promise<CommandResult & { raw?: Buffer }> {
+  return new Promise((resolve) => {
+    const sock = dgram.createSocket("udp4");
+    let done = false;
+    const finish = (result: CommandResult & { raw?: Buffer }) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try { sock.close(); } catch { /* ignore */ }
+      resolve(result);
+    };
+    const timer = setTimeout(() => finish({ ok: false, message: "timeout" }), opts.timeoutMs);
+    sock.once("error", (err) => finish({ ok: false, message: err.message }));
+    sock.on("message", (msg) => finish({ ok: true, message: decodeWire(msg, opts.encoding), raw: Buffer.from(msg) }));
+    const send = () => {
+      sock.send(opts.buf, opts.port, opts.host, (err) => {
+        if (err) finish({ ok: false, message: err.message });
+      });
+    };
+    if (opts.localAddress) sock.bind(0, opts.localAddress, send);
     else send();
   });
 }

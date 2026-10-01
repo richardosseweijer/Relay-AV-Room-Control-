@@ -20,7 +20,7 @@ admin commands.
 - No new features, transports, drivers, UI tabs, or polish-for-its-own-sake.
 - No new markdown except factual edits to `README.md`, `SECURITY.md`,
   `KNOWN_ISSUES.md`, `CHANGELOG.md`, `ARCHITECTURE.md`, `CONTEXT.md`,
-  `LINUX.md`, `WINDOWS.md`, and this file when rules drift.
+  `LINUX.md`, and this file when rules drift.
 - No drive-by refactors outside the current phase allow-list.
 - No new dependencies unless a phase requires one and `npm ci` still works.
 - Do not invent a second process, a cloud API, or a language rewrite. Venue HTTPS (B1 file PEMs) already exists — do not invent Let’s Encrypt/ACME/DNS-01 as a “fix” or default path (LE is PARKED). C1–C4 in-box venue TLS (Generate + Networks UI / CA download / regenerate + docs checkpoint) is shipped — do not re-litigate LE; do not reopen C4 unless the operator names a new train.
@@ -83,7 +83,7 @@ PRODUCT (phases may change):
 `src/routes/api/{room,peer,ping,vars,config-unlock,panel-unlock}.ts`,
 `data/library/**`, `scripts/driver-check.mjs`, `scripts/update-relay.mjs`,
 `scripts/write-atomic.mjs`, `scripts/room-smoke.mjs`,
-`scripts/control-security.test.mjs`, `LINUX.md`, `WINDOWS.md`, `README.md`,
+`scripts/control-security.test.mjs`, `LINUX.md`, `README.md`,
 `SECURITY.md`, `KNOWN_ISSUES.md`, `CHANGELOG.md`, `ARCHITECTURE.md` (facts),
 `CONTEXT.md`, `.gitignore`, product scripts in `package.json`.
 
@@ -122,7 +122,7 @@ After each phase, before the next:
 5. `npm run lint` only if cheap. Do not spend a phase on lint neighbourhoods.
 6. Grep gates after the relevant phase:
    - product code importing `@/lib/db`, `better-auth`, `getSql`, `getPglite`
-   - `npx vite` or bare `vite` in README / LINUX.md / WINDOWS.md
+   - `npx vite` or bare `vite` in README / LINUX.md
    - conflicting ports in those docs (one table: `dev` vs `start`/`preview`)
    - `system.reboot` / `system.update` / `system.restart` callable without a
      valid config session
@@ -148,7 +148,7 @@ non-overlapping paths, then integrate.
 - `npm ci && npm run typecheck && npm run test && npm run build` exit 0 on a
   clean clone.
 - One documented start command; `dev` vs production port listed in one table
-  in README, LINUX.md, WINDOWS.md, package.json — no contradictions.
+  in README, LINUX.md, package.json — no contradictions.
 - Product path has no Better Auth / PGLite / unused db bootstrap.
 - Room + secrets persist is one atomic operation (or proven equivalent).
 - HMAC, PIN, persist, allowLanControl, and admin-command tests exist and pass.
