@@ -6,7 +6,7 @@ Contact the maintainer privately. Do not file a public issue with exploit detail
 
 ## Scope
 
-Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds to the **AV-LAN IPv4** (never `0.0.0.0`). Dev is port 8080 (`npm run dev`). Production is port 8081 (`npm start`). HTTP on AV-LAN today (issue #15). **Shipped:** optional file-based HTTPS on the venue NIC is **B1** (when `RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room `tlsCertPath`/`tlsKeyPath` are set and outbound NIC is not None), plus **B3** venue HMAC peer and **B4** `nicFace`. **Let’s Encrypt / ACME / DNS-01 is PARKED permanently** for this product shape (guest LAN, no admin DNS rights, $0, no Cloudflare/LE accounts) — do not treat LE as the default or next path. **Shipped (C1–C4):** in-box **Generate** venue CA + leaf (API + Networks UI), CA download, IP-mismatch / expiry banners, regenerate confirm, OS install hints; C4 docs consistency + checkpoint tag `v0.9.46`. **Strict peer TLS verify** (`v0.9.47`) + **strict device TLS** (`v0.9.48`) + **strict samsung-pair TLS** (`v0.9.49`): trusted peer CA; per-device CA/pin (fail-closed on venue); manual pairing helper fail-closed on 8002. Do not port-forward 8080, 8081, or 8082. A host firewall that allows the panel port only from the AV-LAN CIDR is part of the install, not optional advice. Inventory and roadmap: [Venue TLS inventory](#venue-tls-inventory-c0).
+Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds to the **AV-LAN IPv4** (never `0.0.0.0`). Dev `:8080` / production `:8081`. Do not port-forward 8080, 8081, or 8082. A host firewall that allows the panel port only from the AV-LAN CIDR is part of the install. Optional venue HTTPS, Generate/UI lifecycle, strict peer/device TLS, and PARKED LE: see [Venue TLS inventory](#venue-tls-inventory-c0).
 
 ### Dual-NIC trust model
 
@@ -95,110 +95,20 @@ Foyer (optional) on this PC: occupancy GET to Relay on **AV-LAN `:8081`** (or lo
 
 ## Venue TLS inventory (C0)
 
-Canonical dual-NIC + venue TLS map. Prefer this section over older “LE = B2” wording elsewhere. `LINUX.md` §5b keeps the room-PC ufw copy-paste and a short optional-venue pointer; **do not** re-expand C1–C4 history there. C0 was docs-only; **C1–C3 shipped** (Generate + Networks UI + regenerate lifecycle); **C4** is the docs/hardening checkpoint (`v0.9.46`).
+<a id="venue-tls-inventory-c0"></a>
 
-### Shipped (A + B through `v0.9.45`)
+Canonical dual-NIC + venue TLS map. Prefer this over older “LE = B2” wording. `LINUX.md` §5b keeps ufw copy-paste and a short venue pointer — **do not** re-expand history there.
 
-| Item | Behaviour |
+| Status | What |
 |---|---|
-| **A1** | Outbound NIC can be **None**; Update / NIC2 soft-fail when None |
-| **A2** | HTTP listen pinned to **AV-LAN IPv4 only** (never `0.0.0.0`) |
-| **A3/A4** | Dual-NIC docs + remaining AV bind gaps closed (~`v0.9.43` → B train) |
-| **B1** | Optional HTTPS on NIC2/outbound when PEM cert+key present; soft-skip if None/no certs; **AV stays up** |
-| Live IP | Networks UI shows live IPv4 for NICs (raw IP OK; no DNS/LE needed) |
-| **B3** | `peerFace` `auto` \| `av` \| `outbound`; venue peers HTTPS+HMAC; soft-skip outbound/TLS; **strict peer CA verify** (fail-closed if CA missing) |
-| **B4** | `nicFace` `av` \| `outbound` for device bind |
-| **B5** | Inventory cleartext blocked on `nicFace=outbound`; tagged `v0.9.45` |
+| **Shipped A1–A2** | Outbound may be **None** (Update soft-fail). HTTP listen = **AV-LAN IPv4 only** (never `0.0.0.0`). |
+| **Shipped B1 / B3 / B4 / B5** (`v0.9.45`) | Optional venue HTTPS from file PEMs (`RELAY_TLS_*` or room paths; C1 Generate wires `data/tls/venue/`). `peerFace` + HMAC; **strict peer CA** (fail-closed). `nicFace` AV vs venue; cleartext blocked on venue. AV must not depend on venue certs. |
+| **Shipped C1–C4** (`v0.9.46`) | In-box Generate (ECDSA CA+leaf, IP SAN) + Networks UI / CA download / regenerate confirm / expiry+mismatch banners / OS hints + docs checkpoint. |
+| **Shipped strict TLS** | Peer `v0.9.47`; device HTTPS/TLS-WS CA or sha256 pin `v0.9.48`; `samsung-pair.mjs` fail-closed on 8002 `v0.9.49`. Soft `rejectUnauthorized: false` is not the venue / pairing happy path. |
+| **PARKED** | Let’s Encrypt / ACME / DNS-01 / public FQDN — permanently parked for this product shape. Do not reintroduce as default or “next”. |
+| **Residual** | AV-only Cast soft TLS (blocked on venue). |
 
-**Wire split:** AV cleartext HTTP (`:8081`) vs venue optional HTTPS (`:8443`) vs `nicFace`/`peerFace` bind planners. AV must not depend on venue certs.
-
-**Current PEM drop (B1):** point `RELAY_TLS_CERT` + `RELAY_TLS_KEY` (env wins) or room `tlsCertPath` + `tlsKeyPath` at readable PEM files on disk. **C1 Generate** writes `data/tls/venue/server.{cert,key}.pem` and wires the room paths. Missing/unreadable ⇒ soft-skip venue HTTPS only.
-
-### PARKED (not the product path)
-
-**Let’s Encrypt / ACME / DNS-01 / public FQDN** — parked permanently for this product shape: guest / venue LAN, no admin DNS rights, $0 budget, no Cloudflare or LE accounts. Do **not** reintroduce LE as the default story, “next” milestone, or install prerequisite.
-
-### Shipped — C1 (in-box Generate)
-
-| Item | Behaviour |
-|---|---|
-| **C1 Generate** | Admin API (`generateVenueTls` / `getVenueTlsStatus`, config-token gated) builds an **ECDSA P-256** private CA (~10y) + server leaf (~2y) with **IP SAN** = live outbound/NIC2 IPv4 |
-| **Storage** | Fixed paths under `data/tls/venue/` (`ca.cert.pem`, `ca.key.pem`, `server.cert.pem`, `server.key.pem`); keys `0600`; never commit; private keys never enter room JSON export |
-| **B1 wire** | Sets room `tlsCertPath` / `tlsKeyPath` to the server PEM pair (env `RELAY_TLS_*` still wins if set) |
-| **Reload** | Reloads venue HTTPS listener only; AV HTTP untouched. Soft-skip when outbound None / no IPv4 |
-| **Crypto** | Node `crypto` only (no openssl shell-out; no ACME/LE) |
-
-### Shipped — C2 (Networks UI / CA download)
-
-| Item | Behaviour |
-|---|---|
-| **Generate button** | Room → Networks: **Generate venue certificate** (disabled + reason when outbound None / no live IPv4) |
-| **Status** | Surfaces `getVenueTlsStatus`: active?, SAN IP, leaf expiry, fingerprint (near outbound / live IP) |
-| **CA download** | Same-origin `/api/venue-tls-ca` (config-token gated) serves `ca.cert.pem` only — never private keys; works after NIC2 HTTPS click-through |
-| **IP mismatch** | Banner when live NIC2 IPv4 ∉ leaf SAN; prompts Regenerate (confirm UX = C3) |
-| **OS hints** | Brief iOS / Android / Windows / macOS install notes next to Download CA |
-
-### Shipped — C3 (lifecycle)
-
-| Item | Behaviour |
-|---|---|
-| **Regenerate confirm** | When PEMs already present, Networks requires explicit `confirm` before replacing CA + leaf; re-issues for current live NIC2 IPv4; reloads venue HTTPS only (AV untouched) |
-| **Expiry UX** | Status shows days-left; warn banner when leaf ≤30 days (or expired) with clear Regenerate path |
-| **IP drift** | Strengthened mismatch banner → confirm → Regenerate with new SAN |
-| **Light auto-check** | On Networks load and Refresh NICs, recompute mismatch / expiry flags — **no silent auto-reissue** |
-
-### Shipped — C4 (docs checkpoint)
-
-| Item | Behaviour |
-|---|---|
-| **C4** | Full doc consistency audit across SECURITY / LINUX / ARCHITECTURE / AGENTS / CONTEXT / KNOWN_ISSUES / README / WINDOWS / CHANGELOG / FOYER-ROADMAP; light comment hardening (LE = PARKED, not “next B2”); checkpoint package + annotated tag `v0.9.46` |
-
-### Shipped — strict peer TLS verify (`v0.9.47`)
-
-| Item | Behaviour |
-|---|---|
-| **Trust model** | Per-`relay-host` **trusted peer CA** (`peerTrustedCaPath` / PEM paste / `RELAY_PEER_TRUSTED_CA`) = the **remote room’s** Download CA PEM |
-| **Happy path** | Venue peer HTTPS: `rejectUnauthorized: true` + Node `ca` = that PEM; leaf IP SAN must match peer host |
-| **Fail-closed** | Missing/unreadable/non-cert CA → clear skip error (install peer CA); AV-LAN HTTP peers unchanged |
-| **Exchange** | Remote Networks → Download CA → save PEM → set Trusted peer CA path on this device; same-install loop → `data/tls/venue/ca.cert.pem` |
-| **Not in scope** | Let’s Encrypt; silent auto-reissue; changing Foyer; soft-verify as venue peer default |
-
-### Shipped — strict device TLS verify (`v0.9.48`)
-
-| Item | Behaviour |
-|---|---|
-| **Trust model** | Per-device **trusted CA** (`deviceTrustedCaPath` / PEM) and/or **sha256 cert pin** (`tlsFingerprintSha256`) |
-| **Venue happy path** | HTTPS / tls-websocket: `rejectUnauthorized: true` + `ca`, or explicit pin checker; **fail-closed** if neither configured |
-| **AV** | System trust store when no CA/pin; self-signed needs CA or pin |
-| **Cast** | AV-only (blocked on `nicFace=outbound`); soft verify remains AV Cast exception only |
-| **Not in scope** | LE; silent auto-reissue; huge PKI UI; bundling Google Cast CA |
-
-### Shipped — strict samsung-pair TLS (`v0.9.49`)
-
-Manual lab helper `scripts/samsung-pair.mjs` (not the runtime engine path) no longer soft-verifies by default on port **8002**.
-
-| Item | Behaviour |
-|---|---|
-| **Trust** | `--ca=<pem>` and/or `--fingerprint=<sha256>` (`--accept-fingerprint` alias; env `SAMSUNG_PAIR_CA` / `SAMSUNG_PAIR_FINGERPRINT`) |
-| **Happy path** | CA: `rejectUnauthorized: true` + `ca`; pin: pin checker (self-signed Samsung leaves) |
-| **Fail-closed** | HTTPS/8002 with no trust → clear refusal (see `--help`) |
-| **`--insecure`** | Discover-only: soft-connect, print leaf sha256, exit — **no pairing token**; re-run with `--fingerprint=` |
-| **8001** | Cleartext `ws` (no TLS) unchanged |
-
-Operators may still drop in file PEMs for B1. **C0–C4 closed.** **Strict peer TLS** (`v0.9.47`) + **strict device TLS** (`v0.9.48`) + **strict samsung-pair TLS** (`v0.9.49`) shipped. Foyer loopback-vs-AV URL footgun is fixed (AV live IP default + local hairpin). Residual: AV-only Cast soft TLS (Google Cast; blocked on venue).
-
-### Doc crawl (where dual-NIC / TLS / LE lived)
-
-| File | Role after C0 |
-|---|---|
-| `SECURITY.md` (this file) | Canonical trust model + inventory (Shipped C0–C4 vs PARKED LE vs residual leftovers) |
-| `LINUX.md` §5b | Install: one-NIC + two-NIC ufw chapter; short venue-HTTPS pointer → this inventory (PEM / Generate / CA lifecycle live here) |
-| `ARCHITECTURE.md` §2 / §8 | Process listen + access control aligned with AV HTTP vs venue HTTPS |
-| `CONTEXT.md` / `AGENTS.md` | Agent map + bans: no LE default; no `0.0.0.0`; AV ≠ venue certs; C1–C4 Generate + UI + lifecycle + docs checkpoint shipped |
-| `KNOWN_ISSUES.md` | Still-true listen / venue TLS bullets |
-| `README.md` | Short pointers; never claim LE as default |
-| `CHANGELOG.md` | C0 under Unreleased (docs); historical B2 wording left in past releases |
-| `FOYER-ROADMAP.md` (stub) / `docs/history/FOYER-ROADMAP.md` | Historical implementation notes only — not the TLS roadmap |
+Operators may still drop file PEMs for B1. **C0–C4 closed.** Trust-model detail for peer / device faces: sections above (Peer face B3, Device NIC face B4). Doc pointers: `LINUX.md` §5b (ufw), `ARCHITECTURE.md` §2/§8, `CONTEXT.md` / `AGENTS.md` (bans), `KNOWN_ISSUES.md`, `README.md`, `CHANGELOG.md`.
 
 
 ## Secrets on disk
