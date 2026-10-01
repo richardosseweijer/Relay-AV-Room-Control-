@@ -11,7 +11,7 @@ Relay **0.9.76** (beta). Single-process LAN AV room controller. Phase B software
 TanStack Start + Vite. Dev `:8080` / prod `:8081` bind to **AV-LAN IPv4** (auto-map first scanned NIC when AV unset/invalid; else loopback if no NICs). Never `0.0.0.0`. `RELAY_LISTEN_HOST` overrides.
 Not a grok.me / Vercel host — those have no writable `data/`.
 
-Companion signage: [Foyer-Room-Signage](https://github.com/richardosseweijer/Foyer-Room-Signage) `v0.2.2`.
+Companion signage: [Foyer-Room-Signage](https://github.com/richardosseweijer/Foyer-Room-Signage) `v0.2.3`.
 Wire: `FOYER-RELAY.md` (same file in both repos).
 
 ## Where to look (one job → those files only)
@@ -19,7 +19,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Job | Files |
 | --- | --- |
 | Send / parse / sockets | `engine.ts` (orchestration façade), `engine-wire.ts` (TCP/pace/encode), `engine-lan.ts` (LAN dispatch), `engine-host.ts` (local/host), `engine-policy.ts`, `engine-payload.ts` |
-| Protocol adapters | same folder: `ws.ts`, `cast.ts`, `pjlink.ts`, `wol.ts`, `osc.ts`, `sacn.ts`, `udp.ts`, `ipmidi.ts`, `rtp-midi.ts`, `midi.ts`, `midi-in.ts`, `telegram.ts`, `http-client.ts`, `gateway.ts` |
+| Protocol adapters | same folder: `ws.ts`, `cast.ts`, `pjlink.ts`, `wol.ts`, `osc.ts`, `sacn.ts`, `udp.ts`, `udp-hold.ts`, `udp-seq.ts`, `ipmidi.ts`, `rtp-midi.ts`, `midi.ts`, `midi-in.ts`, `telegram.ts`, `http-client.ts`, `gateway.ts` |
 | Persist / boot / clocks | `src/lib/control/store.server.ts`, `scripts/write-atomic.mjs` |
 | Panel / config RPCs | `actions.ts` (barrel), `actions-auth.ts`, `actions-config.ts`, `actions-runtime.ts`, `actions-host.ts`, `actions-context.ts` (`loadControl`) |
 | Types / empty room | `types.ts`, `defaults.ts`, `schema.ts`, `vars.ts` |
@@ -51,7 +51,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | New driver syntax | `DRIVER-PROMPT.md`, then `npm run driver:check -- data/library/<file>.json` |
 | Local HDMI panel kiosk | `video-outputs` / `kiosk` / `panel-kiosk-url` / `panel-kiosk-env`, `scripts/relay-kiosk.sh`, `deploy/relay-kiosk.service`, Room → Local display. Dual-head + Foyer: prefer panel via Foyer; disable `relay-kiosk` ([`LINUX.md`](LINUX.md) §7a) |
 | NIC pick / listen host | `nics.ts`, `scripts/http-listen-host.mjs`, `scripts/https-venue-listen.mjs` (B1), `peer-venue.ts` (B3), `device-face.ts` (B4), `scripts/venue-tls-*.mjs` (C1–C3), `scripts/with-app-env.mjs`, Room tab Networks (Generate / Regenerate / Download CA) |
-| Install / firewall | `LINUX.md`, `WINDOWS.md`, `SECURITY.md` |
+| Install / firewall | `LINUX.md`, `SECURITY.md` |
 | Venue TLS inventory (C0–C4) | `SECURITY.md` § Venue TLS inventory — Shipped C0–C4 vs PARKED LE vs residual leftovers |
 
 ## Do not open unless the operator names them

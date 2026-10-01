@@ -10,7 +10,7 @@ This document describes the software in this repository. It is not a substitute 
 
 Relay is a single-process, LAN-hosted controller for audiovisual and related equipment. An integrator describes each product as a JSON driver (ports, payloads, authentication, parse rules). The operator sees only a grid of buttons and sliders bound to those capabilities.
 
-The application is intended to run on a machine that remains on the same private network as the devices. The locked production host is Ubuntu Server with two NICs (AV-LAN for device I/O, internet NIC for outbound update). Windows and Raspberry Pi still run. Foyer room signage is an optional second process on this PC — communication is [`FOYER-RELAY.md`](FOYER-RELAY.md), not part of this package. Device protocols implemented by third parties are used without affiliation; see NOTICE.
+The application is intended to run on a machine that remains on the same private network as the devices. The locked production host is Ubuntu Server with two NICs (AV-LAN for device I/O, internet NIC for outbound update). Supported install is **Linux only** (Debian / Ubuntu / Raspberry Pi OS); Windows install docs were removed. Foyer room signage is an optional second process on this PC — communication is [`FOYER-RELAY.md`](FOYER-RELAY.md), not part of this package. Device protocols implemented by third parties are used without affiliation; see NOTICE.
 
 The repository also contains Vite / TanStack Start scaffolding used to boot the HTTP server. Device I/O is only in `src/lib/control/`, `src/components/panel/`, `src/components/config/`, and `src/routes/`.
 
@@ -130,16 +130,16 @@ Callers import `src/lib/control/engine.ts`. That façade orchestrates pairing, i
 |---|---|
 | `engine.ts` | Orchestration façade: pairing, inventory, monitors, macros, `executeCommand`. Re-exports selected leaf APIs. |
 | `engine-wire.ts` | Wire encode/decode (`encodeWire`), TCP connect-write-close / session write, pacing (`paceDevice`), TCP pool. |
-| `engine-lan.ts` | `sendLan`, `sendHttp`, and LAN protocol adapters (UDP, WS, Cast, PJLink, WOL, OSC, sACN, MIDI variants). |
+| `engine-lan.ts` | `sendLan`, `sendHttp`, and LAN protocol adapters (UDP reply, held socket, `udp-seq`, WS, Cast, PJLink, WOL, OSC, sACN, MIDI variants). |
 | `engine-host.ts` | `sendLocal`, `applyHost`, host feedback, `listHostInterfaces` (serial / GPIO / local tools). |
 | `engine-policy.ts` | RFC1918 (plus optional loopback) host allow, `scrubSecret` (via `isSecretKey`), traces (`__relayTraces__`), `sleep`. Re-exported from the barrel. |
 | `engine-payload.ts` | `{value}` / `{auth.*}` substitution, `valueMap`, `requires` guard, simulated state, `parseFeedback`, inventory JSON parse. Not re-exported. |
 
 ### 5.1 LAN protocols
 
-`tcp`, `udp`, `http`, `https`, `websocket`, `tls-websocket`, `pjlink`, `cast`, `wol`, `osc`, `sacn`, `ipmidi`, `rtp-midi`.
+`tcp`, `udp`, `udp-seq`, `http`, `https`, `websocket`, `tls-websocket`, `pjlink`, `cast`, `wol`, `osc`, `sacn`, `ipmidi`, `rtp-midi`.
 
-HTTP and HTTPS use the command’s method, path, headers, and body. `httpMethod` `RPC` runs Windows remote shutdown (`shutdown /s /m` on Windows, `net rpc shutdown` on Linux). WebSocket and TLS WebSocket open a short-lived socket, send the payload, and wait for a matching reply or timeout. Cast keeps a TLS session: receiver GET_STATUS, CONNECT to the app transport, media GET_STATUS, then PLAY/PAUSE/STOP with the live `mediaSessionId`. PJLink uses the documented projector login banner and `%1POWR` class commands. Wake-on-LAN sends a magic packet to the configured MAC (ports 7 and 9); it does not confirm the target left standby. Empty WOL commands do not follow with HTTP. OSC encodes the payload as a UDP path plus optional `osc.types` / `osc.values`. sACN is E1.31 multicast `239.255.0.{universe}:5568` TTL 1. ipMIDI is raw MIDI hex on UDP multicast `225.0.0.37:21928` TTL 1. RTP-MIDI is a unicast AppleMIDI session (control 5004, data 5005); no Bonjour.
+HTTP and HTTPS use the command’s method, path, headers, and body. `httpMethod` `RPC` runs Windows remote shutdown (`shutdown /s /m` on Windows, `net rpc shutdown` on Linux). WebSocket and TLS WebSocket open a short-lived socket, send the payload, and wait for a matching reply or timeout. Cast keeps a TLS session: receiver GET_STATUS, CONNECT to the app transport, media GET_STATUS, then PLAY/PAUSE/STOP with the live `mediaSessionId`. PJLink uses the documented projector login banner and `%1POWR` class commands. Wake-on-LAN sends a magic packet to the configured MAC (ports 7 and 9); it does not confirm the target left standby. Empty WOL commands do not follow with HTTP. OSC encodes the payload as a UDP path plus optional `osc.types` / `osc.values`. A UDP or OSC send with no reply request stays one datagram and the result `udp sent`. A poll, or a command with `ack` or `waitContains`, waits for one datagram (OSC arguments become the result text) and fails on timeout. `session.keepMs` holds that socket; an idle datagram is push feedback. `udp-seq` is the engine’s reliable datagram session, not a product protocol: one socket, handshake (`session.connect` opening bytes, resent only on reconnect), session id, a local counter per payload, ACK of the peer counter, one resend, then the inner bytes for the existing parse. An unknown inner frame is ACKed and skipped using the length prefix. Quiet peer or idle past `keepMs` (default 60s) drops the socket; the next command uses a new session id. Drivers do not own counters, flags, or checksums. A different header is another module. sACN is E1.31 multicast `239.255.0.{universe}:5568` TTL 1. ipMIDI is raw MIDI hex on UDP multicast `225.0.0.37:21928` TTL 1. RTP-MIDI is a unicast AppleMIDI session (control 5004, data 5005); no Bonjour.
 
 ### 5.2 Local protocols
 
@@ -294,7 +294,6 @@ Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue
 | `scripts/update-relay.mjs` | Git pull, dependency install, relaunch. |
 | `LINUX.md` | Debian / Raspberry Pi packages, dual-NIC checklist, B1 PEM drop + Generate / Networks UI / lifecycle notes, systemd unit, update procedure. |
 | `SECURITY.md` | Dual-NIC trust model + [Venue TLS inventory (C0)](SECURITY.md#venue-tls-inventory-c0) (Shipped C0–C4 vs PARKED LE vs residuals). |
-| `WINDOWS.md` | Windows install and update procedure. |
 | `DRIVER-PROMPT.md` | Instructions for generating a driver JSON without this source tree. |
 | `CHANGELOG.md` | Notable changes. |
 | `KNOWN_ISSUES.md` | Current limitations. |
@@ -345,7 +344,7 @@ Static mode validates manufacturer/model, command ids, parse types, and substitu
 ## 11. Constraints
 
 - One Relay process owns one room configuration. Multiple operator browsers may attach to that process.
-- TCP commands open, write, and close. The engine does not keep a MIDI or proprietary session open between calls.
+- TCP commands open, write, and close. UDP / OSC with `session.keepMs`, `udp-seq`, RTP-MIDI, and Cast may hold a session; other transports stay connect-write-close. The engine does not keep a MIDI-TCP or proprietary TCP session open between calls.
 - Serial, GPIO, I2C, IR, and CEC require the corresponding hardware and host packages on the machine that runs Relay.
 - Fullscreen and wake lock depend on the browser. Some mobile browsers only hide chrome when the panel is installed as a home-screen application.
 - Demonstration configuration and default PIN `1234` are unsuitable for a production room until changed.

@@ -133,9 +133,11 @@ test("ChatGPT #3: sendLan OSC/sACN renderPayload uses value (not undefined→emp
 test("engine-lan sendLan still names http cast pjlink wol tcp websocket", () => {
   const lanSrc = fs.readFileSync("src/lib/control/engine-lan.ts", "utf8");
   const lan = namedFn(lanSrc, "sendLan");
-  for (const needle of ['lan.protocol === "cast"', 'lan.protocol === "pjlink"', 'lan.protocol === "wol"', "tls-websocket", 'lan.protocol === "http"', 'lan.protocol === "osc"', 'lan.protocol === "sacn"', 'lan.protocol === "ipmidi"', 'lan.protocol === "rtp-midi"', 'lan.protocol === "telegram"']) {
+  for (const needle of ['lan.protocol === "cast"', 'lan.protocol === "pjlink"', 'lan.protocol === "wol"', "tls-websocket", 'lan.protocol === "http"', 'lan.protocol === "osc"', 'lan.protocol === "sacn"', 'lan.protocol === "ipmidi"', 'lan.protocol === "rtp-midi"', 'lan.protocol === "telegram"', 'lan.protocol === "udp-seq"']) {
     assert.ok(lan.includes(needle), needle);
   }
+  assert.match(lan, /udpSeqOpening\(driver\.session\?\.connect\?\.\[0\]/);
+  assert.match(lan, /reply: wantReply/);
   assert.equal(lanSrc.includes("sendSamsungKey"), false);
   assert.equal(lanSrc.includes("samsung.remote.control"), false);
   assert.equal(lanSrc.includes("Accept Allow on the TV"), false);
@@ -144,6 +146,7 @@ test("engine-lan sendLan still names http cast pjlink wol tcp websocket", () => 
   const barrel = fs.readFileSync("src/lib/control/engine.ts", "utf8");
   assert.match(barrel, /from ["']\.\/engine-lan["']/);
   assert.match(barrel, /export \{ sendHttp \} from ["']\.\/engine-lan["']/);
+  assert.ok(barrel.includes("{ reply: true }"));
   assert.equal(/from ["']\.\/engine["']/.test(lanSrc), false);
 });
 
