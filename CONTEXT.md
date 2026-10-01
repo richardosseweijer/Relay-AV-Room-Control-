@@ -7,9 +7,7 @@ Keep this file short. If it grows past ~150 lines, cut history — do not append
 
 ## Product
 
-Relay **0.9.76** (beta). Single-process LAN AV room controller. Phase B software checkpoint (B5 at `v0.9.45`). LE/ACME parked; C1–C4 in-box venue TLS train closed (Generate + Networks UI + lifecycle + docs checkpoint).
-TanStack Start + Vite. Dev `:8080` / prod `:8081` bind to **AV-LAN IPv4** (auto-map first scanned NIC when AV unset/invalid; else loopback if no NICs). Never `0.0.0.0`. `RELAY_LISTEN_HOST` overrides.
-Not a grok.me / Vercel host — those have no writable `data/`.
+Relay **0.9.76** (beta). Single-process LAN AV room controller. TanStack Start + Vite. Dev `:8080` / prod `:8081` bind to **AV-LAN IPv4** (never `0.0.0.0`; `RELAY_LISTEN_HOST` overrides). Venue TLS train closed — see [`SECURITY.md`](SECURITY.md#venue-tls-inventory-c0). Not a grok.me / Vercel host (no writable `data/`).
 
 Companion signage: [Foyer-Room-Signage](https://github.com/richardosseweijer/Foyer-Room-Signage) `v0.2.3`.
 Wire: `FOYER-RELAY.md` (same file in both repos).
@@ -70,7 +68,7 @@ Do not grep the whole repo to “get context.” If the table above is missing a
 - Panel PIN ≠ config PIN unless `panelAcceptsConfigPin` (default off).
 - Open-on-LAN (no panel PIN) is not `externalControl` (unauthenticated fire\*).
 - `system.restart|update|reboot` need a config session even if open LAN is on.
-- Listen is AV-LAN IPv4 only — never `0.0.0.0`. **Apply AV-LAN IPv4** (Linux/nmcli, config PIN): static|DHCP on AV pick; strip gateway + never-default; restart to re-bind. No Windows apply; no gateway on AV; no NIC2 apply. Optional venue HTTPS (B1) when outbound NIC + file certs (`RELAY_TLS_CERT`/`RELAY_TLS_KEY` or room paths); **LE/ACME/DNS-01 PARKED** (not default). **Shipped C1–C4:** in-box Generate venue CA (API + Networks UI / CA download / regenerate confirm / expiry banners) + docs checkpoint `v0.9.46`. B3: HMAC peer over that HTTPS (`peer-venue.ts`); soft-skip venue peer if None/no server PEMs; **strict trusted peer CA** (fail-closed if missing; `peerTrustedCaPath` / Download CA exchange). B4: per-device `nicFace` (`device-face.ts`) bind AV vs venue; soft-fail venue face if None/no IPv4; no cleartext HTTP/WS on venue (inventory `httpPath` refused on outbound); Cast AV-only; device HTTPS/TLS-WS require CA or sha256 pin on venue (`v0.9.48`); manual `samsung-pair.mjs` fail-closed on 8002 (`v0.9.49`). B5 = Phase B software checkpoint (tag `v0.9.45`). Firewall panel port to AV CIDR (#15). Outbound None ⇒ Update refused (A1) and venue HTTPS / venue peer / venue nicFace skipped. AV must not depend on venue certs. Foyer/default control URL prefers live AV-LAN IPv4 (`controlBaseUrlFrom`; same first-scanned auto-map when AV unset/invalid); soft-fail if no NICs / no IPv4; unsigned peer GET allows listen-host hairpin. Footgun fixed. Canonical map: `SECURITY.md` Venue TLS inventory.
+- Listen is AV-LAN IPv4 only — never `0.0.0.0`. Apply AV-LAN IPv4 is Linux/nmcli only. Outbound None soft-fails Update + venue HTTPS/peer/`nicFace`. Control URL prefers live AV-LAN IPv4 (`controlBaseUrlFrom`). Full dual-NIC / venue TLS / PARKED LE map: [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
 - Do not add xAI / Grok API calls. Do not print PINs. Do not commit `data/relay-secrets.json` or `.env`.
 - Do not start raw `npx vite`. Use `npm run dev` / `npm start`.
 
