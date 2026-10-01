@@ -10,8 +10,10 @@ import { sendControlSocket, buildWsTarget } from "./ws";
 import { sendPjlink } from "./pjlink";
 import { sendCast } from "./cast";
 import { sendWol } from "./wol";
-import { sendUdp } from "./udp";
 import { sendOscCommand } from "./osc";
+import { sendUdp, sendUdpReply } from "./udp";
+import { sendUdpHeld } from "./udp-hold";
+import { sendUdpSeq, udpSeqOpening } from "./udp-seq";
 import { sendSacnCommand } from "./sacn";
 import { sendIpmidi } from "./ipmidi";
 import { sendRtpMidiCommand } from "./rtp-midi";
@@ -124,12 +126,12 @@ export function wsQueryFromDriver(driver: DriverSpec, device: DeviceInstance): R
   return Object.keys(out).length ? out : undefined;
 }
 
-export async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: string, command?: DriverCommand, config?: RoomConfig, value?: string | number): Promise<CommandResult> {
+export async function sendLan(driver: DriverSpec, device: DeviceInstance, payload: string, command?: DriverCommand, config?: RoomConfig, value?: string | number, opts?: { reply?: boolean }): Promise<CommandResult> {
   const lan = driver.transports.lan;
   if (!lan) return { ok: false, message: "No LAN transport on this driver" };
   const proto = String(lan.protocol || "");
   if (!proto || /[/\\:]/.test(proto)) return { ok: false, message: "Unknown protocol" };
-  const known = new Set(["tcp", "udp", "http", "https", "websocket", "tls-websocket", "pjlink", "cast", "wol", "osc", "sacn", "ipmidi", "rtp-midi", "telegram"]);
+  const known = new Set(["tcp", "udp", "udp-seq", "http", "https", "websocket", "tls-websocket", "pjlink", "cast", "wol", "osc", "sacn", "ipmidi", "rtp-midi", "telegram"]);
   if (!known.has(proto)) return { ok: false, message: "Unknown protocol" };
   const face = readNicFace(device);
   const protoGate = nicFaceProtocolGate(face, proto, lan);
@@ -154,7 +156,8 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
   await paceDevice(device.id, driver.pacing?.minIntervalMs);
   pushTrace(device.id, "tx", `${command?.namespace ? command.namespace.split(".").pop() + " " : ""}${payload.slice(0, 160)}`);
   let result: CommandResult;
-  const wire = encodeWire(payload, encoding, lan.lineEnding ?? (lan.protocol === "pjlink" ? "\r" : undefined));
+  const lineEnding = lan.lineEnding ?? (lan.protocol === "pjlink" ? "\r" : undefined);
+  const wire = encodeWire(payload, encoding, lineEnding);
   if ("error" in wire) return { ok: false, message: wire.error };
   if (command?.httpMethod === "RPC") result = await sendRpcShutdown(host, device.auth?.user || device.auth?.username || "", device.auth?.password || "", localAddress);
   else if (lan.protocol === "wol") result = await sendWol(device.auth?.mac || "", host, localAddress);
@@ -245,6 +248,7 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
     const oscPort = Number(port || 9000);
     const ctx = { host, port: oscPort, id: device.id };
     const auth = device.auth || {};
+    const wantReply = Boolean(opts?.reply || command?.ack || command?.waitContains);
     result = await sendOscCommand({
       host,
       port: oscPort,
@@ -252,6 +256,8 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
       types: command?.osc?.types,
       values: (command?.osc?.values ?? []).map((v) => renderPayload(String(v ?? ""), value, auth, ctx)),
       localAddress,
+      reply: wantReply ? { timeoutMs: timeout } : undefined,
+      hold: lan.session?.keepMs ? { key: device.id, keepMs: lan.session.keepMs } : undefined,
     });
   }
   else if (lan.protocol === "sacn") {
@@ -291,7 +297,40 @@ export async function sendLan(driver: DriverSpec, device: DeviceInstance, payloa
       localAddress,
     });
   }
-  else if (lan.protocol === "udp") result = await sendUdp(host, Number(port), wire, localAddress); else if (lan.session && encoding !== "hex") {
+  else if (lan.protocol === "udp" || lan.protocol === "udp-seq") {
+    const wantReply = Boolean(opts?.reply || command?.ack || command?.waitContains);
+    const keepMs = lan.session?.keepMs;
+    if (lan.protocol === "udp-seq") {
+      const hello = udpSeqOpening(driver.session?.connect?.[0], encoding, lineEnding);
+      if ("error" in hello) return { ok: false, message: hello.error };
+      result = await sendUdpSeq({
+        key: device.id,
+        host,
+        port: Number(port),
+        payload: wire,
+        hello,
+        timeoutMs: timeout,
+        keepMs: keepMs ?? 60_000,
+        localAddress,
+        encoding,
+        reply: wantReply,
+      });
+    } else if (keepMs) {
+      result = await sendUdpHeld({
+        key: device.id,
+        host,
+        port: Number(port),
+        buf: wire,
+        keepMs,
+        timeoutMs: timeout,
+        localAddress,
+        encoding,
+        reply: wantReply,
+      });
+    } else if (wantReply) {
+      result = await sendUdpReply({ host, port: Number(port), buf: wire, timeoutMs: timeout, localAddress, encoding });
+    } else result = await sendUdp(host, Number(port), wire, localAddress);
+  } else if (lan.session && encoding !== "hex") {
     result = await tcpSessionWrite(device.id, host, port, wire, lan.session, device.auth || {}, timeout, localAddress);
   } else result = await tcpWrite(host, port, wire, timeout, encoding, localAddress);
   pushTrace(device.id, result.ok ? "rx" : "note", result.message);
