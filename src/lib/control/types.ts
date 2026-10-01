@@ -527,7 +527,7 @@ export type RoomConfig = {
     peerMacroIds?: string[];
     externalControl?: boolean;
     panelAcceptsConfigPin?: boolean;
-    theme: "dark" | "peach" | "green" | "office";
+    theme: "dark" | "glass-dark" | "glass-light" | "peach" | "green" | "office";
     idleDimSeconds: number;
     keepAwake?: boolean;
     panelFullscreen?: boolean;
