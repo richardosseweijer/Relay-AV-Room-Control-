@@ -4,7 +4,7 @@
     "manufacturer": "Generic",
     "model": "OSC UDP",
     "type": "mixer",
-    "notes": "OSC over UDP. Host is the receiver. Port default 9000. Command payload is the OSC path. Optional osc.types (s/i/f/b) and osc.values with {value}/{auth.*}."
+    "notes": "OSC over UDP. Host is the receiver. Port default 9000. Command payload is the OSC path. Optional osc.types (s/i/f/b) and osc.values with {value}/{auth.*}. A command with arguments sends and does not wait. A poll (path, no arguments) waits for one reply; that argument is the text. Timeout fails. session.keepMs holds the socket."
   },
   "transports": {
     "lan": {

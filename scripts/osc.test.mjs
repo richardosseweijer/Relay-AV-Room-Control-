@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { encodeOsc, sendOscCommand } from "../src/lib/control/osc.ts";
+import { decodeOsc, encodeOsc, oscReplyText, sendOscCommand } from "../src/lib/control/osc.ts";
+import dgram from "node:dgram";
 
 test("encodeOsc /ping has path and empty type tag, 4-byte aligned", () => {
   const buf = encodeOsc("/ping", []);
@@ -42,4 +43,24 @@ test("ChatGPT #3: OSC {value} template receives provided number (not empty→0)"
   assert.equal(buf.subarray(16, 20).toString("utf8").replace(/\0+$/, ""), ",f");
   const f = buf.readFloatBE(20);
   assert.ok(Math.abs(f - 0.75) < 1e-5, `expected 0.75 got ${f}`);
+});
+
+test("OSC poll with no arguments receives one argument as text", async () => {
+  const recv = dgram.createSocket("udp4");
+  await new Promise((resolve) => recv.bind(0, "127.0.0.1", resolve));
+  const port = recv.address().port;
+  recv.on("message", (_msg, rinfo) => {
+    recv.send(encodeOsc("/reply", [{ type: "s", value: "ready" }]), rinfo.port, rinfo.address);
+  });
+  const res = await sendOscCommand({ host: "127.0.0.1", port, path: "/status", reply: { timeoutMs: 400 } });
+  assert.equal(res.ok, true);
+  assert.equal(res.message, "ready");
+  const decoded = decodeOsc(encodeOsc("/n", [{ type: "i", value: 3 }]));
+  assert.equal(decoded?.args[0], "3");
+  assert.equal(oscReplyText({ path: "/n", args: ["3"] }), "3");
+  recv.removeAllListeners("message");
+  const missed = await sendOscCommand({ host: "127.0.0.1", port, path: "/status", reply: { timeoutMs: 40 } });
+  assert.equal(missed.ok, false);
+  assert.equal(missed.message, "timeout");
+  recv.close();
 });
