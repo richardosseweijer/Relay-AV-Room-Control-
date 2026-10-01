@@ -6,7 +6,7 @@ Copy everything below the line to another AI. Attach the device manual (or model
 
 You write **one Relay driver**: a single JSON file. Filename `{manufacturer}-{model}.json` (lowercase, hyphens).
 
-Relay is a room controller. The JSON is **data only**. The engine already sends HTTP, TCP, WebSocket, Cast, WOL, and hex/ASCII payloads. You fill ports, paths, and bytes from the manual. You do not invent keys, parse types, or a scripting language.
+Relay is a room controller. The JSON is **data only**. The engine already sends HTTP, TCP, UDP (a reply, a held socket, and `udp-seq`), WebSocket, Cast, WOL, and hex/ASCII payloads. You fill ports, paths, and bytes from the manual. You do not invent keys, parse types, or a scripting language.
 
 If the manual is unclear, **omit that command** and mention it in `device.notes`.
 
@@ -30,7 +30,9 @@ If the manual is unclear, **omit that command** and mention it in `device.notes`
 | Browser WebSocket | `websocket` | `ascii` | `""` |
 | TLS WebSocket | `tls-websocket` | `ascii` | `""` |
 | Chromecast | `cast` | `ascii` | `""` |
-| OSC UDP | `osc` | binary OSC | n/a — payload is the path; `osc.types` / `osc.values` |
+| OSC UDP | `osc` | binary OSC | n/a — payload is the path; `osc.types` / `osc.values`. A poll (no arguments), or `ack` / `waitContains`, waits for one reply and uses that argument as text. Otherwise the send stays fire-and-forget. `session.keepMs` holds the socket. |
+| Raw UDP | `udp` | `ascii` or `hex` | Fire-and-forget result is `udp sent`. A poll, or a command with `ack` or `waitContains`, waits for one datagram or fails with timeout. `session.keepMs` holds one socket; an idle datagram is push feedback. |
+| Sequenced UDP | `udp-seq` | `ascii` or `hex` | Engine header, not driver flags. Opening bytes are the first `session.connect` string (same encoding as commands; omit it for an empty hello). Commands are the inner payload only. One session, counter, ACK, one resend. Idle close `session.keepMs` (default 60s). |
 | sACN / E1.31 | `sacn` | E1.31 multicast | n/a — `sacn.slot` 1–512, `auth.universe` |
 | USB MIDI (ALSA) | `local.kind` `midi` | hex bytes via `amidi` | n/a — Interface Path `hw:1,0,0` (`amidi -l`) |
 | ipMIDI / multicast MIDI | `ipmidi` | hex MIDI UDP | n/a — group 225.0.0.37:21928 TTL 1. Not MIDI-TCP. |
@@ -38,6 +40,19 @@ If the manual is unclear, **omit that command** and mention it in `device.notes`
 | Telegram Bot API (send + reply-to-last) | `telegram` | HTTPS JSON | n/a — fixed `api.telegram.org`; token+chat_id; getUpdates only for replies to last send (not a command channel). |
 
 One plane per driver. Example only: Allen & Heath SQ third-party control is MIDI-TCP **51325**, not MixPad 51326. Other desks use their own port.
+
+Do not put sequence numbers, flags, or checksums in the JSON. `udp` / `osc` reply and `udp-seq` are engine behaviour. A peer with a different header needs another engine module, not new keys.
+
+## UDP and OSC replies
+
+Copy skeleton E, H, or I. Do not add keys.
+
+- A command with only a payload does not read. The result is `udp sent`.
+- A poll is feedback `mode: "poll"` and `query` (the bytes, or an OSC path). The engine sends that and waits for one datagram. Timeout fails the poll. Parse with `contains` / `exact` / `regex` / `map` only. `encoding: "hex"` returns a hex string, so a hex needle matches.
+- An OSC poll path has **no arguments**. Feedback has no `osc` object. One reply argument is the text. Several are joined with a space. None uses the path.
+- A command waits only if it has `ack` or `waitContains`. Any one datagram is success. Timeout is failure. The engine does **not** test `ack.success` and does **not** search the datagram for the `waitContains` text. Use a poll when the needle decides the value. Leave both off when the device does not answer, or the command times out instead of `udp sent`.
+- `transports.lan.session.keepMs` keeps one socket so later commands share the port. A datagram with nothing in flight updates feedback whose `mode` is `"push"`, through the same parse. Omit `keepMs` to open a socket per send.
+- `udp-seq` is not a header you build. Top-level `session.connect` is one opening string, encoded like a command (`hex` or ascii). Omit it for an empty hello. Every command `payload` is the **inner** bytes only. The engine owns the session id, the counter, the ACK, and the one resend. `transports.lan.session.keepMs` is the idle close (default 60000). Those are two different `session` objects.
 
 ## Skeleton A — HTTP
 
@@ -243,7 +258,8 @@ List extras in `instanceFields` (`midiChannel`, `mac`, …). They appear on the 
 - `wake`: `{ "protocol": "wol" }` plus instance `mac` for hard-sleep power-on. Empty payload after WOL does not send HTTP.
 - Cast `PLAY` / `PAUSE` / `STOP` / `QUEUE_*`: set `namespace` to `urn:x-cast:com.google.cast.media`. The engine fills `mediaSessionId` from the live app. Do not hard-code session `1`.
 - `httpMethod` `RPC` is Windows remote shutdown (not a generic HTTP verb). Use it only on a PC-style driver with `user`/`password`.
-- Parse types only: `contains`, `exact`, `regex`, `jsonpath`, `map`
+- Parse types only: `contains`, `exact`, `regex`, `jsonpath`, `map`. A UDP/OSC poll uses those on the reply text. Do not add a parse type for OSC or for `udp-seq`.
+- `ack` or `waitContains` on a `udp`, `osc`, or `udp-seq` command only means "wait for one datagram". They do not grade the bytes. Prefer a poll.
 - Binary replies: hex needle (`B02601` or `B0 26 01`) is also matched against a hex dump. JSON/ASCII polls are not hex-dumped
 - Inventory: only for bridges that list children (lights, scenes)
 
@@ -256,7 +272,7 @@ Empty `payload` (or omitted payload) is TCP connect only — the socket opening 
 ```json
 {
   "specVersion": "2",
-  "device": { "manufacturer": "Brand", "model": "Desk", "type": "mixer", "notes": "OSC UDP 9000. Payload is the path." },
+  "device": { "manufacturer": "Brand", "model": "Desk", "type": "mixer", "notes": "OSC UDP 9000. Payload is the path. A command with osc.types sends and does not wait. A poll is a path with no arguments." },
   "transports": { "lan": { "protocol": "osc", "port": 9000, "timeoutMs": 2000 } },
   "auth": { "type": "none" },
   "pacing": { "minIntervalMs": 40 },
@@ -265,7 +281,53 @@ Empty `payload` (or omitted payload) is TCP connect only — the socket opening 
     { "id": "ping", "label": "Ping", "kind": "action", "transport": "lan", "payload": "/ping" },
     { "id": "level.set", "label": "Fader", "kind": "range", "min": 0, "max": 1, "step": 0.01, "transport": "lan", "payload": "/ch/1/mix/fader", "osc": { "types": "f", "values": ["{value}"] } }
   ],
-  "feedback": []
+  "feedback": [
+    { "id": "fader.level", "label": "Fader", "kind": "string", "transport": "lan", "mode": "poll", "query": "/ch/1/mix/fader", "pollMs": 4000, "parse": { "type": "regex", "pattern": "([0-9.]+)" } }
+  ]
+}
+```
+
+## Skeleton H — raw UDP
+
+`keepMs` is optional. Without it, each send is a new socket and push feedback never arrives. `waitContains` is absent on purpose: power-on does not wait.
+
+```json
+{
+  "specVersion": "2",
+  "device": { "manufacturer": "Brand", "model": "Model", "type": "display", "notes": "UDP from the manual. Commands do not wait. The power poll does. keepMs lets an idle datagram hit power.push." },
+  "transports": { "lan": { "protocol": "udp", "port": 5000, "encoding": "ascii", "lineEnding": "\r", "timeoutMs": 1000, "session": { "keepMs": 60000 } } },
+  "auth": { "type": "none" },
+  "pacing": { "minIntervalMs": 80 },
+  "probe": { "transport": "lan", "payload": "" },
+  "commands": [
+    { "id": "power.on", "label": "Power On", "kind": "action", "transport": "lan", "payload": "PWR ON" }
+  ],
+  "feedback": [
+    { "id": "power.state", "label": "Power", "kind": "enum", "values": ["off", "on"], "transport": "lan", "mode": "poll", "query": "PWR?", "pollMs": 4000, "parse": { "type": "regex", "pattern": "PWR (ON|OFF)", "map": { "ON": "on", "OFF": "off" } } },
+    { "id": "power.push", "label": "Power push", "kind": "enum", "values": ["off", "on"], "transport": "lan", "mode": "push", "parse": { "type": "regex", "pattern": "PWR (ON|OFF)", "map": { "ON": "on", "OFF": "off" } } }
+  ]
+}
+```
+
+## Skeleton I — sequenced UDP
+
+Top-level `session.connect` is the hello. `transports.lan.session.keepMs` is only the idle timer. Payloads are the inner bytes. For `encoding: "hex"`, both the hello and the commands are hex digits.
+
+```json
+{
+  "specVersion": "2",
+  "device": { "manufacturer": "Brand", "model": "Model", "type": "processor", "notes": "udp-seq. No counters or flags in the JSON. session.connect is the opening bytes. Commands are the inner payload." },
+  "transports": { "lan": { "protocol": "udp-seq", "port": 5000, "encoding": "ascii", "timeoutMs": 1000, "session": { "keepMs": 60000 } } },
+  "session": { "connect": ["HELLO"] },
+  "auth": { "type": "none" },
+  "pacing": { "minIntervalMs": 40 },
+  "probe": { "transport": "lan", "payload": "" },
+  "commands": [
+    { "id": "power.on", "label": "Power On", "kind": "action", "transport": "lan", "payload": "PWR ON" }
+  ],
+  "feedback": [
+    { "id": "power.state", "label": "Power", "kind": "enum", "values": ["off", "on"], "transport": "lan", "mode": "poll", "query": "PWR?", "pollMs": 4000, "parse": { "type": "regex", "pattern": "PWR (ON|OFF)", "map": { "ON": "on", "OFF": "off" } } }
+  ]
 }
 ```
 
@@ -343,7 +405,8 @@ Empty `payload` (or omitted payload) is TCP connect only — the socket opening 
 
 ## Do not
 
-- Invent parse types (`midi`, `nrpn`, `sysex`) or engine keys
+- Invent parse types (`midi`, `nrpn`, `sysex`, `osc`) or engine keys
+- Put a counter, flag, length, or checksum in a `udp` / `osc` / `udp-seq` payload. That header is the engine's, or it does not exist yet.
 - Put JS, formulas, or loops in the JSON
 - Stuff decimal `{value}` into a hex payload
 - Port a Companion catalog (48 inputs × N mixes)

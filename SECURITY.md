@@ -196,7 +196,7 @@ Operators may still drop in file PEMs for B1. **C0–C4 closed.** **Strict peer 
 | `ARCHITECTURE.md` §2 / §8 | Process listen + access control aligned with AV HTTP vs venue HTTPS |
 | `CONTEXT.md` / `AGENTS.md` | Agent map + bans: no LE default; no `0.0.0.0`; AV ≠ venue certs; C1–C4 Generate + UI + lifecycle + docs checkpoint shipped |
 | `KNOWN_ISSUES.md` | Still-true listen / venue TLS bullets |
-| `README.md` / `WINDOWS.md` | Short pointers; never claim LE as default |
+| `README.md` | Short pointers; never claim LE as default |
 | `CHANGELOG.md` | C0 under Unreleased (docs); historical B2 wording left in past releases |
 | `FOYER-ROADMAP.md` | Historical implementation notes only — not the TLS roadmap |
 

@@ -4,6 +4,10 @@ import { midiPortOk } from "./midi.ts";
 import { listenUdpMulticast } from "./udp.ts";
 import { IPMIDI_GROUP, IPMIDI_PORT } from "./ipmidi.ts";
 import { setRtpMidiBytesHandler } from "./rtp-midi.ts";
+import { setUdpPushHandler } from "./udp-hold.ts";
+import { decodeOsc, oscReplyText } from "./osc.ts";
+import { parseFeedback } from "./engine-payload.ts";
+import { decodeWire } from "./engine-wire.ts";
 import { nicFaceProtocolGate, planDeviceBindForDevice, readNicFace } from "./device-face.ts";
 
 export type MidiMsg = {
@@ -280,6 +284,35 @@ async function startIpmidiIn(deviceId: string, watch: MidiWatch[], state: Device
   ipmidiClosers.set(deviceId, got.close);
 }
 
+export function applyUdpPush(opts: {
+  deviceId: string;
+  driver: DriverSpec;
+  buf: Buffer;
+  state: DeviceStateMap;
+}) {
+  const proto = opts.driver.transports.lan?.protocol;
+  if (proto !== "udp" && proto !== "osc" && proto !== "udp-seq") return;
+  let text = "";
+  if (proto === "osc") {
+    const decoded = decodeOsc(opts.buf);
+    if (!decoded) return;
+    text = oscReplyText(decoded);
+  } else {
+    text = decodeWire(opts.buf, opts.driver.transports.lan?.encoding);
+  }
+  if (!text) return;
+  let slot = opts.state[opts.deviceId] ?? {};
+  let changed = false;
+  for (const fb of opts.driver.feedback ?? []) {
+    if (fb.mode !== "push") continue;
+    const parsed = parseFeedback(fb.parse, text);
+    if (!parsed) continue;
+    slot = { ...slot, [fb.id]: parsed };
+    changed = true;
+  }
+  if (changed) opts.state[opts.deviceId] = slot;
+}
+
 export function syncMidiWatchers(opts: {
   config: RoomConfig;
   drivers: Record<string, DriverSpec>;
@@ -321,5 +354,12 @@ export function syncMidiWatchers(opts: {
     const driver = opts.drivers[opts.config.devices.find((d) => d.id === id)?.driver ?? ""];
     if (!driver?.midiWatch?.length) return;
     onMidiBytes(id, midi, driver.midiWatch, opts.state);
+  });
+  setUdpPushHandler((deviceId, buf) => {
+    const device = opts.config.devices.find((item) => item.id === deviceId);
+    if (!device) return;
+    const driver = opts.drivers[device.driver];
+    if (!driver) return;
+    applyUdpPush({ deviceId, driver, buf, state: opts.state });
   });
 }
