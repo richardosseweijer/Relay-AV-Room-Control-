@@ -14,7 +14,7 @@ Change both trees in the same train. If this file and the code disagree, **the c
 | Relay | **0.9.47+** (prefer `v0.9.49`; AV listen + `controlBaseUrlFrom` from Relay #127) |
 | Foyer | **0.2.3** (`v0.2.3`) — host unit installer (K7b); occupancy URL rewrite-on-load + `http:` allowlist |
 
-Relay [`FOYER-ROADMAP.md`](https://github.com/richardosseweijer/Relay-AV-Room-Control-/blob/main/FOYER-ROADMAP.md) is implementation history. This file is the live wire.
+Relay [`FOYER-ROADMAP.md`](FOYER-ROADMAP.md) is a stub; full implementation history is [`docs/history/FOYER-ROADMAP.md`](docs/history/FOYER-ROADMAP.md). This file is the live wire.
 
 ---
 
