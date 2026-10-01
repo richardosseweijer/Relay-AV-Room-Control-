@@ -176,7 +176,7 @@ Rules that always hold:
 - AV-LAN must **not** hold the default route.
 - NIC2 down / None / missing PEMs / venue-TLS Generate failure must **not** break NIC1.
 - Same NIC on both pickers is allowed on a test box only.
-- Local panel display (§7): prefer **panel via Foyer** on dual-head; Relay `relay-kiosk` optional/off when Foyer owns the panel head — **no new inbound ports**.
+- Local panel display (§7): prefer **panel via Foyer** on dual-head; leave `relay-kiosk` off when Foyer owns the panel head — **no new inbound ports**. Relay-only HDMI: [Appendix](#appendix-relay-without-foyer-relay-owns-a-display).
 
 #### Prerequisites
 
@@ -265,7 +265,7 @@ If `nmcli` is missing or the AV NIC stays unmanaged, fix NM/netplan before `inst
 
 ##### Host sudoers (nmcli + ufw + kiosk)
 
-Relay stays non-root. Install narrow sudoers drop-ins so the service user can run nmcli / the ufw helper / kiosk systemctl without a password. Prefer the host installer (also installs the §7c kiosk drop-in):
+Relay stays non-root. Install narrow sudoers drop-ins so the service user can run nmcli / the ufw helper / kiosk systemctl without a password. Prefer the host installer (also installs the kiosk drop-in used by the [Appendix](#appendix-relay-without-foyer-relay-owns-a-display)):
 
 ```bash
 # From the repo checkout — replaces USER in deploy/sudoers.relay-nmcli,
@@ -280,7 +280,7 @@ sudo bash scripts/install-host-sudoers.sh
 |---|---|---|
 | `deploy/sudoers.relay-nmcli` | `/etc/sudoers.d/relay-nmcli` | Apply AV-LAN via `sudo -n nmcli` |
 | `deploy/sudoers.relay-ufw` | `/etc/sudoers.d/relay-ufw` | NOPASSWD for `/usr/local/sbin/relay-ufw-av-lan` — 8081 from AV CIDR + `comment Relay-AV-LAN` only |
-| `deploy/sudoers.relay-kiosk` | `/etc/sudoers.d/relay-kiosk` | Local display kiosk unit (§7c) |
+| `deploy/sudoers.relay-kiosk` | `/etc/sudoers.d/relay-kiosk` | Local display kiosk unit ([Appendix](#appendix-relay-without-foyer-relay-owns-a-display); harmless while disabled on §7) |
 
 **One-time host step** — `git pull`, in-app **Update from GitHub**, and reboot do **not** install these drop-ins or the ufw helper; re-run if `User=` on `relay.service` changes, or after adding `relay-ufw`.
 
@@ -406,7 +406,7 @@ Optional Foyer on the same host: `8080` / `8082` from **AV CIDR only** (commands
 - [ ] SSH from AV/mgmt (or knowingly scoped on venue); two-NIC `8443` closed or scoped (never “any”)
 - [ ] After Apply / prefix change: ufw `Relay-AV-LAN` matches **new** CIDR (or soft-fail warned); co-hosted Foyer URLs updated when empty/loopback/old AV
 - [ ] Using Apply? NM + netplan `renderer: NetworkManager` + `install-host-sudoers.sh` (nmcli + ufw + helper). Identify AV iface if both NICs share a subnet
-- [ ] §4/`npm ci --include=dev` + §5 build before `install-host.sh`; §6a `relay` enabled; `relay-kiosk` disabled unless Relay-only HDMI (§7)
+- [ ] §4/`npm ci --include=dev` + §5 build before `install-host.sh`; §6a `relay` enabled; `relay-kiosk` left **disabled** (default — §7 Foyer path). Relay-only HDMI: [Appendix](#appendix-relay-without-foyer-relay-owns-a-display)
 - [ ] Curl from AV reaches the panel; wrong net does not
 
 #### D. Troubleshooting
@@ -444,7 +444,7 @@ Foyer (optional) owns `:8080` / `:8082`; occupancy and day-one dual-head: [`FOYE
 
 ## 6. Start on boot (systemd)
 
-Linux starts background programs from **unit files**. Prefer the host installer (substitutes `User=` + checkout path from `deploy/`, `daemon-reload`, enables `relay.service`). It also installs `relay-kiosk.service` but **does not enable it** by default — Foyer dual-head prefers the kiosk off (§7a).
+Linux starts background programs from **unit files**. Prefer the host installer (substitutes `User=` + checkout path from `deploy/`, `daemon-reload`, enables `relay.service`). It also installs `relay-kiosk.service` but **does not enable it** by default — keep it off for §7 / Foyer dual-head. Relay-only HDMI: [Appendix](#appendix-relay-without-foyer-relay-owns-a-display).
 
 Stop the test server from §5 first (Ctrl+C) so port 8081 is free. Finish `npm ci --include=dev` (§4) + `npm run build` (§5) before enabling.
 
@@ -462,11 +462,10 @@ sudo bash scripts/install-host.sh
 # Units+sudoers is what install-host.sh does (same as --with-sudoers).
 # Or: sudo RELAY_USER=ubuntu bash scripts/install-host.sh
 #
-# Relay-only HDMI kiosk (NOT for Foyer dual-head):
-#   sudo bash scripts/install-host-units.sh --enable-kiosk
+# Relay-only HDMI (--enable-kiosk): see Appendix — do not enable on Foyer dual-head.
 ```
 
-Templates: [`deploy/relay.service`](deploy/relay.service), [`deploy/relay-kiosk.service`](deploy/relay-kiosk.service). `install-host.sh` also runs [`scripts/install-host-sudoers.sh`](scripts/install-host-sudoers.sh) (§5b / §7c).
+Templates: [`deploy/relay.service`](deploy/relay.service), [`deploy/relay-kiosk.service`](deploy/relay-kiosk.service). `install-host.sh` also runs [`scripts/install-host-sudoers.sh`](scripts/install-host-sudoers.sh) (§5b; kiosk drop-in used by the [Appendix](#appendix-relay-without-foyer-relay-owns-a-display)).
 
 Check:
 
@@ -513,7 +512,7 @@ sudo systemctl enable --now relay
 sudo systemctl status relay --no-pager
 ```
 
-For `relay-kiosk.service`, prefer §7c / the installer — do not enable it on a Foyer dual-head box.
+For `relay-kiosk.service`, leave it **disabled** on a Foyer dual-head box (§7a). To enable Relay-only HDMI, use the [Appendix](#appendix-relay-without-foyer-relay-owns-a-display) — not this section.
 
 ### 6c. Is it running?
 
@@ -537,16 +536,15 @@ ss -lptn 'sport = :8081'
 
 ## 7. Local panel display (HDMI)
 
-Two supported layouts on a dual-head room PC (e.g. Wyse 5070 / Ubuntu Server, two DP/HDMI):
+**Supported room-PC path (dual-head):** Foyer owns the displays; Relay serves the panel over AV-LAN HTTP only. That is the day-one train on a Wyse / Ubuntu Server box with Welcome + Room panel heads — see [`FOYER-RELAY.md`](FOYER-RELAY.md) → **Day-one dual-head (same host)**, then §7a below.
 
-| Model | Display owner | Relay role | Use when |
-|---|---|---|---|
-| **Panel via Foyer** (preferred same-host dual display) | Foyer (`foyer-kiosk` / sway + up to two Chromiums) | Serves HTTP on AV-LAN only (`:8081`). No local compositor. | Welcome on one head + Relay control UI on the other, both under Foyer |
-| **Relay local HDMI kiosk** (optional) | Relay (`relay-kiosk` / cage + Chromium on tty1) | Serves HTTP **and** paints the panel on one DRM connector | Relay-only box, or Foyer not driving a Room panel head |
+| Model | Display owner | Relay role |
+|---|---|---|
+| **Panel via Foyer** (this section) | Foyer (`foyer-kiosk` / sway + up to two Chromiums) | Serves HTTP on AV-LAN only (`:8081`). No local compositor. |
 
-**Do not run both compositors on the same host.** `relay-kiosk` and `foyer-kiosk` both take tty1 / DRM. When Foyer paints the Room panel head, leave Relay’s kiosk **off** (§7a).
+HTTP listen is unchanged: AV-LAN IPv4 only (`http://<av-lan-ipv4>:8081/`), never `0.0.0.0`. Local display adds **no new inbound ports**.
 
-HTTP listen is unchanged in either model: AV-LAN IPv4 only (`http://<av-lan-ipv4>:8081/`), never `0.0.0.0`.
+**Relay without Foyer** (Relay paints HDMI itself via `relay-kiosk` / cage): skip this section’s enablement path — leave `relay-kiosk` **disabled** here, and use **[Appendix: Relay without Foyer](#appendix-relay-without-foyer-relay-owns-a-display)** instead. Do **not** run `relay-kiosk` and `foyer-kiosk` on the same host (both take tty1 / DRM).
 
 ### 7a. Panel via Foyer — disable Relay `relay-kiosk`
 
@@ -557,7 +555,7 @@ Supported path when Foyer and Relay share one PC and Foyer Setup has a **Room pa
 Operator steps:
 
 1. **Foyer Setup** — set **Welcome HDMI** and/or **Room panel HDMI** (different connectors if both). Room panel Relay URL = this PC’s AV-LAN base (`http://<av-lan-ipv4>:8081`). Lab checklist: Foyer [`INSTALL.md`](https://github.com/richardosseweijer/Foyer-Room-Signage/blob/main/INSTALL.md) §7b / §7c.
-2. **Relay Configurator → Room → Local display (HDMI)** — leave **Enable local HDMI panel** unchecked (default), or **uncheck** it and **Save**. Unchecking and saving runs `systemctl disable --now relay-kiosk` (bare, then `sudo -n`) so the unit cannot fight Foyer’s dual-head seat. Needs `/etc/sudoers.d/relay-kiosk` (§7c / `scripts/install-host-sudoers.sh`); missing sudoers → clear operator error pointing here.
+2. **Relay Configurator → Room → Local display (HDMI)** — leave **Enable local HDMI panel** unchecked (default), or **uncheck** it and **Save**. Unchecking and saving runs `systemctl disable --now relay-kiosk` (bare, then `sudo -n`) so the unit cannot fight Foyer’s dual-head seat. Needs `/etc/sudoers.d/relay-kiosk` (§5b Host sudoers / `scripts/install-host-sudoers.sh`; also covered in the [Appendix](#appendix-relay-without-foyer-relay-owns-a-display)); missing sudoers → clear operator error pointing here.
 3. **CLI fallback** (optional if the unit was enabled before sudoers / Configurator save):
 
 ```bash
@@ -570,82 +568,7 @@ Temporary stop without clearing enablement: `sudo systemctl stop relay-kiosk`.
 
 Confirm only Foyer’s unit owns the seat: `systemctl status foyer-kiosk --no-pager` (on the Foyer install). Wire / occupancy stay [`FOYER-RELAY.md`](FOYER-RELAY.md).
 
-If you later need Relay’s own HDMI kiosk again (no Foyer Room panel on this host), re-enable with §7b / §7c after Foyer’s Room panel pick is cleared and `foyer-kiosk` is not claiming that head.
-
-### 7b. Relay local HDMI kiosk (optional)
-
-Same pattern as a single-head Foyer welcome kiosk: **cage** on tty1 + Chromium on Wayland, pinned to one DRM connector. The kiosk opens the **live AV-LAN panel URL** (`http://<av-lan-ipv4>:8081/`), not `127.0.0.1` and never `0.0.0.0`. HTTP listen stays AV-LAN only.
-
-Skip until §5 answers on the AV IPv4 and §6 has `relay.service` enabled. Skip entirely when §7a applies (Foyer drives the Room panel head).
-
-`seatd`, `cage`, and `wlr-randr` are in Ubuntu **universe** (noble). On a minimal Server image, if `apt-cache policy cage` shows no candidate, enable universe then update:
-
-```bash
-sudo apt-get install -y software-properties-common
-sudo add-apt-repository -y universe
-sudo apt-get update
-```
-
-```bash
-sudo apt-get install -y seatd cage wlr-randr fonts-liberation fonts-noto-core mesa-vulkan-drivers libgl1-mesa-dri
-sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser
-sudo systemctl enable --now seatd
-sudo usermod -aG video,render,input,tty "$USER"
-sudo loginctl enable-linger "$USER"
-```
-
-Log out and back in (or reboot) so the `video` / `render` groups apply. `echo $XDG_RUNTIME_DIR` should print `/run/user/$(id -u)`.
-
-**Ubuntu 24.04 Chromium = snap** (`which chromium` → `/snap/bin/…`). On this appliance set `RELAY_KIOSK_NO_SANDBOX=1` in `data/relay-kiosk.env` when `journalctl -u relay-kiosk` shows namespace / sandbox errors under cage. Leave unset until then. Prefer a non-snap Chromium `.deb` on distros that ship one. Do not enable `NO_SANDBOX` on shared desktops. `unclutter` is X11 — skip under cage.
-
-Disable blanking and sleep:
-
-```bash
-sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
-```
-
-### 7c. Kiosk unit
-
-Cage needs a real HDMI connected **before** start. This unit **takes tty1** from the Ubuntu login prompt so Chromium covers that console. SSH is unchanged.
-
-**Prefer the host installer** (§6a). Default install leaves `relay-kiosk` **disabled** (safe for Foyer dual-head). Enable only for Relay-only HDMI:
-
-```bash
-# After §7b packages + groups + linger (and log out/in):
-sudo bash scripts/install-host-units.sh --enable-kiosk
-# Or first-boot with kiosk: sudo bash scripts/install-host.sh --enable-kiosk
-sudo systemctl status relay-kiosk --no-pager
-```
-
-#### Manual fallback (only if you cannot run the installer)
-
-**Prefer the installer above.** Copy [`deploy/relay-kiosk.service`](deploy/relay-kiosk.service) to `/etc/systemd/system/relay-kiosk.service`, replace `User=USER` and `/home/USER/Relay-AV-Room-Control-` with the service account and §4 checkout path (same idea as §6b), `chmod +x scripts/relay-kiosk.sh`, then:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now relay-kiosk
-sudo systemctl status relay-kiosk --no-pager
-```
-
-Room → **Local display (HDMI)** saves `data/relay-kiosk.env` (`RELAY_VIDEO_OUTPUT` + `RELAY_KIOSK_URL`) and can restart this unit. Wrong output can blank the console page; SSH stays up.
-
-Configurator restart needs passwordless `systemctl` for this unit only. Relay stays non-root and runs `sudo -n systemctl restart relay-kiosk.service`. Missing sudoers → clear operator error pointing here (not raw polkit text).
-
-**Required once on the appliance:** Local display **Save** can write `data/relay-kiosk.env` while **restart** still fails (polkit / Access denied) if `/etc/sudoers.d/relay-kiosk` is missing. Pull / Update / reboot do **not** install sudoers — run `install-host-sudoers.sh` (§5b) once; re-run if `User=` changes.
-
-```bash
-sudo bash scripts/install-host-sudoers.sh
-# Or: sudo RELAY_USER=ubuntu bash scripts/install-host-sudoers.sh
-sudo -u "$(whoami)" sudo -n /usr/bin/systemctl is-active relay-kiosk.service || true
-```
-
-**Relay-only HDMI** needs the kiosk drop-in for save/restart. **Foyer dual-head:** leave `relay-kiosk` off (§7a); sudoers is harmless while disabled. Do **not** merge drop-ins into `NOPASSWD: ALL`.
-
-cage `-d` skips client decorations. It does **not** use `-s` (that flag allows switching back to the text console).
-
-If the kiosk stays on the Ubuntu login TTY: the unit is the old one (no `Conflicts=getty@tty1`). Re-run this section, then `sudo systemctl daemon-reload && sudo systemctl restart relay-kiosk`. Next step: `sudo journalctl -u relay-kiosk -e`. Confirm the panel from a config laptop at `http://<av-lan-ipv4>:8081/` (not loopback once AV-LAN is set).
-
----
+If you later need Relay’s own HDMI kiosk again (no Foyer Room panel on this host), clear Foyer’s Room panel pick so `foyer-kiosk` is not claiming that head, then follow the **[Appendix](#appendix-relay-without-foyer-relay-owns-a-display)**.
 
 ## 8. Update from GitHub
 
@@ -702,13 +625,13 @@ echo "$USER ALL=NOPASSWD: /bin/systemctl restart relay" | sudo tee /etc/sudoers.
 
 The default path does not need that: `system.restart` is `process.exit(1)` and systemd starts it again.
 
-**After Update / reboot — host units + sudoers checklist:** Update refreshes the checkout only. Units and sudoers under `/etc` are **not** installed by pull/Update/reboot. If `relay.service` is missing/stale, (re)run `sudo bash scripts/install-host-units.sh` (§6a). If Room → Local display **Save** still fails auth (polkit / Access denied), or **Apply AV-LAN IP** fails nmcli auth or ufw soft-fails, (re)run `sudo bash scripts/install-host-sudoers.sh` (§5b / §7c) — or `sudo bash scripts/install-host.sh` for both.
+**After Update / reboot — host units + sudoers checklist:** Update refreshes the checkout only. Units and sudoers under `/etc` are **not** installed by pull/Update/reboot. If `relay.service` is missing/stale, (re)run `sudo bash scripts/install-host-units.sh` (§6a). If Room → Local display **Save** still fails auth (polkit / Access denied), or **Apply AV-LAN IP** fails nmcli auth or ufw soft-fails, (re)run `sudo bash scripts/install-host-sudoers.sh` (§5b / [Appendix](#appendix-relay-without-foyer-relay-owns-a-display)) — or `sudo bash scripts/install-host.sh` for both.
 
 - [ ] Ran `sudo bash scripts/install-host.sh` (or verified units + drop-ins present)
-- [ ] `/etc/systemd/system/relay.service` — boot unit (§6a); `relay-kiosk.service` present, enabled only if Relay-only HDMI
+- [ ] `/etc/systemd/system/relay.service` — boot unit (§6a); `relay-kiosk.service` present, **disabled** unless using the [Appendix](#appendix-relay-without-foyer-relay-owns-a-display)
 - [ ] `/etc/sudoers.d/relay-nmcli` — AV-LAN Apply (§5b)
 - [ ] `/etc/sudoers.d/relay-ufw` + `/usr/local/sbin/relay-ufw-av-lan` — Apply soft-update of 8081 from AV CIDR (§5b)
-- [ ] `/etc/sudoers.d/relay-kiosk` — Local display restart (`relay-kiosk.service`, §7c)
+- [ ] `/etc/sudoers.d/relay-kiosk` — Local display restart (`relay-kiosk.service`; needed for [Appendix](#appendix-relay-without-foyer-relay-owns-a-display) save/restart; harmless while disabled on §7)
 
 ---
 
@@ -741,3 +664,88 @@ sudo rm -f /usr/local/sbin/relay-ufw-av-lan
 - Supported run: `npm start` on AV-LAN `:8081` after `npm run build`. Dev is `npm run dev` on `:8080` (same listen rules).
 - Check a driver file: `npm run driver:check -- data/library/samsung-qe50q65t.json`
 - Samsung lab pair (TLS fail-closed): `node scripts/samsung-pair.mjs <tv-ip> 8002 --insecure` then re-run with `--fingerprint=<printed>` (or `--ca=<pem>`).
+
+## Appendix: Relay without Foyer (Relay owns a display)
+
+Use this appendix only when **Foyer is not installed** on this PC, or Foyer is not driving a Room panel head, and you want **Relay** to paint the local HDMI/DP panel itself (`relay-kiosk` / cage + Chromium on tty1).
+
+For the supported dual-head room PC (Welcome + Room panel under Foyer), stay on **§7** / [`FOYER-RELAY.md`](FOYER-RELAY.md) and leave `relay-kiosk` **disabled**. Do **not** run both compositors on the same host.
+
+| Model | Display owner | Relay role | Use when |
+|---|---|---|---|
+| **Relay local HDMI kiosk** | Relay (`relay-kiosk` / cage + Chromium on tty1) | Serves HTTP **and** paints the panel on one DRM connector | Relay-only box, or Foyer not driving a Room panel head |
+
+HTTP listen is still AV-LAN IPv4 only (`http://<av-lan-ipv4>:8081/`), never `0.0.0.0`. No new inbound ports.
+
+### A1. Packages (cage + Chromium)
+
+Same pattern as a single-head Foyer welcome kiosk: **cage** on tty1 + Chromium on Wayland, pinned to one DRM connector. The kiosk opens the **live AV-LAN panel URL** (`http://<av-lan-ipv4>:8081/`), not `127.0.0.1` and never `0.0.0.0`. HTTP listen stays AV-LAN only.
+
+Skip until §5 answers on the AV IPv4 and §6 has `relay.service` enabled. Skip entirely when §7a applies (Foyer drives the Room panel head) — stay on the main train instead.
+
+`seatd`, `cage`, and `wlr-randr` are in Ubuntu **universe** (noble). On a minimal Server image, if `apt-cache policy cage` shows no candidate, enable universe then update:
+
+```bash
+sudo apt-get install -y software-properties-common
+sudo add-apt-repository -y universe
+sudo apt-get update
+```
+
+```bash
+sudo apt-get install -y seatd cage wlr-randr fonts-liberation fonts-noto-core mesa-vulkan-drivers libgl1-mesa-dri
+sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser
+sudo systemctl enable --now seatd
+sudo usermod -aG video,render,input,tty "$USER"
+sudo loginctl enable-linger "$USER"
+```
+
+Log out and back in (or reboot) so the `video` / `render` groups apply. `echo $XDG_RUNTIME_DIR` should print `/run/user/$(id -u)`.
+
+**Ubuntu 24.04 Chromium = snap** (`which chromium` → `/snap/bin/…`). On this appliance set `RELAY_KIOSK_NO_SANDBOX=1` in `data/relay-kiosk.env` when `journalctl -u relay-kiosk` shows namespace / sandbox errors under cage. Leave unset until then. Prefer a non-snap Chromium `.deb` on distros that ship one. Do not enable `NO_SANDBOX` on shared desktops. `unclutter` is X11 — skip under cage.
+
+Disable blanking and sleep:
+
+```bash
+sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+```
+
+### A2. Enable the kiosk unit
+
+Cage needs a real HDMI connected **before** start. This unit **takes tty1** from the Ubuntu login prompt so Chromium covers that console. SSH is unchanged.
+
+**Prefer the host installer** (§6a). Default install leaves `relay-kiosk` **disabled** (safe for the §7 Foyer path). Enable only for this appendix’s Relay-only HDMI:
+
+```bash
+# After packages + groups + linger above (and log out/in):
+sudo bash scripts/install-host-units.sh --enable-kiosk
+# Or first-boot with kiosk: sudo bash scripts/install-host.sh --enable-kiosk
+sudo systemctl status relay-kiosk --no-pager
+```
+
+#### Manual fallback (only if you cannot run the installer)
+
+**Prefer the installer above.** Copy [`deploy/relay-kiosk.service`](deploy/relay-kiosk.service) to `/etc/systemd/system/relay-kiosk.service`, replace `User=USER` and `/home/USER/Relay-AV-Room-Control-` with the service account and §4 checkout path (same idea as §6b), `chmod +x scripts/relay-kiosk.sh`, then:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now relay-kiosk
+sudo systemctl status relay-kiosk --no-pager
+```
+
+Room → **Local display (HDMI)** saves `data/relay-kiosk.env` (`RELAY_VIDEO_OUTPUT` + `RELAY_KIOSK_URL`) and can restart this unit. Wrong output can blank the console page; SSH stays up.
+
+Configurator restart needs passwordless `systemctl` for this unit only. Relay stays non-root and runs `sudo -n systemctl restart relay-kiosk.service`. Missing sudoers → clear operator error pointing here (not raw polkit text).
+
+**Required once on the appliance:** Local display **Save** can write `data/relay-kiosk.env` while **restart** still fails (polkit / Access denied) if `/etc/sudoers.d/relay-kiosk` is missing. Pull / Update / reboot do **not** install sudoers — run `install-host-sudoers.sh` (§5b Host sudoers) once; re-run if `User=` changes.
+
+```bash
+sudo bash scripts/install-host-sudoers.sh
+# Or: sudo RELAY_USER=ubuntu bash scripts/install-host-sudoers.sh
+sudo -u "$(whoami)" sudo -n /usr/bin/systemctl is-active relay-kiosk.service || true
+```
+
+**Relay-only HDMI** needs the kiosk drop-in for save/restart. On the §7 Foyer path leave `relay-kiosk` off; sudoers is harmless while disabled. Do **not** merge drop-ins into `NOPASSWD: ALL`.
+
+cage `-d` skips client decorations. It does **not** use `-s` (that flag allows switching back to the text console).
+
+If the kiosk stays on the Ubuntu login TTY: the unit is the old one (no `Conflicts=getty@tty1`). Re-run this section, then `sudo systemctl daemon-reload && sudo systemctl restart relay-kiosk`. Next step: `sudo journalctl -u relay-kiosk -e`. Confirm the panel from a config laptop at `http://<av-lan-ipv4>:8081/` (not loopback once AV-LAN is set).
