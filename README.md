@@ -1,6 +1,6 @@
 # Relay
 
-Relay **0.9.73** (beta). Room controller for local AV devices. Private LAN only. Tag `v0.9.73` is a snapshot of this tree (Telegram reply-to-last monitor); install and update from **`main`**. After Update, Configurator → Room shows `0.9.73 (<git sha>)`. Versions are three-part from this release.
+Relay **0.9.76** (beta). Room controller for local AV devices. Private LAN only. Install and update from **`main`**. Package **0.9.76**; annotated tag `v0.9.76` is a snapshot (not tip). Tip Unreleased: UDP reply / held socket / `udp-seq`. After Update, Configurator → Room shows `0.9.76 (<git sha>)`. Versions are three-part from this release.
 
 Clone is unused until you start it. First boot writes `data/relay-room.json` and `data/relay-secrets.json` on the host. Those files are not in git.
 
@@ -25,7 +25,6 @@ First PIN is `1234`. You must set a stronger one. New rooms default to **Panel P
 
 - [Foyer ↔ Relay contract](FOYER-RELAY.md)
 - [Linux / Pi](LINUX.md)
-- [Windows](WINDOWS.md)
 - [Known issues](KNOWN_ISSUES.md)
 - [Changelog](CHANGELOG.md)
 - [Driver prompt](DRIVER-PROMPT.md)
