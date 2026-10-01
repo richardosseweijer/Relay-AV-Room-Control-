@@ -5,6 +5,8 @@
  * MR2 (0.9.73): inbound poll limited to replies to the last message Relay sent
  * via this device — getUpdates with offset tracking. Not a general command
  * channel; reply text is never executed as shell/macros.
+ * Offset (and poll serial) is keyed by bot token, not device id — Bot API
+ * getUpdates cursor is per token; devices sharing one BotFather token share one.
  *
  * Host is fixed to api.telegram.org (allowlisted cloud HTTPS). Device card Host
  * is unused. Bind via nicFace (prefer Venue / outbound). System CA trust —
@@ -61,27 +63,52 @@ export type TelegramApiOpts = {
   request?: TelegramRequestFn;
 };
 
-/** Per-device runtime (process memory — not room JSON). Survives until next send / process restart. */
+/**
+ * Per-device runtime (process memory — not room JSON).
+ * lastMessageId / lastChatId / lastReplyText stay device-scoped (each card has its own last send).
+ * getUpdates offset is NOT here — Bot API offset is per bot token (see TelegramTokenRuntime).
+ */
 export type TelegramDeviceRuntime = {
   lastMessageId?: number;
   lastChatId?: string;
+  lastReplyText?: string;
+};
+
+/**
+ * Per-bot-token runtime. Telegram getUpdates offset is global for a BotFather token:
+ * two Relay devices sharing one token must share one cursor (and serialize polls).
+ */
+export type TelegramTokenRuntime = {
   /** Next getUpdates offset (update_id + 1). */
   updateOffset?: number;
-  lastReplyText?: string;
+  /** Devices that sent or polled with this token (fan-out matching replies). */
+  deviceIds: Set<string>;
 };
 
 type TelegramGlobal = typeof globalThis & {
   __relayTelegram__?: Map<string, TelegramDeviceRuntime>;
+  __relayTelegramTokens__?: Map<string, TelegramTokenRuntime>;
+  __relayTelegramPollTails__?: Map<string, Promise<unknown>>;
 };
 
-function runtimeMap(): Map<string, TelegramDeviceRuntime> {
+function deviceRuntimeMap(): Map<string, TelegramDeviceRuntime> {
   const g = globalThis as TelegramGlobal;
   return (g.__relayTelegram__ ??= new Map());
 }
 
-/** Test / prune helper. */
+function tokenRuntimeMap(): Map<string, TelegramTokenRuntime> {
+  const g = globalThis as TelegramGlobal;
+  return (g.__relayTelegramTokens__ ??= new Map());
+}
+
+function pollTailMap(): Map<string, Promise<unknown>> {
+  const g = globalThis as TelegramGlobal;
+  return (g.__relayTelegramPollTails__ ??= new Map());
+}
+
+/** Test / prune helper — device-scoped slot. */
 export function telegramRuntimeSlot(deviceId: string): TelegramDeviceRuntime {
-  const map = runtimeMap();
+  const map = deviceRuntimeMap();
   let slot = map.get(deviceId);
   if (!slot) {
     slot = {};
@@ -90,12 +117,58 @@ export function telegramRuntimeSlot(deviceId: string): TelegramDeviceRuntime {
   return slot;
 }
 
-/** Clear process-global telegram runtime (tests). */
-export function clearTelegramRuntime() {
-  runtimeMap().clear();
+/** Test helper — token-scoped getUpdates cursor (key = normalized bot token). */
+export function telegramTokenSlot(token: string): TelegramTokenRuntime {
+  const key = normalizeBotToken(token);
+  const map = tokenRuntimeMap();
+  let slot = map.get(key);
+  if (!slot) {
+    slot = { deviceIds: new Set() };
+    map.set(key, slot);
+  }
+  return slot;
 }
 
-export function rememberTelegramSend(deviceId: string, chatId: string, messageId: number) {
+function registerDeviceOnToken(token: string, deviceId: string) {
+  const key = normalizeBotToken(token);
+  const id = String(deviceId || "").trim();
+  if (!key || !id) return;
+  telegramTokenSlot(key).deviceIds.add(id);
+}
+
+/**
+ * Serialize getUpdates for one bot token so concurrent device polls cannot
+ * race read/advance of the shared offset.
+ */
+function withTokenPollLock<T>(token: string, fn: () => Promise<T>): Promise<T> {
+  const key = normalizeBotToken(token);
+  const tails = pollTailMap();
+  const prev = tails.get(key) ?? Promise.resolve();
+  const run = prev.then(fn, fn);
+  const done = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  tails.set(key, done);
+  void done.then(() => {
+    if (tails.get(key) === done) tails.delete(key);
+  });
+  return run;
+}
+
+/** Clear process-global telegram runtime (tests). */
+export function clearTelegramRuntime() {
+  deviceRuntimeMap().clear();
+  tokenRuntimeMap().clear();
+  pollTailMap().clear();
+}
+
+export function rememberTelegramSend(
+  deviceId: string,
+  chatId: string,
+  messageId: number,
+  token?: string,
+) {
   const id = String(deviceId || "").trim();
   if (!id || !Number.isFinite(messageId) || messageId <= 0) return;
   const slot = telegramRuntimeSlot(id);
@@ -103,6 +176,7 @@ export function rememberTelegramSend(deviceId: string, chatId: string, messageId
   slot.lastChatId = normalizeChatId(chatId);
   // New outbound message — clear prior reply so monitors see a fresh edge.
   slot.lastReplyText = "";
+  if (token) registerDeviceOnToken(token, id);
 }
 
 export function parseTelegramMessageId(raw: string | undefined | null): number | undefined {
@@ -271,7 +345,7 @@ export async function telegramSendMessage(opts: {
   if (!result.ok) return result;
   const messageId = parseTelegramMessageId((result as { raw?: string }).raw || result.message);
   if (messageId && opts.deviceId) {
-    rememberTelegramSend(opts.deviceId, gate.chatId!, messageId);
+    rememberTelegramSend(opts.deviceId, gate.chatId!, messageId, gate.token);
   }
   return messageId ? { ...result, messageId } : result;
 }
@@ -288,7 +362,8 @@ type TgUpdate = { update_id?: number; message?: TgMessage };
 
 /**
  * Short-poll getUpdates; keep only replies in the configured chat to the last
- * message this device sent. Advances offset for all updates. Never executes text.
+ * message this device sent. Offset is per bot token (shared + serialized across
+ * devices that reuse one BotFather token). Never executes text.
  */
 export async function telegramPollLastReply(opts: {
   deviceId: string;
@@ -305,6 +380,7 @@ export async function telegramPollLastReply(opts: {
   if (!deviceId) return { ok: false, message: "Telegram device id missing" };
 
   const slot = telegramRuntimeSlot(deviceId);
+  registerDeviceOnToken(gate.token, deviceId);
   const lastId = slot.lastMessageId;
   // No outbound message yet — nothing to match; skip network (fail soft).
   if (!lastId) {
@@ -312,74 +388,83 @@ export async function telegramPollLastReply(opts: {
     return { ok: true, message: JSON.stringify(empty), replyText: "", replied: false };
   }
 
-  const body: Record<string, unknown> = {
-    limit: 100,
-    timeout: 0,
-    allowed_updates: ["message"],
-  };
-  if (typeof slot.updateOffset === "number" && Number.isFinite(slot.updateOffset)) {
-    body.offset = slot.updateOffset;
-  }
+  return withTokenPollLock(gate.token, async () => {
+    const tokenSlot = telegramTokenSlot(gate.token);
+    const body: Record<string, unknown> = {
+      limit: 100,
+      timeout: 0,
+      allowed_updates: ["message"],
+    };
+    if (typeof tokenSlot.updateOffset === "number" && Number.isFinite(tokenSlot.updateOffset)) {
+      body.offset = tokenSlot.updateOffset;
+    }
 
-  const result = await telegramApi({
-    token: gate.token,
-    method: "getUpdates",
-    body,
-    localAddress: opts.localAddress,
-    // Short poll — monitor cadence owns pacing; keep HTTP wait modest.
-    timeoutMs: Math.min(opts.timeoutMs ?? 8000, 10000),
-    request: opts.request,
+    const result = await telegramApi({
+      token: gate.token,
+      method: "getUpdates",
+      body,
+      localAddress: opts.localAddress,
+      // Short poll — monitor cadence owns pacing; keep HTTP wait modest.
+      timeoutMs: Math.min(opts.timeoutMs ?? 8000, 10000),
+      request: opts.request,
+    });
+    if (!result.ok) return result;
+
+    const source = (result as { raw?: string }).raw || result.message;
+    let updates: TgUpdate[] = [];
+    try {
+      const parsed = JSON.parse(source) as { result?: TgUpdate[] };
+      updates = Array.isArray(parsed.result) ? parsed.result : [];
+    } catch {
+      return { ok: false, message: "Telegram getUpdates parse failed" };
+    }
+
+    let maxUpdateId = -1;
+    // Fan-out: one getUpdates batch must feed every device sharing this token,
+    // otherwise advancing the shared offset would drop another card's reply.
+    const peerIds = new Set(tokenSlot.deviceIds);
+    peerIds.add(deviceId);
+
+    for (const upd of updates) {
+      const uid = Number(upd.update_id);
+      if (Number.isFinite(uid) && uid > maxUpdateId) maxUpdateId = uid;
+      const msg = upd.message;
+      if (!msg) continue;
+      const replyTo = Number(msg.reply_to_message?.message_id);
+      if (!Number.isFinite(replyTo)) continue;
+      const text = String(msg.text ?? msg.caption ?? "").trim().slice(0, TELEGRAM_REPLY_TEXT_MAX);
+      for (const peerId of peerIds) {
+        const peer = telegramRuntimeSlot(peerId);
+        const peerChat = peer.lastChatId || (peerId === deviceId ? gate.chatId! : "");
+        if (!peerChat || !telegramChatMatches(peerChat, msg.chat)) continue;
+        if (peer.lastMessageId !== replyTo) continue;
+        // Latest matching reply in this batch wins per device.
+        peer.lastReplyText = text;
+      }
+    }
+
+    if (maxUpdateId >= 0) {
+      tokenSlot.updateOffset = maxUpdateId + 1;
+    }
+
+    const replyText = String(slot.lastReplyText ?? "");
+    const replied = replyText.length > 0;
+    // Shape for jsonpath feedback parse — scrub any token-shaped substrings in reply text.
+    const safeText = scrubTelegramSecrets(replyText).slice(0, TELEGRAM_REPLY_TEXT_MAX);
+    const payload = {
+      ok: true,
+      result: {
+        text: safeText,
+        replied: replied ? "1" : "0",
+      },
+    };
+    return {
+      ok: true,
+      message: JSON.stringify(payload),
+      replyText: safeText,
+      replied,
+    };
   });
-  if (!result.ok) return result;
-
-  const source = (result as { raw?: string }).raw || result.message;
-  let updates: TgUpdate[] = [];
-  try {
-    const parsed = JSON.parse(source) as { result?: TgUpdate[] };
-    updates = Array.isArray(parsed.result) ? parsed.result : [];
-  } catch {
-    return { ok: false, message: "Telegram getUpdates parse failed" };
-  }
-
-  let maxUpdateId = -1;
-  let matchedText: string | undefined;
-  for (const upd of updates) {
-    const uid = Number(upd.update_id);
-    if (Number.isFinite(uid) && uid > maxUpdateId) maxUpdateId = uid;
-    const msg = upd.message;
-    if (!msg) continue;
-    if (!telegramChatMatches(gate.chatId!, msg.chat)) continue;
-    const replyTo = Number(msg.reply_to_message?.message_id);
-    if (!Number.isFinite(replyTo) || replyTo !== lastId) continue;
-    const text = String(msg.text ?? msg.caption ?? "").trim();
-    // Latest matching reply in this batch wins.
-    matchedText = text.slice(0, TELEGRAM_REPLY_TEXT_MAX);
-  }
-
-  if (maxUpdateId >= 0) {
-    slot.updateOffset = maxUpdateId + 1;
-  }
-  if (matchedText !== undefined) {
-    slot.lastReplyText = matchedText;
-  }
-
-  const replyText = String(slot.lastReplyText ?? "");
-  const replied = replyText.length > 0;
-  // Shape for jsonpath feedback parse — scrub any token-shaped substrings in reply text.
-  const safeText = scrubTelegramSecrets(replyText).slice(0, TELEGRAM_REPLY_TEXT_MAX);
-  const payload = {
-    ok: true,
-    result: {
-      text: safeText,
-      replied: replied ? "1" : "0",
-    },
-  };
-  return {
-    ok: true,
-    message: JSON.stringify(payload),
-    replyText: safeText,
-    replied,
-  };
 }
 
 /** True when this driver uses the Telegram Bot API plane. */
