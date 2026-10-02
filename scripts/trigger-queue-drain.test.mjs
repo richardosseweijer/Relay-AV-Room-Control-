@@ -78,3 +78,24 @@ test("queue item left during a panel macro is processed after fireMacro-style dr
   assert.equal(activeScene, "queued-macro");
   assert.equal(triggerQueue.length, 0);
 });
+
+test("peer POST drains triggerQueue after macro (same as fireMacro)", () => {
+  const peer = fs.readFileSync("src/routes/api/peer.ts", "utf8");
+  assert.match(peer, /drainQueuedTriggers/);
+  assert.match(peer, /await drainQueuedTriggers\(\)/);
+  const clearIdx = peer.indexOf("mem.runningMacro = null");
+  const drainIdx = peer.indexOf("await drainQueuedTriggers()");
+  assert.ok(clearIdx >= 0 && drainIdx > clearIdx, "peer drain must follow clearing runningMacro");
+});
+
+test("runQueuedTrigger early exits continue the parked queue", () => {
+  const leaf = fs.readFileSync("src/lib/control/store-schedules.ts", "utf8");
+  const fn = leaf.slice(leaf.indexOf("async function runQueuedTrigger"));
+  // Path-miss release must be followed by drain so remaining parks are not orphaned.
+  const miss = fn.indexOf("if (!triggerPathHit");
+  assert.ok(miss >= 0);
+  const after = fn.slice(miss, miss + 450);
+  assert.match(after, /pendingTriggers\.release\(key\)/);
+  assert.match(after, /await drainQueuedTriggers\(\)/);
+  assert.match(leaf, /if \(!mem\.runningMacro && triggerQueue\.length\) await drainQueuedTriggers\(\)/);
+});
