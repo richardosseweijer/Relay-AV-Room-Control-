@@ -6,6 +6,9 @@ import {
   supportsTextSize,
   TEXT_SIZE_REF_REM,
   TEXT_SIZE_BODY_REM,
+  TEXT_SIZE_BODY_MAX_REM,
+  TEXT_SIZE_BODY_MIN_REM,
+  TEXT_SIZE_BODY_CQH_FRAC,
   widgetTextBodyRem,
   widgetTextSizeStyle,
   widgetBodyTextStyle,
@@ -65,38 +68,56 @@ test("normalizeTextSizeFields fills md for button family; strips slider; no-op f
   assert.equal(normalizeTextSizeFields(image), image);
 });
 
-test("TEXT_SIZE_BODY_REM freezes former h=1 height fractions at TEXT_SIZE_REF_REM", () => {
+test("TEXT_SIZE_BODY_MAX_REM freezes former h=1 height fractions at TEXT_SIZE_REF_REM", () => {
   assert.equal(TEXT_SIZE_REF_REM, 8);
-  // Former: usable = 7/8; xs/sm/md/lg = 1/8, 1/4, 1/2, 1 of usable → 7/64, 7/32, 7/16, 7/8 of height
-  assert.equal(TEXT_SIZE_BODY_REM.xs, (7 / 64) * TEXT_SIZE_REF_REM);
-  assert.equal(TEXT_SIZE_BODY_REM.sm, (7 / 32) * TEXT_SIZE_REF_REM);
-  assert.equal(TEXT_SIZE_BODY_REM.md, (7 / 16) * TEXT_SIZE_REF_REM);
-  assert.equal(TEXT_SIZE_BODY_REM.lg, (7 / 8) * TEXT_SIZE_REF_REM);
-  assert.equal(TEXT_SIZE_BODY_REM.xs, 0.875);
-  assert.equal(TEXT_SIZE_BODY_REM.sm, 1.75);
-  assert.equal(TEXT_SIZE_BODY_REM.md, 3.5);
-  assert.equal(TEXT_SIZE_BODY_REM.lg, 7);
-  assert.equal(widgetTextBodyRem(undefined), TEXT_SIZE_BODY_REM.md);
-  assert.equal(widgetTextBodyRem("nope"), TEXT_SIZE_BODY_REM.md);
+  assert.equal(TEXT_SIZE_BODY_MAX_REM, TEXT_SIZE_BODY_REM);
+  assert.equal(TEXT_SIZE_BODY_MAX_REM.xs, (7 / 64) * TEXT_SIZE_REF_REM);
+  assert.equal(TEXT_SIZE_BODY_MAX_REM.sm, (7 / 32) * TEXT_SIZE_REF_REM);
+  assert.equal(TEXT_SIZE_BODY_MAX_REM.md, (7 / 16) * TEXT_SIZE_REF_REM);
+  assert.equal(TEXT_SIZE_BODY_MAX_REM.lg, (7 / 8) * TEXT_SIZE_REF_REM);
+  assert.equal(TEXT_SIZE_BODY_MAX_REM.xs, 0.875);
+  assert.equal(TEXT_SIZE_BODY_MAX_REM.sm, 1.75);
+  assert.equal(TEXT_SIZE_BODY_MAX_REM.md, 3.5);
+  assert.equal(TEXT_SIZE_BODY_MAX_REM.lg, 7);
+  assert.equal(widgetTextBodyRem(undefined), TEXT_SIZE_BODY_MAX_REM.md);
+  assert.equal(widgetTextBodyRem("nope"), TEXT_SIZE_BODY_MAX_REM.md);
 });
 
-test("widgetTextSizeStyle emits fixed rem body/chip/secondary sizes (not cqh)", () => {
+test("TEXT_SIZE_BODY_MIN_REM and CQH fracs match documented clamp design", () => {
+  assert.deepEqual(TEXT_SIZE_BODY_MIN_REM, { xs: 0.75, sm: 1, md: 1.75, lg: 3.5 });
+  assert.equal(TEXT_SIZE_BODY_CQH_FRAC.xs, 7 / 64);
+  assert.equal(TEXT_SIZE_BODY_CQH_FRAC.sm, 7 / 32);
+  assert.equal(TEXT_SIZE_BODY_CQH_FRAC.md, 7 / 16);
+  assert.equal(TEXT_SIZE_BODY_CQH_FRAC.lg, 7 / 8);
+});
+
+test("widgetTextSizeStyle emits clamp(min rem, Ncqh, max rem) for body/chip/secondary", () => {
   assert.deepEqual(widgetBodyTextStyle("md"), {
-    fontSize: "3.5rem",
+    fontSize: "clamp(1.75rem, 43.75cqh, 3.5rem)",
+    lineHeight: 1.15,
+  });
+  assert.deepEqual(widgetBodyTextStyle("xs"), {
+    fontSize: "clamp(0.75rem, 10.9375cqh, 0.875rem)",
+    lineHeight: 1.15,
+  });
+  assert.deepEqual(widgetBodyTextStyle("sm"), {
+    fontSize: "clamp(1rem, 21.875cqh, 1.75rem)",
+    lineHeight: 1.15,
+  });
+  assert.deepEqual(widgetBodyTextStyle("lg"), {
+    fontSize: "clamp(3.5rem, 87.5cqh, 7rem)",
     lineHeight: 1.15,
   });
   assert.deepEqual(widgetChipTextStyle("md"), {
-    fontSize: `${3.5 * 0.4}rem`,
+    fontSize: "clamp(0.7rem, 17.5cqh, 1.4rem)",
     lineHeight: 1.15,
   });
   assert.deepEqual(widgetSecondaryTextStyle("lg"), {
-    fontSize: `${7 * 0.7}rem`,
+    fontSize: "clamp(2.45rem, 61.25cqh, 4.9rem)",
     lineHeight: 1.15,
   });
   assert.deepEqual(widgetLabelTileTextStyle("sm"), widgetTextSizeStyle("sm", "body"));
-  assert.match(widgetBodyTextStyle("xs").fontSize, /rem$/);
-  assert.equal(widgetBodyTextStyle("xs").fontSize, "0.875rem");
-  assert.equal(widgetBodyTextStyle("sm").fontSize, "1.75rem");
-  assert.equal(widgetBodyTextStyle("lg").fontSize, "7rem");
-  assert.equal(/cqh/.test(widgetBodyTextStyle("md").fontSize), false);
+  assert.match(widgetBodyTextStyle("md").fontSize, /^clamp\(/);
+  assert.match(widgetBodyTextStyle("md").fontSize, /cqh/);
+  assert.match(widgetBodyTextStyle("md").fontSize, /rem/);
 });
