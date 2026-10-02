@@ -1,6 +1,6 @@
 {
   "name": "relay",
-  "version": "0.9.79",
+  "version": "0.9.80",
   "license": "MIT",
   "engines": {
     "node": ">=22"

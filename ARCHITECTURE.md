@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.79** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.80** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -113,7 +113,7 @@ Macros invoked from any of these paths use the same runner as a panel press: ord
 | Macro | Ordered list of steps (device command, delay, variable assignment, nested macro). Id `none` is a hidden no-op; new buttons bind to it. |
 | Monitor | Periodic read of one feedback field. Always writes `MON_<label>`; optional extra `writeVar` / `errorVar`. |
 | Page | Named grid. Widgets have column, row, width, height, colour, bindings, and enable-when clauses. |
-| Widget | `button`, `slider`, `label`, `status`, `schedule`, `preview`, or `image`. Icons sit on the right, sized from tile height. Button/label/status/schedule may set `textSize` `xs`|`sm`|`md`|`lg` (default `md`; font size is a fraction of tile height via `cqh`; slider uses fixed face sizing). Label/button/status may set `textAlign` `left`|`center`|`right` (default `left`). Labels may set `hideWhenDisabled` so a failed enable-when omits the tile (default: still show, muted). Face labels expand `{var}` (including built-in `{time}` = OS-local HH:mm) then typed `\n` → newline via `formatWidgetLabel` (unresolved tokens omit; `whitespace-pre-line`). Label tiles use the same color fill/border classes as WidgetShell (`widgetColorClass`). Image is a static tile (host media under `data/media/`, fit `contain`\|`cover`, optional tap macro). |
+| Widget | `button`, `slider`, `label`, `status`, `schedule`, `preview`, or `image`. Icons sit on the right, sized from tile height. Button/label/status/schedule may set `textSize` `xs`|`sm`|`md`|`lg` (default `md`; fixed rem font sizes frozen from the former h=1 height fractions; slider uses fixed face sizing). Label/button/status may set `textAlign` `left`|`center`|`right` (default `left`). Labels may set `hideWhenDisabled` so a failed enable-when omits the tile (default: still show, muted). Face labels expand `{var}` (including built-in `{time}` = OS-local HH:mm) then typed `\n` → newline via `formatWidgetLabel` (unresolved tokens omit; `whitespace-pre-line`). Label tiles use the same color fill/border classes as WidgetShell (`widgetColorClass`). Image is a static tile (host media under `data/media/`, fit `contain`\|`cover`, optional tap macro). |
 | Schedule | Clock time and weekday mask that starts a macro. |
 | Trigger | Primary predicate plus optional `whenTrue` clauses; actions on true/false (write, command, macro). Modes: change, interval, boot. |
 | Host interface | Local serial, GPIO, I2C, SPI, IR, CEC, or a gateway box (e.g. IPL T SFI244) that maps slots to TCP ports. |
@@ -264,7 +264,7 @@ Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue
 | `src/routes/api/preview.ts` | `GET /api/preview?widget=` streams fMP4 (panel/config session). |
 | `src/components/panel/image-tile.tsx` | Static Image page widget (`object-contain`/`cover`; optional `imageBorderless` flush tile; fetch+/blob URL for Bearer `/api/media`). |
 | `src/lib/control/image-widget.ts` | Normalize `imageSrc` / `imageFit` (`contain`\|`cover`) / `imageBorderless`. |
-| `src/lib/control/text-size-widget.ts` | Normalize `textSize` (`xs`|`sm`|`md`|`lg`) for button/label/status/schedule (strip on slider); height-relative `cqh` font sizing for those tiles. |
+| `src/lib/control/text-size-widget.ts` | Normalize `textSize` (`xs`|`sm`|`md`|`lg`) for button/label/status/schedule (strip on slider); fixed rem font sizing for those tiles (no longer height/`cqh`). |
 | `src/lib/control/text-align-widget.ts` | Normalize `textAlign` (`left`|`center`|`right`) for label/button/status; panel `text-*` / `justify-*` helpers. |
 | `src/lib/control/media-store.ts` | Host media under `data/media/` (PNG/JPEG/WebP; ~2 MB; magic sniff; SVG denied). |
 | `src/routes/api/media.ts` | `POST /api/media` upload (config session). |
