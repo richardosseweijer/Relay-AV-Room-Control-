@@ -8,6 +8,7 @@ import type {
   HostInterface,
   Macro,
   RoomConfig,
+  HostUi,
 } from "./types";
 import { NONE_MACRO_ID } from "./types";
 import { inferPairingSteps } from "./schema";
@@ -400,7 +401,7 @@ export async function readMonitorValue(opts: {
   interfaceId?: string | null;
   query?: string;
   parsePattern?: string;
-  host?: { dim: boolean; locked: boolean; toast: string | null; toastAt?: number; block?: string | null; pageId: string | null };
+  host?: HostUi;
 }): Promise<{ ok: boolean; value: string; message: string }> {
   if (opts.interfaceId) {
     const result = await sendGatewayRaw({ config: opts.config, interfaceId: opts.interfaceId, payload: opts.query || "" });
@@ -605,7 +606,7 @@ export async function executeCommand(opts: {
   raw?: boolean;
   depth?: number;
   stack?: string[];
-  host?: { dim: boolean; locked: boolean; toast: string | null; toastAt?: number; block?: string | null; pageId: string | null };
+  host?: HostUi;
 }): Promise<CommandResult> {
   const device = opts.config.devices.find((d) => d.id === opts.deviceId);
   if (!device) return { ok: false, message: "Unknown device" };
@@ -634,7 +635,7 @@ export async function executeCommand(opts: {
       const { applyOccupancy } = await import("./peer-payload");
       return applyOccupancy(opts.config, (opts.vars ?? {}) as Record<string, string | number>, opts.commandId.slice("occupancy.".length));
     }
-    const host = opts.host ?? { dim: false, locked: false, toast: null, pageId: null };
+    const host = opts.host ?? { dim: false, locked: false, toast: null, block: null, pageId: null };
     const resolved = resolveTemplate(opts.value, opts.vars ?? {}, opts.config.variables);
     const result = await applyHost(opts.commandId, resolved, host, opts.vars);
     if (opts.host) Object.assign(opts.host, host);
@@ -703,7 +704,7 @@ export async function runMacro(opts: {
   macro: Macro;
   depth?: number;
   stack?: string[];
-  host?: { dim: boolean; locked: boolean; toast: string | null; toastAt?: number; block?: string | null; pageId: string | null };
+  host?: HostUi;
 }): Promise<CommandResult> {
   const depth = opts.depth ?? 0;
   if (depth > 8) return { ok: false, message: "Macro nest limit" };

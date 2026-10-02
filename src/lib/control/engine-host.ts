@@ -4,11 +4,13 @@ import type {
   DeviceInstance,
   DriverSpec,
   HostInterface,
+  HostUi,
 } from "./types";
 import { isGatewayKind } from "./gateway.ts";
 import { sendUsbMidi } from "./midi.ts";
 import { pushTrace } from "./engine-policy.ts";
 import { formatSystemTime, SYSTEM_TIME_VAR_ID } from "./vars.ts";
+import { publishHostUi } from "./host-ui-bus.ts";
 
 async function runToolStdin(cmd: string, args: string[], stdin: string, timeout = 2000): Promise<CommandResult> {
   const { spawn } = await import("node:child_process");
@@ -245,17 +247,21 @@ export async function readHostFeedback(id: string, host?: { dim: boolean; locked
 export async function applyHost(
   commandId: string,
   value: string | number | undefined,
-  host: { dim: boolean; locked: boolean; toast: string | null; toastAt?: number; block?: string | null; pageId: string | null; pageAt?: number; fullscreenAt?: number },
+  host: HostUi,
   vars?: Record<string, string | number>,
   flags?: { allowReboot?: boolean; allowAdmin?: boolean },
 ): Promise<CommandResult> {
+  const uiCmds = new Set([
+    "display.dim", "display.wake", "panel.lock", "panel.unlock",
+    "ui.toast", "ui.block", "ui.unblock", "ui.clear", "ui.page", "display.fullscreen",
+  ]);
   if (commandId === "display.dim") host.dim = true;
   else if (commandId === "display.wake") host.dim = false;
   else if (commandId === "panel.lock") host.locked = true;
   else if (commandId === "panel.unlock") host.locked = false;
   else if (commandId === "ui.toast") { host.toast = String(value ?? ""); host.toastAt = Date.now(); }
-  else if (commandId === "ui.block") { host.block = String(value ?? ""); }
-  else if (commandId === "ui.unblock") { host.block = null; }
+  else if (commandId === "ui.block") { host.block = String(value ?? ""); host.blockAt = Date.now(); }
+  else if (commandId === "ui.unblock") { host.block = null; host.blockAt = Date.now(); }
   else if (commandId === "ui.clear") { host.toast = null; host.toastAt = Date.now(); }
   else if (commandId === "ui.page") { host.pageId = String(value ?? ""); host.pageAt = Date.now(); }
   else if (commandId === "display.fullscreen") { host.fullscreenAt = Date.now(); }
@@ -353,5 +359,6 @@ export async function applyHost(
     spawn(cmd, args, { detached: true, stdio: "ignore" }).unref();
     return { ok: true, message: "Reboot sent" };
   } else return { ok: false, message: "Unknown host command" };
+  if (uiCmds.has(commandId)) publishHostUi(host);
   return { ok: true, message: commandId };
 }

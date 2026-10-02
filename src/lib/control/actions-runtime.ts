@@ -6,6 +6,7 @@ import { clampVar, SYSTEM_TIME_VAR_ID } from "./vars";
 import { actionPermitted } from "./control-policy";
 import { applyOccupancy, occupancyCode, occupancyOf, OCCUPANCY_VAR_ID } from "./peer-payload";
 import { loadControl } from "./actions-context";
+import { clearHostBlock } from "./host-ui-bus";
 
 export const setVariable = createServerFn({ method: "POST" })
   .validator((data: { id: string; value: string | number; token?: string }) => data)
@@ -130,7 +131,7 @@ export const fireMacro = createServerFn({ method: "POST" })
     mem.runningMacro = macro.id;
     const result = await runMacro({ config: mem.config, drivers: mem.drivers, state: mem.state, vars: mem.vars, health: mem.health ?? (mem.health = {}), macro, host: mem.host });
     mem.runningMacro = null;
-    if (!result.ok && mem.host?.block) mem.host.block = null;
+    if (!result.ok && mem.host) clearHostBlock(mem.host);
     if (result.ok) mem.activeScene = macro.id;
     mem.lastError = result.ok ? null : result.message;
     pushLog({ kind: "macro", ok: result.ok, title: macro.label, detail: result.message });

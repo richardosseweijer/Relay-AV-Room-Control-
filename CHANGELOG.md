@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.78
+
+- Tag `v0.9.78`. **Host UI SSE:** tablets subscribe to `GET /api/host` (EventSource) for live `mem.host` overlays — block/unblock, toast, locked, dim, pageId (+ `blockAt` / existing toastAt/pageAt/fullscreenAt). `applyHost` and fail-clear/unlock paths publish via [`host-ui-bus.ts`](src/lib/control/host-ui-bus.ts). Same access model as `/api/room` (host payload already public on the snapshot; connect rate-limited). `/api/room` poll stays bootstrap/fallback/reconnect. Panel skips dishonest macro host preview when SSE is live (no longer fakes a longer block by skipping `ui.unblock` / breaking at `ui.block`). Soft-fail: SSE errors fall back to poll. Tests: [`scripts/host-ui-sse.test.mjs`](scripts/host-ui-sse.test.mjs).
+
 - **P1 Telegram getUpdates offset:** cursor (and poll serial) keyed by bot token, not device id. Two Relay devices sharing one BotFather token no longer race/steal updates; matching replies fan out to peer device slots on the same token. Fail-closed / scrubSecret / reply-observation-only unchanged. Tests: [`scripts/telegram.test.mjs`](scripts/telegram.test.mjs).
 - UDP reply and sequenced session (issue #185). Fire-and-forget UDP/OSC is unchanged (`udp sent`). A poll, or a command with `ack` or `waitContains`, waits for one datagram and fails on timeout. OSC polls expose the reply argument as text. `session.keepMs` holds one UDP/OSC socket; idle datagrams are push feedback. `udp-seq` is the engine’s reliable datagram session (handshake from `session.connect`, counter, ACK, one resend, inner bytes only). Not a product protocol. TCP connect-write-close is unchanged. Tests: [`scripts/udp.test.mjs`](scripts/udp.test.mjs), [`scripts/osc.test.mjs`](scripts/osc.test.mjs), [`scripts/udp-seq.test.mjs`](scripts/udp-seq.test.mjs).
 - DRIVER-PROMPT: skeletons for an OSC poll, a held UDP socket with push feedback, and `udp-seq` (`session.connect` is the hello; `lan.session.keepMs` is only the idle timer). `ack` / `waitContains` wait for one datagram and do not grade it.
