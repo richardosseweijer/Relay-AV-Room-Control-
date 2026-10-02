@@ -4,6 +4,8 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- **ZowieBox HDMI output:** resolution presets (`output.2160p30` / `1080p60` / `1080p30` / `720p60`) now set `loop_out_switch:0` (decoder HDMI out). They previously forced loop-out on, which makes HDMI passthrough so the requested format looks ignored. Added `loop.out.on` / `loop.out.off` (partial `set_output_info`) and `output.loop` feedback. Re-add or refresh the library card on existing rooms. Live probe on AV-LAN confirmed Companion default is Output (`0`), not Loop Out.
+
 ## 0.9.78
 
 - Tag `v0.9.78`. **Host UI SSE:** tablets subscribe to `GET /api/host` (EventSource) for live `mem.host` overlays — block/unblock, toast, locked, dim, pageId (+ `blockAt` / existing toastAt/pageAt/fullscreenAt). `applyHost` and fail-clear/unlock paths publish via [`host-ui-bus.ts`](src/lib/control/host-ui-bus.ts). Same access model as `/api/room` (host payload already public on the snapshot; connect rate-limited). `/api/room` poll stays bootstrap/fallback/reconnect. Panel skips dishonest macro host preview when SSE is live (no longer fakes a longer block by skipping `ui.unblock` / breaking at `ui.block`). Soft-fail: SSE errors fall back to poll. Tests: [`scripts/host-ui-sse.test.mjs`](scripts/host-ui-sse.test.mjs).
