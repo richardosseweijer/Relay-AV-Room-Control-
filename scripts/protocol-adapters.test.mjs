@@ -374,3 +374,25 @@ test("ZowieBox HDMI In / Record parse data fields (not envelope status)", async 
   assert.equal(api.parse.path, "status");
   assert.equal(parseFeedback(api.parse, '{"status":"00000","data":{}}'), "00000");
 });
+
+test("ZowieBox output resolution keeps loop-out OFF (not passthrough)", () => {
+  const spec = JSON.parse(fs.readFileSync("data/library/zowietek-zowiebox.json", "utf8"));
+  const resCmds = spec.commands.filter((c) => c.id.startsWith("output."));
+  assert.ok(resCmds.length >= 4, "expected output.* resolution presets");
+  for (const cmd of resCmds) {
+    const body = JSON.parse(cmd.payload);
+    assert.equal(body.opt, "set_output_info");
+    assert.equal(body.data.loop_out_switch, 0, `${cmd.id} must not force loop-out on`);
+    assert.equal(body.data.audio_switch, 1);
+    assert.ok(body.data.format, `${cmd.id} needs format`);
+  }
+  const loopOn = spec.commands.find((c) => c.id === "loop.out.on");
+  const loopOff = spec.commands.find((c) => c.id === "loop.out.off");
+  assert.ok(loopOn && loopOff, "loop.out.on/off commands required");
+  assert.deepEqual(JSON.parse(loopOn.payload).data, { loop_out_switch: 1 });
+  assert.deepEqual(JSON.parse(loopOff.payload).data, { loop_out_switch: 0 });
+  const loopFb = spec.feedback.find((f) => f.id === "output.loop");
+  assert.equal(loopFb.parse.path, "data.loop_out_switch");
+  assert.equal(loopFb.parse.map["0"], "off");
+  assert.equal(loopFb.parse.map["1"], "on");
+});
