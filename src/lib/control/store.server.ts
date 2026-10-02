@@ -36,6 +36,7 @@ import {
   pruneScheduleMaps,
   runDueSchedules,
   runDueTriggers,
+  runBootTriggers,
   drainQueuedTriggers,
 } from "./store-schedules";
 import { recoverPersistPair } from "../../../scripts/write-atomic.mjs";
@@ -76,6 +77,7 @@ export {
   pruneScheduleMaps,
   runDueSchedules,
   runDueTriggers,
+  runBootTriggers,
   drainQueuedTriggers,
 };
 
@@ -103,6 +105,7 @@ const g = globalThis as typeof globalThis & {
   __relaySched__?: ReturnType<typeof setInterval>;
   __relayMon__?: ReturnType<typeof setInterval>;
   __relayFoyer__?: ReturnType<typeof setInterval>;
+  __relayBootTriggersDone__?: boolean;
 };
 /** F8: drop process-global map rows for removed devices / monitors / triggers / schedules. */
 function pruneRuntimeMaps(config: RoomConfig) {
@@ -379,6 +382,7 @@ export function ensureLoaded() {
           try { await persist(); } catch { /* keep memory pick; next boot retries */ }
         }
         startScheduler();
+        void runBootTriggers().catch(() => undefined);
         return mem;
       })
       .catch(async () => {
@@ -391,6 +395,7 @@ export function ensureLoaded() {
           try { await persist(); } catch { /* keep memory pick; next boot retries */ }
         }
         startScheduler();
+        void runBootTriggers().catch(() => undefined);
         return mem;
       });
   }

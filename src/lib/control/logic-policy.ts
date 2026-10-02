@@ -46,7 +46,7 @@ export function triggerPathHit(
   return path === "t" ? allTrue : !allTrue;
 }
 
-/** change: fire only on false→true. interval: ready whenever hit. */
+/** change: fire only on false→true. interval: ready whenever hit. boot: not used (see runBootTriggers). */
 export function triggerStep(mode: string | undefined, prev: string | undefined, hit: boolean) {
   if (!hit) return "reset" as const;
   if (mode === "change") {
@@ -54,6 +54,23 @@ export function triggerStep(mode: string | undefined, prev: string | undefined, 
     if (prev.startsWith("true:")) return "hold" as const;
   }
   return "ready" as const;
+}
+
+/**
+ * Boot trigger path at process start.
+ * No variable → unconditional true path only. With variable → same If/and as change/interval.
+ */
+export function bootTriggerPaths(
+  rule: TriggerLike & { mode?: string },
+  vars: Record<string, string | number>,
+  value: (raw: string) => string = (raw) => raw,
+): ("t" | "f")[] {
+  if (rule.mode !== "boot") return [];
+  if (!rule.variable) {
+    // No primary: empty and-rows → always true; leftover and-rows still apply.
+    return clausesPass(rule.whenTrue, vars, value) ? ["t"] : ["f"];
+  }
+  return triggerPathHit(rule, vars, "t", value) ? ["t"] : ["f"];
 }
 
 export class TriggerReservations {

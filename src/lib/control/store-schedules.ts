@@ -1,6 +1,6 @@
 /**
  * Schedules + triggers leaf extracted from store.server.ts (MR6).
- * Owns runDueSchedules / runDueTriggers / drainQueuedTriggers +
+ * Owns runDueSchedules / runDueTriggers / runBootTriggers / drainQueuedTriggers +
  * lastScheduleRun / trigger Maps / pendingTriggers / scheduleStamps /
  * pruneScheduleMaps. Preserves panel drainTriggerQueue behaviour (#85).
  * store.server keeps the public façade (re-exports) so callers stay stable.
@@ -9,7 +9,7 @@
  * module-init cycle. persistNow comes from store-persist (already cycle-safe).
  */
 import { executeCommand, runMacro } from "./engine";
-import { scheduleShouldRun, TriggerReservations, triggerPathHit, triggerStep } from "./logic-policy";
+import { scheduleShouldRun, TriggerReservations, triggerPathHit, triggerStep, bootTriggerPaths } from "./logic-policy";
 import { triggerHasFalseWork, triggerHasTrueWork, falseActionOf, runTriggerTruePlan } from "./trigger-actions";
 import type { DeviceHealth, DeviceStateMap, DriverSpec, Macro, RoomConfig } from "./types";
 import { resolveTemplate, writeConfiguredVar, type VarMap } from "./vars";
@@ -131,6 +131,65 @@ export async function runDueSchedules() {
   }
 }
 
+
+/** Once per process after store load. Survives Vite HMR via globalThis — does not re-fire on hot reload. */
+export async function runBootTriggers() {
+  const g = globalThis as typeof globalThis & { __relayBootTriggersDone__?: boolean };
+  if (g.__relayBootTriggersDone__) return;
+  g.__relayBootTriggersDone__ = true;
+  try {
+    const { memory, pushLog } = await import("./store.server");
+    const mem = memory() as SchedMemory;
+    const value = (raw: string) => String(resolveTemplate(raw, mem.vars, mem.config.variables) ?? raw);
+    for (const rule of mem.config.triggers ?? []) {
+      if (!rule.enabled || rule.mode !== "boot") continue;
+      const pathList = bootTriggerPaths(rule, mem.vars, value);
+      for (const path of pathList) {
+        const macroId = path === "t" ? (rule.macroId || "") : (rule.falseMacroId || "");
+        const extra = path === "t" ? triggerHasTrueWork(rule) : triggerHasFalseWork(rule);
+        if (!extra && (!macroId || macroId === "none")) continue;
+        const key = `${rule.id}:${path}`;
+        if (pendingTriggers.has(key) || triggerQueue.some((item) => item.id === rule.id && item.path === path)) continue;
+        const macro = mem.config.macros.find((m) => m.id === macroId);
+        if (!macro && !extra) continue;
+        const job: TriggerJob = { id: rule.id, macroId, label: rule.label, path };
+        if (mem.runningMacro) {
+          parkTriggerBehindMacro(job);
+          lastTriggerValue.set(key, "true:");
+          continue;
+        }
+        if (!pendingTriggers.reserve(key)) continue;
+        lastTriggerValue.set(key, "true:");
+        try {
+          const current = mem.config.macros.find((item) => item.id === macro?.id);
+          if (current || extra) await runQueuedTrigger(job, current);
+        } catch (err) {
+          pushLog({
+            kind: "macro",
+            ok: false,
+            title: `Boot trigger ${job.label}`,
+            detail: err instanceof Error ? err.message : "boot trigger failed",
+          });
+        } finally {
+          if (!triggerQueue.some((item) => item.id === job.id && item.path === job.path)) pendingTriggers.release(key);
+        }
+      }
+    }
+  } catch (err) {
+    try {
+      const { pushLog } = await import("./store.server");
+      pushLog({
+        kind: "macro",
+        ok: false,
+        title: "Boot triggers",
+        detail: err instanceof Error ? err.message : "boot triggers failed",
+      });
+    } catch {
+      /* soft-fail: boot must not die */
+    }
+  }
+}
+
 /** Park a trigger while runningMacro is held (same push runDueTriggers uses). */
 function parkTriggerBehindMacro(job: TriggerJob) {
   triggerQueue.push(job);
@@ -157,7 +216,7 @@ export async function runDueTriggers() {
   const now = Date.now();
   const value = (raw: string) => String(resolveTemplate(raw, mem.vars, mem.config.variables) ?? raw);
   for (const rule of mem.config.triggers ?? []) {
-    if (!rule.enabled || !rule.variable) continue;
+    if (!rule.enabled || rule.mode === "boot" || !rule.variable) continue;
     const paths: { path: "t" | "f"; macroId: string }[] = [];
     if (rule.macroId || triggerHasTrueWork(rule)) paths.push({ path: "t", macroId: rule.macroId || "" });
     if (triggerHasFalseWork(rule)) paths.push({ path: "f", macroId: rule.falseMacroId || "" });
@@ -215,11 +274,17 @@ async function runQueuedTrigger(job: TriggerJob, macro: Macro | undefined) {
   const trueMacro = rule?.macroId || "";
   const falseMacro = rule?.falseMacroId || "";
   const jobMacro = job.macroId || "";
-  if (!rule?.enabled || !rule.variable || (trueMacro !== jobMacro && falseMacro !== jobMacro) || (!extra && !macro)) {
+  const bootNoVar = rule?.mode === "boot" && !rule.variable;
+  if (!rule?.enabled || (!bootNoVar && !rule.variable) || (trueMacro !== jobMacro && falseMacro !== jobMacro) || (!extra && !macro)) {
     pendingTriggers.release(key);
     return;
   }
-  if (rule.variable) {
+  if (bootNoVar) {
+    if (job.path === "f") {
+      pendingTriggers.release(key);
+      return;
+    }
+  } else if (rule.variable) {
     const value = (raw: string) => String(resolveTemplate(raw, live.vars, live.config.variables) ?? raw);
     if (!triggerPathHit(rule, live.vars, job.path, value)) {
       lastTriggerValue.set(key, "false:");
