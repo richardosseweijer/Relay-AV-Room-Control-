@@ -4,8 +4,9 @@ import {
   coerceTextSize,
   normalizeTextSizeFields,
   supportsTextSize,
-  TEXT_SIZE_PAD_FRAC,
-  widgetTextHeightFraction,
+  TEXT_SIZE_REF_REM,
+  TEXT_SIZE_BODY_REM,
+  widgetTextBodyRem,
   widgetTextSizeStyle,
   widgetBodyTextStyle,
   widgetChipTextStyle,
@@ -64,33 +65,38 @@ test("normalizeTextSizeFields fills md for button family; strips slider; no-op f
   assert.equal(normalizeTextSizeFields(image), image);
 });
 
-test("widgetTextHeightFraction: usable = 7/8 height; xs/sm/md/lg = 1/8, 1/4, 1/2, 1 of usable", () => {
-  assert.equal(TEXT_SIZE_PAD_FRAC, 1 / 16);
-  const usable = 1 - 2 * TEXT_SIZE_PAD_FRAC; // 7/8
-  assert.equal(usable, 7 / 8);
-  assert.equal(widgetTextHeightFraction("xs"), (1 / 8) * usable);
-  assert.equal(widgetTextHeightFraction("sm"), (1 / 4) * usable);
-  assert.equal(widgetTextHeightFraction("md"), (1 / 2) * usable);
-  assert.equal(widgetTextHeightFraction("lg"), 1 * usable);
-  assert.equal(widgetTextHeightFraction(undefined), (1 / 2) * usable);
-  assert.equal(widgetTextHeightFraction("nope"), (1 / 2) * usable);
+test("TEXT_SIZE_BODY_REM freezes former h=1 height fractions at TEXT_SIZE_REF_REM", () => {
+  assert.equal(TEXT_SIZE_REF_REM, 8);
+  // Former: usable = 7/8; xs/sm/md/lg = 1/8, 1/4, 1/2, 1 of usable → 7/64, 7/32, 7/16, 7/8 of height
+  assert.equal(TEXT_SIZE_BODY_REM.xs, (7 / 64) * TEXT_SIZE_REF_REM);
+  assert.equal(TEXT_SIZE_BODY_REM.sm, (7 / 32) * TEXT_SIZE_REF_REM);
+  assert.equal(TEXT_SIZE_BODY_REM.md, (7 / 16) * TEXT_SIZE_REF_REM);
+  assert.equal(TEXT_SIZE_BODY_REM.lg, (7 / 8) * TEXT_SIZE_REF_REM);
+  assert.equal(TEXT_SIZE_BODY_REM.xs, 0.875);
+  assert.equal(TEXT_SIZE_BODY_REM.sm, 1.75);
+  assert.equal(TEXT_SIZE_BODY_REM.md, 3.5);
+  assert.equal(TEXT_SIZE_BODY_REM.lg, 7);
+  assert.equal(widgetTextBodyRem(undefined), TEXT_SIZE_BODY_REM.md);
+  assert.equal(widgetTextBodyRem("nope"), TEXT_SIZE_BODY_REM.md);
 });
 
-test("widgetTextSizeStyle emits cqh body/chip/secondary sizes", () => {
-  const md = widgetTextHeightFraction("md");
+test("widgetTextSizeStyle emits fixed rem body/chip/secondary sizes (not cqh)", () => {
   assert.deepEqual(widgetBodyTextStyle("md"), {
-    fontSize: `${md * 100}cqh`,
+    fontSize: "3.5rem",
     lineHeight: 1.15,
   });
   assert.deepEqual(widgetChipTextStyle("md"), {
-    fontSize: `${md * 0.4 * 100}cqh`,
+    fontSize: `${3.5 * 0.4}rem`,
     lineHeight: 1.15,
   });
   assert.deepEqual(widgetSecondaryTextStyle("lg"), {
-    fontSize: `${widgetTextHeightFraction("lg") * 0.7 * 100}cqh`,
+    fontSize: `${7 * 0.7}rem`,
     lineHeight: 1.15,
   });
   assert.deepEqual(widgetLabelTileTextStyle("sm"), widgetTextSizeStyle("sm", "body"));
-  assert.match(widgetBodyTextStyle("xs").fontSize, /cqh$/);
-  assert.equal(widgetBodyTextStyle("xs").fontSize, `${widgetTextHeightFraction("xs") * 100}cqh`);
+  assert.match(widgetBodyTextStyle("xs").fontSize, /rem$/);
+  assert.equal(widgetBodyTextStyle("xs").fontSize, "0.875rem");
+  assert.equal(widgetBodyTextStyle("sm").fontSize, "1.75rem");
+  assert.equal(widgetBodyTextStyle("lg").fontSize, "7rem");
+  assert.equal(/cqh/.test(widgetBodyTextStyle("md").fontSize), false);
 });
