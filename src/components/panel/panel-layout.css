@@ -11,10 +11,8 @@
   height: 100%;
 }
 
-/* Size container for height-relative widget text (cqh in text-size-widget). */
-.widget-text-container {
-  container-type: size;
-}
+/* .widget-text-container marks tiles that apply textSize (fixed rem via
+   text-size-widget). No container-type / cqh — sizes no longer track tile height. */
 
 /*
 @media (orientation: portrait) {
