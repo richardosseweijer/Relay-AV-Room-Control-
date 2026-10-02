@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.82
+
+- Tag `v0.9.82`. **Panel text size height-linked clamp:** Text size (`xs`|`sm`|`md`|`lg`) again tracks widget tile height via `cqh`, wrapped in `clamp(min, Ncqh, max)` so short tiles stay readable and large tiles cap at the 0.9.80 fixed rem. Body: `clamp(0.75rem, 10.9375cqh, 0.875rem)` / `clamp(1rem, 21.875cqh, 1.75rem)` / `clamp(1.75rem, 43.75cqh, 3.5rem)` / `clamp(3.5rem, 87.5cqh, 7rem)`. Chip 0.4× and secondary 0.7× of those clamps. Restored `container-type: size` on `.widget-text-container`. Same widget set (button/label/status/schedule). Helper: [`text-size-widget.ts`](src/lib/control/text-size-widget.ts).
+
 ## 0.9.81
 
 - Tag `v0.9.81`. **Trigger queue drain:** Peer macro POST now calls `drainQueuedTriggers` after clearing `runningMacro` (same as panel `fireMacro`), so parks left while a peer macro ran are not orphaned. `runQueuedTrigger` early-exits (disabled rule / boot false-path / path miss) also drain. `runDueTriggers` heals if the queue is nonempty and nothing holds `runningMacro`. Tests: [`scripts/trigger-queue-drain.test.mjs`](scripts/trigger-queue-drain.test.mjs).
