@@ -11,8 +11,10 @@
   height: 100%;
 }
 
-/* .widget-text-container marks tiles that apply textSize (fixed rem via
-   text-size-widget). No container-type / cqh — sizes no longer track tile height. */
+/* Size container so widget text can use cqh inside clamp(min, Ncqh, max). */
+.widget-text-container {
+  container-type: size;
+}
 
 /*
 @media (orientation: portrait) {
