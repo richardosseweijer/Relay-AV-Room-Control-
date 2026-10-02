@@ -488,3 +488,129 @@ export const restartPanelKiosk = createServerFn({ method: "POST" })
       via: restart.via,
     };
   });
+
+
+export const scanLanWifi = createServerFn({ method: "POST" })
+  .validator((data: { token: string; device?: string }) => data)
+  .handler(async ({ data }) => {
+    const { ensureLoaded, memory, validToken } = await loadControl();
+    await ensureLoaded();
+    if (!validToken(data.token, "config")) {
+      return { ok: false as const, networks: [] as { ssid: string; signal: number; security: string; inUse: boolean }[], message: "Config lock required" };
+    }
+    const {
+      platformGate,
+      createNmcliRunner,
+      scanLanWifiViaNmcli,
+      resolveLanWifiTarget,
+      LAN_WIFI_LINUX_ONLY,
+    } = await import("./lan-wifi");
+    const plat = platformGate();
+    if (!plat.ok) return { ok: false as const, networks: [], message: LAN_WIFI_LINUX_ONLY };
+
+    const { listLanNics, resolveNic } = await import("./nics");
+    const nics = listLanNics();
+    const mem = memory();
+    const deviceOverride = String(data.device ?? "").trim();
+    const pick = deviceOverride
+      ? { name: deviceOverride, index: null }
+      : { name: mem.config.room.outboundNicName, index: mem.config.room.outboundNicIndex ?? null };
+    const target = resolveLanWifiTarget(pick, nics, resolveNic);
+    if (!target.ok) return { ok: false as const, networks: [], message: target.message };
+
+    const runNmcli = createNmcliRunner();
+    return scanLanWifiViaNmcli({ device: target.nic.name, runNmcli });
+  });
+
+export const applyLanWifi = createServerFn({ method: "POST" })
+  .validator((data: {
+    token: string;
+    pin: string;
+    ssid: string;
+    password?: string;
+    device?: string;
+  }) => data)
+  .handler(async ({ data }) => {
+    const {
+      ensureLoaded,
+      memory,
+      verifyStoredPin,
+      validToken,
+      installRoomConfig,
+      persistNow,
+    } = await loadControl();
+    await ensureLoaded();
+    if (!validToken(data.token, "config")) return { ok: false as const, message: "Config lock required" };
+    if (!verifyStoredPin(data.pin, memory().config.room.configPin)) {
+      return { ok: false as const, message: "PIN did not match" };
+    }
+
+    const {
+      platformGate,
+      createNmcliRunner,
+      applyLanWifiViaNmcli,
+      resolveLanWifiTarget,
+      normalizeWifiSsid,
+      normalizeWifiPsk,
+      LAN_WIFI_LINUX_ONLY,
+    } = await import("./lan-wifi");
+
+    const plat = platformGate();
+    if (!plat.ok) return { ok: false as const, message: LAN_WIFI_LINUX_ONLY };
+
+    const ssidNorm = normalizeWifiSsid(data.ssid);
+    if (!ssidNorm.ok) return { ok: false as const, message: ssidNorm.message };
+
+    const mem = memory();
+    const incomingPsk = String(data.password ?? "");
+    const savedPsk = String(mem.config.room.lanWifiPsk ?? "");
+    const pskToUse = incomingPsk.trim() ? incomingPsk.trim() : savedPsk;
+    const pskNorm = normalizeWifiPsk(pskToUse, { required: false });
+    if (!pskNorm.ok) return { ok: false as const, message: pskNorm.message };
+
+    const { listLanNics, resolveNic } = await import("./nics");
+    const nics = listLanNics();
+    const deviceOverride = String(data.device ?? "").trim();
+    const pick = deviceOverride
+      ? { name: deviceOverride, index: null }
+      : { name: mem.config.room.outboundNicName, index: mem.config.room.outboundNicIndex ?? null };
+    const target = resolveLanWifiTarget(pick, nics, resolveNic);
+    if (!target.ok) return { ok: false as const, message: target.message };
+
+    const runNmcli = createNmcliRunner();
+    const applied = await applyLanWifiViaNmcli({
+      device: target.nic.name,
+      ssid: ssidNorm.ssid,
+      psk: pskNorm.psk,
+      runNmcli,
+    });
+    if (!applied.ok) return { ok: false as const, message: applied.message };
+
+    const nextPsk = pskNorm.psk || savedPsk;
+    const nextConfig = {
+      ...mem.config,
+      room: {
+        ...mem.config.room,
+        lanWifiSsid: ssidNorm.ssid,
+        lanWifiPsk: nextPsk,
+        // Keep outbound pick on this device if caller overrode device.
+        outboundNicName: target.nic.name,
+        outboundNicIndex: target.nic.index < 0 ? null : target.nic.index,
+      },
+    };
+    installRoomConfig(nextConfig);
+    try {
+      await persistNow();
+    } catch {
+      return {
+        ok: true as const,
+        message: `${applied.message} (connected; save to disk failed — retry Save all)`,
+        ssid: ssidNorm.ssid,
+      };
+    }
+    return {
+      ok: true as const,
+      message: applied.message || `Connected to “${ssidNorm.ssid}”.`,
+      ssid: ssidNorm.ssid,
+    };
+  });

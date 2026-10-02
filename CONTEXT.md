@@ -7,7 +7,7 @@ Keep this file short. If it grows past ~150 lines, cut history — do not append
 
 ## Product
 
-Relay **0.9.82** (beta). Single-process LAN AV room controller. TanStack Start + Vite. Dev `:8080` / prod `:8081` bind to **AV-LAN IPv4** (never `0.0.0.0`; `RELAY_LISTEN_HOST` overrides). Venue TLS train closed — see [`SECURITY.md`](SECURITY.md#venue-tls-inventory-c0). Not a grok.me / Vercel host (no writable `data/`).
+Relay **0.9.83** (beta). Single-process LAN AV room controller. TanStack Start + Vite. Dev `:8080` / prod `:8081` bind to **AV-LAN IPv4** (never `0.0.0.0`; `RELAY_LISTEN_HOST` overrides). Venue TLS train closed — see [`SECURITY.md`](SECURITY.md#venue-tls-inventory-c0). Not a grok.me / Vercel host (no writable `data/`).
 
 Companion signage: [Foyer-Room-Signage](https://github.com/richardosseweijer/Foyer-Room-Signage) `v0.2.3`.
 Wire: `FOYER-RELAY.md` (same file in both repos).
@@ -60,7 +60,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 
 Do not grep the whole repo to “get context.” If the table above is missing a file, ask.
 
-## Live notes (still true at 0.9.82)
+## Live notes (still true at 0.9.83)
 
 - Occupancy var is `0` closed, `1` open, `2` in-session, `3` DND. Foyer GET still reads the **string** field. Save-all must not apply `draft.room.occupancy`.
 - Unsigned `GET /api/peer` is TCP loopback **or listen-host hairpin** (real `remoteAddress`, not `Host`). HMAC GET is the full snapshot.
@@ -69,7 +69,7 @@ Do not grep the whole repo to “get context.” If the table above is missing a
 - Panel PIN ≠ config PIN unless `panelAcceptsConfigPin` (default off).
 - Open-on-LAN (no panel PIN) is not `externalControl` (unauthenticated fire\*).
 - `system.restart|update|reboot` need a config session even if open LAN is on.
-- Listen is AV-LAN IPv4 only — never `0.0.0.0`. Apply AV-LAN IPv4 is Linux/nmcli only. Outbound None soft-fails Update + venue HTTPS/peer/`nicFace`. Control URL prefers live AV-LAN IPv4 (`controlBaseUrlFrom`). Full dual-NIC / venue TLS / PARKED LE map: [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
+- Listen is AV-LAN IPv4 only — never `0.0.0.0`. Apply AV-LAN IPv4 is Linux/nmcli only. LAN Wi‑Fi Connect (outbound wireless NIC) is Linux/nmcli ops/setup; PSK in relay-secrets. Outbound None soft-fails Update + venue HTTPS/peer/`nicFace`. Control URL prefers live AV-LAN IPv4 (`controlBaseUrlFrom`). Full dual-NIC / venue TLS / PARKED LE map: [`SECURITY.md` Venue TLS inventory](SECURITY.md#venue-tls-inventory-c0).
 - Do not add xAI / Grok API calls. Do not print PINs. Do not commit `data/relay-secrets.json` or `.env`.
 - Do not start raw `npx vite`. Use `npm run dev` / `npm start`.
 
