@@ -17,6 +17,7 @@ import { Route as ApiPanelUnlockRouteImport } from './routes/api/panel-unlock'
 import { Route as ApiPeerRouteImport } from './routes/api/peer'
 import { Route as ApiPingRouteImport } from './routes/api/ping'
 import { Route as ApiPreviewRouteImport } from './routes/api/preview'
+import { Route as ApiHostRouteImport } from './routes/api/host'
 import { Route as ApiRoomRouteImport } from './routes/api/room'
 import { Route as ApiVarsRouteImport } from './routes/api/vars'
 import { Route as ApiVenueTlsCaRouteImport } from './routes/api/venue-tls-ca'
@@ -62,6 +63,11 @@ const ApiPreviewRoute = ApiPreviewRouteImport.update({
   path: '/api/preview',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHostRoute = ApiHostRouteImport.update({
+  id: '/api/host',
+  path: '/api/host',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRoomRoute = ApiRoomRouteImport.update({
   id: '/api/room',
   path: '/api/room',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
   '/api/preview': typeof ApiPreviewRoute
+  '/api/host': typeof ApiHostRoute
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
   '/api/venue-tls-ca': typeof ApiVenueTlsCaRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
   '/api/preview': typeof ApiPreviewRoute
+  '/api/host': typeof ApiHostRoute
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
   '/api/venue-tls-ca': typeof ApiVenueTlsCaRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/api/peer': typeof ApiPeerRoute
   '/api/ping': typeof ApiPingRoute
   '/api/preview': typeof ApiPreviewRoute
+  '/api/host': typeof ApiHostRoute
   '/api/room': typeof ApiRoomRoute
   '/api/vars': typeof ApiVarsRoute
   '/api/venue-tls-ca': typeof ApiVenueTlsCaRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/api/peer'
     | '/api/ping'
     | '/api/preview'
+    | '/api/host'
     | '/api/room'
     | '/api/vars'
     | '/api/venue-tls-ca'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/api/peer'
     | '/api/ping'
     | '/api/preview'
+    | '/api/host'
     | '/api/room'
     | '/api/vars'
     | '/api/venue-tls-ca'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/api/peer'
     | '/api/ping'
     | '/api/preview'
+    | '/api/host'
     | '/api/room'
     | '/api/vars'
     | '/api/venue-tls-ca'
@@ -180,6 +192,7 @@ export interface RootRouteChildren {
   ApiPeerRoute: typeof ApiPeerRoute
   ApiPingRoute: typeof ApiPingRoute
   ApiPreviewRoute: typeof ApiPreviewRoute
+  ApiHostRoute: typeof ApiHostRoute
   ApiRoomRoute: typeof ApiRoomRoute
   ApiVarsRoute: typeof ApiVarsRoute
   ApiVenueTlsCaRoute: typeof ApiVenueTlsCaRoute
@@ -243,6 +256,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/host': {
+      id: '/api/host'
+      path: '/api/host'
+      fullPath: '/api/host'
+      preLoaderRoute: typeof ApiHostRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/room': {
       id: '/api/room'
       path: '/api/room'
@@ -295,6 +315,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPeerRoute: ApiPeerRoute,
   ApiPingRoute: ApiPingRoute,
   ApiPreviewRoute: ApiPreviewRoute,
+  ApiHostRoute: ApiHostRoute,
   ApiRoomRoute: ApiRoomRoute,
   ApiVarsRoute: ApiVarsRoute,
   ApiVenueTlsCaRoute: ApiVenueTlsCaRoute,

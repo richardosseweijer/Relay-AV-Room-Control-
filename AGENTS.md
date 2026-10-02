@@ -80,7 +80,7 @@ done).
 PRODUCT (phases may change):  
 `src/lib/control/**`, `src/components/panel/**`, `src/components/config/**`,
 `src/routes/index.tsx`, `src/routes/config.tsx`,
-`src/routes/api/{room,peer,ping,vars,config-unlock,panel-unlock}.ts`,
+`src/routes/api/{room,host,peer,ping,vars,config-unlock,panel-unlock}.ts`,
 `data/library/**`, `scripts/driver-check.mjs`, `scripts/update-relay.mjs`,
 `scripts/write-atomic.mjs`, `scripts/room-smoke.mjs`,
 `scripts/control-security.test.mjs`, `LINUX.md`, `README.md`,

@@ -92,7 +92,7 @@ type Memory = {
   runningMacro: string | null;
   activeScene: string | null;
   latches: Record<string, string>;
-  host: { dim: boolean; locked: boolean; toast: string | null; block: string | null; pageId: string | null; fullscreenAt?: number };
+  host: { dim: boolean; locked: boolean; toast: string | null; toastAt?: number; block: string | null; blockAt?: number; pageId: string | null; pageAt?: number; fullscreenAt?: number };
   sessions: Record<string, { id?: string; secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
   /** Set when a weak config PIN is unlocked/hashed; cleared only after a strong PIN save. */
   pinChangeRequired?: boolean;
