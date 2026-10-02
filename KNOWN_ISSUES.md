@@ -5,7 +5,7 @@
 - Fullscreen cannot start without a user gesture. After host reboot, enable **Keep tablets fullscreen** and tap the splash, or use **Push fullscreen** then tap.
 - Screen Wake Lock dies when the tab is backgrounded, the device sleeps, or the OS battery-saver kills it. The sun control returns; tap again.
 - iOS Safari does not implement `requestFullscreen` the same way. Add to Home Screen for a near-kiosk chrome.
-- Panel poll of `/api/room` looks frozen if the browser parks the tab. Foreground the page.
+- Panel poll of `/api/room` looks frozen if the browser parks the tab. Foreground the page. Host overlays also use `/api/host` EventSource; a parked tab may drop SSE until foreground (poll remains fallback).
 
 ## Host / deploy
 

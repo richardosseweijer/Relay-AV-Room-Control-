@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.77** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.78** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -29,6 +29,7 @@ One Node.js process serves three surfaces:
 | `/` | Operator | Control panel. Polls `/api/room` and invokes server functions to run macros, set variables, and send single commands. |
 | `/config` | Integrator | PIN-protected editor for room, devices, pages, macros, logic, drivers, interfaces, and the action log. |
 | `/api/room` | Both | JSON snapshot of configuration, variables, device state, health, traces, and recent log lines. |
+| `/api/host` | Panel | SSE stream of `mem.host` UI overlays (block/toast/lock/dim/page). `/api/room` poll remains bootstrap/fallback. |
 
 There is no separate device-gateway process. Device I/O is opened from `src/lib/control/` inside the same process. Callers import the public façades `engine.ts` and `actions.ts` only. `engine.ts` is slim orchestration (pairing, inventory, monitors, macros, `executeCommand`); wire I/O lives in `engine-wire.ts`, LAN dispatch in `engine-lan.ts`, local/host plane in `engine-host.ts`. LAN allow-list and traces live in `engine-policy.ts`; payload tokens and reply parse live in `engine-payload.ts`. Cloud Bot API uses dedicated protocol `telegram` ([`telegram.ts`](src/lib/control/telegram.ts)) — fixed `api.telegram.org`, not RFC1918 `allowedLanHost`; sendMessage plus optional getUpdates limited to replies to the last send in the configured chat (no webhook / no command execution). Policy/payload/wire/lan/host leaves must not import `engine.ts`. Panel/config RPCs are split under `actions-*.ts` with `actions.ts` as the barrel and `actions-context.ts` (`loadControl`) shared by those handlers.
 
@@ -86,7 +87,7 @@ Operator browser          Integrator browser
 3. The handler checks the optional LAN-control policy and, where required, a session token (`validToken` / `mint` via `loadControl()` → `session.server.ts`).
 4. `executeCommand` in `engine.ts` resolves the device instance and loads its driver. `engine-payload.ts` substitutes payload tokens and applies `valueMap`. Dispatch then goes to `sendLan` (`engine-lan.ts`), `sendLocal` / host commands (`engine-host.ts`), with TCP/pace helpers in `engine-wire.ts`.
 5. The reply is parsed in `engine-payload.ts` according to the command or feedback `parse` object. Device state and optional bound variables are updated. A log line is appended.
-6. Subsequent `/api/room` polls show the new values. The panel does not open sockets to the television or mixer itself.
+6. Host UI commands publish on `/api/host` (SSE) so other tablets apply overlays immediately; `/api/room` polls remain the full snapshot bootstrap/fallback. The panel does not open sockets to the television or mixer itself.
 
 ### 3.3 Periodic work
 
@@ -280,6 +281,8 @@ Do not publish port 8081 to venue/WAN. No IP forward/bridge between AV and venue
 | `src/routes/index.tsx` | Route `/`. |
 | `src/routes/config.tsx` | Route `/config`. |
 | `src/routes/api/room.ts` | Snapshot HTTP handler. |
+| `src/routes/api/host.ts` | Host UI SSE (`text/event-stream`). |
+| `src/lib/control/host-ui-bus.ts` | In-process pub/sub for host overlay changes. |
 | `src/routes/api/peer.ts` | Occupancy GET for Foyer; HMAC POST macros for Relay-to-Relay. Foyer wire: [`FOYER-RELAY.md`](FOYER-RELAY.md). |
 | `src/routes/api/ping.ts` | Reachability helper used by the device card. |
 | `src/routes/api/vars.ts` | Variable listing used by the host inventory path. |
