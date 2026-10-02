@@ -213,6 +213,8 @@ export async function drainQueuedTriggers() {
 export async function runDueTriggers() {
   const { memory, pushLog } = await import("./store.server");
   const mem = memory() as SchedMemory;
+  // Heal parks left after a holder cleared runningMacro without draining (e.g. peer pre-fix).
+  if (!mem.runningMacro && triggerQueue.length) await drainQueuedTriggers();
   const now = Date.now();
   const value = (raw: string) => String(resolveTemplate(raw, mem.vars, mem.config.variables) ?? raw);
   for (const rule of mem.config.triggers ?? []) {
@@ -277,11 +279,13 @@ async function runQueuedTrigger(job: TriggerJob, macro: Macro | undefined) {
   const bootNoVar = rule?.mode === "boot" && !rule.variable;
   if (!rule?.enabled || (!bootNoVar && !rule.variable) || (trueMacro !== jobMacro && falseMacro !== jobMacro) || (!extra && !macro)) {
     pendingTriggers.release(key);
+    await drainQueuedTriggers();
     return;
   }
   if (bootNoVar) {
     if (job.path === "f") {
       pendingTriggers.release(key);
+      await drainQueuedTriggers();
       return;
     }
   } else if (rule.variable) {
@@ -289,6 +293,7 @@ async function runQueuedTrigger(job: TriggerJob, macro: Macro | undefined) {
     if (!triggerPathHit(rule, live.vars, job.path, value)) {
       lastTriggerValue.set(key, "false:");
       pendingTriggers.release(key);
+      await drainQueuedTriggers();
       return;
     }
   }

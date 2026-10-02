@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.81
+
+- Tag `v0.9.81`. **Trigger queue drain:** Peer macro POST now calls `drainQueuedTriggers` after clearing `runningMacro` (same as panel `fireMacro`), so parks left while a peer macro ran are not orphaned. `runQueuedTrigger` early-exits (disabled rule / boot false-path / path miss) also drain. `runDueTriggers` heals if the queue is nonempty and nothing holds `runningMacro`. Tests: [`scripts/trigger-queue-drain.test.mjs`](scripts/trigger-queue-drain.test.mjs).
+
 ## 0.9.80
 
 - Tag `v0.9.80`. **Panel text size fixed rem:** Text size dropdown (`xs`|`sm`|`md`|`lg`) no longer scales with widget tile height via `cqh`. Sizes are fixed rem frozen from the former height-relative fractions at a reference 1-row tile of **8rem** (≈ default landscape row on a 1080p 8-row panel): body **0.875 / 1.75 / 3.5 / 7 rem** (14 / 28 / 56 / 112 px @ 16px root). Chip 0.4× and secondary 0.7× of body unchanged. Same widget set (button/label/status/schedule; slider/preview/image excluded). Helper: [`text-size-widget.ts`](src/lib/control/text-size-widget.ts).
