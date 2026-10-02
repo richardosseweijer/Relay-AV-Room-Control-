@@ -41,6 +41,7 @@ function fixture(room) {
     randomHex: () => "test-id",
   };
   return { mem, writes: () => writes, bindings: { ...io, loadControl: async () => io, isWeakPin, isHashedPin, panelUnlockAllowed,
+    publishHostUi: () => {},
     occupancyOf: () => "available", applyOccupancy: () => {},
     randomHex: () => "test-id", seedVars: () => ({}), loadDefaults: async () => ({ emptyRoomConfig: pin => ({ room: { configPin: pin }, devices: [] }), defaultDeviceState: () => ({}), hostDriverSeed: () => ({ "relay-host.json": {} }), HOST_DRIVER: "relay-host.json" }),
   } };
