@@ -1,6 +1,6 @@
 # Relay architecture
 
-Relay **0.9.78** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
+Relay **0.9.79** (beta). Technical overview of the room-control application: process model, data objects, execution path from the operator surface to a device transport, persistence, and the source files that implement each layer.
 
 This document describes the software in this repository. It is not a substitute for manufacturer protocol manuals. Driver syntax is specified separately in [DRIVER-PROMPT.md](DRIVER-PROMPT.md). Legal and operational notices are in [NOTICE](NOTICE), [PRIVACY.md](PRIVACY.md), and [SECURITY.md](SECURITY.md).
 
@@ -97,7 +97,7 @@ Each timer tick:
 |---|---|
 | Monitors | For each enabled rule whose interval has elapsed, read feedback, optionally parse, write `writeVar`. On failure, optionally write `errorVar`. |
 | Schedules | Compare host time (or configured timezone) and weekday with each enabled job. An empty day list **skips** the job. Each job fires at most once per minute stamp. |
-| Triggers | Primary predicate plus optional `whenTrue` / `whenFalse` extra clauses. Mode `change` fires on an edge; mode `interval` may re-fire. After `delaySec` the condition is re-read before the macro runs. |
+| Triggers | Primary predicate plus optional `whenTrue` extra clauses (false path = any row failing). Mode `change` fires on an edge; mode `interval` may re-fire while true/false; mode `boot` fires once after store load (not every poll; HMR does not re-fire). No hold/delay. |
 
 Macros invoked from any of these paths use the same runner as a panel press: ordered steps, per-step retry, then the step’s failure action (`retry`, another macro, or a page change).
 
@@ -115,7 +115,7 @@ Macros invoked from any of these paths use the same runner as a panel press: ord
 | Page | Named grid. Widgets have column, row, width, height, colour, bindings, and enable-when clauses. |
 | Widget | `button`, `slider`, `label`, `status`, `schedule`, `preview`, or `image`. Icons sit on the right, sized from tile height. Button/label/status/schedule may set `textSize` `xs`|`sm`|`md`|`lg` (default `md`; font size is a fraction of tile height via `cqh`; slider uses fixed face sizing). Label/button/status may set `textAlign` `left`|`center`|`right` (default `left`). Labels may set `hideWhenDisabled` so a failed enable-when omits the tile (default: still show, muted). Face labels expand `{var}` (including built-in `{time}` = OS-local HH:mm) then typed `\n` → newline via `formatWidgetLabel` (unresolved tokens omit; `whitespace-pre-line`). Label tiles use the same color fill/border classes as WidgetShell (`widgetColorClass`). Image is a static tile (host media under `data/media/`, fit `contain`\|`cover`, optional tap macro). |
 | Schedule | Clock time and weekday mask that starts a macro. |
-| Trigger | Primary predicate plus optional `whenTrue` / `whenFalse` extra clauses that start a macro. |
+| Trigger | Primary predicate plus optional `whenTrue` clauses; actions on true/false (write, command, macro). Modes: change, interval, boot. |
 | Host interface | Local serial, GPIO, I2C, SPI, IR, CEC, or a gateway box (e.g. IPL T SFI244) that maps slots to TCP ports. |
 | Host device | Instance of `relay-host.json`. Commands act on the panel process (dim, lock, toast, block, page, restart, update, variable and macro access). |
 
@@ -181,7 +181,7 @@ Host commands `ui.toast`, `ui.block`, `ui.unblock`, and `ui.clear` draw overlays
 
 ### 6.2 Configurator (`src/components/config/`)
 
-Shell: `config-app.tsx` (PIN, Save all, toast, `draft`, tab bar). Tabs: Room, Security, Drivers, Devices, Interfaces, Macros, Logic, Pages, Log. Logic sub-tabs: variables, monitors, schedules, triggers. Trigger panes (`trigger-pane.tsx`): If / and / on-change-or-interval / one macro. Occupancy is the baked var `0`–`3` (closed / open / in session / DND); there is no Room-tab occupancy dropdown. **Save all** keeps live occupancy (it does not write `draft.room.occupancy`). Foyer GET still reads the string `occupancy` field.
+Shell: `config-app.tsx` (PIN, Save all, toast, `draft`, tab bar). Tabs: Room, Security, Drivers, Devices, Interfaces, Macros, Logic, Pages, Log. Logic sub-tabs: variables, monitors, schedules, triggers. Trigger panes (`trigger-pane.tsx`): If / and / on-change-or-interval-or-boot / write·command·macro. Occupancy is the baked var `0`–`3` (closed / open / in session / DND); there is no Room-tab occupancy dropdown. **Save all** keeps live occupancy (it does not write `draft.room.occupancy`). Foyer GET still reads the string `occupancy` field.
 
 Room actions: export (browser download, secrets stripped), import, clear configuration, restart Vite, update from GitHub, reboot the host. **Apply AV-LAN IPv4** (Linux / nmcli, config PIN): static or DHCP on the AV pick only → strip gateway + never-default → persist `room.network` → restart Relay to re-bind listen (never `0.0.0.0`). Room tab shows `package.json` version plus `git rev-parse --short HEAD`. There is no Restore demo. Clear configuration leaves occupancy and one `relay-host.json` device on localhost. Export requires a configurator session. Import preserves existing secrets when the bundle left those fields empty.
 

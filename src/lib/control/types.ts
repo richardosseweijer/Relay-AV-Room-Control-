@@ -357,7 +357,7 @@ export type Schedule = {
 };
 
 export type TriggerCompare = "eq" | "neq" | "gt" | "lt";
-export type TriggerMode = "change" | "interval";
+export type TriggerMode = "change" | "interval" | "boot";
 
 export type TriggerClause = {
   variable: string;
