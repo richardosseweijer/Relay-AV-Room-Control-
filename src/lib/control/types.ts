@@ -540,6 +540,10 @@ export type RoomConfig = {
     avLanNicName?: string | null;
     outboundNicIndex?: number | null;
     outboundNicName?: string | null;
+    /** Venue/LAN Wi‑Fi SSID when outbound NIC is wireless (ops/setup). Not secret. */
+    lanWifiSsid?: string | null;
+    /** Venue/LAN Wi‑Fi PSK — secrets file only (stripped from room JSON via publicConfig). */
+    lanWifiPsk?: string;
     /** B1 venue HTTPS PEM paths (optional; env RELAY_TLS_* wins). */
     tlsCertPath?: string | null;
     tlsKeyPath?: string | null;

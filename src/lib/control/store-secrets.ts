@@ -13,6 +13,8 @@ export type SecretFile = {
   configPin?: string;
   panelPin?: string | null;
   peerSecret?: string;
+  /** Venue/LAN Wi‑Fi PSK (never in relay-room.json). */
+  lanWifiPsk?: string;
   pinChangeRequired?: boolean;
   sessions?: Record<string, { id?: string; secret?: string; kind: "config" | "panel"; exp: number; created?: number; label?: string; lastSeen?: number }>;
   devices?: Record<string, Record<string, string>>;
@@ -31,6 +33,7 @@ export function pickSecrets(config: RoomConfig): SecretFile {
     configPin: config.room.configPin,
     panelPin: config.room.panelPin,
     peerSecret: config.room.peerSecret,
+    lanWifiPsk: config.room.lanWifiPsk,
     devices,
   };
 }
@@ -39,6 +42,7 @@ export function publicConfig(config: RoomConfig): RoomConfig {
   const next = structuredClone(config);
   next.room.configPin = "";
   next.room.peerSecret = "";
+  next.room.lanWifiPsk = "";
   next.room.panelPin = next.room.panelAccess === "pin" ? "" : null;
   for (const device of next.devices) {
     const keep: Record<string, string> = {};
@@ -54,6 +58,7 @@ export function applySecrets(config: RoomConfig, secrets?: SecretFile | null): R
   const next = structuredClone(config);
   if (secrets?.configPin) next.room.configPin = secrets.configPin;
   if (secrets?.peerSecret) next.room.peerSecret = secrets.peerSecret;
+  if (secrets?.lanWifiPsk) next.room.lanWifiPsk = secrets.lanWifiPsk;
   if (next.room.panelAccess === "pin" && secrets?.panelPin) next.room.panelPin = secrets.panelPin;
   for (const device of next.devices) {
     const extra = secrets?.devices?.[device.id];

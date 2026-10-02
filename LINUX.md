@@ -263,6 +263,19 @@ nmcli -f GENERAL,IP4 device show enp1s0
 
 If `nmcli` is missing or the AV NIC stays unmanaged, fix NM/netplan before `install-host-sudoers.sh`. Relay does **not** auto-switch netplan renderers.
 
+#### LAN Wi‑Fi join (USB WLAN / venue SSID)
+
+When **Room → Networks → LAN (internet)** is a wireless interface (USB stick, `wlan*` / `wlp*` / `wlx*`), the configurator can **Scan** nearby SSIDs and **Connect Wi‑Fi** via `nmcli` (same NetworkManager + `/etc/sudoers.d/relay-nmcli` as Apply AV-LAN IP). This is **ops/setup** for venue/LAN dial-in — not an AV-LAN AP, and not required for day-to-day offline room control.
+
+```bash
+# Examples of what Relay runs (via sudo -n nmcli when applying):
+nmcli device wifi rescan ifname wlan0
+nmcli -t -f SSID,SIGNAL,SECURITY,IN-USE device wifi list ifname wlan0
+nmcli device wifi connect 'VenueSSID' password '…' ifname wlan0
+```
+
+PSK is stored in `data/relay-secrets.json` (not plain in `relay-room.json`). Ethernet LAN selection is unchanged.
+
 ##### Host sudoers (nmcli + ufw + kiosk)
 
 Relay stays non-root. Install narrow sudoers drop-ins so the service user can run nmcli / the ufw helper / kiosk systemctl without a password. Prefer the host installer (also installs the kiosk drop-in used by the [Appendix](#appendix-relay-without-foyer-relay-owns-a-display)):
@@ -278,7 +291,7 @@ sudo bash scripts/install-host-sudoers.sh
 
 | Template | Destination | Purpose |
 |---|---|---|
-| `deploy/sudoers.relay-nmcli` | `/etc/sudoers.d/relay-nmcli` | Apply AV-LAN via `sudo -n nmcli` |
+| `deploy/sudoers.relay-nmcli` | `/etc/sudoers.d/relay-nmcli` | Apply AV-LAN + LAN Wi‑Fi via `sudo -n nmcli` |
 | `deploy/sudoers.relay-ufw` | `/etc/sudoers.d/relay-ufw` | NOPASSWD for `/usr/local/sbin/relay-ufw-av-lan` — 8081 from AV CIDR + `comment Relay-AV-LAN` only |
 | `deploy/sudoers.relay-kiosk` | `/etc/sudoers.d/relay-kiosk` | Local display kiosk unit ([Appendix](#appendix-relay-without-foyer-relay-owns-a-display); harmless while disabled on §7) |
 
