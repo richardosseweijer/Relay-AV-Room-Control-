@@ -20,6 +20,7 @@ Trusted **AV-LAN** only for the cleartext panel and API. Production HTTP binds t
 - No cleartext panel on the venue NIC. Do not set `RELAY_LISTEN_HOST=0.0.0.0` in production.
 - **Local HDMI panel kiosk (Linux):** optional `relay-kiosk.service` (cage + Chromium) opens `http://<av-lan-ipv4>:<port>/` only — never widens HTTP to `0.0.0.0`. Narrow sudoers for `sudo -n systemctl` on that unit only (`deploy/sudoers.relay-kiosk`); missing drop-in → clear LINUX.md error (not raw polkit). Relay stays non-root. When Foyer owns Welcome/Room panel heads on the same host, disable Relay’s unit (`systemctl disable --now relay-kiosk`) — see [`LINUX.md`](LINUX.md) §7a. Relay-only HDMI: [`LINUX.md` Appendix](LINUX.md#appendix-relay-without-foyer-relay-owns-a-display).
 - **Apply AV-LAN IPv4 (Linux):** configurator may set AV static/DHCP via `sudo -n nmcli` under config token + Config PIN. Targets the saved AV pick only; strips gateway + `ipv4.never-default yes`; never listens on `0.0.0.0`; privilege is narrow nmcli sudoers — not full root / not AmbientCapabilities for this path.
+- **LAN Wi‑Fi join (Linux):** configurator may scan/connect the LAN (outbound) wireless NIC via `sudo -n nmcli` under config token (+ Config PIN for Connect). PSK in `relay-secrets.json` only; SSID in room config. Does not host an AP or change AV-LAN Apply.
 
 ### Listen resolution (A2)
 
