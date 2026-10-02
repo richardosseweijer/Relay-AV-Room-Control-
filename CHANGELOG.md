@@ -4,6 +4,8 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Update from GitHub: ignore dirty `src/routeTree.gen.ts` (TanStack regenerates import order on `vite preview`, which was blocking every update after a successful land). [`LINUX.md`](LINUX.md) §8 notes the one-line host unblock for older tips.
+
 ## 0.9.79
 
 - Tag `v0.9.79`. **Boot triggers:** Logic → Triggers gains When **On Relay boot** (`mode: boot`) — fires once after the room store loads / engine is ready (not every poll). Optional If/and checked once with vars at boot; empty first variable = always (true path). Vite hot reload does not re-fire (`globalThis.__relayBootTriggersDone__`); restart the Relay process to run again. Soft-fail: boot trigger errors log and do not crash startup. UI: [`trigger-pane.tsx`](src/components/config/trigger-pane.tsx); engine: [`runBootTriggers`](src/lib/control/store-schedules.ts). Tests: [`scripts/control-plane.test.mjs`](scripts/control-plane.test.mjs), [`scripts/boot-trigger.test.mjs`](scripts/boot-trigger.test.mjs).
