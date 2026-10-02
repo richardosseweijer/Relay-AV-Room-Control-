@@ -53,8 +53,10 @@ export function normalize(config?: RoomConfig | null): RoomConfig {
         compare: row.compare || "eq",
         equals: row.equals ?? "",
       }));
+      const mode = rule.mode === "interval" || rule.mode === "boot" ? rule.mode : "change";
       const next = liftTag(normalizeTriggerFields({
         ...rule,
+        mode,
         intervalSec,
         whenTrue: clip(rule.whenTrue),
       })) as typeof rule & Record<string, unknown>;

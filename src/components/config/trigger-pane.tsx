@@ -60,9 +60,15 @@ function actionBits(rule: VariableTrigger, draft: RoomConfig, snap: RoomSnapshot
 }
 
 function summary(rule: VariableTrigger, draft: RoomConfig, snap: RoomSnapshot) {
-  const left = draft.variables.find((v) => v.id === rule.variable)?.label || rule.variable || "variable";
+  const left = rule.variable
+    ? (draft.variables.find((v) => v.id === rule.variable)?.label || rule.variable)
+    : (rule.mode === "boot" ? "always" : "variable");
   const extra = rule.whenTrue?.length ? ` +${rule.whenTrue.length}` : "";
-  const when = rule.mode === "interval" ? `every ${rule.intervalSec || 1}s` : "on change";
+  const when = rule.mode === "interval"
+    ? `every ${rule.intervalSec || 1}s`
+    : rule.mode === "boot"
+      ? "on Relay boot"
+      : "on change";
   const yes = actionBits(rule, draft, snap, "true");
   const no = actionBits(rule, draft, snap, "false");
   const action = [yes.join(" · "), no.length ? `else ${no.join(" · ")}` : ""].filter(Boolean).join(" · ") || "no action";
@@ -144,7 +150,10 @@ export function TriggersSection(props: {
                         <SuggestField
                           className={fieldClass()}
                           value={row.variable}
-                          options={vars.map((v) => ({ id: v.id, label: v.label }))}
+                          options={[
+                            ...(rule.mode === "boot" && ri === 0 ? [{ id: "", label: "Always (no check)" }] : []),
+                            ...vars.map((v) => ({ id: v.id, label: v.label })),
+                          ]}
                           onChange={(id) => update((c) => {
                             const next = clausesOf(c.triggers![ti]!);
                             next[ri] = { ...next[ri]!, variable: id };
@@ -200,6 +209,7 @@ export function TriggersSection(props: {
                     <select className={fieldClass()} value={rule.mode} onChange={(e) => update((c) => { c.triggers![ti]!.mode = e.target.value as VariableTrigger["mode"]; })}>
                       <option value="change">On change (once when the check changes)</option>
                       <option value="interval">Every interval while true, or while false</option>
+                      <option value="boot">On Relay boot (once when the process starts)</option>
                     </select>
                   </label>
                   {rule.mode === "interval" ? (
@@ -208,6 +218,12 @@ export function TriggersSection(props: {
                     </label>
                   ) : <span />}
                 </div>
+                {rule.mode === "boot" ? (
+                  <p className="text-xs text-muted">
+                    Fires once after Relay loads the room store (not every poll). Vite hot reload does not re-fire — restart the Relay process to run again.
+                    Leave the first If variable empty for always; otherwise If/and are checked once with values at boot (monitors may not have polled yet).
+                  </p>
+                ) : null}
 
                 {(["true", "false"] as const).map((side) => {
                   const keys = side === "true"

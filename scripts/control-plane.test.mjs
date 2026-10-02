@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { signPeer, verifyPeerRequest } from "../src/lib/control/peer-auth.ts";
 import { actionPermitted } from "../src/lib/control/control-policy.ts";
-import { matchesTrigger, scheduleShouldRun, triggerPathHit, triggerStep } from "../src/lib/control/logic-policy.ts";
+import { bootTriggerPaths, matchesTrigger, scheduleShouldRun, triggerPathHit, triggerStep } from "../src/lib/control/logic-policy.ts";
 import { monitorVarId } from "../src/lib/control/vars.ts";
 
 test("hmac good signature", () => {
@@ -82,6 +82,21 @@ test("trigger change fires once per edge; interval may re-fire", () => {
   assert.equal(triggerStep("interval", "true:on", true), "ready");
   assert.equal(triggerStep("interval", "false:off", true), "ready");
   assert.equal(matchesTrigger("on", "eq", "on"), true);
+});
+
+test("boot trigger paths: always or one-shot If/and", () => {
+  assert.deepEqual(bootTriggerPaths({ mode: "boot" }, {}), ["t"]);
+  assert.deepEqual(bootTriggerPaths({ mode: "boot", variable: "" }, {}), ["t"]);
+  assert.deepEqual(bootTriggerPaths({ mode: "change" }, {}), []);
+  assert.deepEqual(bootTriggerPaths({ mode: "boot", variable: "occ", compare: "eq", equals: "on" }, { occ: "on" }), ["t"]);
+  assert.deepEqual(bootTriggerPaths({ mode: "boot", variable: "occ", compare: "eq", equals: "on" }, { occ: "off" }), ["f"]);
+  assert.deepEqual(
+    bootTriggerPaths(
+      { mode: "boot", variable: "occ", compare: "eq", equals: "on", whenTrue: [{ variable: "tv", compare: "eq", equals: "on" }] },
+      { occ: "on", tv: "off" },
+    ),
+    ["f"],
+  );
 });
 
 test("trigger false path is any failed If row", () => {
