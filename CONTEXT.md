@@ -7,7 +7,7 @@ Keep this file short. If it grows past ~150 lines, cut history — do not append
 
 ## Product
 
-Relay **0.9.78** (beta). Single-process LAN AV room controller. TanStack Start + Vite. Dev `:8080` / prod `:8081` bind to **AV-LAN IPv4** (never `0.0.0.0`; `RELAY_LISTEN_HOST` overrides). Venue TLS train closed — see [`SECURITY.md`](SECURITY.md#venue-tls-inventory-c0). Not a grok.me / Vercel host (no writable `data/`).
+Relay **0.9.79** (beta). Single-process LAN AV room controller. TanStack Start + Vite. Dev `:8080` / prod `:8081` bind to **AV-LAN IPv4** (never `0.0.0.0`; `RELAY_LISTEN_HOST` overrides). Venue TLS train closed — see [`SECURITY.md`](SECURITY.md#venue-tls-inventory-c0). Not a grok.me / Vercel host (no writable `data/`).
 
 Companion signage: [Foyer-Room-Signage](https://github.com/richardosseweijer/Foyer-Room-Signage) `v0.2.3`.
 Wire: `FOYER-RELAY.md` (same file in both repos).
@@ -33,7 +33,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 | Panel text align | `text-align-widget.ts`, `pages-editor.tsx`, `widget-face.tsx` / `panel-tile.tsx` (label/button/status) |
 | Label hide when disabled | `pages-enable-when.tsx`, `panel-widget.ts` (`shouldHideWhenDisabled`), `panel-tile.tsx` |
 | Panel label `{var}` / `\n` / `{time}` | `vars.ts` (`resolveTemplate` / `resolveWidgetLabel` / `formatWidgetLabel` / `formatSystemTime`; built-in read-only `{time}` = OS-local HH:mm), `panel-tile.tsx` + face shells (`whitespace-pre-line`; unresolved → empty) |
-| Trigger write / device command | `trigger-actions.ts`, `trigger-pane.tsx`, `store-schedules.ts` (true and false: write, command, then real macro; false = any If row failed; no hold/delay) |
+| Trigger write / device command | `trigger-actions.ts`, `trigger-pane.tsx`, `store-schedules.ts` (true and false: write, command, then real macro; false = any If row failed; modes change/interval/boot; boot once via `runBootTriggers` + `__relayBootTriggersDone__`) |
 | Config `{var}` picker | `var-token.ts`, `var-token-field.tsx` (type `{`; number fields suggest number vars only) |
 | Config suggest lists | `suggest.ts`, `suggest-field.tsx` (device, command, macro, variable, page; enum / latch / equals stay free text) |
 | Panel label background | `widget-face.tsx` (`widgetColorClass`), `panel-tile.tsx` (label tiles honor configured color) |
@@ -60,7 +60,7 @@ Wire: `FOYER-RELAY.md` (same file in both repos).
 
 Do not grep the whole repo to “get context.” If the table above is missing a file, ask.
 
-## Live notes (still true at 0.9.78)
+## Live notes (still true at 0.9.79)
 
 - Occupancy var is `0` closed, `1` open, `2` in-session, `3` DND. Foyer GET still reads the **string** field. Save-all must not apply `draft.room.occupancy`.
 - Unsigned `GET /api/peer` is TCP loopback **or listen-host hairpin** (real `remoteAddress`, not `Host`). HMAC GET is the full snapshot.

@@ -124,7 +124,7 @@ test("store.server re-exports monitors leaf", () => {
 
 test("store.server re-exports schedules leaf", () => {
   const src = fs.readFileSync("src/lib/control/store.server.ts", "utf8");
-  assert.match(src, /export \{\s*scheduleStamps,\s*loadScheduleStamps,\s*pruneScheduleMaps,\s*runDueSchedules,\s*runDueTriggers,\s*drainQueuedTriggers,\s*\}/);
+  assert.match(src, /export \{\s*scheduleStamps,\s*loadScheduleStamps,\s*pruneScheduleMaps,\s*runDueSchedules,\s*runDueTriggers,\s*runBootTriggers,\s*drainQueuedTriggers,\s*\}/);
   assert.equal(/async function runDueSchedules\(/.test(src), false);
   assert.equal(/async function runDueTriggers\(/.test(src), false);
   assert.equal(/async function drainQueuedTriggers\(/.test(src), false);
@@ -142,6 +142,7 @@ test("store.server re-exports schedules leaf", () => {
   const leaf = fs.readFileSync("src/lib/control/store-schedules.ts", "utf8");
   assert.match(leaf, /export async function runDueSchedules\s*\(/);
   assert.match(leaf, /export async function runDueTriggers\s*\(/);
+  assert.match(leaf, /export async function runBootTriggers\s*\(/);
   assert.match(leaf, /export async function drainQueuedTriggers\s*\(/);
   assert.match(leaf, /export function scheduleStamps\s*\(/);
   assert.match(leaf, /export function loadScheduleStamps\s*\(/);
