@@ -1,4 +1,5 @@
 import os from "node:os";
+import { isWirelessIfaceName, listWirelessIfaceNames } from "../../../scripts/wireless-iface.mjs";
 import type { RoomConfig } from "./types";
 import { allowedLanHost } from "./engine-policy.ts";
 import {
@@ -61,6 +62,8 @@ export type LanNic = {
   ipv4: string | null;
   cidr?: string | null;
   label: string;
+  /** True when iface looks like Wi-Fi (sysfs wireless/phy80211 or wlan/wlp/wlx name). */
+  wireless?: boolean;
 };
 
 export type NicAddr = {
@@ -85,7 +88,15 @@ function isIpv4(addr: NicAddr) {
   return addr.family === "IPv4" || addr.family === 4;
 }
 
-export function listLanNicsFrom(ifaces: Record<string, NicAddr[] | undefined>): LanNic[] {
+export type ListLanNicsOpts = {
+  /** Override wireless detection (tests). Default: sysfs / name heuristic. */
+  isWireless?: (name: string) => boolean;
+};
+
+export function listLanNicsFrom(
+  ifaces: Record<string, NicAddr[] | undefined>,
+  opts?: ListLanNicsOpts,
+): LanNic[] {
   const names = Object.keys(ifaces).filter((name) => {
     const addrs = ifaces[name] ?? [];
     if (!addrs.length) return false;
@@ -97,18 +108,29 @@ export function listLanNicsFrom(ifaces: Record<string, NicAddr[] | undefined>): 
     const v4 = addrs.find((addr) => isIpv4(addr) && !isInternal(addr));
     const ipv4 = v4?.address?.trim() || null;
     const cidr = v4?.cidr?.trim() || null;
+    const wireless = Boolean(opts?.isWireless?.(name));
     return {
       index,
       name,
       ipv4,
       cidr,
-      label: `${index} ${EM} ${name} (${ipv4 ?? "no IPv4"})`,
+      wireless,
+      label: `${index} ${EM} ${name} (${ipv4 ?? "no IPv4"})${wireless ? " · wifi" : ""}`,
     };
   });
 }
 
 export function listLanNics(): LanNic[] {
-  return listLanNicsFrom(os.networkInterfaces() as Record<string, NicAddr[] | undefined>);
+  const ifaces = {
+    ...(os.networkInterfaces() as Record<string, NicAddr[] | undefined>),
+  };
+  // Include wireless NICs that have no addresses yet (USB stick not associated).
+  for (const name of listWirelessIfaceNames()) {
+    if (name === "lo") continue;
+    if ((ifaces[name] ?? []).length) continue;
+    ifaces[name] = [{ family: "IPv6", internal: false }];
+  }
+  return listLanNicsFrom(ifaces, { isWireless: isWirelessIfaceName });
 }
 
 function pickSet(pick: NicPick) {
