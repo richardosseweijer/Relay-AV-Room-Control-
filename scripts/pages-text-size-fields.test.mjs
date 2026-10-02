@@ -18,18 +18,19 @@ test("pages-editor exposes Text size for button/label/status/schedule only", () 
   assert.match(src, /Large/);
 });
 
-test("panel tiles apply fixed rem textSize styles (not preview/image/slider)", () => {
+test("panel tiles apply clamp(min, Ncqh, max) textSize with size container", () => {
   const face = fs.readFileSync("src/components/panel/widget-face.tsx", "utf8");
   const tile = fs.readFileSync("src/components/panel/panel-tile.tsx", "utf8");
   const slider = fs.readFileSync("src/components/panel/panel-slider.tsx", "utf8");
   const css = fs.readFileSync("src/components/panel/panel-layout.css", "utf8");
   const helper = fs.readFileSync("src/lib/control/text-size-widget.ts", "utf8");
   assert.match(css, /widget-text-container/);
-  assert.equal(/container-type:\s*size/.test(css), false);
-  assert.match(helper, /TEXT_SIZE_BODY_REM/);
-  assert.match(helper, /TEXT_SIZE_REF_REM/);
-  assert.match(helper, /fontSize: `\$\{base \* mult\}rem`/);
-  assert.equal(/\d+cqh/.test(helper), false);
+  assert.match(css, /container-type:\s*size/);
+  assert.match(helper, /TEXT_SIZE_BODY_MAX_REM/);
+  assert.match(helper, /TEXT_SIZE_BODY_MIN_REM/);
+  assert.match(helper, /TEXT_SIZE_BODY_CQH_FRAC/);
+  assert.match(helper, /clamp\(/);
+  assert.match(helper, /cqh/);
   assert.match(face, /widgetBodyTextStyle\(widget\.textSize/);
   assert.match(face, /widgetChipTextStyle\(widget\.textSize/);
   assert.match(face, /widget-text-container/);
