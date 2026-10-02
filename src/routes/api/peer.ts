@@ -3,7 +3,7 @@ import { runMacro } from "@/lib/control/engine";
 import { authorizePeerGet, isTcpLocalPeer, peerKey, verifyPeerRequest } from "@/lib/control/peer-auth";
 import { roomHttpListenHost, listLanNics } from "@/lib/control/nics";
 import { buildPeerGet, buildPeerOccupancyGet } from "@/lib/control/peer-payload";
-import { ensureLoaded, memory, persist, pushLog } from "@/lib/control/store.server";
+import { drainQueuedTriggers, ensureLoaded, memory, persist, pushLog } from "@/lib/control/store.server";
 
 async function authorized(request: Request, body: string, path = "/api/peer") {
   const mem = memory();
@@ -67,6 +67,7 @@ export const Route = createFileRoute("/api/peer")({
         if (result.ok) mem.activeScene = macro.id;
         pushLog({ kind: "macro", ok: result.ok, title: `Peer ${macro.label}`, detail: result.message });
         await persist();
+        await drainQueuedTriggers();
         return Response.json(result);
       },
     },
