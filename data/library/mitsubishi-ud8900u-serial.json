@@ -167,6 +167,20 @@
       "payload": "00SCDEF1"
     },
     {
+      "id": "osd.hide",
+      "label": "OSD hide",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00HOSD1"
+    },
+    {
+      "id": "osd.show",
+      "label": "OSD show",
+      "kind": "action",
+      "transport": "lan",
+      "payload": "00HOSD0"
+    },
+    {
       "id": "testpattern.set",
       "label": "Test pattern",
       "kind": "range",
