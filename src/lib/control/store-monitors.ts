@@ -22,7 +22,7 @@ type MonitorMemory = {
   vars: VarMap;
   health: DeviceHealth;
   monitorStatus: Record<string, MonitorStatus>;
-  host: { dim: boolean; locked: boolean; toast: string | null; block: string | null; pageId: string | null; fullscreenAt?: number };
+  host: { dim: boolean; locked: boolean; toast: string | null; toastAt?: number; block: string | null; blockAt?: number; pageId: string | null; pageAt?: number; fullscreenAt?: number };
 };
 
 const lastMonitorRun = new Map<string, number>();

@@ -2,7 +2,7 @@ import "./panel-layout.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Maximize2, Settings2, Sun } from "lucide-react";
-import type { RoomSnapshot, Widget } from "@/lib/control/types";
+import type { HostUi, RoomSnapshot, Widget } from "@/lib/control/types";
 import { NONE_MACRO_ID } from "@/lib/control/types";
 import { pageGrid, widgetsOn } from "@/lib/control/page-layout";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,9 @@ export function ControlPanel() {
   const seenToastAt = useRef(0);
   const seenPageAt = useRef(0);
   const seenFullAt = useRef(0);
+  const lastHostDim = useRef(false);
+  /** True while EventSource /api/host is connected — server host overlays are live. */
+  const hostSseLive = useRef(false);
   const [askFull, setAskFull] = useState(false);
 
   async function enterFull() {
@@ -66,30 +69,37 @@ export function ControlPanel() {
     return on;
   }
 
-  useEffect(() => {
-    if (!snap?.host) return;
-    if (snap.host.dim) setDim(true);
-    const at = snap.host.toastAt ?? 0;
-    if (snap.host.toast && at > seenToastAt.current) {
+  function applyHostFields(host: HostUi) {
+    if (host.dim) setDim(true);
+    else if (lastHostDim.current) setDim(false);
+    lastHostDim.current = Boolean(host.dim);
+    const at = host.toastAt ?? 0;
+    if (host.toast && at > seenToastAt.current) {
       seenToastAt.current = at;
-      setNote(snap.host.toast);
+      setNote(host.toast);
     }
-    if (!snap.host.toast && at > seenToastAt.current) {
+    if (!host.toast && at > seenToastAt.current) {
       seenToastAt.current = at;
       setNote(null);
     }
-    setBlock(snap.host.block || null);
-    const pageAt = snap.host.pageAt ?? 0;
-    if (snap.host.pageId && pageAt > seenPageAt.current) {
+    // Server block wins over optimistic preview (incl. unblock / fail-clear).
+    setBlock(host.block || null);
+    const pageAt = host.pageAt ?? 0;
+    if (host.pageId && pageAt > seenPageAt.current) {
       seenPageAt.current = pageAt;
-      setPageId(snap.host.pageId);
+      setPageId(host.pageId);
     }
-    const fullAt = snap.host.fullscreenAt ?? 0;
+    const fullAt = host.fullscreenAt ?? 0;
     if (fullAt > seenFullAt.current) {
       seenFullAt.current = fullAt;
       void enterFull();
     }
-  }, [snap?.host?.dim, snap?.host?.toast, snap?.host?.toastAt, snap?.host?.block, snap?.host?.pageId, snap?.host?.pageAt, snap?.host?.fullscreenAt]);
+  }
+
+  useEffect(() => {
+    if (!snap?.host) return;
+    applyHostFields(snap.host);
+  }, [snap?.host?.dim, snap?.host?.toast, snap?.host?.toastAt, snap?.host?.block, snap?.host?.blockAt, snap?.host?.pageId, snap?.host?.pageAt, snap?.host?.fullscreenAt, snap?.host?.locked]);
 
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [legal, setLegal] = useState(false);
@@ -246,6 +256,54 @@ export function ControlPanel() {
     };
   }, []);
 
+  // Live host overlays (block/toast/lock/dim/page). Soft-fail: poll remains bootstrap/fallback.
+  useEffect(() => {
+    if (gate !== "ok") return;
+    let es: EventSource | null = null;
+    let retryTimer: number | null = null;
+    let stopped = false;
+    const connect = () => {
+      if (stopped) return;
+      try {
+        es = new EventSource("/api/host");
+      } catch {
+        hostSseLive.current = false;
+        retryTimer = window.setTimeout(connect, 3000);
+        return;
+      }
+      es.onopen = () => {
+        hostSseLive.current = true;
+      };
+      es.onmessage = (ev) => {
+        hostSseLive.current = true;
+        try {
+          const host = JSON.parse(ev.data) as HostUi;
+          setSnap((cur) => {
+            if (!cur) return cur;
+            const next = { ...cur, host };
+            snapFp.current = panelSnapFingerprint(next);
+            return next;
+          });
+        } catch {
+          /* ignore malformed */
+        }
+      };
+      es.onerror = () => {
+        hostSseLive.current = false;
+        es?.close();
+        es = null;
+        if (!stopped) retryTimer = window.setTimeout(connect, 3000);
+      };
+    };
+    connect();
+    return () => {
+      stopped = true;
+      hostSseLive.current = false;
+      if (retryTimer != null) window.clearTimeout(retryTimer);
+      es?.close();
+    };
+  }, [gate]);
+
   useEffect(() => {
     if (!snap?.config?.room) return;
     const sec = snap.config.room.idleDimSeconds;
@@ -327,7 +385,10 @@ export function ControlPanel() {
     setNote(null);
     if (widget.bind.kind === "command") applyHostPreview(widget.bind.command, widget.bind.value);
     const previewMacroId = statusMacroId ?? (widget.bind.kind === "macro" ? widget.bind.id : undefined);
-    if (previewMacroId) {
+    // When /api/host SSE is live, do not walk macro host steps: skipping ui.unblock /
+    // breaking at ui.block faked a longer block than the server. SSE applies each
+    // applyHost change. Without SSE, provisional preview until /api/room snap.
+    if (previewMacroId && !hostSseLive.current) {
       const macro = snap.config.macros.find((m) => m.id === previewMacroId);
       for (const step of macro?.steps ?? []) {
         const dev = snap.config.devices.find((d) => d.id === step.device);

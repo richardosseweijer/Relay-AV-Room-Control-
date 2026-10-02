@@ -607,6 +607,7 @@ export type HostUi = {
   toast: string | null;
   toastAt?: number;
   block: string | null;
+  blockAt?: number;
   pageId: string | null;
   pageAt?: number;
   fullscreenAt?: number;
