@@ -2,51 +2,45 @@ import type { Widget, WidgetTextSize, WidgetType } from "./types";
 
 const SIZES: readonly WidgetTextSize[] = ["xs", "sm", "md", "lg"];
 
-/** Dropdown → fraction of *usable* tile height (after padding). */
-const SIZE_FRACTION: Record<WidgetTextSize, number> = {
-  xs: 1 / 8,
-  sm: 1 / 4,
-  md: 1 / 2,
-  lg: 1,
+/**
+ * Former height-relative fractions of tile height (pad 1/16 each side → usable 7/8):
+ *   xs = (1/8)*(7/8) = 7/64 ≈ 0.109375
+ *   sm = (1/4)*(7/8) = 7/32 ≈ 0.21875
+ *   md = (1/2)*(7/8) = 7/16 ≈ 0.4375
+ *   lg = (1)*(7/8)   = 7/8  ≈ 0.875
+ *
+ * Frozen at a reference 1-row tile of TEXT_SIZE_REF_REM (≈ default landscape row
+ * on a 1080p 8-row panel). No longer scales with widget.h via cqh.
+ */
+export const TEXT_SIZE_REF_REM = 8;
+
+/** Body font-size in rem for each textSize (fraction × TEXT_SIZE_REF_REM). */
+export const TEXT_SIZE_BODY_REM: Record<WidgetTextSize, number> = {
+  xs: (7 / 64) * TEXT_SIZE_REF_REM, // 0.875rem  (14px @ 16px root)
+  sm: (7 / 32) * TEXT_SIZE_REF_REM, // 1.75rem   (28px)
+  md: (7 / 16) * TEXT_SIZE_REF_REM, // 3.5rem    (56px)
+  lg: (7 / 8) * TEXT_SIZE_REF_REM, // 7rem      (112px)
 };
 
-/** Padding each side as a fraction of tile height (user: ~1/16). */
-export const TEXT_SIZE_PAD_FRAC = 1 / 16;
-
-/** Chip / secondary scale relative to primary body fraction. */
+/** Chip / secondary scale relative to primary body size. */
 const CHIP_OF_BODY = 0.4;
 const SECONDARY_OF_BODY = 0.7;
 
 export type WidgetTextRole = "body" | "chip" | "secondary";
 
-/**
- * Font size as a fraction of the widget tile's height.
- *
- * Formula:
- *   usable = height * (1 - 2 * (1/16)) = height * 7/8   // pad top+bottom
- *   fontSize = SIZE_FRACTION[size] * usable
- *     xs → (1/8)*(7/8) = 7/64 ≈ 0.109375 of height
- *     sm → (1/4)*(7/8) = 7/32 ≈ 0.21875 of height
- *     md → (1/2)*(7/8) = 7/16 ≈ 0.4375 of height
- *     lg → (1)*(7/8)   = 7/8  ≈ 0.875 of height
- *
- * Applied via `cqh` (container query height); the tile must be a size container
- * (see `.widget-text-container` in panel-layout.css).
- */
-export function widgetTextHeightFraction(size: WidgetTextSize | undefined): number {
-  const s = coerceTextSize(size);
-  const usable = 1 - 2 * TEXT_SIZE_PAD_FRAC;
-  return SIZE_FRACTION[s] * usable;
+/** Body rem for a textSize (invalid/missing → md). */
+export function widgetTextBodyRem(size: WidgetTextSize | undefined): number {
+  return TEXT_SIZE_BODY_REM[coerceTextSize(size)];
 }
 
-/** Inline style: font-size in cqh. Ancestor needs `container-type: size`. */
+/** Inline style: fixed rem font-size (no longer height / cqh dependent). */
 export function widgetTextSizeStyle(
   size: WidgetTextSize | undefined,
   role: WidgetTextRole = "body",
 ): { fontSize: string; lineHeight: number } {
-  const base = widgetTextHeightFraction(size);
+  const base = widgetTextBodyRem(size);
   const mult = role === "chip" ? CHIP_OF_BODY : role === "secondary" ? SECONDARY_OF_BODY : 1;
-  return { fontSize: `${base * mult * 100}cqh`, lineHeight: 1.15 };
+  return { fontSize: `${base * mult}rem`, lineHeight: 1.15 };
 }
 
 export function widgetBodyTextStyle(size: WidgetTextSize | undefined) {
