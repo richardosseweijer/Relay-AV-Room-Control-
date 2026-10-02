@@ -4,6 +4,10 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+## 0.9.83
+
+- Tag `v0.9.83`. **LAN Wi‑Fi dial-in (USB WLAN):** when Room → Networks **LAN (internet)** picks a wireless NIC (`wireless`/`phy80211` sysfs or `wlan*`/`wlp*`/`wlx*`), the configurator shows SSID (optional Scan), password, and **Connect Wi‑Fi**. Uses existing NetworkManager/`nmcli` + `relay-nmcli` sudoers (same as Apply AV-LAN IP). PSK stored in `relay-secrets.json` (`lanWifiPsk`); SSID in room (`lanWifiSsid`). Scan/connect authenticated like other host APIs (config token; Connect also Config PIN). Soft-fail when radio down / nmcli missing. Helpers: [`scripts/lan-wifi.mjs`](scripts/lan-wifi.mjs), [`scripts/wireless-iface.mjs`](scripts/wireless-iface.mjs). Tests: [`scripts/lan-wifi.test.mjs`](scripts/lan-wifi.test.mjs).
+
 ## 0.9.82
 
 - Tag `v0.9.82`. **Panel text size height-linked clamp:** Text size (`xs`|`sm`|`md`|`lg`) again tracks widget tile height via `cqh`, wrapped in `clamp(min, Ncqh, max)` so short tiles stay readable and large tiles cap at the 0.9.80 fixed rem. Body: `clamp(0.75rem, 10.9375cqh, 0.875rem)` / `clamp(1rem, 21.875cqh, 1.75rem)` / `clamp(1.75rem, 43.75cqh, 3.5rem)` / `clamp(3.5rem, 87.5cqh, 7rem)`. Chip 0.4× and secondary 0.7× of those clamps. Restored `container-type: size` on `.widget-text-container`. Same widget set (button/label/status/schedule). Helper: [`text-size-widget.ts`](src/lib/control/text-size-widget.ts).

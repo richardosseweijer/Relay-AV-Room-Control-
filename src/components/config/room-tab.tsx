@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { applyAvLanIp, applyPanelHdmi, generateVenueTls, getEditorConfig, getVenueTlsStatus, importBundle, listLanNics, listVideoOutputs, rebootHost, restartHost, restartPanelKiosk, updateHost } from "@/lib/control/actions";
+import { applyAvLanIp, applyLanWifi, applyPanelHdmi, generateVenueTls, getEditorConfig, getVenueTlsStatus, importBundle, listLanNics, listVideoOutputs, rebootHost, restartHost, restartPanelKiosk, scanLanWifi, updateHost } from "@/lib/control/actions";
 import { liveNicIpv4Label } from "@/lib/control/nic-live-ip";
 import { controlBaseUrlFrom, DEFAULT_PRODUCTION_CONTROL_PORT } from "@/lib/control/nics";
 import {
@@ -20,7 +20,8 @@ import { ROOM_THEME_LABELS, resolveRoomTheme, type RoomTheme } from "@/lib/theme
 
 const TIMEZONES = ["system", "Europe/Brussels", "Europe/Amsterdam", "Europe/London", "Europe/Berlin", "UTC", "America/New_York"];
 
-type NicRow = { index: number; name: string; ipv4: string | null; label: string };
+type NicRow = { index: number; name: string; ipv4: string | null; label: string; wireless?: boolean };
+type WifiNet = { ssid: string; signal: number; security: string; inUse: boolean };
 
 function nicKey(name?: string | null, index?: number | null) {
   if (name) return `name:${name}`;
@@ -32,7 +33,7 @@ function withStoredNic(nics: NicRow[], name?: string | null, index?: number | nu
   const trimmed = String(name ?? "").trim();
   if (!trimmed || trimmed === "__none__") return nics;
   if (nics.some((row) => row.name === trimmed)) return nics;
-  return [...nics, { index: index ?? -1, name: trimmed, ipv4: null, label: `${trimmed} (not listed now)` }];
+  return [...nics, { index: index ?? -1, name: trimmed, ipv4: null, wireless: false, label: `${trimmed} (not listed now)` }];
 }
 
 function isOutboundNone(name?: string | null, index?: number | null) {
@@ -57,6 +58,12 @@ export function RoomTab(props: {
   const { draft, snap, token, update, flash, refresh, setDraft, importRef, setGate, downloadRoomFile } = props;
   const [nics, setNics] = useState<NicRow[]>([]);
   const [nicError, setNicError] = useState("");
+  const [wifiSsid, setWifiSsid] = useState("");
+  const [wifiPassword, setWifiPassword] = useState("");
+  const [wifiNetworks, setWifiNetworks] = useState<WifiNet[]>([]);
+  const [wifiBusy, setWifiBusy] = useState(false);
+  const [wifiScanBusy, setWifiScanBusy] = useState(false);
+  const [wifiHint, setWifiHint] = useState("");
   const loadNics = useCallback(async () => {
     try {
       const res = await listLanNics({ data: { token: token || "" } });
@@ -161,6 +168,76 @@ export function RoomTab(props: {
     const live = avPick?.ipv4 ? String(avPick.ipv4).trim() : "";
     if (live) setAvIpAddress((prev) => prev || live);
   }, [avPick?.ipv4]);
+  useEffect(() => {
+    const saved = String(draft.room.lanWifiSsid ?? "").trim();
+    if (saved) setWifiSsid((prev) => prev || saved);
+  }, [draft.room.lanWifiSsid]);
+  const outboundIsWifi = Boolean(outboundPick?.wireless);
+  const runScanLanWifi = async () => {
+    if (!outboundIsWifi || !outboundPick?.name) {
+      flash("Wi‑Fi scan", "Pick a Wi‑Fi LAN NIC first, Save all, then Scan.");
+      return;
+    }
+    setWifiScanBusy(true);
+    setWifiHint("");
+    try {
+      const res = await scanLanWifi({ data: { token: token || "", device: outboundPick.name } });
+      setWifiNetworks(res.networks ?? []);
+      if (res.ok) {
+        setWifiHint(res.message || (res.networks?.length ? `${res.networks.length} network(s)` : "No networks found"));
+      } else {
+        setWifiHint(res.message || "Scan failed");
+        flash("Wi‑Fi scan", res.message || "Scan failed");
+      }
+    } catch {
+      setWifiHint("Scan request error");
+      flash("Wi‑Fi scan", "Request error");
+    } finally {
+      setWifiScanBusy(false);
+    }
+  };
+  const runApplyLanWifi = async () => {
+    if (!outboundIsWifi || !outboundPick?.name) {
+      flash("Wi‑Fi connect", "Pick a Wi‑Fi LAN NIC first, Save all, then Connect.");
+      return;
+    }
+    const ssid = wifiSsid.trim();
+    if (!ssid) {
+      flash("Wi‑Fi connect", "Enter an SSID.");
+      return;
+    }
+    if (!window.confirm(`Connect ${outboundPick.name} to Wi‑Fi “${ssid}”?\n\nUses NetworkManager (nmcli). Config PIN required.`)) return;
+    const pin = window.prompt("Config PIN") || "";
+    if (!pin) return;
+    setWifiBusy(true);
+    setWifiHint("");
+    try {
+      const res = await applyLanWifi({
+        data: {
+          token: token || "",
+          pin,
+          ssid,
+          password: wifiPassword,
+          device: outboundPick.name,
+        },
+      });
+      if (res.ok) {
+        setWifiHint(res.message || "Connected.");
+        flash("LAN Wi‑Fi connected", res.message || "Connected");
+        setWifiPassword("");
+        update((c) => { c.room.lanWifiSsid = ssid; });
+        void loadNics();
+      } else {
+        setWifiHint(res.message || "Connect failed");
+        flash("LAN Wi‑Fi failed", res.message || "Connect failed");
+      }
+    } catch {
+      setWifiHint("Connect request error");
+      flash("LAN Wi‑Fi failed", "Request error");
+    } finally {
+      setWifiBusy(false);
+    }
+  };
   const runApplyAvLanIp = async () => {
     if (avUnset) {
       flash("Apply blocked", "Pick AV-LAN first, Save all, then Apply.");
@@ -517,6 +594,78 @@ export function RoomTab(props: {
                     {" · "}Venue/internet NIC for GitHub update. None = no internet-facing NIC; Update disabled. Not used for device I/O.
                   </span>
                 </label>
+                {outboundIsWifi ? (
+                  <div className="grid gap-2 rounded-md border border-border bg-surface p-3">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-subtle">LAN Wi‑Fi (Linux)</p>
+                    <p className="text-xs text-muted">Join venue Wi‑Fi on {outboundPick?.name || "this NIC"} (USB WLAN / wl*). Ops/setup — not required for day-to-day AV-LAN.</p>
+                    <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                      <label className="grid gap-1 text-sm text-muted">SSID
+                        <input
+                          className={fieldClass()}
+                          value={wifiSsid}
+                          list="relay-lan-wifi-ssids"
+                          autoComplete="off"
+                          placeholder="Venue network name"
+                          onChange={(e) => setWifiSsid(e.target.value)}
+                        />
+                        <datalist id="relay-lan-wifi-ssids">
+                          {wifiNetworks.map((n) => (
+                            <option key={n.ssid} value={n.ssid}>{n.signal}%{n.security ? ` · ${n.security}` : ""}</option>
+                          ))}
+                        </datalist>
+                      </label>
+                      <div className="flex items-end">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={wifiScanBusy || wifiBusy}
+                          onClick={() => { void runScanLanWifi(); }}
+                        >
+                          {wifiScanBusy ? "Scanning…" : "Scan"}
+                        </Button>
+                      </div>
+                    </div>
+                    <label className="grid gap-1 text-sm text-muted">Password
+                      <input
+                        className={fieldClass()}
+                        type="password"
+                        value={wifiPassword}
+                        autoComplete="new-password"
+                        placeholder={draft.room.lanWifiSsid ? "Leave blank to keep saved" : "WPA password (blank if open)"}
+                        onChange={(e) => setWifiPassword(e.target.value)}
+                      />
+                    </label>
+                    {wifiNetworks.length ? (
+                      <ul className="max-h-28 overflow-auto rounded border border-border bg-raised/40 p-2 text-xs font-mono">
+                        {wifiNetworks.map((n) => (
+                          <li key={`wifi-${n.ssid}`}>
+                            <button
+                              type="button"
+                              className="w-full text-left hover:text-fg text-muted"
+                              onClick={() => setWifiSsid(n.ssid)}
+                            >
+                              {n.inUse ? "★ " : ""}{n.ssid} · {n.signal}%{n.security ? ` · ${n.security}` : ""}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={wifiBusy || wifiScanBusy || !wifiSsid.trim()}
+                        onClick={() => { void runApplyLanWifi(); }}
+                      >
+                        {wifiBusy ? "Connecting…" : "Connect Wi‑Fi"}
+                      </Button>
+                      <span className="text-xs text-muted">
+                        {outboundPick?.name || "wifi"} · confirm + Config PIN · nmcli · PSK in relay-secrets
+                      </span>
+                    </div>
+                    {wifiHint ? <p className="text-xs text-muted break-all">{wifiHint}</p> : null}
+                  </div>
+                ) : null}
               </div>
               {nicError ? <p className="sm:col-span-2 text-xs text-clay">{nicError}</p> : null}
               {sameNic ? <p className="sm:col-span-2 text-xs text-muted">Same NIC on both pickers (test box). Allowed.</p> : null}
