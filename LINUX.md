@@ -576,6 +576,8 @@ The application directory must be a clone of [Relay-AV-Room-Control-](https://gi
 
 Configurator → Room → **Save all**, then **Update from GitHub**. Confirm the warning.
 
+If **Update from GitHub** refuses with *tracked edits* while you only see `src/routeTree.gen.ts` modified: that file is TanStack-generated and `vite preview` rewrites its import order after a successful land. On this host run `git checkout -- src/routeTree.gen.ts` in the Relay checkout, then try Update again. Tip ≥ the fix that excludes `routeTree.gen.ts` from the dirty check does this automatically.
+
 That fetches the release into a separate git worktree, runs `npm ci --include=dev`, builds it, and checks its `/api/room` response before changing the live checkout. A failed stage leaves the running release untouched. After the verified files are switched, systemd restarts Relay; without systemd the updater starts the release and restores and restarts the previous one if readiness fails. Log: `data/relay-update.log`. After a successful update, Room tab version should match `git log -1` (for example `0.9.77 (<sha>)`).
 
 `NODE_ENV=production` (systemd) would otherwise skip Vite. `--include=dev` keeps it.

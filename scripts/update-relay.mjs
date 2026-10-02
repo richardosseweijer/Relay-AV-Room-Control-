@@ -161,8 +161,16 @@ if (!fs.existsSync(path.join(root, ".git"))) {
   log("not a git checkout");
   process.exit(2);
 }
-if (!run("git", ["diff", "--quiet", "--", ".", ":(exclude).vercel", ":(exclude)data/relay-update.log"])
-    || !run("git", ["diff", "--cached", "--quiet", "--", ".", ":(exclude).vercel", ":(exclude)data/relay-update.log"])) {
+// Ignore Nitro artifacts, update log, and TanStack Router's generated route tree.
+// vite preview rewrites routeTree.gen.ts (import order) after a successful land and
+// would otherwise block every subsequent Update from GitHub.
+const dirtyExcludes = [
+  ":(exclude).vercel",
+  ":(exclude)data/relay-update.log",
+  ":(exclude)src/routeTree.gen.ts",
+];
+if (!run("git", ["diff", "--quiet", "--", ".", ...dirtyExcludes])
+    || !run("git", ["diff", "--cached", "--quiet", "--", ".", ...dirtyExcludes])) {
   log("tracked edits present; refusing update");
   process.exit(1);
 }
