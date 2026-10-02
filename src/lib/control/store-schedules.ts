@@ -14,6 +14,7 @@ import { triggerHasFalseWork, triggerHasTrueWork, falseActionOf, runTriggerTrueP
 import type { DeviceHealth, DeviceStateMap, DriverSpec, Macro, RoomConfig } from "./types";
 import { resolveTemplate, writeConfiguredVar, type VarMap } from "./vars";
 import { persist, persistNow } from "./store-persist";
+import { clearHostBlock } from "./host-ui-bus";
 
 /** Minimal memory shape needed to fire schedules / triggers. */
 type SchedMemory = {
@@ -25,7 +26,7 @@ type SchedMemory = {
   lastError: string | null;
   runningMacro: string | null;
   activeScene: string | null;
-  host: { dim: boolean; locked: boolean; toast: string | null; block: string | null; pageId: string | null; fullscreenAt?: number };
+  host: { dim: boolean; locked: boolean; toast: string | null; toastAt?: number; block: string | null; blockAt?: number; pageId: string | null; pageAt?: number; fullscreenAt?: number };
 };
 
 type TriggerJob = { id: string; macroId: string; label: string; path: "t" | "f" };
@@ -111,7 +112,7 @@ export async function runDueSchedules() {
       mem.runningMacro = macro.id;
       const result = await runMacro({ config: mem.config, drivers: mem.drivers, state: mem.state, vars: mem.vars, health: mem.health ?? (mem.health = {}), macro, host: mem.host });
       mem.runningMacro = null;
-      if (!result.ok && mem.host?.block) mem.host.block = null;
+      if (!result.ok && mem.host) clearHostBlock(mem.host);
       if (result.ok) {
         mem.activeScene = macro.id;
         lastScheduleRun.set(job.id, stamp);
@@ -281,7 +282,7 @@ async function runQueuedTrigger(job: TriggerJob, macro: Macro | undefined) {
       lastTriggerFire.set(key, Date.now());
       if (!extra || ("ranMacro" in result && result.ranMacro)) live.activeScene = job.path === "f" ? (rule.falseMacroId || macro!.id) : (extra ? rule.macroId : macro!.id);
     }
-    if (!result.ok && (!extra || ("ranMacro" in result && result.ranMacro)) && live.host?.block) live.host.block = null;
+    if (!result.ok && (!extra || ("ranMacro" in result && result.ranMacro)) && live.host) clearHostBlock(live.host);
     pushLog({ kind: "macro", ok: result.ok, title: `Trigger ${job.label}`, detail: result.message });
   } catch (err) {
     pushLog({ kind: "macro", ok: false, title: `Trigger ${job.label}`, detail: err instanceof Error ? err.message : "trigger failed" });

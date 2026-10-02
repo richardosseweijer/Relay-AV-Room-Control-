@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { isWeakPin, isHashedPin } from "./pins";
 import { loadControl } from "./actions-context";
+import { publishHostUi } from "./host-ui-bus";
 
 export const verifyConfigPin = createServerFn({ method: "POST" })
   .validator((data: { pin: string }) => data)
@@ -55,6 +56,7 @@ export const verifyPanelPin = createServerFn({ method: "POST" })
       persist();
     }
     host.locked = false;
+    publishHostUi(host);
     return { ok: true, token: mint("panel") };
   });
 

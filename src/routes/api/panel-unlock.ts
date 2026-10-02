@@ -4,6 +4,7 @@ import { hashPin, checkLockout, notePinFail, clearPinFail, lockoutKey } from "@/
 import { isHashedPin } from "@/lib/control/pins";
 import { panelUnlockAllowed } from "@/lib/control/panel-unlock-rule";
 import { mint } from "@/lib/control/session.server";
+import { publishHostUi } from "@/lib/control/host-ui-bus";
 
 export const Route = createFileRoute("/api/panel-unlock")({
   server: {
@@ -34,11 +35,13 @@ export const Route = createFileRoute("/api/panel-unlock")({
             existing.lastSeen = Date.now();
             existing.exp = Date.now() + 30 * 24 * 60 * 60 * 1000;
             host.locked = false;
+            publishHostUi(host);
             return Response.json({ ok: true, token: existing.secret });
           }
         }
         const secret = mint("panel", openLan ? "open-lan" : undefined);
         host.locked = false;
+        publishHostUi(host);
         await persistNow();
         return Response.json({ ok: true, token: secret });
       },
