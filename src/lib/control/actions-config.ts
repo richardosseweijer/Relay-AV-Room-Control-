@@ -15,7 +15,9 @@ export const getEditorConfig = createServerFn({ method: "POST" })
   } = await loadControl();
     await ensureLoaded();
     if (!validToken(data.token, "config")) return { ok: false as const, config: null };
-    const config = normalizedConfig(memory().config);
+    const config = structuredClone(normalizedConfig(memory().config));
+    // Never send Wi‑Fi PSK to the browser; Connect reuses the saved secret when password is blank.
+    if (config.room) config.room.lanWifiPsk = "";
     const paired = Object.values(memory().sessions ?? {})
       .filter((row) => row.kind === "panel" && row.secret)
       .map((row) => ({
@@ -62,9 +64,12 @@ export const saveConfig = createServerFn({ method: "POST" })
       }
     }
     const peerSecret = data.config.room.peerSecret?.trim() || memory().config.room.peerSecret || randomHex(24);
+    // Blank lanWifiPsk in editor (publicConfig / getEditorConfig) must not wipe the saved PSK.
+    const lanWifiPsk = data.config.room.lanWifiPsk?.trim() || memory().config.room.lanWifiPsk || "";
+    const lanWifiSsid = data.config.room.lanWifiSsid?.trim() || memory().config.room.lanWifiSsid || null;
     const config: RoomConfig = {
       ...data.config,
-      room: { ...data.config.room, configPin: pin, panelPin, peerSecret },
+      room: { ...data.config.room, configPin: pin, panelPin, peerSecret, lanWifiPsk, lanWifiSsid },
       variables: data.config.variables ?? [],
       schedules: data.config.schedules ?? [],
       monitors: data.config.monitors ?? [],
@@ -197,6 +202,8 @@ export const importBundle = createServerFn({ method: "POST" })
       : null;
     // Mirror saveConfig: blank/missing peerSecret (e.g. publicConfig export) keeps the live secret.
     const peerSecret = incoming.room.peerSecret?.trim() || current.room.peerSecret || randomHex(24);
+    const lanWifiPsk = incoming.room.lanWifiPsk?.trim() || current.room.lanWifiPsk || "";
+    const lanWifiSsid = incoming.room.lanWifiSsid?.trim() || current.room.lanWifiSsid || null;
     const devices = (incoming.devices ?? []).map((device) => {
       const prev = current.devices.find((item) => item.id === device.id);
       const auth = { ...(prev?.auth ?? {}), ...(device.auth ?? {}) };
@@ -207,7 +214,7 @@ export const importBundle = createServerFn({ method: "POST" })
     });
     const config = normalize({
       ...incoming,
-      room: { ...incoming.room, configPin: pin, panelPin, peerSecret },
+      room: { ...incoming.room, configPin: pin, panelPin, peerSecret, lanWifiPsk, lanWifiSsid },
       devices,
       variables: incoming.variables ?? [],
       schedules: incoming.schedules ?? [],

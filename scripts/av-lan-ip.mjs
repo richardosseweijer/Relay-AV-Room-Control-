@@ -592,13 +592,14 @@ export async function applyAvLanIpViaNmcli(opts) {
 export function createNmcliRunner(spawnImpl) {
   /**
    * @param {string[]} argv
-   * @param {{ sudo?: boolean }} [opts]
+   * @param {{ sudo?: boolean, timeoutMs?: number }} [opts]
    */
   return async function runNmcli(argv, opts = {}) {
     const { spawn } = spawnImpl
       ? { spawn: spawnImpl }
       : await import("node:child_process");
     const sudo = Boolean(opts && opts.sudo);
+    const timeoutMs = Number(opts && opts.timeoutMs) > 0 ? Number(opts.timeoutMs) : 20_000;
     const cmd = sudo ? "sudo" : "nmcli";
     const args = sudo ? ["-n", "nmcli", ...argv] : argv;
     return new Promise((resolve) => {
@@ -612,7 +613,7 @@ export function createNmcliRunner(spawnImpl) {
           /* ignore */
         }
         resolve({ code: null, stdout, stderr, error: new Error("nmcli timeout") });
-      }, 20_000);
+      }, timeoutMs);
       child.stdout?.on("data", (d) => {
         stdout += d.toString();
       });

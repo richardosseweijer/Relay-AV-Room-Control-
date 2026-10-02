@@ -170,6 +170,7 @@ export async function loadPersisted(): Promise<Memory> {
         configPin: fromDisk.configPin || fromRoom.configPin,
         panelPin: fromDisk.panelPin || fromRoom.panelPin,
         peerSecret: fromDisk.peerSecret || fromRoom.peerSecret,
+        lanWifiPsk: fromDisk.lanWifiPsk || fromRoom.lanWifiPsk,
         devices: { ...fromRoom.devices, ...fromDisk.devices },
       }), { alreadyNormalized: true });
       mem.library = await loadLibraryIndex();
