@@ -706,11 +706,12 @@ export function ControlPanel() {
         <button type="button" className="fixed inset-0 z-50 overflow-auto bg-bg/96 px-6 py-10 text-left" onClick={() => setLegal(false)}>
           <article className="mx-auto max-w-lg space-y-3 text-sm leading-relaxed text-muted" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg text-fg">Relay</h2>
-            <p>Room controller for the AV gear on this network. It runs on this computer. Layouts, access codes and logs stay here. The room is not uploaded to a cloud service.</p>
-            {snap.version ? <p>This host is running {snap.version}.</p> : null}
-            <p>Keep this screen on the private network. Do not publish it on the public internet.</p>
-            <p>Brand and model names belong to their owners. Being able to control a product is not a partnership or a certification. Commands follow what that product exposes, and firmware can change the result.</p>
-            <p>This build uses open-source software, including React, TanStack, Radix UI, Lucide, Tailwind CSS and Zod, under their own licenses.</p>
+            <p>Relay is software for controlling AV equipment from this computer. Layouts, access codes and logs are stored on this host. This software does not, as part of its own operation, upload the room to a cloud service.</p>
+            {snap.version ? <p>This host reports version {snap.version}.</p> : null}
+            <p>The installation is arranged as two networks. One is the AV network, used for the panel and for device control. The other, when configured, is an outbound network only (for example to obtain software updates) and may be left unused. That separation is not, by itself, publication of this interface on the public internet.</p>
+            <p>Names of brands and models belong to their respective owners. The presence of a device in this software is not a partnership, endorsement or certification. Control follows interfaces the product documents or commonly exposes. Behaviour may differ by firmware revision.</p>
+            <p>This build incorporates open-source components, including React, TanStack, Radix UI, Lucide, Tailwind CSS and Zod. Those components remain the property of their authors and are used under their respective licenses.</p>
+            <p>The software is provided as is, without warranty of any kind, express or implied. Use is entirely at your own risk.</p>
             <button type="button" className="mt-4 rounded-md border border-border px-3 py-2 text-fg" onClick={() => setLegal(false)}>Close</button>
           </article>
         </button>
