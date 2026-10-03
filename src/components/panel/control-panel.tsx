@@ -706,11 +706,11 @@ export function ControlPanel() {
         <button type="button" className="fixed inset-0 z-50 overflow-auto bg-bg/96 px-6 py-10 text-left" onClick={() => setLegal(false)}>
           <article className="mx-auto max-w-lg space-y-3 text-sm leading-relaxed text-muted" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg text-fg">Relay</h2>
-            <p>This software incorporates open-source components, including React, TanStack Router, Radix UI, Lucide, Tailwind CSS, Zod, and PGLite. Those components remain the property of their authors and are used under their respective licenses.</p>
-            <p>Brand and model names that appear in drivers belong to their owners. Listing a device here only means Relay can address it. It is not a partnership or a certification.</p>
-            <p>Control interfaces follow what each product documents or commonly exposes. Behaviour can differ by firmware.</p>
-            <p>Relay is meant to stay on a private network. Do not publish this interface on the public internet.</p>
-            <p>Layouts, tokens and logs are stored on this host. Relay does not upload the room to a cloud service.</p>
+            <p>Room controller for the AV gear on this network. It runs on this computer. Layouts, access codes and logs stay here. The room is not uploaded to a cloud service.</p>
+            {snap.version ? <p>This host is running {snap.version}.</p> : null}
+            <p>Keep this screen on the private network. Do not publish it on the public internet.</p>
+            <p>Brand and model names belong to their owners. Being able to control a product is not a partnership or a certification. Commands follow what that product exposes, and firmware can change the result.</p>
+            <p>This build uses open-source software, including React, TanStack, Radix UI, Lucide, Tailwind CSS and Zod, under their own licenses.</p>
             <button type="button" className="mt-4 rounded-md border border-border px-3 py-2 text-fg" onClick={() => setLegal(false)}>Close</button>
           </article>
         </button>

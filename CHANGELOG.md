@@ -4,6 +4,8 @@ Format: date, then bullets. Older work lives in `git log`.
 
 ## Unreleased
 
+- Landing **i** notice: drop PGLite (not in this build). Say what Relay is, that the room stays on this host, and show the running version when the room snapshot has one. `NOTICE` drops PGLite, Kysely and better-auth from the third-party list.
+
 ## 0.9.83
 
 - Tag `v0.9.83`. **LAN Wi‑Fi dial-in (USB WLAN):** when Room → Networks **LAN (internet)** picks a wireless NIC (`wireless`/`phy80211` sysfs or `wlan*`/`wlp*`/`wlx*`), the configurator shows SSID (optional Scan), password, and **Connect Wi‑Fi**. Uses existing NetworkManager/`nmcli` + `relay-nmcli` sudoers (same as Apply AV-LAN IP). PSK stored in `relay-secrets.json` (`lanWifiPsk`); SSID in room (`lanWifiSsid`). Scan/connect authenticated like other host APIs (config token; Connect also Config PIN). Soft-fail when radio down / nmcli missing. Helpers: [`scripts/lan-wifi.mjs`](scripts/lan-wifi.mjs), [`scripts/wireless-iface.mjs`](scripts/wireless-iface.mjs). Tests: [`scripts/lan-wifi.test.mjs`](scripts/lan-wifi.test.mjs).

@@ -13,9 +13,6 @@ Third-party software used by this build (not exhaustive; see package-lock.json):
   class-variance-authority, clsx,
     tailwind-merge                          MIT
   date-fns                                  MIT
-  PGLite / Electric SQL                     Apache-2.0
-  Kysely                                    MIT
-  better-auth                               MIT
   jose                                      MIT
 
 Brand and model names that appear in drivers belong to their owners.
